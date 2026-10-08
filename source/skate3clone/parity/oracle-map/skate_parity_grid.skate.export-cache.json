@@ -1,0 +1,28 @@
+{
+  "collision_triangle_count": 2,
+  "content_sha256": "ebbc793b5736d3db83654d233f4bc006ada3dbae3b78910865237ec80b9b483f",
+  "grind_rail_count": 0,
+  "hinged_door_count": 0,
+  "local_light_count": 0,
+  "material_count": 1,
+  "npc_route_count": 0,
+  "output_length": 4195081,
+  "output_mtime_ns": 1788130279517365300,
+  "package_counts": [
+    1,
+    1,
+    6,
+    6,
+    2,
+    0,
+    0,
+    0,
+    0
+  ],
+  "package_name": "Skate Parity Grid",
+  "schema": 9,
+  "static_sha256": "5650a9efa8bbbf3d572a443f156a9d1ca2d82349b217bb1edb9a446650cc0ced",
+  "texture_count": 1,
+  "visual_index_count": 6,
+  "visual_vertex_count": 6
+}

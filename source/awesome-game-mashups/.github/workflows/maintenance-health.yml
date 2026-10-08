@@ -1,0 +1,54 @@
+name: Maintenance health
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 07:15 and 19:15 Australia/Brisbane, independent of the ChatGPT task.
+    - cron: '15 9,21 * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/catalogue-state.json'
+      - '.github/workflows/maintenance-health.yml'
+      - 'scripts/maintenance_health.py'
+      - 'tests/test_maintenance_health.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance-health-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  freshness:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Test the read-only health check
+        run: python3 -m unittest discover -s tests -p 'test_maintenance_health.py' -v
+      - name: Assess full research checkpoint freshness
+        run: |
+          mkdir -p build
+          result=0
+          python3 scripts/maintenance_health.py > build/maintenance-health.json || result=$?
+          {
+            echo '## Full research-cycle freshness'
+            echo 'A failing freshness check is not a generator failure. Do not advance audit dates just to clear it.'
+            echo '```json'
+            cat build/maintenance-health.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$result"
+      - name: Retain diagnostic report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: maintenance-health
+          path: build/maintenance-health.json
+          retention-days: 14
+          if-no-files-found: warn

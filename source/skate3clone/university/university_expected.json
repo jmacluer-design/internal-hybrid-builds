@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "source": {
+    "retail_archive_name": "worldDIST_University.big",
+    "retail_archive_bytes": 798165184,
+    "retail_archive_sha256": "37D6A4517BD0A5E25F493F18409EDFBD3B3D74229F12F1AB6C15598AA3240091",
+    "extracted_file_count": 647,
+    "extracted_payload_bytes": 798135872,
+    "district_name": "DIST_University",
+    "presentation_cells": 231,
+    "simulation_cells": 230,
+    "texture_cells": 172,
+    "district_index_files": 12,
+    "global_stream_files": 2,
+    "district_indices": [
+      "DIST_University_Pres.xst",
+      "DIST_University_Pres.xsm",
+      "DIST_University_Pres.xss",
+      "DIST_University_Pres.xmm",
+      "DIST_University_Sim.xst",
+      "DIST_University_Sim.xsm",
+      "DIST_University_Sim.xss",
+      "DIST_University_Sim.xmm",
+      "DIST_University_Tex.xst",
+      "DIST_University_Tex.xsm",
+      "DIST_University_Tex.xss",
+      "DIST_University_Tex.xmm"
+    ],
+    "global_streams": [
+      "cPres_Global.xsf",
+      "cSim_Global.xsf"
+    ],
+    "retail_skybox": {
+      "model_name": "DIST_skybox.rx2",
+      "model_bytes": 8732,
+      "model_sha256": "0F828116C1661A24E7FB1717FA3130B844BF2AE9536BA295E3977DE394893DAE",
+      "textures_name": "DIST_skybox_Textures.rx2",
+      "textures_bytes": 423208,
+      "textures_sha256": "BEE4275F7097F7FE41E6CDC83B6255864E7A15F304B2518A468B2C65A6C0431B",
+      "mesh_name": "skybox1_0x0000187c03e38717",
+      "vertices": 230,
+      "triangles": 380,
+      "panorama_texture_index": 1,
+      "panorama_width": 2048,
+      "panorama_height": 256,
+      "panorama_decoded_sha256": "E09BB4122569885FC4867BBD5A1BA9453EA9E5DD0F743B496C4770E78E58381D",
+      "packed_mesh_sha256": "B87FB2CA8FC03BCB5DB26BDFCB285049A3857F7EC56249FA38896DF193ADDA5D"
+    }
+  },
+  "package": {
+    "format_version": 15,
+    "map_name": "University District",
+    "file_bytes": 243409206,
+    "sha256": "2328EDE92A1546B4BD08ADC4425CDB95769FF9BCD519DF1909643A26E1C8633A",
+    "dynamic_lighting_enabled_by_default": false,
+    "spawn": {
+      "position": [330.0, 133.0059814453125, -710.0],
+      "heading_radians": -1.5707963705062866,
+      "provenance": "derived-by-SK8-raycast-not-retail-location-record"
+    },
+    "bounds_min": [-727.3729858398438, -6.848999977111816, -1413.08203125],
+    "bounds_max": [807.6400146484375, 296.1000061035156, 792.677978515625],
+    "counts": {
+      "materials": 8729,
+      "textures": 2046,
+      "vertices": 2120046,
+      "indices": 4936851,
+      "visual_triangles": 1645617,
+      "collision_triangles": 1133643,
+      "grind_rails": 4201,
+      "native_grind_segments": 27008,
+      "retail_texture_bindings": 40663,
+      "retail_material_parameters": 67475,
+      "editable_visual_owners": 12993,
+      "collision_owners": 8842,
+      "owned_grind_rails": 4201
+    },
+    "material_alpha_modes": {
+      "opaque": 6572,
+      "mask": 2118,
+      "blend": 39
+    },
+    "retail_collision": {
+      "assets": 299,
+      "meshes": 301,
+      "source_clusters": 5537,
+      "surfaces": 183,
+      "source_triangles": 1133649,
+      "removed_degenerate": 6,
+      "retained_reverse_wound": 10691,
+      "canonical_sha256": "df33017cdadaec47eb347244cd11c4288b0a1b33169250aa7efebf135b51dd1a",
+      "portable_sha256": "c5bad2daee3a767564465d98b6ae5dd0f04348095cc206f5adabe7508b2c3064",
+      "embedded_archive_sha256": "c0e82a226a2a0e08de46384552fa9be35f07020f119b7b1c7e5a5835ff0f8066"
+    },
+    "retail_lightmaps": {
+      "source_texture_ids": 1271,
+      "selected_texture_ids": 1270,
+      "bound_mesh_parts": 8489,
+      "excluded_no_secondary_uv": 1,
+      "excluded_shader_mesh_parts": 32,
+      "decoded_bytes": 393134080,
+      "package_strength": 0.25,
+      "uv_min": [0.0, 0.0],
+      "uv_max": [1.0, 1.0]
+    },
+    "integrity": {
+      "semantic_metadata_sha256": "01b3b1150bb715c9bec7078723a8cef81f53b7ee6868adda7839417fd17e5093",
+      "materials_sha256": "743211c490bb1f013bf7951158de9d1fd16d77171e4a1a334f75070a75d19c4b",
+      "decoded_textures_sha256": "a9b7e87b468ee1dda44bdaf87e047e108e4f0ac8004834f0fce4bc5b5a89a037",
+      "expanded_visual_triangles_sha256": "ae68805b159f89a1d25fdcc6b5c070f8f8d66caa1e5c44a35ab820d10fdcdb9d",
+      "expanded_visual_triangles_1e6_sha256": "ca412647bc130a849afcdcda9af4eaa88711aeb66eaff728c0863ac8bea35841",
+      "grind_rails_sha256": "0cc406dd4f68b0dad57215cec3f9cbe9e93be52fe124197ec5bb62c092d63501",
+      "extensions_sha256": "92a742a20a70fa7aaef333531ac2163433e352646359c1d451db65016bd8e38f",
+      "retail_world_frames_sha256": "aa5f79bb1a9ecdfcb164f6688cc321c153833f5f9cf72163e45b99fbe782039c"
+    }
+  }
+}

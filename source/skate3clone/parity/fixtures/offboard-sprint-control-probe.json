@@ -1,0 +1,84 @@
+[
+  {
+    "label": "spawn_settle",
+    "frames": 300
+  },
+  {
+    "label": "dismount_y",
+    "buttons": 32768,
+    "frames": 6
+  },
+  {
+    "label": "dismount_settle",
+    "frames": 180
+  },
+  {
+    "label": "baseline_full_stick",
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "baseline_stop",
+    "frames": 120
+  },
+  {
+    "label": "lt_full_stick",
+    "lt": 255,
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "lt_stop",
+    "frames": 120
+  },
+  {
+    "label": "rt_full_stick",
+    "rt": 255,
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "rt_stop",
+    "frames": 120
+  },
+  {
+    "label": "lb_full_stick",
+    "buttons": 256,
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "lb_stop",
+    "frames": 120
+  },
+  {
+    "label": "rb_full_stick",
+    "buttons": 512,
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "rb_stop",
+    "frames": 120
+  },
+  {
+    "label": "lthumb_full_stick",
+    "buttons": 64,
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "lthumb_stop",
+    "frames": 120
+  },
+  {
+    "label": "rthumb_full_stick",
+    "buttons": 128,
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "rthumb_stop",
+    "frames": 120
+  }
+]

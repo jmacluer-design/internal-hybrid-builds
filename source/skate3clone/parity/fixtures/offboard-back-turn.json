@@ -1,0 +1,24 @@
+[
+  {
+    "label": "spawn_settle",
+    "frames": 300
+  },
+  {
+    "label": "dismount_y",
+    "buttons": 32768,
+    "frames": 6
+  },
+  {
+    "label": "dismount_settle",
+    "frames": 180
+  },
+  {
+    "label": "back_turn",
+    "ly": -32768,
+    "frames": 180
+  },
+  {
+    "label": "back_stop",
+    "frames": 90
+  }
+]

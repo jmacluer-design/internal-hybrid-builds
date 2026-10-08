@@ -1,0 +1,17 @@
+[
+  {
+    "label": "settle",
+    "frames": 60,
+    "buttons": 0
+  },
+  {
+    "label": "regular_push_hold_6f",
+    "frames": 6,
+    "buttons": 4096
+  },
+  {
+    "label": "release",
+    "frames": 180,
+    "buttons": 0
+  }
+]

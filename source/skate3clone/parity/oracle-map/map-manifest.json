@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "name": "Skate Parity Grid",
+  "map_size_metres": 200.0,
+  "major_grid_metres": 10.0,
+  "minor_grid_metres": 1.0,
+  "spawn_blender_xyz_metres": [
+    0.0,
+    0.0,
+    0.72
+  ],
+  "spawn_skate_xyz_metres": [
+    0.0,
+    0.72,
+    -0.0
+  ],
+  "spawn_heading_radians": 0.0,
+  "blender_to_skate": "(x,y,z)->(x,z,-y)",
+  "artifacts": {
+    "skate_parity_grid.blend": {
+      "sha256": "8f3c80fdc3cccc1b1e9379664797e9543c902b1fa4c57a2dc7170ebacca98a45",
+      "bytes": 96872
+    },
+    "skate_parity_grid.skate": {
+      "sha256": "2ec401647933dde72f54383bb5536ea0ee6720b21830bbc33be668a70d376e3f",
+      "bytes": 4195081
+    },
+    "skate_parity_grid.glb": {
+      "sha256": "eb0c326c192a3fe0464a31ebae71267f50d8b368ad32bee797ab72c510b92465",
+      "bytes": 25284
+    },
+    "skate_parity_grid.png": {
+      "sha256": "a058ea497ef56c8b60c6c11dc5fe9b7884fbba5c75505482baeff070625a4188",
+      "bytes": 23649
+    }
+  },
+  "installed_skate_path": "C:\\Users\\Daddy\\Documents\\Skate3Research\\harness\\owned_maps\\skate_parity_grid.skate"
+}

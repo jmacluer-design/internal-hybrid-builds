@@ -1,0 +1,15 @@
+[
+  { "label": "spawn_settle", "frames": 300 },
+  { "label": "dismount_y", "buttons": 32768, "frames": 6 },
+  { "label": "dismount_settle", "frames": 180 },
+  { "label": "a_idle", "buttons": 4096, "frames": 12 },
+  { "label": "neutral", "frames": 12 },
+  { "label": "x_idle", "buttons": 16384, "frames": 12 },
+  { "label": "neutral", "frames": 12 },
+  { "label": "a_forward", "buttons": 4096, "ly": 32767, "frames": 60 },
+  { "label": "stop", "frames": 45 },
+  { "label": "x_forward", "buttons": 16384, "ly": 32767, "frames": 60 },
+  { "label": "stop", "frames": 45 },
+  { "label": "forward", "ly": 32767, "frames": 60 },
+  { "label": "stop", "frames": 60 }
+]

@@ -1,0 +1,4 @@
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+# our libxinput.a (-> xinput1_4.dll) is found before MinGW's (-> xinput1_3.dll)
+rustflags = ["-L", "native=winlib", "-C", "link-self-contained=yes"]

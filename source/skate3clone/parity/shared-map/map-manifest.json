@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "name": "Skate Parity Grid",
+  "map_size_metres": 200.0,
+  "major_grid_metres": 10.0,
+  "minor_grid_metres": 1.0,
+  "spawn_blender_xyz_metres": [
+    0.0,
+    0.0,
+    0.72
+  ],
+  "spawn_skate_xyz_metres": [
+    0.0,
+    0.72,
+    -0.0
+  ],
+  "spawn_heading_radians": 0.0,
+  "blender_to_skate": "(x,y,z)->(x,z,-y)",
+  "artifacts": {
+    "skate_parity_grid.blend": {
+      "sha256": "86c93f4fa1f7b79ad0c7be96bda7c7ef9313f94a51a6b9274bc07319b06a426c",
+      "bytes": 97284
+    },
+    "skate_parity_grid.skate": {
+      "sha256": "27bf4f0c5748bcb10176f52460518e74a6cb04805a4c5026fc01d967240bc55e",
+      "bytes": 6895
+    },
+    "skate_parity_grid.glb": {
+      "sha256": "eb0c326c192a3fe0464a31ebae71267f50d8b368ad32bee797ab72c510b92465",
+      "bytes": 25284
+    },
+    "skate_parity_grid.png": {
+      "sha256": "a058ea497ef56c8b60c6c11dc5fe9b7884fbba5c75505482baeff070625a4188",
+      "bytes": 23649
+    }
+  },
+  "installed_skate_path": "C:\\Users\\Daddy\\Documents\\SK8-Engine-v0.1.0-preview.18-official\\Skate3CustomEngineLayer-0.1.0-preview.18-Windows\\maps\\skate_parity_grid.skate"
+}

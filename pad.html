@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>pad</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+ html,body{margin:0;background:#0a0a12;color:#eef;font-family:ui-monospace,monospace;touch-action:none;}
+ #pad{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+ .half{width:50%;height:100%;position:relative;}
+ .stick{position:absolute;width:170px;height:170px;border-radius:50%;border:2px solid #344;background:rgba(255,255,255,.04);}
+ .knob{position:absolute;width:70px;height:70px;border-radius:50%;background:rgba(120,200,255,.35);border:1px solid #7cf;pointer-events:none;}
+ .btn{position:absolute;width:84px;height:84px;border-radius:50%;border:2px solid #556;background:rgba(255,255,255,.05);
+      font-size:13px;display:flex;align-items:center;justify-content:center;user-select:none;}
+ .btn.on{background:rgba(57,255,138,.35);border-color:#3f8;}
+</style></head><body>
+<div id="pad">
+ <div class="half" id="L">
+   <div class="stick" id="stickL"></div>
+   <div class="btn" id="bJ">J · mode</div>
+   <div class="btn" id="bZ">Z · pound</div>
+ </div>
+ <div class="half" id="R">
+   <div class="stick" id="stickR"></div>
+   <div class="btn" id="bFire">FIRE</div>
+   <div class="btn" id="bJump">JUMP</div>
+   <div class="btn" id="bPlace">PLACE</div>
+   <div class="btn" id="bBack">⏎ menu</div>
+ </div>
+</div>
+<script>
+// phone = controller: stick drags -> key events; buttons -> key events; posts to /api/input
+const API=location.origin; let n=0;
+function send(ev){ fetch(API+'/api/input?sid=main',{method:'POST',body:JSON.stringify(ev),
+  headers:{'Content-Type':'application/json'}}); n++; }
+function key(k,down){ send({type:'key',k,down}); }
+const halves={L:document.getElementById('L'),R:document.getElementById('R')};
+const sticks={L:document.getElementById('stickL'),R:document.getElementById('stickR')};
+const knobs={}; const held={};
+function stickState(side,dx,dy){ // translate stick vector into keys
+  const map={L:['a','d','e','w'],R:['a','d','e','w']}; // both sticks drive movement; R also look via game
+  const [a,d,e,w]=map[side];
+  const set=(k,v)=>{ if(held[side+':'+k]!==v){ held[side+':'+k]=v; key(k,v); } };
+  set(a,dx<-0.35); set(d,dx>0.35); set(w,dy<-0.35); set(e,dy>0.35);
+}
+function bindStick(side){
+  const st=sticks[side], h=halves[side];
+  const knob=document.createElement('div'); knob.className='knob'; st.appendChild(knob); knobs[side]=knob;
+  let active=false, cx=0, cy=0;
+  const on=(x,y)=>{
+    const r=st.getBoundingClientRect(), ccx=r.left+r.width/2, ccy=r.top+r.height/2;
+    const dx=Math.max(-1,Math.min(1,(x-ccx)/80)), dy=Math.max(-1,Math.min(1,(y-ccy)/80));
+    knob.style.left=(r.width/2+dx*80-35)+'px'; knob.style.top=(r.height/2+dy*80-35)+'px';
+    stickState(side,dx,dy);
+    if(side==='R') send({type:'look',dx,dy});
+  };
+  st.addEventListener('pointerdown',ev=>{ active=true; cx=ev.clientX; cy=ev.clientY;
+    const r=st.getBoundingClientRect(); knob.style.left=(r.width/2-35)+'px'; knob.style.top=(r.height/2-35)+'px'; });
+  st.addEventListener('pointermove',ev=>{ if(active) on(ev.clientX,ev.clientY); });
+  st.addEventListener('pointerup',ev=>{ active=false; ['a','d','e','w'].forEach(k=>{ if(held[side+':'+k]){held[side+':'+k]=false;key(k,false);} }); });
+}
+bindStick('L'); bindStick('R');
+const btns={bJ:'j',bZ:'z',bFire:'fire',bJump:' ',bPlace:'place'};
+for(const [id,k] of Object.entries(btns)){
+  const el=document.getElementById(id);
+  const down=()=>{ el.classList.add('on'); send(k==='fire'?{type:'fire'}:k==='place'?{type:'place'}:{type:'key',k,down:true}); };
+  const up=()=>{ el.classList.remove('on'); if(k==='fire'||k==='place') send({type:k}); else send({type:'key',k,down:false}); };
+  el.addEventListener('pointerdown',down); el.addEventListener('pointerup',up);
+}
+document.getElementById('bBack').addEventListener('pointerdown',()=>{ send({type:'menu'}); });
+</script>
+</body></html>

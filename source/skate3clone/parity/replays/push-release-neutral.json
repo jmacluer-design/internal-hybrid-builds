@@ -1,0 +1,35 @@
+[
+  {
+    "label": "settle",
+    "frames": 120,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "push_press",
+    "frames": 6,
+    "buttons": 4096,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "push_release",
+    "frames": 180,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  }
+]

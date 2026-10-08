@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "id": "CP001-idle-push-foot-contact",
+  "title": "Idle registration and push foot contact",
+  "status": "candidate",
+  "scope": [
+    "neutral high-COM rider-to-board registration",
+    "regular push OnBoard toe targets",
+    "mongo push OnBoard toe targets",
+    "toe-target response while the deck carves"
+  ],
+  "retail_evidence": [
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/reverse-engineering/VerifyCustomAnimation/data/state/MotionGraphIncludes/Push.xml",
+      "claim": "PushStart uses a 0.3 second transition; contact/cycle are sequence leaves; PushEnd uses 0.2 seconds."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/animation/Skate3Extracted/data/anim/OnBoard.abin",
+      "claim": "Compact channels 32 and 33 are the board-parented right/left toe target animations."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/ROADMAP_PROGRESS.md",
+      "claim": "Runtime target mapping, target-specific RIG_TPOSE composition, and prior in-game foot-target verification."
+    },
+    {
+      "kind": "derived_exact",
+      "path": "assets/private/skater_push.manifest.txt",
+      "claim": "Board-space in-place conversion preserves toe-target vectors while removing shared horizontal travel."
+    }
+  ],
+  "machine_gates": {
+    "maximum_board_horizontal_travel_metres": 0.00005,
+    "maximum_export_toe_target_vector_error_metres": 0.00005,
+    "cargo_tests_must_pass": true,
+    "cargo_check_must_pass": true
+  },
+  "runtime_observation_gate": {
+    "maximum_bevy_post_ik_toe_target_error_metres": 0.001,
+    "source": "The in-game ONBOARD IK diagnostic after final transform propagation.",
+    "status": "human_pending"
+  },
+  "human_checks": [
+    "At neutral idle, the rider's stance is centered longitudinally over the retail deck.",
+    "During a regular push, the support foot follows the carving deck without sliding; the pushing foot follows the extracted push animation.",
+    "During a mongo push, the opposite support foot follows the carving deck without sliding.",
+    "Returning from either push does not pop, snap, or shift the rider relative to the board."
+  ],
+  "known_out_of_scope_unknowns": [
+    "The exact runtime ApplyingBodyTilt clamp attributes have not yet been captured.",
+    "Push transitionUnder and sequence timing are not accepted by this checkpoint.",
+    "The Bevy analytic leg solve still requires a final-matrix comparison against retail SkeletonIK::BlendTransforms."
+  ]
+}

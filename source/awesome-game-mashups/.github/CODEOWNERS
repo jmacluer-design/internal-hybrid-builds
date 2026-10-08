@@ -1,0 +1,4 @@
+# Review routing only; enforcing approval also requires repository rules.
+/.github/workflows/ @bailo167
+/scripts/ @bailo167
+/data/projects.schema.json @bailo167

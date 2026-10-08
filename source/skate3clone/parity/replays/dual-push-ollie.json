@@ -1,0 +1,68 @@
+[
+  {
+    "label": "settle",
+    "frames": 20,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "hard_push",
+    "frames": 6,
+    "buttons": 4096,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "push_recovery",
+    "frames": 50,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "moving_stick_down_hold",
+    "frames": 6,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": -32768
+  },
+  {
+    "label": "moving_ollie_flick_up",
+    "frames": 4,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": 32767
+  },
+  {
+    "label": "recover",
+    "frames": 100,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  }
+]

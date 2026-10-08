@@ -1,0 +1,27 @@
+name: Correction, missing demo or broken link
+description: Improve an existing entry, report a site bug, or supply clearer evidence
+title: "Correction: "
+labels: [correction, verification-needed]
+body:
+  - type: input
+    id: project
+    attributes:
+      label: Project or page affected
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: What is wrong and what should change?
+      description: For a site bug, include browser, steps and expected behaviour. No private logs.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Primary evidence or replacement links
+      description: A 403 or timeout alone does not establish that a project has disappeared.
+  - type: input
+    id: demo
+    attributes:
+      label: Missing creator demo URL, if relevant

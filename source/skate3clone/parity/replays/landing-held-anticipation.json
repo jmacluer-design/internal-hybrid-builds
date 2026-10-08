@@ -1,0 +1,68 @@
+[
+  {
+    "label": "settle",
+    "frames": 120,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "ollie_charge",
+    "frames": 15,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": -32768
+  },
+  {
+    "label": "ollie_release",
+    "frames": 4,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 32767
+  },
+  {
+    "label": "early_air",
+    "frames": 35,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "hold_next_ollie_through_landing",
+    "frames": 100,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": -32768
+  },
+  {
+    "label": "release",
+    "frames": 20,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  }
+]

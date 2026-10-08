@@ -1,0 +1,34 @@
+[
+  {
+    "label": "settle",
+    "frames": 30
+  },
+  {
+    "label": "walk_half_stick",
+    "ly": 12000,
+    "frames": 180
+  },
+  {
+    "label": "walk_stop",
+    "frames": 120
+  },
+  {
+    "label": "run_full_stick",
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "run_stop",
+    "frames": 120
+  },
+  {
+    "label": "sprint_a_full_stick",
+    "buttons": 4096,
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "sprint_stop",
+    "frames": 120
+  }
+]

@@ -1,0 +1,30 @@
+[
+  {
+    "polls": 120,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": -32768,
+    "bevy_lx": 0.0,
+    "bevy_ly": 0.0,
+    "bevy_rx": 0.0,
+    "bevy_ry": -1.0
+  },
+  {
+    "polls": 120,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0,
+    "bevy_lx": 0.0,
+    "bevy_ly": 0.0,
+    "bevy_rx": 0.0,
+    "bevy_ry": 0.0
+  }
+]

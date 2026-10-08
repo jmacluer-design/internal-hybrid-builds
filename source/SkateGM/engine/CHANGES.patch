@@ -1,0 +1,646 @@
+diff --git a/crates/skate-core/src/camera/manager_output.rs b/crates/skate-core/src/camera/manager_output.rs
+index a7e41ae..69abc66 100644
+--- a/crates/skate-core/src/camera/manager_output.rs
++++ b/crates/skate-core/src/camera/manager_output.rs
+@@ -21,9 +21,10 @@ impl CameraMan {
+             if subject.shake_variant != 0 { speed * 50.0 } else { speed },
+             distance, basis, enabled, samples[1], settings);
+         let selected = usize::from(subject.shake_variant != 0);
+-        self.frame.basis = [first, second][selected];
++        let off = super::SHAKE_OFF.load(core::sync::atomic::Ordering::Relaxed);
++        self.frame.basis = if off { basis } else { [first, second][selected] };
+         self.frame.position = position;
+-        self.frame.shake_translation = self.shake[selected].translation;
++        self.frame.shake_translation = if off { [0.0; 4] } else { self.shake[selected].translation };
+         //82DFFEC8..82DFFECC publishes ShakeEffect+16 into Rig+320. The
+         // positioner consumes this world-space offset on the following tick;
+         // it is not an extra translation added by the renderer to this frame.
+diff --git a/crates/skate-core/src/camera/mod.rs b/crates/skate-core/src/camera/mod.rs
+index 1280f41..ef7fb34 100644
+--- a/crates/skate-core/src/camera/mod.rs
++++ b/crates/skate-core/src/camera/mod.rs
+@@ -21,6 +21,7 @@ mod manager_air;
+ mod manager_rig;
+ mod manager_frame;
+ mod shake;
++pub static SHAKE_OFF: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+ mod shake_curve;
+ mod shake_update;
+ mod frame_composer;
+diff --git a/crates/skate-core/src/physics/board_world/broadphase.rs b/crates/skate-core/src/physics/board_world/broadphase.rs
+index 6f83bec..18ed6c0 100644
+--- a/crates/skate-core/src/physics/board_world/broadphase.rs
++++ b/crates/skate-core/src/physics/board_world/broadphase.rs
+@@ -26,11 +26,17 @@ impl BoardWorld {
+         let bounds = bounds.expanded(
+             self.maximum_fatness + self.maximum_triangle_margin + scale * (8. * f32::EPSILON),
+         );
+-        self.query_index
++        let mut ranges: Vec<_> = self
++            .query_index
+             .query(bounds, &metadata.meshes)
+             .into_iter()
+             .map(|i| metadata.meshes[i].triangle_range.clone())
+-            .collect()
++            .collect();
++        // gm_sk8 addition: the moving layer, after the static world
++        if self.static_len < self.triangles.len() {
++            ranges.push(self.static_len..self.triangles.len());
++        }
++        ranges
+     }
+ 
+     pub fn line_candidates(
+diff --git a/crates/skate-core/src/physics/board_world.rs b/crates/skate-core/src/physics/board_world.rs
+index dcf667e..b2f1f6c 100644
+--- a/crates/skate-core/src/physics/board_world.rs
++++ b/crates/skate-core/src/physics/board_world.rs
+@@ -106,6 +106,12 @@ pub struct BoardWorldVolume {
+ pub struct BoardWorld {
+     triangles: Vec<WorldTriangle>,
+     triangle_bounds: Vec<Bounds>,
++    /// gm_sk8 addition: triangles before this index are the static world; the
++    /// rest are the moving layer (other players, moving things), swapped in
++    /// whole by set_moving without rebuilding the static index
++    static_len: usize,
++    static_fatness: f32,
++    static_margin: f32,
+     query_metadata: Option<QueryMetadata>,
+     query_index: query_index::QueryIndex,
+     maximum_fatness: f32,
+@@ -148,6 +154,9 @@ impl BoardWorld {
+             })
+             .fold(0., f32::max);
+         Self {
++            static_len: triangles.len(),
++            static_fatness: maximum_fatness,
++            static_margin: maximum_triangle_margin,
+             triangles,
+             triangle_bounds,
+             query_metadata: None,
+@@ -191,6 +200,39 @@ impl BoardWorld {
+         &self.triangles
+     }
+ 
++    /// gm_sk8 addition: replace the moving layer. Every query sees it after the
++    /// static triangles (their indices stay valid for triangles()).
++    pub fn set_moving(&mut self, moving: Vec<WorldTriangle>) {
++        self.triangles.truncate(self.static_len);
++        self.triangle_bounds.truncate(self.static_len);
++        let mut fatness = self.static_fatness;
++        let mut margin = self.static_margin;
++        for t in &moving {
++            let b = Bounds::from_points(t.triangle.vertices).unwrap_or(Bounds {
++                min: Vector3::new(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY),
++                max: Vector3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY),
++            });
++            let span = (b.max.x - b.min.x).max(b.max.y - b.min.y).max(b.max.z - b.min.z);
++            margin = margin.max(span * (2. * broadphase::THIN_MARGIN));
++            fatness = fatness.max(if t.triangle.fatness.is_finite() && t.triangle.fatness >= 0. { t.triangle.fatness } else { f32::INFINITY });
++            self.triangle_bounds.push(b);
++        }
++        self.triangles.extend(moving);
++        self.maximum_fatness = fatness;
++        self.maximum_triangle_margin = margin;
++    }
++
++    /// gm_sk8 addition: the moving layer's triangles (to carry them over to a
++    /// rebuilt static world).
++    pub fn moving(&self) -> Vec<WorldTriangle> {
++        self.triangles[self.static_len..].to_vec()
++    }
++
++    /// gm_sk8 addition: how many moving triangles are in.
++    pub fn moving_len(&self) -> usize {
++        self.triangles.len() - self.static_len
++    }
++
+     /// Imported brush floors can meet at split edges without sharing vertices.
+     /// Their continuation is checked at the contact point rather than marking
+     /// the entire edge smooth, which would erase a real ledge on an open span.
+diff --git a/crates/skate-host/src/graph_host/motion_execute_leaf.rs b/crates/skate-host/src/graph_host/motion_execute_leaf.rs
+index b4a08cf..e2dc13f 100644
+--- a/crates/skate-host/src/graph_host/motion_execute_leaf.rs
++++ b/crates/skate-host/src/graph_host/motion_execute_leaf.rs
+@@ -349,6 +349,15 @@ pub(super) fn execute(
+                                 .ok_or("LandOnBoard requires SkaterAnim orientation")? ^= 0x80000000;
+                         }
+                     }
++                    crate::graph_host::motion_stock_gameplay::Operation::AirDismounting
++                        if std::env::var("SK8_AIR_DISMOUNT").as_deref() != Ok("fail") =>
++                    {
++                        //gm_sk8 addition: the native producer isn't ported. Failing
++                        //here reset the skater whenever Y was pressed low in the air;
++                        //without it the authored graph still jumps off the board and
++                        //lands on foot (or bails from high up).
++                        let _ = phase;
++                    }
+                     crate::graph_host::motion_stock_gameplay::Operation::UpdateStandingOnCar => {
+                         // This node is a consumer of the moving-object
+                         // publication.  It must not turn an absent publication
+diff --git a/crates/skate-host/src/input/platform.rs b/crates/skate-host/src/input/platform.rs
+index 99ad31d..197a026 100644
+--- a/crates/skate-host/src/input/platform.rs
++++ b/crates/skate-host/src/input/platform.rs
+@@ -110,8 +110,11 @@ mod windows {
+             let mut capabilities = MaybeUninit::<Capabilities>::uninit();
+             // SAFETY: writable storage with the SDK ABI; read only on success.
+             let result = unsafe { XInputGetCapabilities(index, 1, capabilities.as_mut_ptr()) };
++            //gm_sk8 addition: some third-party and emulated pads answer
++            //XInputGetState but fail this query; they were dropped as
++            //disconnected. Treat them as ordinary gamepads (subtype 1).
+             if result != 0 {
+-                return Err(DeviceError::Capabilities(result));
++                return Ok(1);
+             }
+             Ok(unsafe { capabilities.assume_init() }.subtype)
+         })?;
+diff --git a/crates/skate-host/src/lib.rs b/crates/skate-host/src/lib.rs
+index d844700..072dbc4 100644
+--- a/crates/skate-host/src/lib.rs
++++ b/crates/skate-host/src/lib.rs
+@@ -8,12 +8,13 @@ mod camera;
+ mod difficulty;
+ mod grind_world;
+ mod input;
+-mod scoring_runtime;
++pub mod scoring_runtime;
+ mod skate_world;
+ mod animation;
+ mod crash_context;
+ mod tuning;
+ 
+ pub use physics::bridge;
++pub use skate_core::camera::SHAKE_OFF as CAMERA_SHAKE_OFF;
+ 
+ mod session_marker;
+diff --git a/crates/skate-host/src/physics/bridge.rs b/crates/skate-host/src/physics/bridge.rs
+index 8cebe59..aa7bc44 100644
+--- a/crates/skate-host/src/physics/bridge.rs
++++ b/crates/skate-host/src/physics/bridge.rs
+@@ -67,8 +67,172 @@ impl Session {
+             material: self.physics.floor_material(),
+         }
+     }
++    /// Skate 3's scoring for this skater, as the trick display shows it
++    /// (gm_sk8 addition: read-only).
++    pub fn scoring(&self) -> crate::scoring_runtime::ScoreView {
++        self.skater.scoring.view()
++    }
++
++    /// Clean up after a tick that failed part-way, so the next tick (or a
++    /// reset) can run (gm_sk8 addition).
++    pub fn recover_after_error(&mut self) {
++        self.physics.riding.abandon_wheel_queries();
++        self.input = ControllerInput::default();
++    }
++
++    /// Add velocity (skate space, m/s) to the skater and board, as the game
++    /// does when it hands momentum over (gm_sk8 addition: a testing boost).
++    /// Returns false (and does nothing) unless riding on the board (rolling,
++    /// powersliding, reverting) or in the air.
++    pub fn push(&mut self, dv: [f32; 3]) -> bool {
++        use skate_core::math::Vector3;
++        let state = format!("{:?}", self.skater.player_state.current());
++        let riding = ["PhysicsGround", "SlideGround", "RevertGround", "Air"].iter().any(|s| state.contains(s));
++        if !riding || state.contains("Biped") || state.contains("Wipeout") {
++            return false;
++        }
++        let d = Vector3::new(dv[0], dv[1], dv[2]);
++        let add = |v: &mut Vector3| *v = Vector3::new(v.x + d.x, v.y + d.y, v.z + d.z);
++        for body in self.physics.board.bodies_mut() {
++            add(&mut body.rates.linear_velocity);
++        }
++        for body in self.skater.skeleton.bodies_mut() {
++            add(&mut body.rates.linear_velocity);
++        }
++        let m = &mut self.skater.animated_skeleton.motion.velocity_world;
++        m[0] += dv[0];
++        m[1] += dv[1];
++        m[2] += dv[2];
++        true
++    }
++
++    /// Moves the board and skater by `d` (skate space), as standing on
++    /// something that moved under them (gm_sk8 addition: lifts, moving
++    /// platforms). Positions only; velocities are kept.
++    pub fn carry(&mut self, d: [f32; 3]) {
++        self.carry_turning(d, [0.0; 3], 0.0);
++    }
++
++    /// As `carry`, turning too: about the vertical line through `pivot` by
++    /// `yaw` radians (a turntable), then moved by `d` (gm_sk8 addition).
++    pub fn carry_turning(&mut self, d: [f32; 3], pivot: [f32; 3], yaw: f32) {
++        let (s, c) = yaw.sin_cos();
++        // (about +Y, the skate world's up)
++        self.carry_rotating(d, pivot, [[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]]);
++    }
++
++    /// As `carry`, rotated first about `pivot` by `m` (rows; skate space): a
++    /// turntable, a seesaw, a swinging platform (gm_sk8 addition). Each body
++    /// turns whole - position, orientation, basis, world inertia and its
++    /// velocities - so its motion relative to what it stands on carries on.
++    pub fn carry_rotating(&mut self, d: [f32; 3], pivot: [f32; 3], m: [[f32; 3]; 3]) {
++        use skate_core::math::Vector3;
++        let identity = m == [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
++        let rot = |v: [f32; 3]| std::array::from_fn::<f32, 3, _>(|r| m[r][0] * v[0] + m[r][1] * v[1] + m[r][2] * v[2]);
++        let rot3 = |v: &mut Vector3| {
++            let r = rot([v.x, v.y, v.z]);
++            *v = Vector3::new(r[0], r[1], r[2]);
++        };
++        // (the rotation as a quaternion x, y, z, w)
++        let q = {
++            let t = m[0][0] + m[1][1] + m[2][2];
++            if t > 0.0 {
++                let s = (t + 1.0).sqrt() * 2.0;
++                [(m[2][1] - m[1][2]) / s, (m[0][2] - m[2][0]) / s, (m[1][0] - m[0][1]) / s, 0.25 * s]
++            } else if m[0][0] > m[1][1] && m[0][0] > m[2][2] {
++                let s = (1.0 + m[0][0] - m[1][1] - m[2][2]).sqrt() * 2.0;
++                [0.25 * s, (m[0][1] + m[1][0]) / s, (m[0][2] + m[2][0]) / s, (m[2][1] - m[1][2]) / s]
++            } else if m[1][1] > m[2][2] {
++                let s = (1.0 + m[1][1] - m[0][0] - m[2][2]).sqrt() * 2.0;
++                [(m[0][1] + m[1][0]) / s, 0.25 * s, (m[1][2] + m[2][1]) / s, (m[0][2] - m[2][0]) / s]
++            } else {
++                let s = (1.0 + m[2][2] - m[0][0] - m[1][1]).sqrt() * 2.0;
++                [(m[0][2] + m[2][0]) / s, (m[1][2] + m[2][1]) / s, 0.25 * s, (m[1][0] - m[0][1]) / s]
++            }
++        };
++        let turn = |b: &mut skate_core::physics::assembly::BodySnapshot| {
++            let r = &mut b.rates;
++            let p = [r.position.x - pivot[0], r.position.y - pivot[1], r.position.z - pivot[2]];
++            let p = if identity { p } else { rot(p) };
++            r.position = Vector3::new(p[0] + pivot[0] + d[0], p[1] + pivot[1] + d[1], p[2] + pivot[2] + d[2]);
++            if identity {
++                return;
++            }
++            let o = r.orientation;
++            let [qx, qy, qz, qw] = q;
++            r.orientation.w = qw * o.w - qx * o.x - qy * o.y - qz * o.z;
++            r.orientation.x = qw * o.x + qx * o.w + qy * o.z - qz * o.y;
++            r.orientation.y = qw * o.y - qx * o.z + qy * o.w + qz * o.x;
++            r.orientation.z = qw * o.z + qx * o.y - qy * o.x + qz * o.w;
++            for col in r.basis.columns.iter_mut() {
++                *col = rot(*col);
++            }
++            // (M W M^T: each column turned, then each row)
++            let mut w = r.world_inverse_inertia.columns;
++            for col in w.iter_mut() {
++                *col = rot(*col);
++            }
++            let mut rows = [[0f32; 3]; 3];
++            for i in 0..3 {
++                rows[i] = rot([w[0][i], w[1][i], w[2][i]]);
++            }
++            for i in 0..3 {
++                for j in 0..3 {
++                    w[j][i] = rows[i][j];
++                }
++            }
++            r.world_inverse_inertia.columns = w;
++            rot3(&mut r.linear_velocity);
++            rot3(&mut r.angular_velocity);
++            rot3(&mut r.force_acceleration);
++            rot3(&mut r.torque_acceleration);
++        };
++        for body in self.physics.board.bodies_mut() {
++            turn(body);
++        }
++        turn(&mut self.physics.board.hook_mut().body);
++        for body in self.skater.skeleton.bodies_mut() {
++            turn(body);
++        }
++    }
++
++    /// Back to Skate 3's automatic checkpoint, the last safe spot it recorded,
++    /// as the game does after falling into water (gm_sk8 addition).
++    pub fn return_to_checkpoint(&mut self) -> Result<(), String> {
++        super::respawn::manual_return(&self.physics, &mut self.skater)
++    }
++
++    /// The session marker as a display needs it: (holding LB, a marker could be
++    /// placed here, a marker exists to return to, return-hold progress 0..1,
++    /// marker position in skate space) (gm_sk8 addition: read-only).
++    pub fn marker(&self) -> (bool, bool, bool, f32, Option<[f32; 3]>) {
++        self.markers.view()
++    }
++
+     /// Swaps in collision built by `collision_builder`: the world the skater
+     /// rides, climbs and grinds from the next tick.
++    /// gm_sk8 addition: replace the moving collision layer (other players,
++    /// moving things), checked by every query after the static world. Cheap:
++    /// only these triangles are prepared, the static world is untouched.
++    pub fn set_moving_collision(&mut self, triangles: Vec<[[f32; 3]; 3]>) -> Result<usize, String> {
++        let triangles: Vec<_> = triangles
++            .into_iter()
++            .filter(|t| {
++                let [a, b, c] = t.map(bevy::math::Vec3::from_array);
++                (b - a).cross(c - a).length_squared() > 1e-12
++            })
++            .collect();
++        let moving = if triangles.is_empty() {
++            Vec::new()
++        } else {
++            let map = collision_map(triangles, Vec::new(), [0.; 3], 0.);
++            crate::skate_world::collision_world(&map, self.physics.floor_material())?.triangles().to_vec()
++        };
++        let n = moving.len();
++        self.physics.set_moving(moving);
++        Ok(n)
++    }
++
+     pub fn install_collision(&mut self, prepared: PreparedCollision) -> Result<(), String> {
+         self.physics
+             .install_world(prepared.world, std::sync::Arc::clone(&prepared.grind))?;
+@@ -156,6 +320,7 @@ impl Session {
+                 right: input.right,
+             },
+         );
++        self.markers.collect_time(f64::from(self.period()));
+         self.advance_published()
+     }
+     pub fn pose(&self) -> Pose {
+@@ -301,10 +466,57 @@ impl InputFrame {
+     pub fn controller(&self) -> Option<usize> {
+         self.samples.iter().position(Result::is_ok)
+     }
++    /// Take buttons out of this frame's pad samples (gm_sk8 addition: e.g. the
++    /// board dismount while airborne, whose Skate 3 behaviour isn't ported).
++    pub fn mask_buttons(&mut self, mask: u16) {
++        for s in self.samples.iter_mut().flatten() {
++            s.state.buttons &= !mask;
++        }
++    }
++    /// Each slot's XInput packet number, None if nothing answers there (gm_sk8
++    /// addition: the number changes whenever that pad's state does, so the
++    /// host can follow the pad actually in use).
++    pub fn packet_numbers(&self) -> [Option<u32>; 4] {
++        std::array::from_fn(|i| self.samples[i].as_ref().ok().map(|p| p.number))
++    }
++    /// Leave only this slot's pad in the frame (gm_sk8 addition).
++    pub fn keep_only(&mut self, slot: usize) {
++        for (i, s) in self.samples.iter_mut().enumerate() {
++            if i != slot {
++                *s = Err(crate::input::platform::DeviceError::Disconnected);
++            }
++        }
++    }
++    /// Put a pad read some other way (not XInput) into the first empty slot,
++    /// as an Xbox pad (gm_sk8 addition). Returns the slot, or None if all four
++    /// are taken.
++    pub fn insert_pad(&mut self, number: u32, buttons: u16, triggers: [u8; 2], left: [i16; 2], right: [i16; 2]) -> Option<usize> {
++        let slot = self.samples.iter().position(Result::is_err)?;
++        self.samples[slot] = Ok(crate::input::platform::DevicePacket {
++            number,
++            state: skate_core::input::xbox::XboxState { buttons, triggers, left, right },
++            subtype: 1,
++        });
++        Some(slot)
++    }
+     pub fn buttons(&self) -> u16 {
+         self.samples
+             .iter()
+             .find_map(|s| s.as_ref().ok().map(|s| s.state.buttons))
+             .unwrap_or(0)
+     }
++    /// Left and right trigger, 0-255 (gm_sk8 addition: the add-on's own
++    /// controller features read them).
++    pub fn triggers(&self) -> [u8; 2] {
++        self.samples
++            .iter()
++            .find_map(|s| s.as_ref().ok().map(|s| s.state.triggers))
++            .unwrap_or([0, 0])
++    }
++    pub fn sticks(&self) -> [[i16; 2]; 2] {
++        self.samples
++            .iter()
++            .find_map(|s| s.as_ref().ok().map(|s| [s.state.left, s.state.right]))
++            .unwrap_or([[0, 0], [0, 0]])
++    }
+ }
+diff --git a/crates/skate-host/src/physics/controls.rs b/crates/skate-host/src/physics/controls.rs
+index f104b87..d07f60a 100644
+--- a/crates/skate-host/src/physics/controls.rs
++++ b/crates/skate-host/src/physics/controls.rs
+@@ -101,9 +101,39 @@ impl PlayerControls {
+         );
+         self.offboard_axes = axes;
+         self.offboard_direction = axes.map(|v| [v[0], 0., v[1], 0.]);
++        //gm_sk8 addition: the bail's left stick (WipeoutControlX/Y) is read
++        //as a world-horizontal direction (profiles::prepare dots it with
++        //the skater's world forward/right), but only the offboard branch of
++        //the camera remap was ported, so raw pad axes went in and the bail
++        //controls turned with the map: up flipped you backwards facing one
++        //way. Remap them through the camera as offboard movement is.
++        if physical.state.category_12 == 300 {
++            if let Some(frame) = camera.frame.as_ref() {
++                let world = camera_relative_axes([map.value(64), map.value(65)], frame.basis.columns);
++                self.replace_wipeout_control(world);
++            }
++        }
+         Ok(())
+     }
+ 
++    fn replace_wipeout_control(&mut self, world: [f32; 2]) {
++        let present = |name: &str, intents: &[RidingIntent]| intents.iter().any(|i| i.name == name);
++        let x_on = present("WipeoutControlX", &self.intents);
++        let y_on = present("WipeoutControlY", &self.intents);
++        if !(x_on || y_on) {
++            return;
++        }
++        self.intents.retain(|i| i.name != "WipeoutControlX" && i.name != "WipeoutControlY");
++        self.action_intents.remove("WipeoutControlX");
++        self.action_intents.remove("WipeoutControlY");
++        for (name, value) in [("WipeoutControlX", world[0]), ("WipeoutControlY", world[1])] {
++            if value != 0.0 {
++                self.intents.push(RidingIntent { name, value });
++                self.action_intents.insert(name, value);
++            }
++        }
++    }
++
+     /// Parent must pass this SAME sampled mapping into input_phase::advance.
+     /// Do not rotate again: the camera/state may have advanced since sampling.
+     pub fn simulation_actions<'a>(&self, source: &'a mut dyn ActionMap) -> SimulationActions<'a> {
+diff --git a/crates/skate-host/src/physics/respawn.rs b/crates/skate-host/src/physics/respawn.rs
+index e2a8d06..61f9955 100644
+--- a/crates/skate-host/src/physics/respawn.rs
++++ b/crates/skate-host/src/physics/respawn.rs
+@@ -78,6 +78,31 @@ pub(super) fn request(physics: &GamePhysics, skater: &mut SkaterRuntime) -> Resu
+     Ok(())
+ }
+ 
++/// Return to the automatic checkpoint (the last safe spot this manager
++/// recorded) as a manual return: the same teleport path a session-marker
++/// return takes (gm_sk8 addition, used for falling into water).
++/// How far above a recorded spot a return puts the skater (metres; gm_sk8
++/// addition): level with a one-sided floor it can end up just under it.
++pub(crate) const RETURN_LIFT: f32 = 0.4;
++
++pub(super) fn manual_return(physics: &GamePhysics, skater: &mut SkaterRuntime) -> Result<(), String> {
++    let stance = skater.animation.checkpoint_stance();
++    let runtime = &mut skater.respawn;
++    let candidate = runtime.history.automatic(
++        stance,
++        &mut Scene {
++            world: &physics.world,
++            settings: &runtime.settings,
++        },
++    )?;
++    let mut transform = candidate.transform;
++    transform[3][1] += RETURN_LIFT;
++    skater.player_input.request_teleport(transform)?;
++    skater.animation.request_checkpoint_stance(candidate.stance);
++    skater.teleport_state.request_manual(transform, !candidate.offboard);
++    Ok(())
++}
++
+ ///One completed physical output, including the empirical conditioner sample.
+ pub(super) fn observe(physics: &GamePhysics, skater: &mut SkaterRuntime) -> Result<(), String> {
+     let physical = &skater.player_input.physical;
+diff --git a/crates/skate-host/src/physics/riding_outputs.rs b/crates/skate-host/src/physics/riding_outputs.rs
+index ac8d144..8c0a85b 100644
+--- a/crates/skate-host/src/physics/riding_outputs.rs
++++ b/crates/skate-host/src/physics/riding_outputs.rs
+@@ -299,6 +299,13 @@ impl RidingOutputs {
+     ///World8275EB10 calls EndBoard8275E6E8 after PlayerInput and before
+     ///PostInput/state work. These results are available to this frame's state
+     ///selector, independently of the subsequent solve's contact reports.
++    /// After a tick that failed part-way (gm_sk8 addition): drop a wheel
++    /// query batch that was started but never published, so the next tick
++    /// can start its own.
++    pub fn abandon_wheel_queries(&mut self) {
++        self.pending_wheel_queries = None;
++    }
++
+     pub fn finish_wheel_queries(&mut self) -> Result<(), String> {
+         let hits = self
+             .pending_wheel_queries
+diff --git a/crates/skate-host/src/physics.rs b/crates/skate-host/src/physics.rs
+index 6f7e0ea..0d6fbeb 100644
+--- a/crates/skate-host/src/physics.rs
++++ b/crates/skate-host/src/physics.rs
+@@ -63,7 +63,7 @@ mod skeleton_grind_air;
+ mod teleport_state;
+ mod wipeout;
+ mod wipeout_states;
+-mod respawn;
++pub(crate) mod respawn;
+ //TEMPORARY opt-in observations for the bottom-up source audit.
+ mod biped_air;
+ mod known_air;
+@@ -349,6 +349,15 @@ impl GamePhysics {
+         self.settings.floor_material
+     }
+ 
++    /// gm_sk8 addition: the moving layer (see BoardWorld::set_moving).
++    pub(crate) fn set_moving(&mut self, moving: Vec<skate_core::physics::board_world::WorldTriangle>) {
++        self.world.set_moving(moving);
++    }
++
++    pub(crate) fn moving_len(&self) -> usize {
++        self.world.moving_len()
++    }
++
+     /// Replaces the static world, as a streamed world's collision around
+     /// the skater changes.
+     pub(crate) fn install_world(
+@@ -357,6 +366,12 @@ impl GamePhysics {
+         grind_world: std::sync::Arc<crate::grind_world::StaticProvider>,
+     ) -> Result<(), String> {
+         self.offboard_grab_scene = offboard::grab_scene::Registry::new(&world, Vec::new(), Vec::new())?;
++        // gm_sk8 addition: the moving layer stays in when the static world changes
++        let moving = self.world.moving();
++        let mut world = world;
++        if !moving.is_empty() {
++            world.set_moving(moving);
++        }
+         self.world = world;
+         self.grind_world = grind_world;
+         Ok(())
+diff --git a/crates/skate-host/src/scoring_runtime.rs b/crates/skate-host/src/scoring_runtime.rs
+index 415d808..3a8ba97 100644
+--- a/crates/skate-host/src/scoring_runtime.rs
++++ b/crates/skate-host/src/scoring_runtime.rs
+@@ -75,7 +75,44 @@ pub(crate) struct Runtime {
+     pub modified_trick: bool,
+     pub close_tricks: bool,
+ }
++/// What the trick display shows, computed exactly as SK8-ENGINE's
++/// `scoring_runtime::Runtime::hud_input` does (gm_sk8 addition: read-only).
++#[derive(Clone, Debug, Default)]
++pub struct ScoreView {
++    /// the current trick sequence, multiplier applied
++    pub sequence_score: f32,
++    /// points banked in the current line
++    pub line_score: f32,
++    /// all completed lines this session
++    pub total_score: f32,
++    /// seconds left on the line timer, and the timer's capacity in seconds
++    pub line_time: f32,
++    pub line_capacity: f32,
++    pub multiplier: f32,
++    pub clean: bool,
++    pub sketchy: bool,
++    /// switch, fakie, nollie, body-flip flags as the HUD receives them
++    pub stance: [bool; 4],
++    pub trick_name: String,
++}
++
+ impl Runtime {
++    pub fn view(&self) -> ScoreView {
++        let drain = if self.data.line_drain != 0.0 { self.data.line_drain } else { 1.0 };
++        ScoreView {
++            sequence_score: self.sequence_score,
++            line_score: self.session.holder.snapshot.line,
++            total_score: self.session.holder.snapshot.completed_lines,
++            line_time: self.session.line.points / drain,
++            line_capacity: self.data.line_capacity / drain,
++            multiplier: self.session.combo.multiplier,
++            clean: self.clean,
++            sketchy: self.sketchy,
++            stance: self.stance,
++            trick_name: self.trick_name.clone(),
++        }
++    }
++
+     pub fn load(data: &Collections) -> Result<Self, String> {
+         Ok(Self {
+             data: ScoringData::load(data)?,
+diff --git a/crates/skate-host/src/session_marker/mod.rs b/crates/skate-host/src/session_marker/mod.rs
+index 3df8905..af05b56 100644
+--- a/crates/skate-host/src/session_marker/mod.rs
++++ b/crates/skate-host/src/session_marker/mod.rs
+@@ -35,6 +35,13 @@ impl Runtime {
+     pub fn load(root: &std::path::Path) -> Result<Self,String> { Ok(Self{session:SessionMarker::default(),validation:validation::Validation::load(root)?}) }
+     pub fn suspend(&mut self) { self.session.hold.cancel(); self.session.blocked_until_release=true; self.session.ui_time=0.; }
+     pub fn collect_time(&mut self,dt:f64) { self.session.ui_time+=dt; }
++    /// (visible, can_place, can_return, progress, marker position) for a display
++    /// (gm_sk8 addition: read-only).
++    pub fn view(&self) -> (bool, bool, bool, f32, Option<[f32; 3]>) {
++        let s = &self.session;
++        (s.visible, s.can_place, s.can_return, s.progress,
++         s.marker.map(|m| [m.transform[3][0], m.transform[3][1], m.transform[3][2]]))
++    }
+     pub fn advance(&mut self,input:&ControllerInput,physics:&GamePhysics,skater:&mut SkaterRuntime) {
+         update(&mut self.session,input,physics,skater,&self.validation);
+     }
+@@ -121,12 +128,17 @@ fn update(session:&mut SessionMarker,input:&ControllerInput,physics:&GamePhysics
+         session.progress = step.progress;
+         if step.relocate {
+             if let Some(target) = session.marker {
+-                match skater.player_input.request_teleport(target.transform) {
++                // (gm_sk8 addition: a little above the marked spot - it was on the
++                // ground, and a teleport level with a one-sided floor can end up
++                // just under it)
++                let mut transform = target.transform;
++                transform[3][1] += crate::physics::respawn::RETURN_LIFT;
++                match skater.player_input.request_teleport(transform) {
+                     Ok(()) => {
+                         skater.animation.restore_foot_forward(target.foot_forward);
+                         skater
+                             .teleport_state
+-                            .request_manual(target.transform, target.on_board);
++                            .request_manual(transform, target.on_board);
+                         bevy::log::info!("Skate session marker returned");
+                     }
+                     Err(e) => {

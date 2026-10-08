@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "id": "CP003-flat-ground-onboard-locomotion",
+  "title": "Flat-ground OnBoard locomotion graph",
+  "status": "candidate",
+  "scope": [
+    "120 Hz flat-ground rolling and speed-sensitive carve physics",
+    "regular and mongo hard-push tap/hold state sequencing",
+    "moving footbrake lead-in, cycle, moving-out, transition-to-stand, stand-cycle, and stand-out",
+    "frontside and backside powerslide input gate, reduced lateral grip, deceleration, spin, and 000/090/180 out leaves",
+    "BTREE_RIDING HCOM body-tilt blending",
+    "three-second stationary random-idle transition",
+    "retail board, truck, and wheel hierarchy with rolling wheel spin and grounded truck counter-articulation",
+    "animated OnBoard toe-target preservation and post-animation two-leg IK",
+    "deterministic fixed-input replay and owner visual checkpoint"
+  ],
+  "retail_evidence": [
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/reverse-engineering/VerifyCustomAnimation/data/state/MotionGraphIncludes/ground.xml",
+      "claim": "Grounded OnBoard hierarchy, Turning/Idle behavior order, BTREE_RIDING blend time, Still speed threshold, and three-second Random transition."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/reverse-engineering/VerifyCustomAnimation/data/state/MotionGraphIncludes/Push.xml",
+      "claim": "PushStart, sequence CYC1/CYC2, repeat path, PushEnd transition type, blend durations, and WillExpire windows."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/reverse-engineering/VerifyCustomAnimation/data/state/MotionGraphIncludes/Brake.xml",
+      "claim": "Moving and stationary brake state topology, 0.15 speed split, animation leaves, 0.2-second blends, and expiry windows."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/reverse-engineering/VerifyCustomAnimation/data/state/MotionGraphIncludes/Sliding/NewRightSlide.xml",
+      "claim": "Frontside slide Into/Cyc/Out graph, PowerSlideDecel and PowerSlideSpin behavior placement, minimum 0.3-second parent time, and 0.2/0.1-second blend times."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/reverse-engineering/VerifyCustomAnimation/data/state/MotionGraphIncludes/Sliding/NewLeftSlide.xml",
+      "claim": "Backside slide mirror graph and left-slide behavior mapping."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/reverse-engineering/VerifyCustomAnimation/data/state/MotionGraphIncludes/random_idle.xml",
+      "claim": "Stationary random-idle animation leaves and input-driven exit."
+    },
+    {
+      "kind": "retail_runtime",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/PROJECT_STATE.md",
+      "claim": "Matched retail fixtures establish 1.18 m/s push impulse, 0.035 rolling drag, speed-sensitive carve coefficients, 0.22-second brake lead-in, 3.90 m/s^2 brake deceleration, steep-diagonal powerslide gate, approximately 0.5 m/s^2 slide deceleration, and approximately 0.9 m/s slide cutoff."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/animation/Skate3Extracted/data/anim/OnBoard.abin",
+      "claim": "Authoritative OnBoard skeleton animation database used for every scoped animation leaf."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/animation/reports/skate3_onboard_clips.csv",
+      "claim": "Authoritative source frame counts and native sample rates for scoped push, brake, powerslide, riding, and random-idle leaves."
+    },
+    {
+      "kind": "derived_exact",
+      "path": "work/private-assets/skater_push_source.validation.json",
+      "claim": "RX2/ABIN conversion, full-skeleton pose matrices, skinned mesh deformation, board root-motion lock, and OnBoard toe-target reconstruction are numerically validated against the source."
+    }
+  ],
+  "machine_gates": {
+    "maximum_board_horizontal_travel_metres": 0.00005,
+    "maximum_export_toe_target_vector_error_metres": 0.00005,
+    "minimum_private_animation_actions": 87,
+    "cargo_tests_must_pass": true,
+    "cargo_check_must_pass": true,
+    "deterministic_trace": {
+      "path": "parity/captures/CP003/runtime-trace.csv",
+      "checkpoints": [
+        {
+          "tick": 90,
+          "state": "idle",
+          "animation_clip": "BTREE_RIDING"
+        },
+        {
+          "tick": 205,
+          "state": "push contact",
+          "animation_clip": "R_PUSHLSP_HSTR_N_0_CYC1"
+        },
+        {
+          "tick": 430,
+          "state": "rolling",
+          "animation_clip": "BTREE_RIDING"
+        },
+        {
+          "tick": 535,
+          "state": "braking",
+          "animation_clip": "R_BRAKE_N_N_0_CYC"
+        },
+        {
+          "tick": 835,
+          "state": "frontside powerslide",
+          "animation_clip": "R_SLIDE_FS_LSP_INTO"
+        },
+        {
+          "tick": 885,
+          "state": "powerslide out",
+          "animation_clip": "R_SLIDE_FS_LSP_OUT_090"
+        },
+        {
+          "tick": 1479,
+          "state": "stationary idle",
+          "animation_clip": "R_STAND_STAT_VER1_N_0_CYC"
+        }
+      ]
+    }
+  },
+  "capture_artifacts": [
+    "parity/captures/CP003/01_idle_riding.png",
+    "parity/captures/CP003/02_hard_push_contact.png",
+    "parity/captures/CP003/03_carve.png",
+    "parity/captures/CP003/04_moving_brake.png",
+    "parity/captures/CP003/05_powerslide.png",
+    "parity/captures/CP003/06_powerslide_out.png",
+    "parity/captures/CP003/07_random_idle.png",
+    "parity/captures/CP003/runtime-trace.csv"
+  ],
+  "runtime_observation_gate": {
+    "status": "human_pending",
+    "required_observations": [
+      "Neutral riding places both feet and the character mass correctly over the retail board.",
+      "A tapped hard push reads as one complete whole-body push; a held push repeats contact/cycle without replaying Into.",
+      "Carving blends progressively through the extracted HCOM leaves while the deck leans and all wheel contacts remain grounded.",
+      "Footbrake uses the full moving brake pose, begins meaningful deceleration after the lead-in, transitions into the standing brake at a stop, and exits cleanly.",
+      "Only a steep down/side left-stick diagonal enters a powerslide; pure side and 45-degree diagonal inputs remain carves.",
+      "The frontside/backside powerslide and 000/090/180 out transitions read as the extracted retail motion without a pose snap.",
+      "After three seconds stationary with no input, the extracted long stationary idle plays with both feet registered."
+    ]
+  },
+  "human_checks": [
+    "Tap Space once from rest, then hold Space through two pushes and release. Check for the full torso/arm movement and no ghost loop.",
+    "Push once, hold A and then D separately. Check progressive left/right HCOM blending, correct deck lean direction, level spinning wheels, and planted tyres.",
+    "While rolling, hold B through a complete stop, keep holding briefly, then release. Check moving brake, transition-to-stand, stand-cycle, and stand-out.",
+    "Push once, then hold S+D. Repeat with S+A. Check frontside/backside powerslide entry and release; verify A/D alone and an approximately 45-degree diagonal do not slide.",
+    "Press R, release every input, and wait just over three seconds. Check the long stationary idle and foot/board registration.",
+    "Repeat carve, brake, and powerslide once with a controller using Xbox A, B, and the left stick."
+  ],
+  "known_scoped_unknowns": [
+    "ApplyingBodyTilt's update order is recovered, but body_tilt_ground_clamp_vel and body_tilt_ground_clamp_acc live attribute values are not present in the static snapshot; the current values remain explicitly calibrated candidates.",
+    "SetTurning::Reshape is recovered as vectorized executable math, but its complete runtime attribute inputs and final animation-channel matrices still need a matched retail matrix capture.",
+    "The exact LSP/HSP animation-selector boundary is unresolved; 4.25 m/s currently changes authored pose selection only and does not affect physics.",
+    "Powerslide earlyout/midout animation-attribute windows and the exact PowerSlideSpin 000/090/180 selector need a retail attribute trace; the current out leaf is selected by the nearest recovered authored rotation family.",
+    "Difficulty, truck tightness, wheel hardness, surface material, slopes, pumping, kickturn/revert, switch stance, and camera behavior are not part of this flat-ground checkpoint."
+  ]
+}

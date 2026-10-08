@@ -1,0 +1,35 @@
+[
+  {
+    "label": "settle",
+    "frames": 20,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "hold_nose_center",
+    "frames": 30,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 32767
+  },
+  {
+    "label": "release",
+    "frames": 20,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  }
+]

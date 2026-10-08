@@ -1,0 +1,15 @@
+dofile("env.lua") TEST.open("debug")
+local function wait(s) local t = os.clock() + s while os.clock() < t do end end
+skategm.Load(TEST.data, 0, 0, 0, 0) wait(0.2)
+skategm.Activate(0, 0, 0, 0) wait(0.1)
+for i = 1, 20 do skategm.Step(1/60, false, 0x1000, 0,0,0,0,0,0) end wait(0.1)
+skategm.Step(1/60, false, 0xFFFF, 0,0,0,0,0,0) wait(0.2)
+for i = 1, 20 do skategm.Step(1/60, false, 0x1000, 0,0,0,0,0,0) end wait(0.2)
+local p = skategm.Poll()
+print("half-finished tick: cleaned up and carried on:", p.status == "active" and p.recovered == 1 and "OK" or ("<-- WRONG " .. tostring(p.status) .. " " .. tostring(p.error)))
+local t0 = p.tick
+skategm.Step(1/60, false, 0xFFFE, 0,0,0,0,0,0) wait(0.5)
+for i = 1, 20 do skategm.Step(1/60, false, 0x1000, 0,0,0,0,0,0) end wait(0.3)
+p = skategm.Poll()
+print("broken beyond cleanup: engine restarted, still skating:", p.status == "active" and p.recovered == 2 and (p.warning or ""):find("restarted") and "OK" or ("<-- WRONG " .. tostring(p.status) .. " | " .. tostring(p.error) .. " | " .. tostring(p.warning)))
+skategm.Stop()

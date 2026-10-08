@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "version": "v0.1.0-preview.18",
+  "release_url": "https://github.com/SK8-ENGINE/SK8-Engine/releases/tag/v0.1.0-preview.18",
+  "asset_name": "Skate3CustomEngineLayer-0.1.0-preview.18-Windows.zip",
+  "asset_bytes": 78845342,
+  "sha256": "7344335da0cca6831c6a0f2c7695f1508f51424bae79f5e88be664c16c66738c",
+  "pristine_executable_sha256": "485A7C649137C5D51EE7E5E3D1C3BC2EE18499501FA548FAF2AA432F30079999",
+  "first_run_icon_patched_executable_sha256": "4D5234B2297FA7F1E02808CE2780AD37C960E4DA6D26AE5004591CBA91FE6904",
+  "executable_note": "Preview 18 performs a documented one-time Explorer icon patch using the game's own art; both executable hashes are accepted while the release ZIP remains the official authority.",
+  "local_verification": "exact size and SHA-256 match the official published asset",
+  "clean_install": "C:\\Users\\Daddy\\Documents\\SK8-Engine-v0.1.0-preview.18-official\\Skate3CustomEngineLayer-0.1.0-preview.18-Windows",
+  "package_format": "SKATE v15"
+}

@@ -1,0 +1,68 @@
+[
+  {
+    "label": "settle",
+    "frames": 20,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "360_flip_windup",
+    "frames": 30,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": -31644,
+    "ry": -8801
+  },
+  {
+    "label": "360_flip_arc_2",
+    "frames": 1,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": -16290,
+    "ry": -27524
+  },
+  {
+    "label": "360_flip_arc_3",
+    "frames": 1,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": -5898,
+    "ry": -32112
+  },
+  {
+    "label": "360_flip_release",
+    "frames": 1,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 29772,
+    "ry": 13294
+  },
+  {
+    "label": "recover",
+    "frames": 100,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  }
+]

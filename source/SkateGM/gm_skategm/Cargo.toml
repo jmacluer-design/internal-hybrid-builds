@@ -1,0 +1,35 @@
+[package]
+name = "gm_skategm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+description = "Garry's Mod binary module that runs the Skate 3 simulation (skate-host) in-process"
+
+[lib]
+# gmcl_<name>_win64.dll in garrysmod/lua/bin, loaded with require("skategm")
+name = "gmcl_skategm_win64"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["engine"]
+# The real Skate 3 simulation. Build with --no-default-features for a stand-in
+# that fakes a skater, to test the Lua side without the engine or game data.
+engine = ["dep:skate-host"]
+
+[dependencies]
+
+# The engine, in this repo (engine/): from 2010 Rust Rewrite Mashup's
+# skate/crates (Apache-2.0), with our changes; see engine/README.md
+skate-host = { path = "../engine/crates/skate-host", optional = true }
+
+# Source map parsing (MIT) and the math types the rail finder uses (same glam as Bevy's)
+vbsp = "0.9.1"
+lzma-rs = "0.3.0"
+serde_json = "1.0.151" # reading Skate 3's English language table, if present   # same version vbsp uses; for reading raw (compressed) lumps
+glam = "0.32.1"
+
+[profile.release]
+opt-level = 3
+debug = 1          # symbols, so crash reports are readable
+panic = "unwind"   # panics are caught at the Lua boundary and on the worker

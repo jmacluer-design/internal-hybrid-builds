@@ -1,0 +1,48 @@
+/target/
+/.idea/
+/.vscode/
+
+# Locally extracted proprietary Skate 3 assets. Never commit or publish these.
+/assets/private/
+/work/private-assets/
+/artifacts/
+/runtime/
+
+# User-supplied Xbox 360 game data. The public repository is source-only.
+*.iso
+*.xex
+*.xexp
+*.abin
+*.rx2
+*.big
+
+# Blender recovery files.
+*.blend1
+
+# Python interpreter caches.
+__pycache__/
+*.py[cod]
+
+# Generated parity sessions and captures. Replays, fixtures, checkpoints,
+# shared maps, and harness source remain tracked.
+/parity/captures/
+/parity/dual-runs/
+/parity/oracle-runs/
+/parity/runs/
+/parity/validation/
+
+# The work directory contains large IDA databases, temporary builds, logs,
+# exported media, and telemetry. Keep only lightweight root-level research
+# inputs/scripts under version control.
+/work/*
+!/work/*.json
+!/work/*.md
+!/work/*.py
+!/work/*.txt
+/work/*.stderr.txt
+/work/*.stdout.txt
+
+# Per-feature visual launchers are committed by Codex worktree tasks, but
+# their runtime logs remain local.
+*.stdout.log
+*.stderr.log

@@ -1,0 +1,43 @@
+[
+  {
+    "label": "spawn_settle",
+    "frames": 300
+  },
+  {
+    "label": "dismount_y",
+    "buttons": 32768,
+    "frames": 6
+  },
+  {
+    "label": "dismount_settle",
+    "frames": 180
+  },
+  {
+    "label": "walk_half_stick",
+    "ly": 12000,
+    "frames": 150
+  },
+  {
+    "label": "walk_stop",
+    "frames": 100
+  },
+  {
+    "label": "run_full_stick",
+    "ly": 32767,
+    "frames": 180
+  },
+  {
+    "label": "run_stop",
+    "frames": 100
+  },
+  {
+    "label": "sprint_a_full_stick",
+    "buttons": 4096,
+    "ly": 32767,
+    "frames": 210
+  },
+  {
+    "label": "sprint_stop",
+    "frames": 100
+  }
+]

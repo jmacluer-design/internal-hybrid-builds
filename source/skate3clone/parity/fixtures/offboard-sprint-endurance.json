@@ -1,0 +1,21 @@
+[
+  {
+    "label": "dismount_y",
+    "buttons": 32768,
+    "frames": 6
+  },
+  {
+    "label": "dismount_settle",
+    "frames": 180
+  },
+  {
+    "label": "sprint_full",
+    "buttons": 4096,
+    "ly": 32767,
+    "frames": 900
+  },
+  {
+    "label": "sprint_stop",
+    "frames": 180
+  }
+]

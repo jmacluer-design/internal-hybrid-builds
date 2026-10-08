@@ -1,0 +1,48 @@
+[package]
+name = "er-mario"
+version = "0.4.1"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[lib]
+name = "er_mario"
+crate-type = ["cdylib"]
+
+[dependencies]
+eldenring = { git = "https://github.com/vswarte/fromsoftware-rs", rev = "59fbd3b3b7daaf14aca47c9f73530493dba6bc79" }
+fromsoftware-shared = { git = "https://github.com/vswarte/fromsoftware-rs", rev = "59fbd3b3b7daaf14aca47c9f73530493dba6bc79" }
+glam = "0.30"
+cpal = "0.15"
+ilhook = { version = "2.3.0", features = ["x64"] }
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_Input_XboxController",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Console",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Kernel",
+    "Win32_Networking_WinHttp",
+] }
+num-bigint = "0.4"
+aes = "0.8"
+base64 = "0.22"
+texpresso = "2"
+pelite = "0.10"
+png = "0.17"
+hudhook = "0.9.3"
+
+[build-dependencies]
+cc = "1"
+
+[profile.release]
+panic = "unwind"
+
+# patched for renderers MinHook can't hook (CrossOver on a Mac): see vendor/hudhook/src/hooks/dx12.rs
+[patch.crates-io]
+hudhook = { path = "vendor/hudhook" }

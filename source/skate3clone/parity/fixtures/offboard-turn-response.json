@@ -1,0 +1,8 @@
+[
+  { "label": "spawn_settle", "frames": 300 },
+  { "label": "dismount_y", "buttons": 32768, "frames": 6 },
+  { "label": "dismount_settle", "frames": 180 },
+  { "label": "run_forward", "ly": 32767, "frames": 120 },
+  { "label": "run_forward_right", "lx": 23170, "ly": 23170, "frames": 120 },
+  { "label": "stop", "frames": 90 }
+]

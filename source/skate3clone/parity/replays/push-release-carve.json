@@ -1,0 +1,46 @@
+[
+  {
+    "label": "settle",
+    "frames": 120,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "push_while_carving",
+    "frames": 6,
+    "buttons": 4096,
+    "lt": 0,
+    "rt": 0,
+    "lx": -20000,
+    "ly": 26000,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "release_push_keep_carving",
+    "frames": 150,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": -20000,
+    "ly": 26000,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "center",
+    "frames": 60,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 26000,
+    "rx": 0,
+    "ry": 0
+  }
+]

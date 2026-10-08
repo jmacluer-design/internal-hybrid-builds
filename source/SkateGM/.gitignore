@@ -1,0 +1,30 @@
+# build output
+gm_skategm/target/
+gm_skategm/build/rwrap.exe
+# local harness settings (SK8_DATA, SK8_MAPS...)
+harness/local.env
+# harness output and generated test scenes
+harness/results/
+harness/synth_*/
+# harness: test builds and map content extracted from .bsp files
+harness/dlls/
+harness/pak/
+harness/pak_*/
+# release zips and older DLL copies
+release/
+gm_skategm/prebuilt/*_5.*.dll
+
+# built engine module: not ours to distribute in the repo (build it, or get it from a release)
+gm_skategm/prebuilt/*.dll
+# SDL2 and the controller database (tools/fetch_sdl.py)
+gm_skategm/prebuilt/*.txt
+
+# exporter build products
+exporter/tools/asset_pipeline/refpack.dll
+__pycache__/
+.build/
+harness/vc_chunks/
+
+# warehouse compile output (the .bsp ships from addon/skategm/maps)
+maps/src/*
+!maps/src/*.vmf

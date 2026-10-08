@@ -1,0 +1,17 @@
+[
+  {
+    "label": "settle",
+    "frames": 60,
+    "buttons": 0
+  },
+  {
+    "label": "mongo_push_hold_1f",
+    "frames": 1,
+    "buttons": 16384
+  },
+  {
+    "label": "release",
+    "frames": 180,
+    "buttons": 0
+  }
+]

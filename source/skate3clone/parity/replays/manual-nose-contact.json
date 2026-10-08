@@ -1,0 +1,10 @@
+[
+  { "polls": 30, "buttons": 0, "rx": 0, "ry": 0, "bevy_rx": 0.0, "bevy_ry": 0.0 },
+  { "polls": 6, "buttons": 4096, "rx": 0, "ry": 0, "bevy_rx": 0.0, "bevy_ry": 0.0 },
+  { "polls": 90, "buttons": 0, "rx": 0, "ry": 0, "bevy_rx": 0.0, "bevy_ry": 0.0 },
+  { "polls": 100, "buttons": 0, "rx": 0, "ry": 24575, "bevy_rx": 0.0, "bevy_ry": 0.71428573 },
+  { "polls": 12, "buttons": 0, "rx": 0, "ry": 28671, "bevy_rx": 0.0, "bevy_ry": 0.89285713 },
+  { "polls": 60, "buttons": 0, "rx": 0, "ry": 32767, "bevy_rx": 0.0, "bevy_ry": 1.0 },
+  { "polls": 24, "buttons": 0, "rx": 0, "ry": 24575, "bevy_rx": 0.0, "bevy_ry": 0.71428573 },
+  { "polls": 60, "buttons": 0, "rx": 0, "ry": 0, "bevy_rx": 0.0, "bevy_ry": 0.0 }
+]

@@ -1,0 +1,101 @@
+[
+  {
+    "label": "settle",
+    "frames": 20,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "push_1",
+    "frames": 6,
+    "buttons": 4096,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "recover_1",
+    "frames": 50,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "push_2",
+    "frames": 6,
+    "buttons": 4096,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "recover_2",
+    "frames": 50,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "ollie_anticipation",
+    "frames": 6,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": -32768
+  },
+  {
+    "label": "ollie_flick",
+    "frames": 4,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 32767,
+    "rx": 0,
+    "ry": 32767
+  },
+  {
+    "label": "preair_plus_06_spin_frames",
+    "frames": 20,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 32767,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  },
+  {
+    "label": "release_through_landing",
+    "frames": 74,
+    "buttons": 0,
+    "lt": 0,
+    "rt": 0,
+    "lx": 0,
+    "ly": 0,
+    "rx": 0,
+    "ry": 0
+  }
+]

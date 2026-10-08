@@ -1,0 +1,8 @@
+; Import library for the `xinput` link name: point it at xinput1_4.dll, which
+; every Windows 10/11 PC has (MinGW's own libxinput.a targets the old
+; DirectX-2010-runtime xinput1_3.dll, which many PCs lack). MSVC's xinput.lib
+; already resolves to xinput1_4.dll, so this only matters for MinGW builds.
+LIBRARY xinput1_4.dll
+EXPORTS
+XInputGetState
+XInputGetCapabilities

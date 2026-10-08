@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>internal hybrid builds</title>
+<style>
+ html,body{margin:0;background:#07060e;color:#dde;font-family:ui-monospace,monospace;}
+ *{box-sizing:border-box;}
+ .wrap{display:flex;flex-direction:column;gap:12px;padding:16px 18px;}
+ .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+ .k{font-size:11px;letter-spacing:1px;color:var(--muted-foreground);text-transform:uppercase;margin:0 0 8px;}
+ .row{display:flex;gap:10px;flex-wrap:wrap;}
+ .tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;
+       display:flex;flex-direction:column;gap:6px;min-width:180px;}
+ .tile:hover{border-color:var(--accent);}
+ .tile .t{font-size:16px;font-weight:700;color:var(--foreground);}
+ .tile .d{font-size:11px;color:var(--muted-foreground);line-height:1.5;}
+ .big{font-size:22px;font-weight:700;}
+ .save{background:var(--accent);color:var(--card);border:1px solid var(--accent);border-radius:8px;
+       padding:8px 12px;font-size:12px;cursor:pointer;}
+</style></head><body>
+<div class="wrap">
+  <div class="card">
+    <div class="k">internal hybrid builds · shelf</div>
+    <div class="big" id="shelf">…</div>
+  </div>
+  <div class="card">
+    <div class="k">Select a build</div>
+    <div class="row" id="tiles"></div>
+  </div>
+</div>
+<script>
+const API = location.origin;
+const games = [
+ {id:'neondrift', name:'NEONDRIFT', desc:'synthwave hover-skiff runner · rings, shards, boost', file:'games/neondrift.html'},
+ {id:'blockshot', name:'BLOCKSHOT', desc:'MW2 × Minecraft × SM64 × Skate3 hybrid · shoot, build, grind', file:'games/blockshot.html'},
+];
+function loadSaves(){ fetch(API+'/api/saves').then(r=>r.json()).then(s=>{ window.__SAVES=s;
+  document.getElementById('shelf').textContent =
+    Object.keys(s||{}).filter(k=>Object.keys(s[k]||{}).length).map(k=>k+' · '+(s[k].best?('best '+s[k].best):'saved')).join('  |  ') || 'no saves yet';
+  const t=document.getElementById('tiles'); t.innerHTML='';
+  games.forEach(g=>{ const s2=(s||{})[g.id]||{};
+    const d=document.createElement('div'); d.className='tile';
+    d.innerHTML='<div class="t">'+g.name+'</div><div class="d">'+g.desc+'</div>'+
+      '<div class="d">'+(s2.best?('best '+s2.best):(s2.score?('run '+s2.score):'no save'))+'</div>';
+    d.dataset.file=g.file; d.dataset.id=g.id; t.appendChild(d);
+  });
+});}
+loadSaves();
+document.querySelectorAll('.tile').forEach(t=>t.addEventListener('click',()=>{
+  const f=t.dataset.file, id=t.dataset.id;
+  window.__launch=id;
+  const w=window.open(f,'_hermes','');
+  if(!w) alert('popup blocked — open '+f+' manually');
+}));
+</script>
+</body></html>

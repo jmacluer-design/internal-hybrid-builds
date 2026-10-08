@@ -1,0 +1,50 @@
+name: Collision regression and Windows build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Import public model source (no ROM)
+        working-directory: libsm64
+        run: python import-mario-geo.py
+      - name: Test collision and build Windows DLL
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\Program Files\LLVM\bin;$env:PATH"
+          $env:CC_x86_64_pc_windows_msvc = 'clang-cl'
+          rustc --edition=2024 --test src/collision_geometry.rs -o collision_geometry_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./collision_geometry_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustc --edition=2024 --test src/throw_collision.rs -o throw_collision_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./throw_collision_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          clang-cl /Gy /Ilibsm64/src /Ilibsm64/src/decomp/include /Ishim /DGBI_FLOATS /DVERSION_US tests/collision_platforms.c libsm64/src/load_surfaces.c libsm64/src/decomp/engine/surface_collision.c libsm64/src/decomp/game/platform_displacement.c libsm64/src/decomp/engine/math_util.c libsm64/src/decomp/engine/guMtxF2L.c /Fe:collision_platforms_tests.exe /link /OPT:REF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./collision_platforms_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          clang-cl /Gy /Ilibsm64/src /Ilibsm64/src/decomp/include /Ishim /DGBI_FLOATS /DVERSION_US tests/floor_seam.c libsm64/src/er_floor_seam.c libsm64/src/load_surfaces.c libsm64/src/decomp/engine/surface_collision.c libsm64/src/decomp/engine/math_util.c libsm64/src/decomp/engine/guMtxF2L.c /Fe:floor_seam_tests.exe /link /OPT:REF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./floor_seam_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --locked --release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

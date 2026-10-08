@@ -1,0 +1,12 @@
+[
+  {
+    "label": "dismount_y",
+    "buttons": 32768,
+    "frames": 1
+  },
+  {
+    "label": "dismount_release",
+    "buttons": 0,
+    "frames": 149
+  }
+]

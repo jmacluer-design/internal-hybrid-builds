@@ -1,0 +1,17 @@
+{
+  "checkpoint": "CP003-flat-ground-onboard-locomotion",
+  "status": "pending",
+  "run_manifest": "parity/runs/CP003-flat-ground-onboard-locomotion/20260830T193348759Z/run-manifest.json",
+  "verified_by": null,
+  "verified_at": null,
+  "observations": [],
+  "media": [
+    "parity/captures/CP003/01_idle_riding.png",
+    "parity/captures/CP003/02_hard_push_contact.png",
+    "parity/captures/CP003/03_carve.png",
+    "parity/captures/CP003/04_moving_brake.png",
+    "parity/captures/CP003/05_powerslide.png",
+    "parity/captures/CP003/06_powerslide_out.png",
+    "parity/captures/CP003/07_random_idle.png"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+ "$schema":"https://json-schema.org/draft/2020-12/schema",
+ "$id":"https://bailo167.github.io/awesome-game-mashups/data/projects.schema.json",
+ "title":"Awesome Game Mashups catalogue v2",
+ "type":"array","minItems":1,
+ "$defs":{
+  "text":{"type":"string","minLength":1},
+  "nullable":{"type":["string","null"]},
+  "date":{"type":["string","null"],"format":"date"},
+  "url":{"type":["string","null"],"format":"uri","pattern":"^https?://"},
+  "strings":{"type":"array","items":{"$ref":"#/$defs/text"},"uniqueItems":true}
+ },
+ "items":{
+  "type":"object",
+  "required":["id","name","summary","description","host","guest","creator","category","status","added_at","reviewed_at","review_basis","platforms","playtest","extra_links"],
+  "additionalProperties":false,
+  "properties":{
+   "id":{"type":"string","pattern":"^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+   "name":{"$ref":"#/$defs/text"},"summary":{"$ref":"#/$defs/text"},"description":{"$ref":"#/$defs/text"},"host":{"$ref":"#/$defs/text"},
+   "creator":{"$ref":"#/$defs/nullable"},"approach":{"$ref":"#/$defs/nullable"},"requirements":{"$ref":"#/$defs/nullable"},"scope_note":{"$ref":"#/$defs/nullable"},"review_note":{"$ref":"#/$defs/nullable"},"license":{"$ref":"#/$defs/nullable"},"notes":{"$ref":"#/$defs/nullable"},"first_seen":{"$ref":"#/$defs/nullable"},"last_activity":{"$ref":"#/$defs/nullable"},"latest_release":{"$ref":"#/$defs/nullable"},"ai_assistance":{"$ref":"#/$defs/nullable"},
+   "guest":{"$ref":"#/$defs/strings"},"platforms":{"$ref":"#/$defs/strings"},"aliases":{"$ref":"#/$defs/strings"},
+   "added_at":{"$ref":"#/$defs/date"},"reviewed_at":{"$ref":"#/$defs/date"},
+   "source":{"$ref":"#/$defs/url"},"release":{"$ref":"#/$defs/url"},"media":{"$ref":"#/$defs/url"},"creator_post":{"$ref":"#/$defs/url"},"project_page":{"$ref":"#/$defs/url"},"verification":{"$ref":"#/$defs/url"},"latest_update":{"$ref":"#/$defs/url"},"discussion":{"$ref":"#/$defs/url"},"creator_url":{"$ref":"#/$defs/url"},
+   "category":{"enum":["core","watchlist","adjacent"]},
+   "review_basis":{"enum":["legacy-record","primary-source-review","creator-confirmation","playtest"]},
+   "status":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["released","source-available","experimental","verified-wip","tech-demo","video-only","unverified","adjacent","archived","dead"]}},
+   "extra_links":{"type":"array","items":{"type":"object","required":["label","url"],"properties":{"label":{"$ref":"#/$defs/text"},"url":{"type":"string","pattern":"^https?://"}},"additionalProperties":false}},
+   "playtest":{"type":["object","null"],"required":["date","version","platform","evidence"],"properties":{"date":{"type":"string","format":"date"},"version":{"$ref":"#/$defs/text"},"platform":{"$ref":"#/$defs/text"},"evidence":{"$ref":"#/$defs/text"}}}
+  }
+ },
+ "$comment":"scripts/catalogue.py also enforces cross-record uniqueness, safe URLs and evidence/status constraints."
+}

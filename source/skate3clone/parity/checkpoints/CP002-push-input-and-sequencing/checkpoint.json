@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "id": "CP002-push-input-and-sequencing",
+  "title": "Tap/hold push intent and authored push sequencing",
+  "status": "candidate",
+  "scope": [
+    "regular and mongo push tap input",
+    "regular and mongo held push input",
+    "PushStart, PushContact, PushCycle, and PushEnd leaf sequencing",
+    "native 60 Hz hard-push playback speed",
+    "single active sequence leaf with no stale animation loop"
+  ],
+  "retail_evidence": [
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/reverse-engineering/VerifyCustomAnimation/data/state/MotionGraphIncludes/Push.xml",
+      "claim": "PushStart transitions at WillExpire 0.01; CYC1/CYC2 use transType sequence; PushCycle returns to PushContact; PushEnd blends for 0.2 seconds and exits at WillExpire 0.1."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/research/animation/Skate3Extracted/data/anim/OnBoard.abin",
+      "claim": "Authoritative 60 Hz full-skeleton push leaves, including the hard-strength branches."
+    },
+    {
+      "kind": "retail_static",
+      "path": "C:/Users/Daddy/Documents/Skate3Research/release-validation/generated-tu-patch-failed/skate3_recomp.72.cpp",
+      "claim": "PushCycle::Begin and PushCycle::Update preserve push intent state and distinguish continuing/new push intent from release."
+    },
+    {
+      "kind": "derived_exact",
+      "path": "work/private-assets/skater_push_source.validation.json",
+      "claim": "The regular low-speed hard push exports 41 INTO, 13 CYC1, and 55 CYC2 samples at native 60 Hz with full-skeleton matrix validation."
+    }
+  ],
+  "machine_gates": {
+    "maximum_board_horizontal_travel_metres": 0.00005,
+    "maximum_export_toe_target_vector_error_metres": 0.00005,
+    "authored_push_playback_speed": 1.0,
+    "regular_low_speed_hard_push_frames": {
+      "into": 41,
+      "contact": 13,
+      "cycle": 55,
+      "out": 21
+    },
+    "cargo_tests_must_pass": true,
+    "cargo_check_must_pass": true
+  },
+  "runtime_observation_gate": {
+    "status": "human_pending",
+    "required_observations": [
+      "A tap produces one complete hard push and never a ghost second loop.",
+      "Holding push repeats CYC1/CYC2 without replaying INTO.",
+      "Releasing held push reaches PushEnd cleanly.",
+      "The 55-frame CYC2 reads as the extracted whole-body hard push."
+    ]
+  },
+  "human_checks": [
+    "Tap Space once from idle: one complete regular hard push plays, including torso and arm motion, then returns to riding.",
+    "Hold Space: the rider continues pushing without replaying PushStart; release and verify a clean PushEnd.",
+    "Repeat the same tap and hold checks with Left Shift for mongo.",
+    "Rapidly tap push and verify no older INTO/CYC leaf keeps playing underneath the current leaf."
+  ],
+  "known_out_of_scope_unknowns": [
+    "The exact runtime ComputeRepushDeadline value and the frame-level BreakOutOfPush release threshold still require a retail runtime capture.",
+    "The exact transitionUnder/applyPosture contribution from the riding graph still requires final-matrix comparison against the retail runtime."
+  ]
+}

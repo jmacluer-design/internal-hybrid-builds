@@ -1,0 +1,77 @@
+name: Suggest a game mashup
+description: Submit your own project or a substantial cross-game project you found
+title: "Project: "
+labels: [new-project, verification-needed]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks! Links and a short description are enough. Please do not attach game files, HAR exports or private messages."
+  - type: input
+    id: name
+    attributes:
+      label: Project name
+    validations:
+      required: true
+  - type: input
+    id: games
+    attributes:
+      label: Guest game and host game
+      placeholder: Minecraft inside ULTRAKILL
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: What is actually implemented?
+      description: Gameplay and systems, not just a title or a promotional claim.
+    validations:
+      required: true
+  - type: input
+    id: primary
+    attributes:
+      label: Primary project or source-code URL
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Release or installation URL
+  - type: input
+    id: demo
+    attributes:
+      label: Creator demo or gameplay URL
+      description: Linking does not grant permission to re-upload footage.
+  - type: input
+    id: creator
+    attributes:
+      label: Creator and your connection to the project
+      placeholder: I made this / contributor / found it online
+  - type: dropdown
+    id: status
+    attributes:
+      label: Best-supported availability
+      options:
+        - Released or playable download
+        - Public source; build required
+        - Creator demo or WIP only
+        - Unconfirmed lead
+        - Related or borderline
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requirements and known limitations
+      description: Documented OS, exact game versions, loaders, owned game files and important bugs.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence, licence and corrections
+      description: Include primary evidence. State AI assistance only when documented; unknown is fine.
+  - type: checkboxes
+    id: rights
+    attributes:
+      label: Submission check
+      options:
+        - label: This submission does not include game assets, leaked code, credentials or private logs.
+          required: true
