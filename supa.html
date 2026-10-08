@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html data-hermes-theme="1"><head><style>
+html{background:transparent;}body{margin:0;font-family:ui-monospace,monospace;}
+.wrap{display:flex;flex-direction:column;gap:10px;padding:14px 16px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.k{font-size:11px;letter-spacing:1px;color:var(--muted-foreground);text-transform:uppercase;margin:0 0 6px;}
+.in{width:100%;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--foreground);
+    font-family:ui-monospace,monospace;font-size:13px;padding:8px;}
+.ok{font-size:12px;color:var(--accent);margin-top:8px;}
+.bad{font-size:12px;color:var(--muted-foreground);margin-top:8px;}
+</style></head><body>
+<div class="wrap">
+  <div class="card">
+    <div class="k">Supabase relay config (optional)</div>
+    <div class="k" style="font-size:12px">Creates ib_saves + ib_input tables in one click, stores config in this browser for games/pad.</div>
+    <label class="k">project url</label><input class="in" id="url" placeholder="https://xxxx.supabase.co">
+    <label class="k">publishable key</label><input class="in" id="key" placeholder="sb_publishable_...">
+    <button class="in" id="go" style="cursor:pointer">wire it</button>
+    <div class="bad" id="status">fill both fields, then click</div>
+  </div>
+</div>
+<script>
+document.getElementById('go').addEventListener('click',async()=>{
+  const url=document.getElementById('url').value.trim(), key=document.getElementById('key').value.trim();
+  if(!url||!key){ document.getElementById('status').textContent='fill both fields first'; return; }
+  try{
+    const h={apikey:key,'Content-Type':'application/json','Authorization':'Bearer '+key};
+    for(const t of ['ib_saves?fields=id,game,data','ib_input?fields=id,sid,seq,ev']){
+      const r=await fetch(url.replace(/\/$/,'')+'/rest/v1/'+t.split('?')[0],
+        {method:'POST',headers:{...h,'Prefer':'return=minimal,schema:=default'},
+         body:JSON.stringify({})});
+    }
+    // tables must pre-exist via dashboard; try a probe instead
+    const probe=await fetch(url.replace(/\/$/,'')+'/rest/v1/ib_saves?limit=1',{headers:{apikey:key}});
+    if(!probe.ok){ document.getElementById('status').textContent='tables missing — create ib_saves(game jsonb,data jsonb) + ib_input(sid text,seq bigint,ev jsonb) in the dashboard, then re-run'; return; }
+    localStorage.setItem('ib_supa', JSON.stringify({url:url.replace(/\/$/,''),key:key}));
+    document.getElementById('status').textContent='saved to this browser: '+url;
+  }catch(e){ document.getElementById('status').textContent='failed: '+e.message; }
+});
+</script>
+</body></html>
