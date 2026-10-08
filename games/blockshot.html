@@ -469,29 +469,42 @@ function tick(){
   requestAnimationFrame(tick);
 }
 tick();
-// shelf bridge: when served by internal-hybrid-builds, relay pad input + saves
+// shelf bridge v2: own server /api -> Supabase (if window.__SUPA set) -> localStorage
 (function(){
-  if (location.protocol === 'data:' || !/^https?:/.test(location.protocol)) return;
-  const ORIGIN = location.origin;
-  let cursor = 0;
-  const BRIDGE = { active:true };
-  window.__bridge = BRIDGE;
-  function poll(){
-    fetch(ORIGIN+'/api/input?sid=main&since='+cursor).then(r=>r.json()).then(d=>{
-      cursor = d.n;
-      d.ev.forEach(e=>{
-        if(e.type==='key'){ if(e.down) keys.add(e.k); else keys.delete(e.k); }
-        else if(e.type==='fire'){ fire(); }
-        else if(e.type==='place'){ placeBlock(); }
-        else if(e.type==='menu'){ state='menu'; document.getElementById('menu').classList.remove('hidden'); }
+  const GAME = window.__gameId || (window.__gameId = 'blockshot');
+  const SUPA = window.__SUPA || (()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
+  function saveSrv(data){
+    fetch('/api/save?game='+GAME,{method:'POST',body:JSON.stringify(data),
+      headers:{'Content-Type':'application/json'}}).catch(()=>{
+        if(SUPA){ fetch(SUPA.url+'/rest/v1/ib_saves?game=eq.'+GAME,
+          {method:'POST',headers:{'apikey':SUPA.key,'Content-Type':'application/json',
+           'Prefer':'resolution:merge'},body:JSON.stringify({game:GAME,data})}); }
+        else { const s=JSON.parse(localStorage.getItem('ib_saves')||'{}');
+               s[GAME]=Object.assign(s[GAME]||{},data); localStorage.setItem('ib_saves',JSON.stringify(s)); }
       });
-      setTimeout(poll, 120);
-    }).catch(()=> setTimeout(poll, 2000));
   }
+  window.__save = saveSrv;
+  if(!/^https?:/.test(location.protocol)) return; // data: standalone
+  let cursor = 0;
+  function poll(){
+    fetch('/api/input?sid=main&since='+cursor).then(r=>r.json()).then(d=>{
+      cursor = d.n; apply(d.ev); setTimeout(poll,120);
+    }).catch(()=>{
+      if(SUPA){ fetch(SUPA.url+'/rest/v1/ib_input?order=seq.asc&seq=gt.'+cursor,
+        {headers:{'apikey':SUPA.key}}).then(r=>r.json()).then(rows=>{
+          rows.forEach(r=>{ apply([r.ev]); cursor=Math.max(cursor,r.seq); });
+          setTimeout(poll,300);
+        }).catch(()=>setTimeout(poll,2000)); }
+      else setTimeout(poll,2000);
+    });
+  }
+  function apply(ev){ ev.forEach(e=>{
+    if(e.type==='key'){ if(e.down) keys.add(e.k); else keys.delete(e.k); }
+    else if(e.type==='fire'){ fire(); }
+    else if(e.type==='place'){ placeBlock(); }
+    else if(e.type==='menu'){ state='menu'; document.getElementById('menu').classList.remove('hidden'); }
+  }); }
   poll();
-  // save hook: games call window.__save({best:...}) ; also auto on death
-  window.__save = (data)=> fetch(ORIGIN+'/api/save?game='+window.__gameId,
-    {method:'POST',body:JSON.stringify(data),headers:{'Content-Type':'application/json'}});
 })();
 
 </script>

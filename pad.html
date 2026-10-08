@@ -27,9 +27,15 @@
 </div>
 <script>
 // phone = controller: stick drags -> key events; buttons -> key events; posts to /api/input
-const API=location.origin; let n=0;
-function send(ev){ fetch(API+'/api/input?sid=main',{method:'POST',body:JSON.stringify(ev),
-  headers:{'Content-Type':'application/json'}}); n++; }
+const API=location.origin; let n=0, seq=Date.now()*1e6;
+const SUPA=(()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
+function send(ev){
+  fetch(API+'/api/input?sid=main',{method:'POST',body:JSON.stringify(ev),headers:{'Content-Type':'application/json'}})
+   .catch(()=>{ if(SUPA){ seq++; fetch(SUPA.url+'/rest/v1/ib_input',
+      {method:'POST',headers:{'apikey':SUPA.key,'Content-Type':'application/json'},
+       body:JSON.stringify({sid:'main',seq:seq,ev:ev})}); } });
+  n++;
+}
 function key(k,down){ send({type:'key',k,down}); }
 const halves={L:document.getElementById('L'),R:document.getElementById('R')};
 const sticks={L:document.getElementById('stickL'),R:document.getElementById('stickR')};

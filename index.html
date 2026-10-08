@@ -28,21 +28,31 @@
 </div>
 <script>
 const API = location.origin;
+// save source: own server -> Supabase (localStorage ib_supa config) -> localStorage
+const SUPA = (()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
 const games = [
  {id:'neondrift', name:'NEONDRIFT', desc:'synthwave hover-skiff runner · rings, shards, boost', file:'games/neondrift.html'},
  {id:'blockshot', name:'BLOCKSHOT', desc:'MW2 × Minecraft × SM64 × Skate3 hybrid · shoot, build, grind', file:'games/blockshot.html'},
 ];
-function loadSaves(){ fetch(API+'/api/saves').then(r=>r.json()).then(s=>{ window.__SAVES=s;
-  document.getElementById('shelf').textContent =
-    Object.keys(s||{}).filter(k=>Object.keys(s[k]||{}).length).map(k=>k+' · '+(s[k].best?('best '+s[k].best):'saved')).join('  |  ') || 'no saves yet';
-  const t=document.getElementById('tiles'); t.innerHTML='';
-  games.forEach(g=>{ const s2=(s||{})[g.id]||{};
-    const d=document.createElement('div'); d.className='tile';
-    d.innerHTML='<div class="t">'+g.name+'</div><div class="d">'+g.desc+'</div>'+
-      '<div class="d">'+(s2.best?('best '+s2.best):(s2.score?('run '+s2.score):'no save'))+'</div>';
-    d.dataset.file=g.file; d.dataset.id=g.id; t.appendChild(d);
+function loadSaves(){
+  function done(s){ window.__SAVES=s;
+    document.getElementById('shelf').textContent =
+      Object.keys(s||{}).filter(k=>Object.keys(s[k]||{}).length).map(k=>k+' · '+(s[k].best?('best '+s[k].best):'saved')).join('  |  ') || 'no saves yet';
+    const t=document.getElementById('tiles'); t.innerHTML='';
+    games.forEach(g=>{ const s2=(s||{})[g.id]||{};
+      const d=document.createElement('div'); d.className='tile';
+      d.innerHTML='<div class="t">'+g.name+'</div><div class="d">'+g.desc+'</div>'+
+        '<div class="d">'+(s2.best?('best '+s2.best):(s2.score?('run '+s2.score):'no save'))+'</div>';
+      d.dataset.file=g.file; d.dataset.id=g.id; t.appendChild(d);
+    });
+  }
+  fetch(API+'/api/saves').then(r=>r.json()).then(done).catch(()=>{
+    if(SUPA){ fetch(SUPA.url+'/rest/v1/ib_saves?select=*',{headers:{'apikey':SUPA.key}})
+      .then(r=>r.json()).then(rows=>{ done(rows.reduce((a,r)=>{a[r.game]=r.data;return a;},{})); })
+      .catch(()=>done(JSON.parse(localStorage.getItem('ib_saves')||'{}'))); }
+    else done(JSON.parse(localStorage.getItem('ib_saves')||'{}'));
   });
-});}
+}
 loadSaves();
 document.querySelectorAll('.tile').forEach(t=>t.addEventListener('click',()=>{
   const f=t.dataset.file, id=t.dataset.id;
