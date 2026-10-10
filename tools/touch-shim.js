@@ -14,8 +14,11 @@
   const doc=document, win=window, nav=navigator;
   const clamp=(v,a,b)=>v<a?a:v>b?b:v;
   const call=(f,...a)=>{ if(typeof f==='function') f(...a); };
-  const gFire=v=>call(typeof padFire==='function'?padFire:null,v), gPlace=v=>call(typeof padPlace==='function'?padPlace:null,v);
-  const gLook=(x,y)=>call(typeof padLook==='function'?padLook:null,x,y), gMenu=()=>call(typeof padMenu==='function'?padMenu:null);
+  const cnt={fireDown:0,fireUp:0,placeDown:0,placeUp:0,look:0,menu:0}, lastLook=[0,0];   // exposed through __touch.state().calls (tests / debugging)
+  const gFire=v=>{ if(v) cnt.fireDown++; else cnt.fireUp++; call(typeof padFire==='function'?padFire:null,v); };
+  const gPlace=v=>{ if(v) cnt.placeDown++; else cnt.placeUp++; call(typeof padPlace==='function'?padPlace:null,v); };
+  const gLook=(x,y)=>{ cnt.look++; lastLook[0]=x; lastLook[1]=y; call(typeof padLook==='function'?padLook:null,x,y); };
+  const gMenu=()=>{ cnt.menu++; call(typeof padMenu==='function'?padMenu:null); };
 
   // ------------------------------------------------------------------ per-game profiles
   // button: {id,label,t:'key'|'fire'|'place',k,mode:'hold'|'toggle',side:'R'|'L',ring:1,big,drag,only}
@@ -260,8 +263,8 @@ html.ibt-active,html.ibt-active body{overscroll-behavior:none}
     const active=isActive(); gp=padPresent();
     const want=active&&!gp&&xrN===0&&!win.__xrPresenting&&playing();
     doc.documentElement.classList.toggle('ibt-active',active);
-    if(active&&!started){ started=true; fixViewport(); layout(); }
-    if(want!==vis){ vis=want; root.classList.toggle('on',vis);
+    if(active&&!started){ started=true; fixViewport(); noLock(); layout(); }
+    if(want!==vis){ vis=want; root.classList.toggle('on',vis); guard(vis);
       if(!vis){ releaseAll(); openPanel(false); }
       else { layout(); root.classList.remove('hint'); void root.offsetWidth; root.classList.add('hint'); clearTimeout(hintT); hintT=setTimeout(()=>root.classList.remove('hint'),5200); } }
     else if(vis&&modeName()!==uiMode){ releaseAll(); layout(); }       // game mode changed (parkcraft ride <-> build): relabel + re-slot
@@ -278,19 +281,24 @@ html.ibt-active,html.ibt-active body{overscroll-behavior:none}
     if(t!==goTgt){ goTgt=t; go.classList.toggle('on',!!t); if(t) go.textContent='\u25B6  '+(t.textContent||'START').trim().slice(0,28); }
   }
   go.addEventListener('click',()=>{ if(goTgt) goTgt.click(); });
+  // Pointer lock is for a mouse. While it is held, touch pointer events report clientX/Y = 0 (seen in Chromium), and a phone has no use for it, so on touch devices
+  // requestPointerLock becomes "denied": a pointerlockerror event, no promise. Every game already handles that (noLock / lockFailed): look comes from padLook, no pause-on-unlock.
+  let lockOff=false;
+  function noLock(){ if(lockOff) return; lockOff=true; try{ const P=Element.prototype, orig=P.requestPointerLock; if(!orig) return;
+    P.requestPointerLock=function(){ if(!isActive()) return orig.apply(this,arguments); setTimeout(()=>{ try{ doc.dispatchEvent(new Event('pointerlockerror',{bubbles:true})); }catch(e){} },0); }; }catch(e){} }
   function fixViewport(){ try{ let m=doc.querySelector('meta[name=viewport]'); if(!m){ m=doc.createElement('meta'); m.name='viewport'; m.content='width=device-width,initial-scale=1'; doc.head.appendChild(m); }
     if(!/user-scalable\s*=\s*(no|0)/.test(m.content)) m.content+=',user-scalable=no'; if(!/maximum-scale/.test(m.content)) m.content+=',maximum-scale=1'; }catch(e){} }
   function fullscreen(toggle){ try{ if(doc.fullscreenElement||doc.webkitFullscreenElement){ if(toggle&&doc.exitFullscreen) doc.exitFullscreen(); return; }
     const el=doc.documentElement, f=el.requestFullscreen||el.webkitRequestFullscreen; if(f){ const p=f.call(el,{navigationUI:'hide'}); if(p&&p.catch) p.catch(()=>{}); } }catch(e){} }
 
   // first touch marks the device as touch (shows the overlay on hybrid laptops) + one fullscreen request inside the user gesture
-  win.addEventListener('touchstart',()=>{ if(!sawTouch){ sawTouch=true; sync(); } },{capture:true,passive:true});
+  win.addEventListener('touchstart',()=>{ if(!sawTouch){ sawTouch=true; sync(); if(doc.pointerLockElement){ try{ doc.exitPointerLock(); }catch(e){} } } },{capture:true,passive:true});
   win.addEventListener('pointerup',e=>{ if(e.pointerType==='touch'&&!fsTried&&isActive()){ fsTried=true; fullscreen(false); } },true);
-  // no zoom / scroll / long-press menus while the controls are up
-  doc.addEventListener('contextmenu',e=>{ if(vis||panelOpen) e.preventDefault(); },true);
-  doc.addEventListener('selectstart',e=>{ if(vis) e.preventDefault(); },true);
-  ['gesturestart','gesturechange','gestureend'].forEach(t=>doc.addEventListener(t,e=>{ if(vis) e.preventDefault(); },{passive:false}));
-  doc.addEventListener('touchmove',e=>{ if(vis&&!(e.target.closest&&e.target.closest('.ibt-panel'))) e.preventDefault(); },{passive:false});
+  // no zoom / scroll / long-press menus while the controls are up (listeners exist only while visible, so menus keep native scrolling)
+  const onTM=e=>{ if(!(e.target.closest&&e.target.closest('.ibt-panel'))) e.preventDefault(); }, onStop=e=>{ e.preventDefault(); };
+  function guard(on){ const m=on?'addEventListener':'removeEventListener';
+    doc[m]('touchmove',onTM,{passive:false}); doc[m]('contextmenu',onStop,true); doc[m]('selectstart',onStop,true);
+    ['gesturestart','gesturechange','gestureend'].forEach(t=>doc[m](t,onStop,{passive:false})); }
   win.addEventListener('blur',releaseAll); doc.addEventListener('visibilitychange',()=>{ if(doc.hidden) releaseAll(); });
   win.addEventListener('gamepadconnected',sync); win.addEventListener('gamepaddisconnected',sync);
   win.addEventListener('resize',()=>{ if(started) layout(); sync(); }); win.addEventListener('orientationchange',()=>{ if(started) layout(); sync(); });
@@ -304,7 +312,7 @@ html.ibt-active,html.ibt-active body{overscroll-behavior:none}
 
   // ------------------------------------------------------------------ debug / test hook
   win.__touch={ version:1, profile:prof, settings:S,
-    state:()=>({ active:isActive(), visible:vis, gamepad:gp, xr:xrN, mode:uiMode, held:Object.keys(held).filter(k=>held[k]), stick:st.id!==null, look:lo.id!==null, panel:panelOpen, u, Rs, Rl, left:S.left }),
+    state:()=>({ active:isActive(), visible:vis, gamepad:gp, xr:xrN, mode:uiMode, held:Object.keys(held).filter(k=>held[k]), stick:st.id!==null, look:lo.id!==null, panel:panelOpen, u, Rs, Rl, left:S.left, calls:Object.assign({},cnt), lastLook:lastLook.slice() }),
     rects:()=>btns.filter(o=>o.shown).map(o=>{ const r=o.el.getBoundingClientRect(); return {id:o.b.id,label:o.lab,x:r.left,y:r.top,w:r.width,h:r.height}; }),
     set:(k,v)=>{ S[k]=v; saveS(); ctl.forEach(c=>c._sync()); layout(); }, force:on=>{ forced=!!on; sync(); }, refresh:sync, releaseAll };
   sync();
