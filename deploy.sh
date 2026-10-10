@@ -23,5 +23,6 @@ else
   while read -r g; do [ -z "$g" ] || [[ "$g" == \#* ]] || cp "games/$g" "$STAGE/public/games/$g"; done < games/live.txt
   cp functions/_middleware.js "$STAGE/functions/"
 fi
+sed -i "s/__BUILD__/$(date +%s)/" "$STAGE/public/index.html"
 cd "$STAGE"
 WRANGLER_SEND_METRICS=false npx --yes wrangler@3 pages deploy public --project-name "$PROJECT" --branch main --commit-dirty=true

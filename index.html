@@ -51,6 +51,7 @@ html,body{margin:0;background:var(--bg);color:var(--foreground);font-family:syst
 </div>
 <script>
 const API = location.origin;
+const BUILD = '__BUILD__'; // stamped by deploy.sh; busts edge caches so a new build never serves a stale copy
 const SUPA = (()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
 const games = [
  {id:'neondrift', name:'NEONDRIFT', desc:'synthwave hover-skiff runner · rings, shards, boost', file:'games/archive/neondrift.html', bytes:25729, archived:true},
@@ -69,8 +70,9 @@ function card(g, save){
   const play=document.createElement('button'); play.type='button'; play.textContent='Play artifact';
   play.dataset.artifactOpen='true';
   play.addEventListener('click',()=>{
-    const w=window.open(g.file,'_hermes','');
-    if(!w){ location.href=g.file; }
+    const url=g.file+'?v='+BUILD;
+    const w=window.open(url,'_hermes','');
+    if(!w){ location.href=url; }
   });
   actions.append(play);
   const technical=document.createElement('details'); technical.className='artifact-technical';
