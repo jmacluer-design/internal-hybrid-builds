@@ -19,10 +19,16 @@ Shallow clones live OUTSIDE this repo (never committed). Re-pull with e.g.
 | [KonstantinKolo/RiftBreakers](https://github.com/KonstantinKolo/RiftBreakers) | 7f80fe1 (2026-03-23) | MIT | Godot 4.5 3D action game: melee, patrol/chase AI, stamina bar, boss scripts (`scripts/`). 1.7 GB with assets |
 | [noidexe/top-down-action-rpg-template](https://github.com/noidexe/top-down-action-rpg-template) | 525d133 (2024-01-08) | MIT | Godot top-down ARPG template; author calls it a starting point, not a solid foundation |
 | [Reterics/another-try](https://github.com/Reterics/another-try) | 2be7017 (2025-12-08) | GPL-3.0 | three.js + Vite + Socket.IO multiplayer RPG skeleton (procedural terrain, chunk streaming, netcode). No combat yet |
+| [diasurgical/devilution](https://github.com/diasurgical/devilution) | 9f01757 (2025-09-15) | Sustainable Use (non-commercial only) | Reverse-engineered Diablo 1 source: `Source/items.cpp` (item/affix generation), `monster.cpp`, `missiles.cpp`, `spells.cpp`, `drlg_l1-l4.cpp` (dungeon generation), `quests.cpp`, `player.cpp`. Needs your own DIABDAT.MPQ to run |
+| [diasurgical/devilutionX](https://github.com/diasurgical/devilutionX) | bf574c9 (2026-10-08) | Sustainable Use (non-commercial only) | Modern SDL port of Diablo/Hellfire: engine cleanups, multi-platform build, `mods/hf`, tests |
+| [d07RiV/diabloweb](https://github.com/d07RiV/diabloweb) | c61ef19 (2022-05-17) | none found at repo root (verify before reuse) | Diablo 1 in the browser via WASM (built from the d07RiV/devilution fork); shareware `spawn.mpq` runs without your files, full game needs your own DIABDAT.MPQ uploaded locally |
+| [flareteam/flare-engine](https://github.com/flareteam/flare-engine) | 1969bae (2026-10-04) | GPL-3.0 (`COPYING`) | C++/SDL2 2D Diablo-style action RPG engine with INI-style moddable data; has an Emscripten HTML5 build |
+| [PathOfBuildingCommunity/PathOfBuilding](https://github.com/PathOfBuildingCommunity/PathOfBuilding) | 16de4b8 (2026-09-08) | MIT | PoE build planner (Lua): `src/TreeData` (passive tree), `src/Data` (gems, bases, bosses, mods), `src/Modules` (damage calc). 1.1 GB |
 
 ## Found, not pulled (verify before relying on)
 - Curated lists: [bobeff/open-source-games](https://github.com/bobeff/open-source-games) (Xonotic, Cube 2, Red Eclipse, Liblast, Surreal Engine, OpenGOAL, SRB2, OpenMW, Veloren, SuperTuxKart, Zelda TP decomp...)
 - GTA-style bases: OpenLiberty ([openfw-game](https://github.com/openfw-game), Godot, needs your GTA data), re3-gd, GTA7 (three.js vertical slice)
+- Diablo 2 / PoE: OpenDiablo2 (Go, GPL-3.0, archived 2021; successor [AbyssEngine](https://github.com/AbyssEngine), not playable), PoESkillTree (C#), poe-optimizer, poe2-toolkit (MIT, TypeScript passive-tree extraction), BYTEPATH (MIT arcade shooter with a huge skill tree). No open-source PoE clone game found.
 - Action-RPG candidates not pulled: Veloren (GPL-3.0, official source on GitLab), Loot Master (GPL-3.0, GitLab), OpenMW / Daggerfall Unity / OpenEnroth (engine remakes; large)
 - Swing prototype: GabrielGameDev/SpiderMan2DWebSwing (Unity, 2D; linked from its itch.io page, unopened)
 - No open-source repo found for: web-swing city traversal, Flick-It skating, colossus climbing.
