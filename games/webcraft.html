@@ -208,6 +208,8 @@
   </div>
 </div>
 
+<div id="loadsplash" class="overlay hidden" style="font-family:var(--mono);letter-spacing:.2em;color:var(--dim)"><div style="text-align:center"><div style="font-size:clamp(18px,4vmin,34px);color:#fff;font-weight:800;font-style:italic">BUILDING CITY...</div><div id="loadsplashMsg" style="margin-top:.8em;font-size:12px"></div></div></div>
+
 <div id="dead" class="overlay hidden">
   <div class="card">
     <h2 id="deadTitle" class="lose">TIME UP</h2>
@@ -298,7 +300,7 @@ const camera = new THREE.PerspectiveCamera(68, 1, 0.25, 2600);
 const SUN_DIR = new THREE.Vector3(-0.62, 0.30, 0.58).normalize();    // low, behind-left of the city's south-west: dusk
 scene.fog = new THREE.Fog(0xd9856f, 140, 900);
 
-let pixelCap = Math.min(2, window.devicePixelRatio || 1), pixelCur = HEADLESS ? pixelCap * 0.4 : pixelCap;     // devicePixelRatio capped at 2; adaptive scaler may lower pixelCur on slow GPUs
+let pixelCap = Math.min(2, window.devicePixelRatio || 1), pixelCur = HEADLESS ? pixelCap * 0.35 : pixelCap;     // devicePixelRatio capped at 2; adaptive scaler may lower pixelCur on slow GPUs
 function resize(){
   const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
   pixelCap = Math.min(2, window.devicePixelRatio || 1); pixelCur = Math.min(pixelCur, pixelCap);
@@ -406,19 +408,19 @@ const brickPattern = (c, R) => { for (let y = 0; y < TS; y += 8) { c.fillStyle =
 const concPattern = (c, R) => { pnoise(c, [139, 144, 151], 26, 4, R); for (let y = 0; y < TS; y += 64) { c.fillStyle = 'rgba(0,0,0,.22)'; c.fillRect(0, y, TS, 2); } };
 
 const PAINTERS = {
-  asphalt(c, e, R){ pnoise(c, [43, 45, 53], 20, 2, R); cellLines(c, 0.05);
+  asphalt(c, e, R){ pnoise(c, [43, 45, 53], 20, 4, R); cellLines(c, 0.05);
     for (let i = 0; i < 60; i++) { c.fillStyle = 'rgba(255,255,255,.05)'; c.fillRect(R() * TS | 0, R() * TS | 0, 2, 2); } },
   sidewalk(c, e, R){ pnoise(c, [152, 152, 160], 22, 4, R); c.fillStyle = 'rgba(0,0,0,.30)';
     for (let i = 0; i < TS; i += 32) { c.fillRect(i, 0, 2, TS); c.fillRect(0, i, TS, 2); } cellLines(c, 0.05); },
-  grass(c, e, R){ pnoise(c, [62, 126, 58], 34, 2, R);
+  grass(c, e, R){ pnoise(c, [62, 126, 58], 34, 4, R);
     for (let i = 0; i < 240; i++) { c.fillStyle = R() < .5 ? 'rgba(20,70,25,.5)' : 'rgba(120,190,90,.35)'; c.fillRect(R() * TS | 0, R() * TS | 0, 2, 4); } cellLines(c, 0.04); },
   plaza(c, e, R){ pnoise(c, [186, 178, 164], 18, 4, R);
     for (let y = 0; y < TS; y += 32) for (let x = 0; x < TS; x += 32) if (((x + y) / 32) & 1) { c.fillStyle = 'rgba(80,70,60,.18)'; c.fillRect(x, y, 32, 32); }
     cellLines(c, 0.05); },
-  dashx(c, e, R){ pnoise(c, [43, 45, 53], 18, 2, R); c.fillStyle = '#e8b83a'; for (let i = 0; i < TS; i += 16) c.fillRect(i, 6, 16, 4); cellLines(c, 0.04); },
-  dashz(c, e, R){ pnoise(c, [43, 45, 53], 18, 2, R); c.fillStyle = '#e8b83a'; for (let i = 0; i < TS; i += 16) c.fillRect(6, i, 4, 16); cellLines(c, 0.04); },
-  zebra(c, e, R){ pnoise(c, [205, 205, 208], 22, 2, R); cellLines(c, 0.08); },
-  roof(c, e, R){ pnoise(c, [78, 80, 88], 30, 2, R);
+  dashx(c, e, R){ pnoise(c, [43, 45, 53], 18, 4, R); c.fillStyle = '#e8b83a'; for (let i = 0; i < TS; i += 16) c.fillRect(i, 6, 16, 4); cellLines(c, 0.04); },
+  dashz(c, e, R){ pnoise(c, [43, 45, 53], 18, 4, R); c.fillStyle = '#e8b83a'; for (let i = 0; i < TS; i += 16) c.fillRect(6, i, 4, 16); cellLines(c, 0.04); },
+  zebra(c, e, R){ pnoise(c, [205, 205, 208], 22, 4, R); cellLines(c, 0.08); },
+  roof(c, e, R){ pnoise(c, [78, 80, 88], 30, 4, R);
     for (let i = 0; i < 260; i++) { c.fillStyle = 'rgba(200,200,210,.12)'; c.fillRect(R() * TS | 0, R() * TS | 0, 2, 2); }
     c.fillStyle = 'rgba(0,0,0,.28)'; for (let i = 0; i < TS; i += 64) { c.fillRect(i, 0, 2, TS); c.fillRect(0, i, TS, 2); } cellLines(c, 0.07); },
   under(c, e, R){ pnoise(c, [40, 42, 52], 14, 4, R); },
@@ -434,10 +436,10 @@ const PAINTERS = {
   f6(c, e, R){ facadePaint(c, e, R, { bg: '#d6dae0', pattern(c, R){ pnoise(c, [214, 218, 224], 12, 4, R); }, bx: 4, by: 2, wx: 0.2, wy: 0.3, ww: 3.6, wh: 1.1, frame: '#9aa1ab', glassA: '#4f78a0', glassB: '#2b4764', lit: 0.22, mull: 1 }); },
   f7(c, e, R){ facadePaint(c, e, R, { bg: '#c4896a', pattern(c, R){ pnoise(c, [196, 137, 106], 20, 4, R); }, bx: 2, by: 4, wx: 0.5, wy: 0.5, ww: 1, wh: 2.4, frame: '#ebcfae', glassA: '#2d3a4d', glassB: '#1a2230', lit: 0.38, litCols: ['#ffb347', '#ffc878', '#ffe0a0'] }); },
   metal(c, e, R){ pnoise(c, [128, 136, 148], 26, 4, R); c.fillStyle = 'rgba(0,0,0,.35)'; for (let i = 0; i < TS; i += 16) c.fillRect(i, 0, 1, TS); cellLines(c, 0.1); },
-  wood(c, e, R){ pnoise(c, [122, 84, 48], 22, 2, R); c.fillStyle = 'rgba(30,15,5,.4)'; for (let i = 0; i < TS; i += 8) c.fillRect(i, 0, 1, TS); },
+  wood(c, e, R){ pnoise(c, [122, 84, 48], 22, 4, R); c.fillStyle = 'rgba(30,15,5,.4)'; for (let i = 0; i < TS; i += 8) c.fillRect(i, 0, 1, TS); },
   hvac(c, e, R){ pnoise(c, [168, 174, 180], 20, 4, R); c.fillStyle = 'rgba(30,34,40,.55)'; for (let y = 3; y < TS; y += 16) for (let k = 0; k < 4; k++) c.fillRect(0, y + k * 3, TS, 1); cellLines(c, 0.14); },
-  trunk(c, e, R){ pnoise(c, [92, 61, 34], 24, 2, R); c.fillStyle = 'rgba(20,10,4,.4)'; for (let i = 0; i < TS; i += 6) c.fillRect(i, 0, 1, TS); },
-  leaf(c, e, R){ pnoise(c, [47, 122, 53], 52, 2, R); for (let i = 0; i < 160; i++) { c.fillStyle = 'rgba(255,170,190,.30)'; c.fillRect(R() * TS | 0, R() * TS | 0, 2, 2); } cellLines(c, 0.05); },
+  trunk(c, e, R){ pnoise(c, [92, 61, 34], 24, 4, R); c.fillStyle = 'rgba(20,10,4,.4)'; for (let i = 0; i < TS; i += 6) c.fillRect(i, 0, 1, TS); },
+  leaf(c, e, R){ pnoise(c, [47, 122, 53], 52, 4, R); for (let i = 0; i < 160; i++) { c.fillStyle = 'rgba(255,170,190,.30)'; c.fillRect(R() * TS | 0, R() * TS | 0, 2, 2); } cellLines(c, 0.05); },
   lampglow(c, e, R){ c.fillStyle = '#ffe9a8'; c.fillRect(0, 0, TS, TS); e.fillStyle = '#ffe9a8'; e.fillRect(0, 0, TS, TS); },
   car0(c){ c.fillStyle = '#b31d24'; c.fillRect(0, 0, TS, TS); cellLines(c, .1); },
   car1(c){ c.fillStyle = '#1f3f9a'; c.fillRect(0, 0, TS, TS); cellLines(c, .1); },
@@ -2218,6 +2220,9 @@ function drawSpeedLines(speed){
 const el = { timer: $('timer'), score: $('score'), bcnt: $('beaconCnt'), speed: $('speed'), bar: $('spdbar').firstElementChild, alt: $('alt'), arrow: $('arrow'), bdist: $('bdist'), bvert: $('bvert'),
   ret: $('reticle'), amark: $('anchorMark'), bmark: $('bmark'), timerBox: $('timerBox') };
 const _pv = new THREE.Vector3();
+const _last = Object.create(null);
+function setText(node, key, v){ if (_last[key] !== v) { _last[key] = v; node.textContent = v; } }
+function setStyle(node, key, prop, v){ if (_last[key] !== v) { _last[key] = v; node.style[prop] = v; } }
 let hudT = 0, mmT = 0, aimT = 0, lastRet = '';
 function updateHud(dt, rx, ry, rz){
   const w = window.innerWidth, h = window.innerHeight;
@@ -2234,22 +2239,22 @@ function updateHud(dt, rx, ry, rz){
     if (mark && !P.sw.on) { _pv.set(mark.x, mark.y, mark.z).project(camera); if (_pv.z < 1) { el.amark.style.opacity = '0.9'; el.amark.style.transform = 'translate(' + ((_pv.x * 0.5 + 0.5) * w) + 'px,' + ((-_pv.y * 0.5 + 0.5) * h) + 'px)'; el.amark.className = cls === 'ok' ? 'ok' : ''; } else el.amark.style.opacity = '0'; }
     else el.amark.style.opacity = '0';
   }
-  if (run.mode === 'run') { el.timer.textContent = run.timeLeft.toFixed(1); el.timer.classList.toggle('low', run.timeLeft < 10); $('timerLbl').textContent = 'TIME'; }
-  else { el.timer.textContent = fmtTime(run.t); el.timer.classList.remove('low'); $('timerLbl').textContent = 'FREE ROAM'; }
-  el.score.textContent = Math.floor(run.score).toLocaleString('en-US'); el.bcnt.textContent = 'BEACON ' + run.beacons + '/' + GAME.beacons;
-  el.speed.textContent = Math.round(P.speed); el.bar.style.width = clamp(P.speed / 80 * 100, 0, 100) + '%'; el.alt.textContent = 'ALT ' + Math.max(0, Math.round(pos[1] - HH - 1));
+  if (run.mode === 'run') { setText(el.timer, 'timer', run.timeLeft.toFixed(1)); if (_last.low !== (run.timeLeft < 10)) { _last.low = run.timeLeft < 10; el.timer.classList.toggle('low', _last.low); } setText($('timerLbl'), 'tl', 'TIME'); }
+  else { setText(el.timer, 'timer', fmtTime(run.t)); el.timer.classList.remove('low'); _last.low = false; setText($('timerLbl'), 'tl', 'FREE ROAM'); }
+  setText(el.score, 'score', Math.floor(run.score).toLocaleString('en-US')); setText(el.bcnt, 'bcnt', 'BEACON ' + run.beacons + '/' + GAME.beacons);
+  setText(el.speed, 'speed', String(Math.round(P.speed))); setStyle(el.bar, 'bar', 'width', Math.round(clamp(P.speed / 80 * 100, 0, 100)) + '%'); setText(el.alt, 'alt', 'ALT ' + Math.max(0, Math.round(pos[1] - HH - 1)));
   const b = beacons[beaconIdx];
   if (b) {
     const dx = b.x - rx, dy = b.y + 3.5 - ry, dz = b.z - rz, dh = Math.hypot(dx, dz), d3 = Math.hypot(dh, dy);
-    const rel = angDiff(cam.yaw, Math.atan2(-dx, -dz)); el.arrow.parentNode.style.transform = 'rotate(' + (-rel * 180 / Math.PI) + 'deg)'; el.arrow.style.transform = '';
-    el.bdist.textContent = Math.round(d3) + ' m'; el.bvert.textContent = dy > 6 ? '▲ ' + Math.round(dy) : dy < -6 ? '▼ ' + Math.round(-dy) : 'LEVEL';
+    const rel = angDiff(cam.yaw, Math.atan2(-dx, -dz)); setStyle(el.arrow.parentNode, 'arr', 'transform', 'rotate(' + (-Math.round(rel * 1800 / Math.PI) / 10) + 'deg)');
+    setText(el.bdist, 'bdist', Math.round(d3) + ' m'); setText(el.bvert, 'bvert', dy > 6 ? '\u25B2 ' + Math.round(dy) : dy < -6 ? '\u25BC ' + Math.round(-dy) : 'LEVEL');
     _pv.set(b.x, b.y + 6, b.z).project(camera);
     let sx = _pv.x, sy = _pv.y; if (_pv.z > 1) { sx = -sx; sy = -sy; }
     const inside = _pv.z < 1 && Math.abs(sx) < 0.92 && Math.abs(sy) < 0.88;
     if (!inside) { const m = Math.max(Math.abs(sx) / 0.92, Math.abs(sy) / 0.88, 0.001); sx /= m; sy /= m; }
     el.bmark.style.opacity = inside && d3 < 14 ? '0' : '0.95'; el.bmark.style.transform = 'translate(' + ((sx * 0.5 + 0.5) * w) + 'px,' + ((-sy * 0.5 + 0.5) * h) + 'px) scale(' + (inside ? 1 : 0.75) + ')';
   }
-  mmT -= dt; if (mmT <= 0) { mmT = 0.066; drawMinimap(rx, rz); }
+  mmT -= dt; if (mmT <= 0) { mmT = HEADLESS ? 0.5 : 0.066; drawMinimap(rx, rz); }
   drawSpeedLines(P.speed);
   if (flashA > 0) { flashA = Math.max(0, flashA - dt * 2.4); $('flash').style.opacity = flashA; }
 }
@@ -2308,7 +2313,8 @@ document.addEventListener('pointerlockchange', () => {
 });
 document.addEventListener('pointerlockerror', () => { locked = false; noLock = true; });
 function startGame(){
-  if (!ready) { pendingStart = true; $('cta').textContent = 'BUILDING CITY...'; return; }
+  if (!ready) { pendingStart = true; $('cta').textContent = 'BUILDING CITY...'; $('menu').classList.add('hidden'); $('dead').classList.add('hidden'); $('loadsplash').classList.remove('hidden'); return; }
+  $('loadsplash').classList.add('hidden');
   resumeAudio(); requestLock(); sfx.ui();
   resetRun(); gstate = 'playing';
   $('menu').classList.add('hidden'); $('dead').classList.add('hidden'); $('pause').classList.add('hidden'); $('hud').classList.remove('hidden');
@@ -2382,6 +2388,7 @@ function padMenu(){ goMenu(); }
 //  main loop (fixed 120 Hz physics, interpolated render)
 // ============================================================================
 const PERF = { render: 0, frames: 0, phys: 0, hud: 0, upd: 0 }; window.__perf = PERF;
+let headSkip = 0, visAcc = 0;
 let last = performance.now(), acc = 0, clock = 0, fpsAvg = 60, adaptT = 0, adaptUp = 0;
 function adaptResolution(dt){                 // keep ~60 fps on weak GPUs / 4K TVs: step the render scale down (and back up when there is headroom)
   if (navigator.webdriver || gstate !== 'playing') return;
@@ -2395,6 +2402,7 @@ function frame(now){
   let dt = Math.min(0.1, (now - last) / 1000); last = now; if (dt <= 0) dt = 0.0001;
   fpsAvg += (1 / dt - fpsAvg) * 0.05; clock += dt; adaptResolution(dt);
   if (ready) {
+    if (HEADLESS && gstate !== 'playing') { headSkip++; if ((headSkip & 3) !== 0) return; }
     if (gstate === 'playing') {
       if (INP.padLookX || INP.padLookY) { cam.yaw -= INP.padLookX * TUNING.cam.padRate * dt; cam.pitch = clamp(cam.pitch - INP.padLookY * TUNING.cam.padRate * dt, TUNING.cam.pitchMin, TUNING.cam.pitchMax); }
       let sdt = dt; if (hitT > 0) { hitT -= dt; sdt *= 0.1; }
@@ -2404,6 +2412,8 @@ function frame(now){
       PERF.phys += performance.now() - _p0;
       if (n >= 14) acc = 0;
       const a = clamp(acc / STEP, 0, 1), rx = P.px + (pos[0] - P.px) * a, ry = P.py + (pos[1] - P.py) * a, rz = P.pz + (pos[2] - P.pz) * a;
+      headSkip++; if (HEADLESS && (headSkip & 3) !== 0) { visAcc += dt; return; }        // software-GL test browsers: present every 4th frame so input stays responsive
+      dt = dt + visAcc; visAcc = 0;
       const _u0 = performance.now(); updateHero(dt, rx, ry, rz); updateCamera(dt, rx, ry, rz); updateWebs(dt, clock); PERF.upd += performance.now() - _u0;
       const _h0 = performance.now(); updateHud(dt, rx, ry, rz); PERF.hud += performance.now() - _h0;
       updateBeaconVis(clock);
@@ -2427,20 +2437,30 @@ function frame(now){
 //  boot
 // ============================================================================
 const nextTick = () => new Promise(r => setTimeout(r, 20));
-function prewarm(){                                  // compile every program once, up front, so the first beacon / web / particle burst never hitches
-  const vis = [HERO.root, beaconObj.g, beaconObj.g2, webCore.mesh, webGlow.mesh, webYank.mesh, splat, HERO.blob];
-  const was = vis.map(o => o.visible); vis.forEach(o => { o.visible = true; });
-  fx.emit(camera.position.x, camera.position.y, camera.position.z - 3, 0, 0, 0, 0.05, 1, 1, 1, 1, 0);
-  try { menuCamera(0); renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) {}
-  vis.forEach((o, i) => { o.visible = was[i]; }); webCore.mesh.visible = webGlow.mesh.visible = webYank.mesh.visible = false; splat.visible = false;
+async function prewarm(){                            // compile every program once, up front (one object per tick so the page keeps painting), so the first beacon / web / particle burst never hitches
+  const groups = [[], [HERO.root, HERO.blob], [beaconObj.g], [beaconObj.g2], [webCore.mesh, webGlow.mesh, webYank.mesh], [splat]];
+  const all = groups.flat(), was = all.map(o => o.visible);
+  const t0 = performance.now(); window.__prewarm = [];
+  for (const grp of groups) {
+    grp.forEach(o => { o.visible = true; });
+    if (grp === groups[1]) fx.emit(camera.position.x, camera.position.y, camera.position.z - 3, 0, 0, 0, 0.05, 1, 1, 1, 1, 0);
+    const a = performance.now();
+    try { menuCamera(0); renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) {}
+    window.__prewarm.push(Math.round(performance.now() - a));
+    grp.forEach(o => { o.visible = false; });
+    await nextTick();
+  }
+  all.forEach((o, i) => { o.visible = was[i]; }); webCore.mesh.visible = webGlow.mesh.visible = webYank.mesh.visible = false; splat.visible = false; HERO.root.visible = false;
 }
 async function init(){
   const msg = $('loadMsg'); let texArr;
   try {
-    msg.textContent = 'painting facades'; await nextTick(); texArr = buildTextureArray(); voxMat = makeVoxMaterial(texArr);
-    msg.textContent = 'raising towers'; await nextTick(); genWorld();
-    msg.textContent = 'meshing blocks'; await nextTick(); buildAllChunks(); buildBackdrop(); buildMinimap();
-    msg.textContent = 'warming shaders'; await nextTick(); prewarm();
+    const setMsg = t => { msg.textContent = t; $('loadsplashMsg').textContent = t; };
+    const T = window.__init = {}; let tt = performance.now(); const lap = k => { const n = performance.now(); T[k] = Math.round(n - tt); tt = n; };
+    setMsg('painting facades'); await nextTick(); tt = performance.now(); texArr = buildTextureArray(); voxMat = makeVoxMaterial(texArr); lap('textures');
+    setMsg('raising towers'); await nextTick(); tt = performance.now(); genWorld(); lap('genWorld');
+    setMsg('meshing blocks'); await nextTick(); tt = performance.now(); buildAllChunks(); lap('mesh'); buildBackdrop(); buildMinimap(); lap('backdrop');
+    setMsg('warming shaders'); await nextTick(); await prewarm();
     ready = true; gstate = 'menu';
     msg.textContent = city.buildings.length + ' towers, ' + (city.lamps.length) + ' lamps, seed ' + TUNING.world.seed;
     $('cta').textContent = 'CLICK TO START';

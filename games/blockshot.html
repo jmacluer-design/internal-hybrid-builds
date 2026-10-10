@@ -126,7 +126,7 @@
   .rules{ margin-top:calc(var(--u)*1.8); display:flex; gap:calc(var(--u)*1); flex-wrap:wrap; }
   .chip{ font-size:calc(var(--u)*1.15); letter-spacing:.1em; padding:calc(var(--u)*.35) calc(var(--u)*.9); border-radius:2px; background:var(--panel); border-left:calc(var(--u)*.3) solid var(--grass); }
   .chip.g{ border-left-color:var(--amber); }
-  .sheet{ background:var(--panel); border:1px solid rgba(255,255,255,.1); border-radius:6px; padding:calc(var(--u)*1.8) calc(var(--u)*2.2); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  .sheet{ background:rgba(10,14,18,.84); border:1px solid rgba(255,255,255,.1); border-radius:6px; padding:calc(var(--u)*1.8) calc(var(--u)*2.2); }
   .sheet h3{ margin:0 0 calc(var(--u)*.8); font-size:calc(var(--u)*1.2); letter-spacing:.22em; color:var(--amber); font-weight:800; }
   .cols{ display:grid; grid-template-columns:1fr 1fr; gap:calc(var(--u)*1.2) calc(var(--u)*2.6); }
   .cols .full{ grid-column:1 / -1; }
@@ -983,9 +983,23 @@ function supported(e) { return aabbSolid(e.x - e.hw, e.y - 0.12, e.z - e.hw, e.x
 // RENDERING: renderer, camera, sky/day-night, particles, tracers, overlays, procedural viewmodels
 // =====================================================================================
 const DEG = Math.PI / 180;
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const qs = new URLSearchParams(location.search);
+// quality preset: a software rasteriser (headless / no GPU) gets MSAA off, 0.6x render scale and a shorter view distance.
+// ?q=hi forces the full preset, ?q=lo forces the low one.
+function detectSoftwareGL() {
+  try {
+    const c = document.createElement('canvas'), gl = c.getContext('webgl') || c.getContext('experimental-webgl'); if (!gl) return false;
+    const e = gl.getExtension('WEBGL_debug_renderer_info'), r = e ? String(gl.getParameter(e.UNMASKED_RENDERER_WEBGL)) : '', l = gl.getExtension('WEBGL_lose_context'); if (l) l.loseContext();
+    return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(r);
+  } catch (err) { return false; }
+}
+const lowQ = qs.get('q') === 'lo' || (qs.get('q') !== 'hi' && detectSoftwareGL());
+const viewScale = lowQ ? 0.65 : 1;
+const renderer = new THREE.WebGLRenderer({ antialias: !lowQ && qs.get('aa') !== '0', powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+const baseScale = +qs.get('scale') || (lowQ ? 0.5 : Math.min(2, window.devicePixelRatio || 1));
+let renderScale = baseScale;
+renderer.setPixelRatio(renderScale);
 renderer.autoClear = false; renderer.info.autoReset = false;
 const cv = renderer.domElement; cv.id = 'c'; cv.tabIndex = 0;
 document.body.insertBefore(cv, document.body.firstChild);
@@ -1014,7 +1028,7 @@ const skyMat = (map, op = 1) => new THREE.MeshBasicMaterial({ map, transparent: 
 const sunMesh = new THREE.Mesh(new THREE.PlaneGeometry(64, 64), skyMat(sunTex)); sunMesh.renderOrder = -2; scene.add(sunMesh);
 const moonMesh = new THREE.Mesh(new THREE.PlaneGeometry(46, 46), skyMat(moonTex)); moonMesh.renderOrder = -2; scene.add(moonMesh);
 const cloudMat = new THREE.MeshBasicMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: 0.85, side: THREE.DoubleSide });
-const cloudMesh = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), cloudMat); cloudMesh.rotation.x = -Math.PI / 2; cloudMesh.renderOrder = -3; scene.add(cloudMesh);
+const cloudMesh = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), cloudMat); cloudMesh.rotation.x = -Math.PI / 2; cloudMesh.renderOrder = -3; if (!lowQ) scene.add(cloudMesh);
 const starGeo = new THREE.BufferGeometry();
 { const a = new Float32Array(450 * 3), r = mulberry32(4); for (let i = 0; i < 450; i++) { const u = r() * 2 - 1, th = r() * 6.283, s = Math.sqrt(1 - u * u); a[i * 3] = Math.cos(th) * s * 330; a[i * 3 + 1] = Math.abs(u) * 330 * 0.9 + 10; a[i * 3 + 2] = Math.sin(th) * s * 330; } starGeo.setAttribute('position', new THREE.BufferAttribute(a, 3)); }
 const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false });
@@ -1032,7 +1046,7 @@ function updateSky(tod) {
   const dusk = Math.max(0, 1 - Math.abs(el) / 0.3) * 0.6;
   const c = [0, 1, 2].map(i => lerp(lerp(SKY_NIGHT[i], SKY_DAY[i], dayAmt), SKY_DUSK[i], dusk));
   skyColor.setRGB(c[0], c[1], c[2]); scene.fog.color.copy(skyColor);
-  scene.fog.far = lerp(TUNING.world.nightFogFar, TUNING.world.fogFar, dayAmt); scene.fog.near = lerp(14, TUNING.world.fogNear, dayAmt);
+  scene.fog.far = lerp(TUNING.world.nightFogFar, TUNING.world.fogFar, dayAmt) * viewScale; scene.fog.near = lerp(14, TUNING.world.fogNear, dayAmt) * viewScale;
   const lum = 0.27 + 0.73 * dayAmt; S.lum = lum;
   const nt = 1 - dayAmt, r = lum * (1 + dusk * 0.2) * (1 - nt * 0.18), g = lum * (1 - dusk * 0.02) * (1 - nt * 0.04), b = lum * (1 - dusk * 0.25) * (1 + nt * 0.4);
   S.tint[0] = r; S.tint[1] = g; S.tint[2] = b;
@@ -2481,14 +2495,18 @@ function simTick(dt) {
   updateMobs(dt); updateArrows(dt); updatePrimed(dt); updateNades(dt); updateStrike(dt); updateDrops(dt); spawnTick(dt);
   if (pl.uavT > 0) { pl.uavT = Math.max(0, pl.uavT - dt); if (pl.uavT === 0) hudStreakDirty = true; }
 }
-let accum = 0, lastT = performance.now(), menuOverride = null;
+let accum = 0, lastT = performance.now(), lastVisT = 0, menuOverride = null;
 const _camTmp = new THREE.Vector3();
-const perf = { sim: 0, vis: 0, draw: 0, frames: 0 };
+const perf = { sim: 0, vis: 0, draw: 0, frames: 0, scale: 1, lowQ };
+let frameEma = 0.016, scaleT = 0;
 window.__perf = perf;
 function frame(now) {
   requestAnimationFrame(frame);
   const p0 = performance.now(); renderer.info.reset();
-  const dt = Math.min(0.1, Math.max(0, (now - lastT) / 1000)); lastT = now;
+  const rawDt = Math.max(0, (now - lastT) / 1000), dt = Math.min(0.1, rawDt); lastT = now;
+  // dynamic resolution: sustained slow frames step the render scale down, sustained headroom steps it back up
+  frameEma += (Math.min(rawDt, 0.25) - frameEma) * 0.04; scaleT += rawDt;
+  if (scaleT > 2.5 && !document.hidden) { scaleT = 0; if (frameEma > 0.045 && renderScale > 0.5) { renderScale = Math.max(0.5, renderScale * 0.85); renderer.setPixelRatio(renderScale); resizeAll(); } else if (frameEma < 0.02 && renderScale < baseScale) { renderScale = Math.min(baseScale, renderScale * 1.12); renderer.setPixelRatio(renderScale); resizeAll(); } perf.scale = renderScale; }
   let alpha = 1;
   if (state === 'playing' || state === 'dead') {
     if (state === 'playing') {
@@ -2506,25 +2524,28 @@ function frame(now) {
   }
   if (state === 'menu' || (state === 'dead' && deadShown)) { if (takeEdge(' ') || takeEdge('j')) menuAction(); }
   const p1 = performance.now();
-  // ---- visuals ----
+  // ---- visuals ---- (software renderer: input + sim keep the rAF cadence, drawing is capped to ~12 fps so slow GL never starves input polling)
+  const sinceVis = now - lastVisT;
+  if (lowQ && sinceVis < 80) return;
+  const vdt = Math.min(0.25, sinceVis / 1000); lastVisT = now;
   const sd = state === 'menu' ? 0.16 : tod; updateSky(sd);
   if (state === 'menu') {
-    menuT += dt; const a = menuT * 0.05 + 0.8, r = 52; camera.position.set(64 + Math.cos(a) * r, 62, 64 + Math.sin(a) * r); camera.lookAt(64, 20, 64);
+    menuT += vdt; const a = menuT * 0.05 + 0.8, r = 52; camera.position.set(64 + Math.cos(a) * r, 62, 64 + Math.sin(a) * r); camera.lookAt(64, 20, 64);
     if (camera.fov !== 62) { camera.fov = 62; camera.updateProjectionMatrix(); }
     if (menuOverride) { camera.position.set(menuOverride.x, menuOverride.y, menuOverride.z); camera.rotation.set(menuOverride.pitch, menuOverride.yaw, 0); }
     camera.updateMatrixWorld();
-  } else updateCamera(alpha, dt);
+  } else updateCamera(alpha, vdt);
   if (pl.headWater && state !== 'menu') { scene.fog.near = 0.3; scene.fog.far = 18; scene.fog.color.setRGB(0.08, 0.22, 0.5); skyColor.copy(scene.fog.color); }
-  placeSky(dt);
+  placeSky(vdt);
   cullChunks(camera.position.x, camera.position.y, camera.position.z, scene.fog.far + 24);
   flushDirty(state === 'playing' ? 5 : 8);
-  updateParticles(dt); updateTracers(dt); decayLights(dt); updateBlockDamage();
-  animateMobs(dt); animateDrops(dt);
+  updateParticles(vdt); updateTracers(vdt); decayLights(vdt); updateBlockDamage();
+  animateMobs(vdt); animateDrops(vdt);
   if (state === 'playing' || state === 'paused') {
     updateTargeting();
     vmAmb.intensity = (0.34 + 0.36 * skyState.dayAmt) * Math.PI; vmSun.intensity = (0.2 + 0.75 * skyState.dayAmt) * Math.PI;
-    if (state === 'playing') updateViewmodel(dt);
-    updateHUD(dt);
+    if (state === 'playing') updateViewmodel(vdt);
+    updateHUD(vdt);
   } else { targetBox.visible = ghostBox.visible = ghostFill.visible = false; }
   const p2 = performance.now();
   renderer.setClearColor(skyColor, 1); renderer.clear(true, true, true);
@@ -2547,6 +2568,7 @@ window.__dbg = () => {
 };
 Object.assign(window.__game, {
   sfx,
+  setScale(s) { renderScale = s; renderer.setPixelRatio(s); resizeAll(); },
   vm() { const M = VM[vmS.shown]; return M ? { shown: vmS.shown, pos: M.g.position.toArray(), rot: [M.g.rotation.x, M.g.rotation.y, M.g.rotation.z], vis: M.g.visible, mag: M.mag.visible, magY: M.mag.position.y, rootVis: vmRoot.visible, sb: pl.sprintBlend, swap: pl.swapT } : { shown: vmS.shown, rootVis: vmRoot.visible }; },
   regen(seed) { newWorld(seed); return { spawn: spawnPoint, fallback: spawnFallback }; },
   explode(x, y, z, r) { explode(x, y, z, r, { playerDmg: 0, mobDmg: 0 }); },
@@ -2566,10 +2588,25 @@ Object.assign(window.__game, {
   menuCamera(x, y, z, yaw, pitch) { menuOverride = { x, y, z, yaw, pitch }; },
 });
 
+// pre-compile every shader program the run will need (mobs, TNT, grenades, arrows, strike props) so no first-use hitch lands mid-game
+function warmup() {
+  const tmp = [], keep = (o) => { scene.add(o); tmp.push(o); return o; };
+  const mm = ['zombie', 'archer', 'creeper'].map(t => spawnMob(t, 64, 40, 64));
+  keep(new THREE.Mesh(blockCubeGeom(B.TNT), dropMat)); keep(new THREE.Mesh(blockCubeGeom(B.TNT), flashMat2)); keep(new THREE.Mesh(nadeGeo, nadeMat.clone()));
+  keep(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.3), arrowMat)); keep(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.3), arrowTip));
+  keep(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 2, 6, 1, true), strikeMat)); keep(new THREE.Mesh(new THREE.RingGeometry(1, 2, 8), new THREE.MeshBasicMaterial({ color: 0xff3a2a, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false, fog: false })));
+  keep(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0x30343a }))); keep(new THREE.Mesh(blockCubeGeom(B.TNT), bombMat));
+  try { renderer.compile(scene, camera); renderer.compile(vmScene, vmCam); } catch (e) {}
+  tmp.forEach(o => { scene.remove(o); if (o.material && o.material.dispose && o.material !== dropMat && o.material !== flashMat2 && o.material !== arrowMat && o.material !== arrowTip && o.material !== strikeMat && o.material !== bombMat) o.material.dispose(); if (o.geometry && o.geometry.dispose && !cubeGeoCacheHas(o.geometry) && o.geometry !== nadeGeo) o.geometry.dispose(); });
+  mm.forEach(removeMob);
+}
+const cubeGeoCacheHas = g => Object.values(cubeGeoCache).includes(g);
+
 // ---------- boot ----------
 try {
   MOB_ALL_TEX();
   newWorld((Math.random() * 1e9) | 0);
+  warmup();
   $('cta').disabled = false; $('cta').textContent = 'Start';
 } catch (err) { console.error(err); $('cta').textContent = 'Failed to start'; }
 requestAnimationFrame(frame);

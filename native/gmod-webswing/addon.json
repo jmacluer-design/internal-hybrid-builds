@@ -1,0 +1,6 @@
+{
+	"title": "Web Swing",
+	"type": "weapon",
+	"tags": ["fun"],
+	"ignore": ["tests/*", "README.md"]
+}

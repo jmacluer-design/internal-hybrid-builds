@@ -154,20 +154,22 @@ const TUNING = {
   hero: {
     radius: 0.45, height: 1.6, crouchHeight: 0.9, stepUp: 0.5, snap: 0.32,
     walk: 4.4, run: 9.6 /* SM64 32u/f */, creep: 3.0, crawl: 2.4,
-    accel: 30, accelFalloff: 0.5, brake: 26, friction: 30, crouchFriction: 7.5, slideFriction: 14,
-    turnSlow: 17, turnFast: 6.2,        // rad/s turn rate standing / at run speed
-    skidSpeed: 6.5, skidAngle: 2.09 /* 120 deg */, skidDecel: 36, skidTime: 0.3,
+    // ground (aligned to mario_actions_moving.c): accel 1.1u/f^2 - v/43 (x2 here for snap), skid decel 2.0*2u/f^2=36, walk turn 0x800/frame
+    accel: 22, accelVmax: 14.2 /* 1.1*43u */, brake: 9 /* 1u/f^2 */, friction: 36, crouchFriction: 7.5, slideFriction: 14,
+    turnSlow: 17, turnFast: 5.9 /* 0x800 per frame at 30fps */,
+    skidSpeed: 4.8 /* 16u/f */, skidAngle: 1.75 /* 0x471C = 100 deg */, skidDecel: 36, skidTime: 0.3, skidExit: 2.4 /* 8u */,
     gravity: 36 /* 4u/f^2 */, gravityLong: 18 /* 2u/f^2 */, terminal: -22.5 /* -75u/f */,
     jumpVy: 12.6 /* 42u */, jumpK: 0.25 /* + 0.25*speed */, doubleVy: 15.6 /* 52u */, tripleVy: 20.7 /* 69u */,
     flipVy: 18.6 /* 62u: back/side flip */, wallVy: 18.6 /* 62u */, longVy: 9.0 /* 30u */, rolloutVy: 9.0,
-    jumpCarry: 0.85,                    // horizontal speed kept on take-off (SM64 0.8)
+    jumpCarry: 0.8,                     // horizontal speed kept on take-off (SM64 *0.8)
     chainWindow: 0.25, doubleMin: 2.0, tripleMin: 6.0 /* 20u/f */,
     cut: 0.25, cutAbove: 6.0,           // release jump early while vy>6 -> vy*0.25 (SM64 vy/4)
     coyote: 0.1, buffer: 0.14,
-    airAccel: 22, airMax: 9.6, airDrag: 2.5,
-    longMul: 1.5, longMax: 14.4 /* 48u */, longMin: 6.0, longEntry: 3.0, backSpeed: 4.8 /* -16u */, sideSpeed: 2.4 /* 8u */,
-    wallSpeed: 8.4 /* >=24u .. */, wallWindow: 0.2, wallLock: 0.16,
-    poundHover: 0.28, poundDrop: 24, poundLand: 0.38, poundMinH: 0.9, poundRadius: 4.2,
+    // air (update_air_without_turn): facing fixed; fwd += 1.5u/f^2*cos(dyaw)*mag, lateral drift 10u/f*sin(dyaw)*mag, drag 0.35u/f^2, over-cap -1u/f^2
+    airAccel: 13.5, airSide: 3.0, airDrag: 3.15, airOver: 9, airMax: 9.6,
+    longMul: 1.5, longMax: 14.4 /* 48u */, longMin: 6.0, longEntry: 3.0 /* 10u */, backSpeed: 4.8 /* -16u */, sideSpeed: 2.4 /* 8u */,
+    wallMin: 7.2 /* kick speed >= 24u */, wallMax: 14.4, wallContact: 2.4, wallWindow: 0.2 /* 2 frames + 5 frame wallKickTimer */, wallLock: 0.06,
+    poundHover: 0.42, poundRise: 1.1 /* sum(20-2t)u over 10 frames */, poundDrop: 15 /* -50u/f, then gravity to -75u/f */, poundLand: 0.38, poundMinH: 0.9, poundRadius: 4.2,
     diveBoost: 4.5 /* +15u */, diveMax: 14.4, diveFriction: 16, getUp: 0.3, bonk: 0.5,
     punchT: 0.34, kickT: 0.5, comboGap: 0.22, lunge: 2.6,
     slideKickSpeed: 9.6, slideKickT: 0.55, slideKickMin: 7.5,
@@ -1143,7 +1145,7 @@ function freeGround(dt) {
     H.skidT -= dt; const ns = Math.max(0, sp - HT.skidDecel * dt);
     if (sp > 1e-4) { H.vx *= ns / sp; H.vz *= ns / sp; }
     if (Math.random() < 0.5) spawnP(H.x, H.y + .1, H.z, (Math.random() - .5) * 1.5, 1 + Math.random(), (Math.random() - .5) * 1.5, .35, .3, .5, .48, .45);
-    if (H.skidT <= 0 || ns < 1.0) { H.yaw = H.skidDir; setAct(I.mag > 0 ? 'move' : 'idle'); }
+    if (H.skidT <= 0 || ns < 1.0) { H.yaw = H.skidDir; if (I.mag > 0) { H.vx = Math.sin(H.yaw) * HT.skidExit; H.vz = Math.cos(H.yaw) * HT.skidExit; } setAct(I.mag > 0 ? 'move' : 'idle'); }
     return;
   }
   // idle / move
@@ -1153,11 +1155,11 @@ function freeGround(dt) {
     if (sp > HT.skidSpeed && I.mag > 0.3 && Math.abs(wrapPi(I.yaw - velYaw)) > HT.skidAngle) {
       H.skidDir = I.yaw; H.skidT = HT.skidTime; setAct('skid'); H.yaw = velYaw; SFX.step(); return;
     }
-    const tr = lerp(HT.turnSlow, HT.turnFast, clamp(sp / HT.run, 0, 1)), d = wrapPi(I.yaw - H.yaw);
+    const tr = lerp(HT.turnSlow, HT.turnFast, clamp(sp / 3, 0, 1)), d = wrapPi(I.yaw - H.yaw);
     H.yaw += clamp(d, -tr * dt, tr * dt);
     let s = sp;
-    if (s < tgt) s += HT.accel * (1 - HT.accelFalloff * s / HT.run) * dt; else s = Math.max(tgt, s - HT.brake * dt);
-    s *= 1 - clamp(Math.abs(d) / Math.PI, 0, 1) * dt * 2.2;
+    if (s < tgt) s = Math.min(tgt, s + HT.accel * (1 - s / HT.accelVmax) * dt); else s = Math.max(tgt, s - HT.brake * dt);
+    s *= 1 - clamp(Math.abs(d) / Math.PI, 0, 1) * dt * 1.5;
     if (_sl.sm > 0) s = Math.max(0, s + 18 * _sl.sm * (Math.sin(H.yaw) * _sl.x + Math.cos(H.yaw) * _sl.z) * dt);
     H.vx = Math.sin(H.yaw) * s; H.vz = Math.cos(H.yaw) * s; sp = s;
   } else {
@@ -1190,7 +1192,7 @@ function doJump(kind, sp) {
     case 'rollout': H.vy = HT.rolloutVy; fwd = Math.max(sp, 5); SFX.flip(); break;
   }
   setAct(kind);
-  H.vx = Math.sin(H.yaw) * fwd; H.vz = Math.cos(H.yaw) * fwd; H.airCap = Math.max(HT.airMax, Math.abs(fwd));
+  H.vx = Math.sin(H.yaw) * fwd; H.vz = Math.cos(H.yaw) * fwd;
   dustPuff(H.x, H.y, H.z, 4, 2);
 }
 
@@ -1324,23 +1326,20 @@ function airStep(dt) {
   if (a2 === 'long') g = HT.gravityLong;
   H.vy = Math.max(HT.terminal, H.vy - g * dt);
   if ((a2 === 'jump' || a2 === 'double') && !I.jumpHeld && !H.cutDone && H.vy > HT.cutAbove) { H.vy *= HT.cut; H.cutDone = true; }
-  sp = hyp(H.vx, H.vz);
-  // steering
-  const steer = HERO_AIR_STEER.has(a2) && H.lockT <= 0 ? 1 : a2 === 'long' ? 0.18 : a2 === 'dive' ? 0.12 : 0;
-  if (steer > 0) {
-    if (I.mag > 0.1) {
-      H.vx += I.dx * HT.airAccel * I.mag * steer * dt; H.vz += I.dz * HT.airAccel * I.mag * steer * dt;
-      const s2 = hyp(H.vx, H.vz), cap = Math.max(HT.airMax, H.airCap * (a2 === 'long' || a2 === 'dive' ? 1.02 : 1));
-      if (s2 > cap) { H.vx *= cap / s2; H.vz *= cap / s2; }
-    } else if (a2 !== 'long' && a2 !== 'dive') { const ns = Math.max(0, sp - HT.airDrag * dt); if (sp > 1e-4) { H.vx *= ns / sp; H.vz *= ns / sp; } }
-    if (a2 !== 'back' && a2 !== 'side') { const s3 = hyp(H.vx, H.vz); if (s3 > 1.5) H.yaw += clamp(wrapPi(Math.atan2(H.vx, H.vz) - H.yaw), -12 * dt, 12 * dt); }
-    else if (a2 === 'back' && I.mag > .1) { /* keep facing */ }
+  // SM64 update_air_without_turn: facing is fixed in the air; speed along it changes, a little lateral drift is added on top
+  if (a2 === 'long' || a2 === 'dive' || HERO_AIR_STEER.has(a2)) {
+    const sy = Math.sin(H.yaw), cy = Math.cos(H.yaw); let fwd = H.vx * sy + H.vz * cy, side = 0;
+    fwd = approach(fwd, 0, HT.airDrag * dt);
+    if (I.mag > 0.02 && H.lockT <= 0) { const dy = wrapPi(I.yaw - H.yaw); fwd += I.mag * Math.cos(dy) * HT.airAccel * dt; side = I.mag * Math.sin(dy) * HT.airSide; }
+    if (fwd > (a2 === 'long' ? HT.longMax : HT.airMax)) fwd -= HT.airOver * dt;
+    if (fwd < -HT.backSpeed) fwd += 2 * HT.airOver * dt;
+    H.vx = fwd * sy + side * cy; H.vz = fwd * cy - side * sy;
   }
   H.flipT += dt;
 }
 function wallKick() {
-  I.bufJump = 0; H.wallT = 0; H.yaw = Math.atan2(H.wnx, H.wnz); H.vy = HT.wallVy; const sp = HT.wallSpeed;
-  H.vx = H.wnx * sp; H.vz = H.wnz * sp; H.airCap = Math.max(HT.airMax, sp); H.lockT = HT.wallLock; H.cutDone = true; H.diveUsed = false; H.flipT = 0; H.kicks++; H.lastJump = 'wall';
+  I.bufJump = 0; H.wallT = 0; H.yaw = Math.atan2(H.wnx, H.wnz); H.vy = HT.wallVy; const sp = clamp(Math.max(HT.wallMin, H.wallSpeed), HT.wallMin, HT.wallMax);
+  H.vx = H.wnx * sp; H.vz = H.wnz * sp; H.lockT = HT.wallLock; H.cutDone = true; H.diveUsed = false; H.flipT = 0; H.kicks++; H.lastJump = 'wall';
   setAct('wallkick'); SFX.wall(); sparkBurst(H.x - H.wnx * .45, H.y + .9, H.z - H.wnz * .45, 10, 5, coldCol); camKick(5);
 }
 function startPound() {
@@ -1348,13 +1347,15 @@ function startPound() {
 }
 function poundStep(dt) {
   H.poundT += dt; H.vx = H.vz = 0;
-  if (H.poundPhase === 0) { H.vy = 0.2; if (H.poundT >= HT.poundHover) { H.poundPhase = 1; H.vy = -HT.poundDrop; sparkBurst(H.x, H.y + .8, H.z, 6, 4, whiteCol); } }
-  else { H.vy = -HT.poundDrop; if (Math.random() < .7) spawnP(H.x, H.y + 1.6, H.z, 0, 4, 0, .3, .3, 1, .9, .7); }
+  if (H.poundPhase === 0) {   // SM64: hover and rise ~1.1 m (y += 20-2t units for 10 frames), then drop starting at -50u/f
+    H.vy = H.poundT < .33 ? (6 - 18 * H.poundT) * HT.poundRise : 0;
+    if (H.poundT >= HT.poundHover) { H.poundPhase = 1; H.vy = -HT.poundDrop; sparkBurst(H.x, H.y + .8, H.z, 6, 4, whiteCol); }
+  } else { H.vy = Math.max(HT.terminal, H.vy - HT.gravity * dt); if (Math.random() < .7) spawnP(H.x, H.y + 1.6, H.z, 0, 4, 0, .3, .3, 1, .9, .7); }
 }
 function startDive() {
   I.bufFire = 0; H.diveUsed = true;
   const sp = hyp(H.vx, H.vz); const yaw = I.mag > .2 ? I.yaw : H.yaw; H.yaw = yaw;
-  const s = clamp(sp + HT.diveBoost, 5.5, HT.diveMax); H.vx = Math.sin(yaw) * s; H.vz = Math.cos(yaw) * s; H.vy = Math.min(H.vy, 2.5); H.airCap = s;
+  const s = clamp(sp + HT.diveBoost, 0, HT.diveMax); H.vx = Math.sin(yaw) * s; H.vz = Math.cos(yaw) * s; H.vy = Math.min(H.vy, 2.5);
   setAct('dive'); SFX.dive(); camKick(9);
 }
 
@@ -1363,14 +1364,14 @@ function heroContact(nx, nz, s) {
   if (s && s.kind === 'boss' && H.act === 'dive') { diveHit(nx, nz); return; }
   if (H.grounded) { const vn = H.vx * nx + H.vz * nz; if (vn < 0) { H.vx -= vn * nx; H.vz -= vn * nz; } return; }
   const vn = H.vx * nx + H.vz * nz;
-  if (vn < -0.8) { H.wallT = HT.wallWindow; H.wnx = nx; H.wnz = nz; H.wallSpeed = -vn; }
+  if (vn < -HT.wallContact) { H.wallT = HT.wallWindow; H.wnx = nx; H.wnz = nz; H.wallSpeed = -vn; }
   if (H.act === 'dive' && vn < -4) { bonk(nx, nz); return; }
   if (vn < 0) { H.vx -= vn * nx; H.vz -= vn * nz; }
 }
 function diveHit(nx, nz) {
   if (!bossHittable()) { bonk(nx, nz); return; }
   meleeLand(TUNING.dmg.dive, TUNING.stagger.dive, .09, .6, true);
-  H.vx = nx * 5; H.vz = nz * 5; H.vy = 6.5; H.diveUsed = true; H.airCap = 9.6; setAct('fall'); H.coyote = 0;
+  H.vx = nx * 5; H.vz = nz * 5; H.vy = 6.5; H.diveUsed = true; H.yaw = Math.atan2(nx, nz); setAct('fall'); H.coyote = 0;
 }
 function bonk(nx, nz) {
   H.vx = nx * 4.5; H.vz = nz * 4.5; H.vy = 5; setAct('bonk'); H.wallT = 0; SFX.hit(false); shakeAmt = Math.max(shakeAmt, .35); sparkBurst(H.x - nx * .5, H.y + .8, H.z - nz * .5, 8, 5);
@@ -1434,7 +1435,7 @@ function bossStompCheck(py) {
     H.y = top;
     if (pl) { bossDamage(TUNING.dmg.plunge, TUNING.stagger.plunge, 'plunge'); hitStop = Math.max(hitStop, .12); shakeAmt = Math.max(shakeAmt, 1.0); SFX.crit(); toast('PLUNGE'); sparkBurst(H.x, H.y + .5, H.z, 22, 9, whiteCol); }
     else { bossDamage(10, 6, 'stomp'); SFX.stomp(); hitStop = Math.max(hitStop, .05); }
-    H.vy = pl ? 16 : 13; H.vx = dx / d * 5.5; H.vz = dz / d * 5.5; H.airCap = 9.6; setAct('fall'); H.diveUsed = false; H.coyote = 0;
+    H.vy = pl ? 16 : 13; H.vx = dx / d * 5.5; H.vz = dz / d * 5.5; H.yaw = Math.atan2(H.vx, H.vz); setAct('fall'); H.diveUsed = false; H.coyote = 0;
     return true;
   }
   return false;
@@ -1547,7 +1548,7 @@ function enterKneel() {
 }
 function startRise() {
   B.state = 'rise'; B.t = 0; bossSolid.walk = false; bossSolid.top = BT.topStand; B.kneelGrace = BT.kneelGrace; setPose('idle', 2.2); SFX.stomp();
-  if (H.grounded && H.y > 2.5 && hyp(H.x - B.x, H.z - B.z) < BT.radius + .6) { const dx = H.x - B.x, dz = H.z - B.z, d = hyp(dx, dz) || 1; H.vx = dx / d * 6; H.vz = dz / d * 6; H.vy = 9; H.grounded = false; setAct('fall'); H.airCap = 9.6; toast('SHAKEN OFF'); }
+  if (H.grounded && H.y > 2.5 && hyp(H.x - B.x, H.z - B.z) < BT.radius + .6) { const dx = H.x - B.x, dz = H.z - B.z, d = hyp(dx, dz) || 1; H.vx = dx / d * 6; H.vz = dz / d * 6; H.vy = 9; H.grounded = false; H.yaw = Math.atan2(dx, dz); setAct('fall'); toast('SHAKEN OFF'); }
 }
 function killBoss() {
   B.dead = true; B.state = 'dying'; B.t = 0; B.hp = 0; clearBossAttack(true); game.ts = .4; hitStop = .25; shakeAmt = 1.4; SFX.groan(); SFX.crit(); setMusic('death');
@@ -2498,6 +2499,70 @@ requestAnimationFrame(frame);
   }
   poll();
 })();
+// <gamepad-shim>
+// gamepad shim v1: standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
+// Pasted verbatim inside each game's module <script> (needs the contract globals: keys, padFire, padPlace, padLook, padMenu).
+// Mapping (Xbox name / PlayStation name):
+//   left stick = WASD   right stick = look   A/Cross = jump   X/Square = J   B/Circle = Z   Y/Triangle = E
+//   RT/R2 = primary (fire)   LT/L2 = secondary (ADS / place / zip)   LB/L1 = Q   RB/R1 and L3 = Shift   R3 = Q
+//   D-pad = arrow keys   Start/Options = confirm on menu screens, pause/back-to-menu in game   Select/Create = back to menu
+// Browser quirk: the pad is invisible to the page until you press any button once.
+(function(){
+  if(!navigator.getGamepads) return;
+  const DZ=0.16, held=new Set(), was={};
+  const toast=(()=>{ let el,t; return msg=>{
+    if(!el){ el=document.createElement('div');
+      el.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;padding:7px 14px;border-radius:8px;'+
+        'background:rgba(10,12,20,.86);color:#cfe;font:12px ui-monospace,monospace;border:1px solid #3a5;pointer-events:none;transition:opacity .4s;';
+      document.body.appendChild(el); }
+    el.textContent=msg; el.style.opacity=1; clearTimeout(t); t=setTimeout(()=>{ el.style.opacity=0; },2600); }; })();
+  const setKey=(k,on)=>{ if(on){ if(!held.has(k)){ held.add(k); keys.add(k); } } else if(held.has(k)){ held.delete(k); keys.delete(k); } };
+  const axisKeys=(neg,pos,v)=>{ setKey(neg, held.has(neg)? v<-0.22 : v<-0.38); setKey(pos, held.has(pos)? v>0.22 : v>0.38); };
+  const shown=el=>{ if(!el) return false; const s=getComputedStyle(el);
+    return s.display!=='none'&&s.visibility!=='hidden'&&+s.opacity>0.01&&el.getClientRects().length>0; };
+  const click=id=>{ const el=document.getElementById(id); if(shown(el)){ el.click(); return true; } return false; };
+  const edge=(name,on,down,up)=>{ if(on&&!was[name]){ was[name]=1; down&&down(); } else if(!on&&was[name]){ was[name]=0; up&&up(); } };
+  const call=(f,...a)=>{ if(typeof f==='function') f(...a); };
+  const pick=()=>{ for(const g of navigator.getGamepads()) if(g&&g.connected) return g; return null; };
+  let lookLive=false;
+  function releaseAll(){ [...held].forEach(k=>setKey(k,false)); Object.keys(was).forEach(k=>{ if(was[k]) edge(k,false,null,()=>{}); });
+    if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+    if(typeof padFire==='function') padFire(false); if(typeof padPlace==='function') padPlace(false); }
+  addEventListener('gamepadconnected',e=>toast('controller connected: '+String(e.gamepad.id).replace(/\s*\(.*$/,'').slice(0,42)));
+  addEventListener('gamepaddisconnected',()=>{ releaseAll(); toast('controller disconnected'); });
+  addEventListener('blur',releaseAll);
+  window.__rumble=(strong,weak,ms)=>{ const g=pick(), a=g&&g.vibrationActuator;
+    if(a&&a.playEffect) a.playEffect('dual-rumble',{duration:ms||80,strongMagnitude:strong||0,weakMagnitude:weak||0}).catch(()=>{}); };
+  window.__gpDbg=()=>({ connected:!!pick(), held:[...held] });
+  function frame(){
+    const g=pick();
+    if(g){
+      const b=i=>{ const x=g.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+      // sticks (radial deadzone)
+      const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ) return [0,0]; const s=(Math.min(m,1)-DZ)/(1-DZ)/m; return [x*s,y*s]; };
+      const [lx,ly]=dz(g.axes[0]||0,g.axes[1]||0);
+      axisKeys('a','d',lx); axisKeys('w','s',ly);
+      const [rx,ry]=dz(g.axes[2]||0,g.axes[3]||0);
+      const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+      if(rx||ry){ lookLive=true; call(typeof padLook==='function'?padLook:null,cv(rx),cv(ry)); }
+      else if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+      // face / shoulder buttons -> keys
+      setKey(' ',b(0)); setKey('z',b(1)); setKey('j',b(2)); setKey('e',b(3));
+      setKey('q',b(4)||b(11)); setKey('shift',b(5)||b(10));
+      setKey('arrowup',b(12)); setKey('arrowdown',b(13)); setKey('arrowleft',b(14)); setKey('arrowright',b(15));
+      // triggers -> primary / secondary
+      edge('rt',b(7),()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); },()=>call(typeof padFire==='function'?padFire:null,false));
+      edge('lt',b(6),()=>call(typeof padPlace==='function'?padPlace:null,true),()=>call(typeof padPlace==='function'?padPlace:null,false));
+      // A also confirms on start / retry screens; Start confirms there, pauses in game
+      edge('a',b(0),()=>{ if(!click('cta')) click('cta2'); });
+      edge('start',b(9),()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); });
+      edge('select',b(8),()=>call(typeof padMenu==='function'?padMenu:null));
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+// </gamepad-shim>
 </script>
 </body>
 </html>
