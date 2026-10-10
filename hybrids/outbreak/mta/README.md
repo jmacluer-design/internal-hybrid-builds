@@ -3,9 +3,16 @@
 Zombie survival plus colony manager for **Multi Theft Auto: San Andreas**, on the same pure-Lua sim, protocol and vanilla NUI as the finished FiveM adapter
 (`../fivem/`). Private, non-commercial, for your own PC and your own server.
 
-> **Status, said plainly: this resource has never run inside a real MTA client or server.** It was written against the MTA wiki and the real MTA source
-> (function and event lists, Lua sandbox rules), and tested against a mock MTA plus real Chromium, real Lua 5.1.5, LuaJIT and Lua 5.4. Section 10 is the list of things
-> only your PC can settle. Expect a first-run session of fixing, not a first-run finished game.
+> **PRIVATE USE ONLY. NEVER REDISTRIBUTE THIS RESOURCE.** The zombie and ped-driver logic (`client/driver.lua`, parts of `server/zombies.lua`, `server/peds.lua`, `server/net.lua`, the zombie skin list)
+> was ported from the MTA DayZ "slothbot" code in repositories that have **no licence** (`NullSystemWorks/mtadayz`, `mta-resources/deadwalkers`), on the owner's decision for a private fun project.
+> Every such block is wrapped in `-- BORROWED-PRIVATE (unlicensed upstream, private use only): <repo>/<path>` ... `-- END BORROWED-PRIVATE`.
+> `mta/tools/list_private_blocks.sh` lists them (`--check` exits 1 while any exists) and says how to strip them; `THIRD_PARTY.md` has one row per block. Do not publish, share, sell or deploy
+> this resource for anyone else while those blocks are in it.
+
+> **Status, said plainly: the server half has run on the real MTA 1.6 Linux server, the client half has never run in a real MTA client.** `tools/real_server_smoke.sh` runs the resource on the official
+> server headless and PASSES (section 9: load, self-test, audit, 60 test zombies under the caps, save, restart, cleanup). Everything that needs a client (peds walking, streaming, the CEF page) is
+> verified only against the wiki, the real MTA source lists, a mock MTA, real Chromium and real Lua 5.1.5 / LuaJIT / Lua 5.4. Section 10 is the list of things only your PC can settle.
+> Expect a first-run session of fixing, not a first-run finished game.
 
 Contents: 1 [What was found out about MTA](#1-what-was-found-out-about-mta-and-changes-the-design) / 2 [Install](#2-install) / 3 [Tailscale](#3-tailscale) / 4 [Controls](#4-controls)
 / 5 [Settings](#5-settings) / 6 [Commands and ACL](#6-commands-and-acl) / 7 [How it works](#7-how-it-works) / 8 [Graphics](#8-graphics) / 9 [Tests](#9-tests-and-what-the-mocks-cannot-prove)
@@ -19,11 +26,18 @@ Contents: 1 [What was found out about MTA](#1-what-was-found-out-about-mta-and-c
 `setPedControlState`, `setPedAimTarget`, `getPedMoveState`, `getGroundPosition`, `processLineOfSight`, `isLineOfSightClear`, `getCursorPosition`, `getKeyState`.
 The server has `createPed`, `setPedAnimation`, `setPedWalkingStyle`, `setPedStat`, `setElementSyncer`, `giveWeapon`, `killPed`, `spawnPlayer`, but no way to make a ped walk.
 
-So the work is split the way the DayZ gamemodes do it (technique read, nothing copied: see THIRD_PARTY.md):
+So the work is split the way the DayZ gamemodes do it, and since the owner's decision the movement rules are **the DayZ "slothbot" ones, ported** (private use only: see the warning at the top):
 
-* **Server = brain.** The server creates every ped and object, owns the sim, and decides (zombie sees you, raider charges the wall, colonist walks to the workbench).
-* **Owner's client = legs.** The server sends batched *intents* (`outbreak:drive`: `{ped, mode, x, y, speed, radius, target}`) and the owner's client
-  (`client/driver.lua`, the ped's *syncer*) turns them into control states: face the target, hold forwards / walk / sprint, jump when stuck, aim and fire in bursts.
+* **Server = brain.** The server creates every ped and object, owns the sim, and decides (zombie sees you, raider charges the wall, colonist walks to the workbench). It tags each ped with element data
+  (`ob` = its kind), reads who controls it (`getElementSyncer`, else the nearest player: slothbot's `assigncontroller`; **it never forces a syncer** with `setElementSyncer`, slothbot does not either) and
+  gives weapons through `Peds.give_weapon`, which can give them again when a client reports the ped streamed in.
+* **Owner's client = legs.** The server sends batched *intents* (`outbreak:drive`: `{ped, mode, x, y, speed, radius, tgt}`) and the owner's client (`client/driver.lua`) turns them into control states with
+  slothbot's rules: face the target every 700 ms (the element itself while `isLineOfSightClear`, else the spot it was last seen at, and give up there), hold `forwards` (+ `walk` / `sprint`), stand still and
+  jab with the `fire` control in the 2300 ms melee swing, walk to the weapon's firing distance and shoot in its bursts, and when stuck (less than a metre in 600 ms) roll the die (give up / jump / turn to a
+  random heading for 1.2 s). It sets the control states on every ped that is streamed in, with **no syncer check** (only the syncer's states move the ped, which is why slothbot needs none).
+  A zombie the player hits turns on the player (`outbreak:hit`); a ped that streams in is silenced (`setPedVoice`) and asks for its weapon again (`outbreak:stream`).
+* **The sim stays authoritative.** Counts (`spawn_horde` becomes peds, never more than 60 hostile / 96 total), noise (`noise` attracts materialized zombies), damage (a zombie's fists are cancelled in
+  `onClientPedDamage` / `onClientPlayerDamage`: the damage is scripted on the server and reaches the sim as `player_damage` / `ped_damage`) and deaths (`onPedWasted` becomes `ped_died`) all go through the sim.
 * **Ground heights** exist only on the client too, so `client/ground.lua` samples the ground under what it sees and `server/ground.lua` keeps a coarse height map to seat new spawns.
 
 Other facts taken from the source and wiki and relied on (each is a checked fact, not a guess):
@@ -167,6 +181,7 @@ whose ACL group has the right `command.<name>`.
 | `/outbreak_hash` `/outbreak_audit` | state hash / item conservation check |
 | `/outbreak_peds` | ped and object budget, counters, ground samples |
 | `/outbreak_selftest` | rerun the determinism self-test |
+| `/outbreak_spawn [n] [walker\|runner\|brute\|screamer]` | **test hook**: create n zombies at the base through the real spawn path (never beyond `max_materialized` hostile peds) and print what the engine says about them (model, tag, syncer, health). The real-server smoke test uses it: a server with no client has no observer, so the sim never materializes a horde there |
 | `/outbreak_colony` `/outbreak_client` | (client) toggle colony view / client counters |
 
 ACL snippet for `mods/deathmatch/acl.xml` (a group of accounts that may use every command; add the accounts you log in with):
@@ -190,6 +205,7 @@ ACL snippet for `mods/deathmatch/acl.xml` (a group of accounts that may use ever
 	<right name="command.outbreak_audit" access="true"/>
 	<right name="command.outbreak_peds" access="true"/>
 	<right name="command.outbreak_selftest" access="true"/>
+	<right name="command.outbreak_spawn" access="true"/>
 </acl>
 <group name="OutbreakAdmin">
 	<acl name="Outbreak"/>
@@ -207,14 +223,14 @@ ACL snippet for `mods/deathmatch/acl.xml` (a group of accounts that may use ever
 ```
 
 * **Server** (`server/`): `main.lua` loads the sim through `bootstrap_mta.lua` and runs a fixed-step `setTimer` tick; `net.lua` batches OUT events to the owner (one `triggerClientEvent` per tick) and
-  validates every incoming event; `peds.lua` is the only place that creates or destroys peds (tracked, capped, destroyed on stop); `zombies.lua`, `raiders.lua`, `colonists.lua` are the brains
-  (perception radii from TP-Advanced-Zombies, presets from RottenV, see THIRD_PARTY.md); `buildings.lua` and `props.lua` own the objects; `world.lua` the clock, weather, team and the owner's body;
+  validates every incoming event; `peds.lua` is the only place that creates or destroys peds (tracked, tagged, capped, destroyed on stop; controller lookup and weapon re-give); `zombies.lua`, `raiders.lua`, `colonists.lua` are the brains
+  (perception radii from TP-Advanced-Zombies, presets from RottenV, the chase / hit-alert rules from slothbot, see THIRD_PARTY.md); `buildings.lua` and `props.lua` own the objects; `world.lua` the clock, weather, team and the owner's body;
   `store.lua` the save backend; `commands.lua` the admin commands; `ground.lua` the height map.
 * **Client** (`client/`): `ui.lua` the browser bridge; `camera.lua` colony camera and picking (`getWorldFromScreenPosition`, `processLineOfSight`, `getScreenFromWorldPosition`); `placement.lua` the translucent
-  ghost; `noise.lua` gunshot / explosion / siren / sprint detection; `survival.lua` damage reports, sprint lock and limp; `driver.lua` the ped driver; `ground.lua`; `world.lua` HUD hiding, outage dimming, alert sounds; `props.lua` the E key.
+  ghost; `noise.lua` gunshot / explosion / siren / sprint detection; `survival.lua` damage reports, sprint lock and limp; `driver.lua` the ped driver (slothbot's movement, chase, swing, shooting and stuck rules, stream-in and damage handling); `ground.lua`; `world.lua` HUD hiding, outage dimming, alert sounds; `props.lua` the E key.
 * **Trust model** (`server/net.lua`): remote events exist only because they are registered with `addEvent(name, true)`; a handler requires `client` to be a real player (that value cannot be forged),
   `client == owner`, **and `source == resourceRoot`** (a spoofer controls `source` and could otherwise pick any element, for example one of our peds); payloads go through `shared/protocol.lua` sanitizers; token buckets
-  limit orders, UI actions and ground samples; the browser-to-client event `outbreak:ui` is local-only (`addEvent(name, false)`) and accepted only from our own browser element. Tests spoof each of these.
+  limit orders, UI actions, hits and ground samples (`outbreak:hit` and `outbreak:stream` also require the ped to be one of ours); the browser-to-client event `outbreak:ui` is local-only (`addEvent(name, false)`) and accepted only from our own browser element. Tests spoof each of these.
 * **Persistence:** `shared/host.lua` writes a versioned, checksummed payload to two rotating slots plus a meta pointer; `set` raises on failure so a failed write never flips the pointer. Autosave, save on owner quit, save on stop.
 * **Graceful stop:** every module registers a cleanup. On `onResourceStop` the server saves, kills its timers, destroys every ped, object and the team, restores weather and minute duration; on
   `onClientResourceStop` the client destroys the browser and ghost, restores controls, cursor, camera, HUD components and walking style. `tests/lifecycle_test.lua` checks that nothing alive and no timer is left.
@@ -266,6 +282,9 @@ MTA renders through GTA SA's DirectX 9 pipeline, so the usual San Andreas graphi
 mta/tests/run.sh                  # everything: copy checks, Lua suite on LuaJIT + Lua 5.4 (+ PUC Lua 5.1.5), function check, browser test, Lua replay of the browser's calls
 mta/tests/run.sh --no-browser     # without Playwright
 mta/tests/run.sh --with-sim       # also the sim's own suite and the FiveM adapter's suite
+mta/tests/run.sh --with-server    # also the real-server smoke test (quick variant)
+mta/tools/real_server_smoke.sh [--quick]   # the real MTA 1.6 server, headless: see below
+mta/tools/list_private_blocks.sh  # the unlicensed (private use only) blocks
 mta/tools/build_lua51.sh          # builds PUC-Rio Lua 5.1.5 (md5-checked) into ~/.cache/lua-5.1.5; then  LUA51=$HOME/.cache/lua-5.1.5/lua-5.1.5/src/lua mta/tests/run.sh
 ```
 
@@ -277,10 +296,27 @@ mta/tools/build_lua51.sh          # builds PUC-Rio Lua 5.1.5 (md5-checked) into 
 | `tests/ui_bridge_test.mjs` (Playwright, real Chromium) | the unchanged page loads from `http://mta/local/` using only files `meta.xml` ships, the bridge exists before `core.js`, clicks and keys become the right `mta.triggerEvent('outbreak:ui', name, json)` calls with simple argument types, the state / HUD / events the **real Lua client** pushed render, a priority click sends the right order, junk does not crash the page | that CEF in MTA provides `window.mta` identically, local-origin rules, focus, GPU use, frame rate |
 | `tests/replay_ui_calls.lua` | those recorded browser calls, byte for byte, through `json_decode`, `client/ui.lua`, the server, the host and into the sim (c1's cook priority ends where the page showed) | the real transport |
 | `tests/config_test.lua` | every prop model id exists and has the name we think in MTA's own editor name table (MIT, 14308 names); every animation block / name exists in MTA's freeroam animation list | that it looks right, has collision or plays |
+| `tests/client_test.lua` driver tests | slothbot's rules pinned one by one: the swing timeline (fire at 0 / 800 / 1400 ms, still for 2000 ms, cycle 2300 ms), the stuck dice (1 in 7 give up, 2-3 jump, 4-7 turn; 1 in 13 on a path), the jump with a melee weapon (fists for 850 ms), the last-seen spot, per-weapon stop distance and bursts, stream-in (voice, weapon request), damage cancel and hit report | that the real engine moves a ped the way the mock does |
+| `tests/peds_test.lua` | server side: tags, controllers (read, never forced), `outbreak:hit` / `outbreak:stream` with spoofing, the weapon re-give cap, `/outbreak_spawn` under the caps | the real ped pool |
+| `tools/real_server_smoke.sh` | on the real MTA 1.6 server: the resource loads (`Resources: 1 loaded, 0 failed`), the self-test hash matches, audits pass, 40 + 20 test zombies are real peds with a config model, the tag and no forced syncer, the caps hold (60 hostile, 62 ped elements), `restart outbreak` leaves none and loads the save, no ERROR / WARNING line | anything that needs a client |
 | `tests/readme_test.lua` | README and THIRD_PARTY.md match the code: every command, ACL right, setting, event, key and MTA function is documented, the budget numbers are the configured ones, every `borrowed:` mark has a row | that the prose is right |
 
-**What a mock can never prove:** that the engine agrees with the wiki (ped pool behaviour, `createPed` model validity, `setElementSyncer` on peds, collision, streaming distances); animation names and how
+**What a mock can never prove:** that the engine agrees with the wiki (ped pool behaviour, whether a client really moves a ped with `setPedControlState`, collision, streaming distances); animation names and how
 skins and objects look; how fast any of it runs; CEF focus, cursor and transparency; the timing and ordering of the real network; anti-cheat; timer precision; whether MTA's script-timeout watchdog trips.
+
+### The real-server smoke test (the 30-second check)
+
+`mta/tools/real_server_smoke.sh [dest] [--quick]` installs (or reuses) the official MTA:SA 1.6 Linux server through `tools/install_server_linux.sh` (`MTA_SERVER_TGZ` / `MTA_BASECONFIG_TGZ` point at tarballs
+you already have), gives it its own ports (`MTA_SMOKE_PORT`, default 22993 / 22995: it never collides with your real server) and its own directory (default `~/mta-smoke`; it wipes only ITS saves), starts
+`./mta-server64 -n` headless and types this scenario on the console: `outbreak_status`, `outbreak_autopilot on`, `outbreak_speed 16`, wait, `outbreak_status`, `outbreak_hash`, `outbreak_audit`, `outbreak_peds`,
+`outbreak_horde 30 120`, `outbreak_spawn 40`, `outbreak_spawn 200`, `outbreak_peds`, `outbreak_ff 1440`, `outbreak_status`, `outbreak_audit`, `outbreak_save`, `restart outbreak`, `outbreak_peds`,
+`outbreak_status`, `outbreak_audit`, `shutdown`. It then asserts from the server's own log (its stdout is block-buffered, so the script polls `logs/server.log`) and prints PASS or FAIL per check:
+`Resources: 1 loaded, 0 failed`; `selftest OK` with the recorded hash at start and after the restart; `audit OK` at least twice and never FAILED; the sim clock advanced; the 40 test zombies are real ped
+elements with a model from the config, the `ob` tag and no forced syncer; `outbreak_spawn 200` stops at `max_materialized` (60 hostile, 62 ped elements); after `restart outbreak` zero zombies and only the
+colonists' peds (nothing leaked) and the saved day loaded again; no ERROR / WARNING / failed / abort / timeout line (the `owner_email_address` warning is ignored); the server exits with status 0.
+Exit status 0 = PASS, 1 = a check failed (the end of the log is printed), 2 = it could not run. Full scenario about 50 s, `--quick` about 30 s.
+
+**Run it on the server box (appdev2) after every `git pull`:** `bash mta/tools/real_server_smoke.sh --quick`. It cannot show anything that needs a client (peds walking, streaming, the CEF page): section 10.
 
 ## 10. Unverified until it runs in the real game
 

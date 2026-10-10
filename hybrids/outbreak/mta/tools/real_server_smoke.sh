@@ -163,7 +163,7 @@ else bad "expected 3 outbreak_peds lines, found ${#PD[@]}"; fi
 # nothing that looks like trouble: MTA's own errors, our error / warn lines, failures, aborts, timeouts
 BADLINES="$(cat "$LOG" "$STDOUT_LOG" | grep -iE 'error|warning|failed|abort|timeout|exception|traceback|segmentation' | grep -vE 'owner_email_address|Resources: [0-9]+ loaded, 0 failed' || true)"
 if [ -z "$BADLINES" ]; then ok "no ERROR / WARNING / failed / abort / timeout line in the log (the owner_email_address warning is ignored)"
-else bad "suspicious log lines:"; echo "$BADLINES" | head -n 12 | sed 's/^/          /'; fi
+else bad "suspicious log lines:"; echo "$BADLINES" | sed 's/^\[[^]]*\] //' | sort -u | head -n 12 | sed 's/^/          /'; fi
 if [ -s "$FEED" ]; then bad "the scenario script itself reported:"; sed 's/^/          /' "$FEED" | head -n 8; fi
 
 say
