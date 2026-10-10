@@ -47,6 +47,14 @@
   #cta, #cta2 { cursor:pointer; font:inherit; font-weight:900; font-size:clamp(15px,2.2vw,24px); letter-spacing:.3em; color:#2a1400; padding:.62em 2.2em .62em 2.5em; border:0; border-radius:999px;
     background:linear-gradient(180deg,#fff2b0,#ffc54a 55%,#ff9c2b); box-shadow:0 0 0 3px rgba(255,235,170,.4), 0 10px 34px rgba(255,160,40,.45), inset 0 -3px 0 rgba(160,70,0,.4); transition:filter .2s; }
   #cta:hover, #cta2:hover { filter:brightness(1.08); }
+  #ctaVR { cursor:pointer; font:inherit; font-weight:900; font-size:clamp(13px,1.9vw,21px); letter-spacing:.28em; color:#04221f; padding:.55em 2em .55em 2.2em; border:0; border-radius:999px;
+    background:linear-gradient(180deg,#b9fff4,#53e0d0 55%,#1fb6a6); box-shadow:0 0 0 3px rgba(150,255,240,.35), 0 10px 30px rgba(40,220,200,.35), inset 0 -3px 0 rgba(0,90,80,.4); transition:filter .2s; }
+  #ctaVR:hover { filter:brightness(1.08); }
+  .vrstat { font-size:clamp(10px,1.25vw,14px); letter-spacing:.14em; color:#9fd8ff; min-height:1.2em; max-width:92vw; text-shadow:0 1px 8px rgba(0,0,0,.7); }
+  .vrstat.warn { color:#ffb199; }
+  #vrPrompt { padding:.7em 1.6em; border-radius:14px; border:2px solid var(--teal); background:rgba(8,40,38,.74); color:#d9fff9; font-weight:800; letter-spacing:.22em; font-size:clamp(12px,1.8vw,20px); text-align:center; animation:vrpulse 1.6s ease-in-out infinite; }
+  @keyframes vrpulse { 0%,100% { box-shadow:0 0 0 0 rgba(83,224,208,.55); } 50% { box-shadow:0 0 0 14px rgba(83,224,208,0); } }
+  body.vrmode #ctaVR { font-size:clamp(18px,2.8vw,32px); animation:vrpulse 1.6s ease-in-out infinite; }
     .best { font-size:clamp(10px,1.3vw,14px); letter-spacing:.24em; color:var(--teal); min-height:1.2em; text-shadow:0 1px 8px rgba(0,0,0,.7); }
   .cheat { display:grid; grid-template-columns:repeat(3,1fr); gap:6px 18px; width:100%; padding:clamp(8px,1.6vh,16px) clamp(10px,2vw,22px); border-radius:16px; background:var(--glass); border:1px solid rgba(255,230,160,.22);
     text-align:left; font-size:clamp(10px,1.28vw,14px); line-height:1.5; }
@@ -63,7 +71,8 @@
   #pause small { font-size:.6em; letter-spacing:.12em; color:#bcd; }
   #boot { position:fixed; inset:0; z-index:30; background:#0b1722; display:flex; align-items:center; justify-content:center; color:#ffd66b; letter-spacing:.4em; font-size:14px; transition:opacity .8s; }
   #boot.off { opacity:0; pointer-events:none; }
-  @media (max-height:460px) { .cheat { grid-template-columns:repeat(4,1fr); font-size:10px; line-height:1.35; padding:6px 10px; gap:2px 12px; } #logo{ width:min(520px,60vw);} .mwrap{ gap:4px; } .tag{ display:none; } #hp{ width:46px; height:46px; } }
+  @media (max-height:460px) { .cheat { grid-template-columns:repeat(4,1fr); font-size:10px; line-height:1.35; padding:6px 10px; gap:2px 12px; } #logo{ width:min(520px,60vw);} .mwrap{ gap:4px; } .tag{ display:none; } #hp{ width:46px; height:46px; }
+    #vrPrompt { font-size:11px; padding:.3em 1em; } #ctaVR { font-size:13px; padding:.35em 1.4em; } body.vrmode #ctaVR { font-size:15px; } .vrstat { font-size:10px; } }
   @media (max-width:700px) and (min-height:461px) { .cheat { grid-template-columns:1fr 1fr; } }
 </style>
 </head>
@@ -82,16 +91,20 @@
 </div>
 <div id="menu" class="ovl">
   <div class="mwrap">
+    <div id="vrPrompt" class="hidden">VR MODE &middot; PUT ON YOUR HEADSET, THEN PRESS ENTER VR</div>
     <canvas id="logo" width="1400" height="300"></canvas>
     <div class="tag">A REALISTIC WORLD. SHATTERED INTO BLOCKS. REBUILT STRANGER.</div>
     <div class="best" id="best"></div>
     <button id="cta">BEGIN</button>
+    <button id="ctaVR" class="hidden">ENTER VR</button>
+    <div class="vrstat" id="vrStatus"></div>
     <div class="cheat">
       <div><kbd>W A S D</kbd> move</div><div><kbd>SPACE</kbd> jump (chain x3)</div><div><kbd>SHIFT</kbd> sprint</div>
       <div><kbd>Z</kbd> crouch / pound in air</div><div><kbd>LMB</kbd> punch / dive</div><div><kbd>RMB</kbd> hold: REWIND</div>
       <div><kbd>Z + SPACE</kbd> long jump / backflip</div><div><kbd>E</kbd> talk / flip pad</div><div><kbd>Q</kbd> recentre camera</div>
       <div><kbd>MOUSE</kbd> look</div><div><kbd>J</kbd> camera mode</div><div><kbd>M</kbd> mute &nbsp; <kbd>P</kbd> quality</div>
       <div class="wide"><kbd>CONTROLLER</kbd> L-stick move, R-stick look, A jump, RT punch/dive, LT hold = rewind, X = J camera, B = Z crouch/pound, Y = E, LB/R3 = Q, RB/L3 = Shift, Start = confirm / pause</div>
+      <div class="wide"><kbd>VR TOUCH</kbd> L-stick move (relative to your head), R-stick snap-turn the table 30&deg;, A jump, B crouch / pound, trigger punch / dive, grip (hold) REWIND, X table size (hold = recentre), Y pause, L-stick click sprint, R-stick click talk / flip pad. A Bluetooth pad works in VR too.</div>
     </div>
     <div class="qrow">QUALITY <button data-q="high">HIGH</button><button data-q="medium">MEDIUM</button><button data-q="low">LOW</button></div>
   </div>
@@ -137,6 +150,23 @@ const TUNING = {
   shatter: { localR: 24, localSpeed: 26, healDelay: 1.15, healSpeed: 24, worldSpeed: 52, band: 9, slowmo: 0.2, plinth: 3.6 },
   lowG: 0.38, // gravity multiplier inside low-gravity pockets
   autoDowngradeMs: 26, autoDowngradeWindow: 3,
+  // ---- WebXR / VR (Quest Touch, PC-VR). The world is shown as a tabletop DIORAMA: the camera rig is scaled by S = world metres per real metre,
+  // so the hero (1.7 m) is ~14 cm tall and the lit play area (fog radius) is ~2-3 m across. Units below: real metres unless marked (world m).
+  vr: {
+    scales: [16, 12, 9],            // table size small / medium / large -> hero 10.6 / 14.2 / 18.9 cm
+    sizeDefault: 1,
+    drop: 0.55, fwd: 0.62,          // the hero's ground sits 0.55 m below the eyes and 0.62 m in front of them (re-measured on recentre)
+    tableMin: 0.5, tableMax: 1.2,   // clamp of that ground height above the real floor
+    followXZ: 3.2, followY: 3.0,    // 1/s damping of the table following the hero (heavy: world slides gently, never snaps)
+    slackUp: 9, slackDown: 6,       // (world m) vertical slack: jumps do not move the table, only ground-level changes do
+    snapDeg: 30, snapOn: 0.75, snapOff: 0.35, smoothDegPerSec: 110, stickDead: 0.18,
+    fog: 0.30,                      // FogExp2 density in REAL metres (the flat build uses ~0.004 per world metre): hazes out at ~3-5 m
+    near: 0.05, far: 1500,          // real metres
+    beamLen: 16,                    // (world m) shard beam height in the diorama (flat: 90)
+    shardVis: 95,                   // (world m) shards further than this from the hero are not drawn in VR (the arrow points to the nearest)
+    blinkDist: 4, blinkTime: 0.35,  // a hero teleport (respawn / pipe) bigger than this in one frame blinks to black instead of sliding the table
+    fbScale: 0.9, foveation: 1,     // XR framebuffer scale (0.85-1.0; picked by estimated cost, NOT measured on a headset) and fixed foveation
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -201,20 +231,27 @@ const QUALITY = {
   high:   { pr: 2,   shadow: 2048, bloom: 1, bloomRes: 1,   msaa: 4, cap: 48000, grass: 110000, water: 2, god: 1, trees: 1,    tex: 1024, lite: 0 },
   medium: { pr: 1.5, shadow: 1024, bloom: 1, bloomRes: 0.5, msaa: 0, cap: 30000, grass: 55000,  water: 1, god: 1, trees: 0.75, tex: 1024, lite: 0 },
   low:    { pr: 1,   shadow: 0,    bloom: 0, bloomRes: 0.5, msaa: 0, cap: 14000, grass: 9000,   water: 0, god: 0, trees: 0.4,  tex: 512, lite: 1 },
+  // VR tiers (never persisted, never reachable from the flat quality cycle): no composer / bloom / god rays, one small shadow map, trimmed particles + cube cap + grass
+  vr:     { pr: 1,   shadow: 1024, bloom: 0, bloomRes: 0.5, msaa: 0, cap: 16000, grass: 24000,  water: 1, god: 0, trees: 0.6,  tex: 512, lite: 1, vr: 1 },
+  vrlite: { pr: 1,   shadow: 0,    bloom: 0, bloomRes: 0.5, msaa: 0, cap: 8000,  grass: 9000,   water: 0, god: 0, trees: 0.35, tex: 512, lite: 1, vr: 1 },
 };
 const QORDER = ['high', 'medium', 'low'];
 let qName = 'high';
-try { const u = new URLSearchParams(location.search).get('q'); const s = localStorage.getItem('sw_q'); qName = QUALITY[u] ? u : QUALITY[s] ? s : 'high'; } catch (e) { }
+try { const okQ = k => !!QUALITY[k] && !QUALITY[k].vr; const u = new URLSearchParams(location.search).get('q'); const s = localStorage.getItem('sw_q'); qName = okQ(u) ? u : okQ(s) ? s : 'high'; } catch (e) { }
 let Q = QUALITY[qName];
 
 const canvas = $('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: (() => { try { return localStorage.getItem('sw_pdb') === '1'; } catch (e) { return false; } })() }); // test hook only
+renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType('local-floor'); renderer.xr.setFoveation(TUNING.vr.foveation);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, 16 / 9, 0.1, 1400);
-scene.add(camera);
+// the camera lives in a dolly: in flat play the rig is the identity; in VR the rig is moved / yawed / scaled (never the XR camera itself)
+const rig = new THREE.Group(); rig.name = 'rig'; rig.add(camera); scene.add(rig);
+const CP = new THREE.Vector3();   // camera position in WORLD space (== camera.position in flat play; head position through the rig in VR)
+const VR = { supported: false, checked: false, presenting: false, entering: false, session: null, frames: 0, S: 12, yaw: 0, merge: false, mode: 'diorama', pix: 1, beamK: 1 };
 let composer = null, bloomPass = null, gradePass = null, renderPass = null;
 let W = innerWidth, H = innerHeight;
 
@@ -675,7 +712,7 @@ const hemi = new THREE.HemisphereLight(0x9ec4ff, 0x6b5a3a, 0.55); scene.add(hemi
 const sun = new THREE.DirectionalLight(0xffd29a, 3.1); sun.castShadow = true; scene.add(sun, sun.target);
 sun.shadow.bias = -0.00045; sun.shadow.normalBias = 0.06;
 function configureShadow() {
-  const on = Q.shadow > 0; renderer.shadowMap.enabled = on; sun.castShadow = on;
+  const on = Q.shadow > 0; renderer.shadowMap.enabled = on; sun.castShadow = on; renderer.shadowMap.type = Q.vr ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   if (on) { const s = sun.shadow; s.mapSize.set(Q.shadow, Q.shadow); if (s.map) { s.map.dispose(); s.map = null; } const R = Q.shadow >= 2048 ? 30 : 34; Object.assign(s.camera, { left: -R, right: R, top: R, bottom: -R, near: 1, far: 160 }); s.camera.updateProjectionMatrix(); }
   scene.traverse(o => { if (o.material) { const m = Array.isArray(o.material) ? o.material : [o.material]; m.forEach(x => x.needsUpdate = true); } });
 }
@@ -796,7 +833,7 @@ function buildComposer() {
 }
 function applyQuality(name, silent) {
   if (!QUALITY[name]) return; if (window.__qdbg) console.log('applyQuality ' + name + ' ' + new Error().stack.split('\n').slice(1, 4).join(' | ')); qName = name; Q = QUALITY[name];
-  try { localStorage.setItem('sw_q', name); } catch (e) { }
+  try { if (!Q.vr) localStorage.setItem('sw_q', name); } catch (e) { }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.pr) * qScale); renderer.setSize(W, H, false);
   buildComposer(); configureShadow();
   if (typeof onQualityChanged === 'function') onQualityChanged();
@@ -805,6 +842,7 @@ function applyQuality(name, silent) {
   if (!silent && typeof toast === 'function') toast('Quality: ' + name.toUpperCase());
 }
 function onResize() {
+  if (VR.presenting) return; // the XR layer owns the framebuffer + projection while presenting
   W = Math.max(2, innerWidth); H = Math.max(2, innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.pr) * qScale); renderer.setSize(W, H, false);
   camera.aspect = W / H; camera.updateProjectionMatrix();
@@ -814,6 +852,7 @@ function onResize() {
 addEventListener('resize', onResize);
 const _sv = new THREE.Vector3(), _fw = new THREE.Vector3();
 function renderFrame() {
+  if (VR.presenting) { vrRenderPrep(); renderer.render(scene, camera); return; } // the EffectComposer cannot draw into the XR framebuffer: straight render
   // sun position on screen for god rays
   if (composer && gradePass) {
     _sv.copy(camera.position).addScaledVector(U.sunDir.value, 500).project(camera);
@@ -1238,8 +1277,8 @@ function updateShafts() {
   camera.getWorldDirection(_sc); const face = clamp(_sc.dot(d), 0, 1);
   for (const m of shafts) {
     const u = m.userData, bx = ax + u.ox, bz = az + u.oz, by = clamp(hfSample(bx, bz), -2, 40) - 4; m.position.set(bx + _sa.x * len * 0.5, by + _sa.y * len * 0.5, bz + _sa.z * len * 0.5);
-    _sr.set(bx - camera.position.x, by - camera.position.y, bz - camera.position.z).normalize(); _sr.crossVectors(_sa, _sr).normalize(); _sn.crossVectors(_sr, _sa).normalize(); _sm.makeBasis(_sr, _sa, _sn); m.quaternion.setFromRotationMatrix(_sm); m.scale.set(u.w, len, 1);
-    const dist = Math.hypot(bx - camera.position.x, bz - camera.position.z); m.material.uniforms; m.visible = dist < 90;
+    _sr.set(bx - CP.x, by - CP.y, bz - CP.z).normalize(); _sr.crossVectors(_sa, _sr).normalize(); _sn.crossVectors(_sr, _sa).normalize(); _sm.makeBasis(_sr, _sa, _sn); m.quaternion.setFromRotationMatrix(_sm); m.scale.set(u.w, len, 1);
+    const dist = Math.hypot(bx - CP.x, bz - CP.z); m.material.uniforms; m.visible = dist < 90;
   }
   shaftMat.uniforms.uAmt.value = (0.35 + 0.9 * Math.pow(face, 1.5)) * (0.8 + 0.2 * Math.sin(U.time.value * 0.3));
 }
@@ -1251,8 +1290,8 @@ const outlineMat = new THREE.MeshBasicMaterial({ color: 0x14080a, side: THREE.Ba
 const hv = hex => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.52, metalness: 0, emissive: hex, emissiveIntensity: 0.1 });
 const SPH = new THREE.SphereGeometry(1, 16, 12), CYL = new THREE.CylinderGeometry(1, 1, 1, 14, 1), HEMI = new THREE.SphereGeometry(1, 20, 10, 0, TAU, 0, PI / 2);
 function part(parent, geo, mat, x, y, z, sx, sy, sz, outline = 0.075) {
-  const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; parent.add(m);
-  if (outline) { const o = new THREE.Mesh(geo, outlineMat); o.position.copy(m.position); o.scale.set(sx * (1 + outline) + 0.014, sy * (1 + outline) + 0.014, sz * (1 + outline) + 0.014); o.renderOrder = -1; parent.add(o); }
+  const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; parent.add(m); (parent.userData.vrp || (parent.userData.vrp = [])).push(m);
+  if (outline) { const o = new THREE.Mesh(geo, outlineMat); (parent.userData.vro || (parent.userData.vro = [])).push(o); o.position.copy(m.position); o.scale.set(sx * (1 + outline) + 0.014, sy * (1 + outline) + 0.014, sz * (1 + outline) + 0.014); o.renderOrder = -1; parent.add(o); }
   return m;
 }
 function buildPlumber(o = {}) {
@@ -1359,13 +1398,15 @@ const P = {
   invuln: 0, hurtT: 0, hp: TUNING.hp, big: false, poundT: 0, diveT: 0, punchT: 0, punchAlt: 0, crouch: false, speed: 0, wade: false, inLowG: false,
   stats: { jumps: 0, punches: 0, dives: 0, pounds: 0, flips: 0, kicks: 0 }, dead: false, frozen: 0, skid: false, flipT: 0, flipKind: '', prevY: 0, step: 0, onPlat: null, victory: 0, talk: 0, bounceT: 0,
 };
-const INP = { ix: 0, iz: 0, jump: false, crouch: false, run: false, mag: 0 };
+const INP = { ix: 0, iz: 0, jump: false, crouch: false, run: false, mag: 0, spd: 1 };
+const VRIN = { mag: 0, x: 0, z: 0 }; // analog stick from the VR layer (speed scale + continuous direction); mag 0 = unused (flat play)
 const _pk = { jump: false, z: false, e: false, j: false, q: false, m: false, p: false, fire: false, place: false };
 let heroJustPounded = false;
 function pollInput(dt) {
   const k = keys, up = k.has('w') || k.has('arrowup'), dn = k.has('s') || k.has('arrowdown'), lf = k.has('a') || k.has('arrowleft'), rt = k.has('d') || k.has('arrowright');
   INP.ix = (rt ? 1 : 0) - (lf ? 1 : 0); INP.iz = (up ? 1 : 0) - (dn ? 1 : 0);
   const m = Math.hypot(INP.ix, INP.iz); INP.mag = m ? 1 : 0; if (m > 1) { INP.ix /= m; INP.iz /= m; }
+  if (VRIN.mag > 0) { INP.ix = VRIN.x; INP.iz = VRIN.z; INP.mag = 1; INP.spd = VRIN.mag; } else INP.spd = 1; // analog stick (VR): continuous direction + proportional speed
   const jumpNow = k.has(' '), zNow = k.has('z'), fireNow = mouseFire || padFireDown, placeNow = mousePlace || padPlaceDown || placeLatch;
   INP.jump = jumpNow || latch.has(' '); INP.crouch = zNow; INP.run = k.has('shift'); INP.place = placeNow; INP.fire = fireNow;
   if ((jumpNow && !_pk.jump) || latch.has(' ')) P.jumpBuf = TUNING.buffer; if ((zNow && !_pk.z) || latch.has('z')) P.zBuf = 0.18; if ((fireNow && !_pk.fire) || edge.fire) { P.fireBuf = 0.16; edge.fire = false; }
@@ -1391,7 +1432,7 @@ function stepHero(dt) {
   if (P.hurtT > 0) P.hurtT -= dt;
   if (locked) { wx = wz = 0; }
   const want = wl > 1e-4 && !locked;
-  const maxSp = INP.run ? T.sprint : T.run;
+  const maxSp = (INP.run ? T.sprint : T.run) * INP.spd;
   P.crouch = P.grounded && INP.crouch && !locked && P.act !== 'pound' && P.act !== 'pound_land';
   let gMul = P.inLowG ? T.lowG : 1;
   // ---------------- ground / air control ----------------
@@ -1545,6 +1586,7 @@ function camShake(a) { CAM.shake = Math.max(CAM.shake, a); }
 function camCine(dur, distMul, pitchAdd, yawRate) { CAM.cine = dur; CAM.cineDur = dur; CAM.cineDist = distMul; CAM.cinePitch = pitchAdd; CAM.cineYaw = yawRate; }
 const _co = new THREE.Vector3();
 function updateCamera(dt, rdt) {
+  if (VR.presenting) { vrRig(dt, rdt); return; }
   const T = TUNING.cam;
   if (G.state === 'menu') { // title-screen dolly: from the east, looking into the low golden sun, hero + twin on the right third
     CAM.menuT += rdt; const t = CAM.menuT, a = 0.42 + Math.sin(t * 0.09) * 0.32, r = 9.5;
@@ -2315,8 +2357,8 @@ function updateFinale(rdt) {
 const NPART = 700, PT = { x: new Float32Array(NPART), y: new Float32Array(NPART), z: new Float32Array(NPART), vx: new Float32Array(NPART), vy: new Float32Array(NPART), vz: new Float32Array(NPART), life: new Float32Array(NPART), max: new Float32Array(NPART), size: new Float32Array(NPART), grav: new Float32Array(NPART) };
 const ptGeo = new THREE.BufferGeometry(); const ptPos = new Float32Array(NPART * 3), ptCol = new Float32Array(NPART * 4), ptSize = new Float32Array(NPART);
 ptGeo.setAttribute('position', new THREE.BufferAttribute(ptPos, 3)); ptGeo.setAttribute('aCol', new THREE.BufferAttribute(ptCol, 4)); ptGeo.setAttribute('aSize', new THREE.BufferAttribute(ptSize, 1));
-const ptMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, fog: false, uniforms: { uPix: { value: 1 } },
-  vertexShader: `attribute vec4 aCol; attribute float aSize; varying vec4 vC; uniform float uPix; void main(){ vC = aCol; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = aSize * uPix * 380.0 / max(0.5, -mv.z); }`,
+const ptMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, fog: false, uniforms: { uPix: { value: 1 }, uWS: { value: 1 } },
+  vertexShader: `attribute vec4 aCol; attribute float aSize; varying vec4 vC; uniform float uPix; uniform float uWS; void main(){ vC = aCol; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = aSize * uPix * 380.0 / max(0.5, -mv.z * uWS); }`,
   fragmentShader: `varying vec4 vC; void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d) * 2.0; if (r > 1.0) discard; float a = smoothstep(1.0, 0.2, r) * vC.a; gl_FragColor = vec4(vC.rgb, a);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -2340,15 +2382,15 @@ function updateParticles(dt) {
 const NMOTE = 380, moteGeo = new THREE.BufferGeometry(), motePos = new Float32Array(NMOTE * 3), moteSeed = new Float32Array(NMOTE * 3);
 for (let i = 0; i < NMOTE * 3; i++) moteSeed[i] = Math.random();
 moteGeo.setAttribute('position', new THREE.BufferAttribute(motePos, 3));
-const moteMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uCol: { value: new THREE.Color(1.0, 0.82, 0.45) }, uPix: { value: 1 }, uTime: U.time },
-  vertexShader: `uniform float uPix; uniform float uTime; varying float vA; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float tw = 0.6 + 0.4 * sin(uTime * 2.0 + position.x * 3.0 + position.z * 2.0); vA = tw * smoothstep(40.0, 5.0, -mv.z) * smoothstep(0.5, 3.0, -mv.z); gl_PointSize = 5.5 * uPix * 22.0 / max(1.0, -mv.z); }`,
+const moteMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uCol: { value: new THREE.Color(1.0, 0.82, 0.45) }, uPix: { value: 1 }, uTime: U.time, uWS: { value: 1 } },
+  vertexShader: `uniform float uPix; uniform float uTime; uniform float uWS; varying float vA; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float dz = -mv.z * uWS; float tw = 0.6 + 0.4 * sin(uTime * 2.0 + position.x * 3.0 + position.z * 2.0); vA = tw * smoothstep(40.0, 5.0, dz) * smoothstep(0.5, 3.0, dz); gl_PointSize = 5.5 * uPix * 22.0 / max(1.0, dz); }`,
   fragmentShader: `uniform vec3 uCol; varying float vA; void main(){ float r = length(gl_PointCoord - 0.5) * 2.0; if (r > 1.0) discard; gl_FragColor = vec4(uCol * 1.6, pow(1.0 - r, 2.0) * vA * 0.8);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   }` });
 const motes = new THREE.Points(moteGeo, moteMat); motes.frustumCulled = false; motes.renderOrder = 19; scene.add(motes);
 function updateMotes(t) {
-  const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, S = 44;
+  const cx = CP.x, cy = CP.y, cz = CP.z, S = 44;
   for (let i = 0; i < NMOTE; i++) {
     const sx = moteSeed[i * 3], sy = moteSeed[i * 3 + 1], sz = moteSeed[i * 3 + 2];
     let x = (sx * S + t * (0.25 + sy * 0.3) + Math.sin(t * 0.6 + sz * 20) * 0.7), y = (sy * 14 + t * 0.12 * (0.5 + sz) + Math.sin(t * 0.8 + sx * 20) * 0.5), z = (sz * S + t * 0.18);
@@ -2396,7 +2438,8 @@ function addShard(x, y, z, final, extra) { const m = makeShardMesh(); m.position
 function updateShards(dt, t) {
   for (const s of SHARDS) {
     if (s.got) continue; const u = s.mesh.userData, bob = Math.sin(t * 1.8 + s.ph) * 0.18;
-    s.mesh.position.y = s.y + bob; u.core.rotation.y = t * 1.4; u.ring.rotation.z = t * 0.9; u.ring2.rotation.z = -t * 0.7; u.beam.visible = !s.noBeam; s.mesh.rotation.z = s.flip ? PI : 0;
+    s.mesh.position.y = s.y + bob; u.core.rotation.y = t * 1.4; u.ring.rotation.z = t * 0.9; u.ring2.rotation.z = -t * 0.7; u.beam.visible = !s.noBeam; u.beam.scale.y = VR.beamK; u.beam.position.y = 45 * VR.beamK; s.mesh.rotation.z = s.flip ? PI : 0;
+    if (VR.presenting) { const dx = s.x - P.x, dz = s.z - P.z; s.mesh.visible = dx * dx + dz * dz < TUNING.vr.shardVis * TUNING.vr.shardVis || s === G.nextShard; }
     for (let i = 0; i < 4; i++) { const a = t * 1.6 + i * PI / 2; u.bits[i].position.set(Math.cos(a) * 1.2, Math.sin(a * 1.3) * 0.5, Math.sin(a) * 1.2); u.bits[i].rotation.y = a * 2; }
     if (G.state === 'play' && !G.trans && (!SH.on || SH.kind === 'world' && false)) { const dx = s.x - P.x, dz = s.z - P.z, dy = s.y - (P.y + 0.9 * (GF > 0 ? 1 : -1)); if (dx * dx + dz * dz + dy * dy * 0.6 < 3.4) collectShard(s); }
     if (Math.random() < 0.12) puff(s.x + (Math.random() - 0.5) * 1.6, s.y + (Math.random() - 0.5) * 1.6, s.z + (Math.random() - 0.5) * 1.6, 1, 0.35, 0xffd060, 0.5, 0.8, 1.1);
@@ -2456,7 +2499,7 @@ function buildShell() {
   g.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); return { g, body };
 }
 function addEnemy(spec) {
-  const m = spec.type === 'shell' ? buildShell() : buildWalker(); m.g.scale.setScalar(1.3); m.g.position.set(spec.x, spec.y, spec.z); scene.add(m.g);
+  const m = spec.type === 'shell' ? buildShell() : buildWalker(); m.g.scale.setScalar(1.3); m.g.position.set(spec.x, spec.y, spec.z); scene.add(m.g); if (VR.merge) vrMergeApply(m.g, true);
   const e = { type: spec.type, x: spec.x, y: spec.y, z: spec.z, hx: spec.x, hz: spec.z, r: spec.r || 3, dir: Math.random() < 0.5 ? 1 : -1, ang: Math.random() * TAU, vy: 0, state: 'walk', t: 0, mesh: m.g, body: m.body, alive: true, ceil: !!spec.ceil, kx: 0, kz: 0, h: 0.8, ph: Math.random() * 6 };
   if (e.ceil) { m.g.rotation.z = PI; } ENEMIES.push(e); return e;
 }
@@ -2617,6 +2660,7 @@ function noiseHit(t, dur, g, f0, f1, q = 1, type = 'lowpass', dest) {
 const nf = n => 440 * Math.pow(2, (n - 69) / 12);
 let lastSfx = {};
 function sfx(name, a = 0) {
+  if (VR.presenting) vrSfxHaptic(name, a);
   if (!AC || muted) return; const t = AC.currentTime, now = performance.now(); if (lastSfx[name] && now - lastSfx[name] < 30) return; lastSfx[name] = now;
   switch (name) {
     case 'jump': osc('square', 300, 640, t, 0.14, 0.09); osc('sine', 150, 320, t, 0.14, 0.12); break;
@@ -2655,7 +2699,7 @@ function sfx(name, a = 0) {
 const PENTA = [0, 2, 4, 7, 9];
 function sfxClack(x, y, z) { // quantised to a pentatonic scale by height, panned by screen position
   if (!AC || muted) return; const t = AC.currentTime, q = Math.floor(((y * 0.9 + x * 0.21 + z * 0.13) % 15 + 15) % 15), oct = (q / 5) | 0, n = 60 + PENTA[q % 5] + oct * 12; const pan = AC.createStereoPanner ? AC.createStereoPanner() : null;
-  const g = AC.createGain(); g.gain.value = 0.55; let dest = g; if (pan) { const dx = x - camera.position.x, dz = z - camera.position.z, rr = Math.cos(CAM.yaw) * dx - Math.sin(CAM.yaw) * dz; pan.pan.value = clamp(-rr / 30, -0.8, 0.8); g.connect(pan); pan.connect(sfxBus); } else g.connect(sfxBus);
+  const g = AC.createGain(); g.gain.value = 0.55; let dest = g; if (pan) { const dx = x - CP.x, dz = z - CP.z, rr = Math.cos(CAM.yaw) * dx - Math.sin(CAM.yaw) * dz; pan.pan.value = clamp(-rr / 30, -0.8, 0.8); g.connect(pan); pan.connect(sfxBus); } else g.connect(sfxBus);
   osc('triangle', nf(n), nf(n), t, 0.16, 0.05, g); osc('square', nf(n + 12), nf(n + 12), t, 0.04, 0.03, g); noiseHit(t, 0.03, 0.04, 6000, 3000, 1, 'highpass', g);
 }
 
@@ -2698,7 +2742,7 @@ function updateMusic(rdt) {
 // ============================================================================
 // GAME FLOW: state machine, HUD, acts, checkpoints, shard collection, menu/pause/dead, main loop, debug hooks
 // ============================================================================
-const G = { state: 'menu', act: 1, shards: 0, shardsTotal: 5, totalShards: 0, coins: 0, runCoins: 0, score: 0, t: 0, best: 0, slow: 1, flash: 0, flashRed: 0, hitstop: 0, trans: null, cine: 0, cineLock: false, atmT: 0, coinCombo: 0, coinComboT: 0, deaths: 0, ck: null, flags: { 1: [], 2: [], 3: [] }, won: false, started: false, finale: null };
+const G = { state: 'menu', act: 1, shards: 0, shardsTotal: 5, totalShards: 0, coins: 0, runCoins: 0, score: 0, t: 0, best: 0, slow: 1, flash: 0, flashRed: 0, hitstop: 0, trans: null, cine: 0, cineLock: false, atmT: 0, coinCombo: 0, coinComboT: 0, deaths: 0, ck: null, flags: { 1: [], 2: [], 3: [] }, won: false, started: false, finale: null, nsd: -1, nextShard: null };
 const ACT_NAMES = { 1: 'ACT I · GOLDEN VALLEY', 2: 'ACT II · SKY ARCHIPELAGO', 3: 'ACT III · NEON CANYON', 4: 'FINALE · BLOOM' };
 const ACT_SHARDS = { 1: 5, 2: 4, 3: 3 };
 try { G.best = +localStorage.getItem('sw_best') || 0; } catch (e) { }
@@ -2863,7 +2907,7 @@ function victory() {
 function restartAll() { $('dead').classList.add('hidden'); startRun(); G.state = 'play'; requestLock(); updateHUD(); }
 
 // ---- menu / pause / pointer lock -----------------------------------------------------------------------------------------------------
-function requestLock() { try { const p = canvas.requestPointerLock && canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { plFailed = true; locked = false; }); } catch (e) { plFailed = true; } }
+function requestLock() { if (VR.presenting) return; try { const p = canvas.requestPointerLock && canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { plFailed = true; locked = false; }); } catch (e) { plFailed = true; } }
 document.addEventListener('pointerlockchange', () => { const was = locked; locked = document.pointerLockElement === canvas; if (was && !locked && G.state === 'play') pauseGame(); });
 document.addEventListener('pointerlockerror', () => { plFailed = true; locked = false; });
 function beginGame() {
@@ -2923,14 +2967,14 @@ function frame(rdt, doRender) {
     deathCheck();
     PROMPT = ''; doRewind(sdt); updateCoins(sdt, U.time.value); updateShards(sdt, U.time.value); updateBlocks(sdt); updateNPC(sdt, U.time.value); updatePipesPads(sdt); updateRotators(sdt);
     edge.e = false; const pe = $('prompt'); if (PROMPT) { pe.textContent = PROMPT; pe.classList.add('on'); } else pe.classList.remove('on');
-    shardHudT -= rdt; if (shardHudT <= 0) { shardHudT = 0.25; let best = 1e9, bs = null; for (const s of SHARDS) if (!s.got) { const d = Math.hypot(s.x - P.x, s.y - P.y, s.z - P.z); if (d < best) { best = d; bs = s; } } $('shardDist').textContent = bs ? 'NEXT SHARD ' + Math.round(best) + ' m' : ''; }
+    shardHudT -= rdt; if (shardHudT <= 0) { shardHudT = 0.25; let best = 1e9, bs = null; for (const s of SHARDS) if (!s.got) { const d = Math.hypot(s.x - P.x, s.y - P.y, s.z - P.z); if (d < best) { best = d; bs = s; } } G.nextShard = bs; G.nsd = bs ? Math.round(best) : -1; $('shardDist').textContent = bs ? 'NEXT SHARD ' + Math.round(best) + ' m' : ''; }
   } else if (G.state === 'menu') { updateNPC(rdt, U.time.value); updateShards(rdt, U.time.value); updateCoins(rdt, U.time.value); acc = 0; }
   U.time.value += rdt;
   if (SH.on) { if (SH.kind === 'local') updateLocalShatter(rdt); else if (SH.kind === 'world') updateWorldShatter(rdt); else if (SH.kind === 'pulse') updatePulse(rdt); else if (SH.kind === 'finale') updateFinale(rdt); }
   updateDrops(sdt); updateTerrainGeo(); updateCubes(Math.min(sdt, 1 / 20), rdt, U.time.value); updateParticles(sdt); updateStructures(sdt, U.time.value); updateMotes(U.time.value); updateShafts();
-  updateHeroVisual(sdt, rdt); updateCamera(sdt, rdt);
+  updateHeroVisual(sdt, rdt); updateCamera(sdt, rdt); if (!VR.presenting) CP.copy(camera.position);
   // shared uniforms
-  U.hero.value.set(P.x, P.y, P.z); grassUniforms.uFieldC.value.set(P.x, P.z); sky.position.copy(camera.position); updateSun(P.x, P.y, P.z);
+  U.hero.value.set(P.x, P.y, P.z); grassUniforms.uFieldC.value.set(P.x, P.z); sky.position.copy(CP); updateSun(P.x, P.y, P.z);
   waterMat.uniforms.uQ.value = Q.water; moteMat.uniforms.uCol.value.set(G.act === 3 ? 0x6ff0ff : G.act === 2 ? 0xffb6d8 : 0xffd27a);
   grassUniforms.uGrassOn.value = act1Visible ? 1 : 0;
   // flash overlays
@@ -2949,18 +2993,503 @@ function perfMonitor(real) { // auto-downgrade: avg frame time over 3 s > 26 ms,
   if (slowFrames >= 2) { worse(); return; }
   if (perfT >= TUNING.autoDowngradeWindow) { const avg = frameMs.reduce((a, b) => a + b, 0) / frameMs.length; frameMs.length = 0; perfT = 0; if (avg > TUNING.autoDowngradeMs && real < 2) worse(); }
 }
-function loop(now) { requestAnimationFrame(loop); if (window.__paused) { lastT = now; return; } const real = (now - lastT) / 1000, rdt = Math.min(0.25, real); lastT = now; if (rdt <= 0) return; frame(rdt, true); perfMonitor(real); }
+// ONE loop for both worlds: renderer.setAnimationLoop uses window rAF in flat play and the XR session's rAF while presenting (window rAF does not run then on Quest Browser)
+function tick(now) {
+  if (window.__paused) { lastT = now; if (VR.presenting) renderFrame(); return; } const real = (now - lastT) / 1000, rdt = Math.min(0.25, real); lastT = now; if (rdt <= 0) return;
+  if (VR.presenting) { if (window.__gpPoll) window.__gpPoll(); vrPre(rdt); frame(rdt, true); vrPerf(real); } // the gamepad shim's own rAF loop is dead in VR: pump it from here
+  else { frame(rdt, true); perfMonitor(real); }
+}
 function onQualityChanged() { U.lite.value = Q.lite; onGrassQuality(); onTreeQuality(); updateHUD(); }
 
 // ---- debug / test hooks ---------------------------------------------------------------------------------------------------------------
-window.__dbg = () => ({ frames: frameCount, stats: P.stats, rewinds: G.rewinds || 0, speed: P.speed, crouch: P.crouch, camWide: CAM.wide, talk: NPC.talkT > 0, npcNear: NPC.near, qScale, state: G.state, act: G.act, pos: [P.x, P.y, P.z], vel: [P.vx, P.vy, P.vz], hp: P.hp, big: P.big, score: G.score, coins: G.coins, shards: G.shards, totalShards: G.totalShards, grounded: P.grounded, pact: P.act, yaw: P.yaw, camYaw: CAM.yaw, camPitch: CAM.pitch, quality: qName, vox: voxAtCPU(P.x, P.z), cubes: cubeLive, trans: G.trans ? G.trans.kind : null, shk: SH.on ? SH.kind : null, wave: [WV.R1, WV.R2], gf: GF, muted, time: G.t, rewinding, deaths: G.deaths, fps: frameMs.length, locked, chain: P.chainN, wallT: P.wallT, invuln: P.invuln, nan: [P.x, P.y, P.z, P.vx, P.vy, P.vz, CAM.yaw, CAM.pitch].some(v => !Number.isFinite(v)) });
+window.__dbg = () => ({ frames: frameCount, stats: P.stats, rewinds: G.rewinds || 0, speed: P.speed, crouch: P.crouch, camWide: CAM.wide, talk: NPC.talkT > 0, npcNear: NPC.near, qScale, state: G.state, act: G.act, pos: [P.x, P.y, P.z], vel: [P.vx, P.vy, P.vz], hp: P.hp, big: P.big, score: G.score, coins: G.coins, shards: G.shards, totalShards: G.totalShards, grounded: P.grounded, pact: P.act, yaw: P.yaw, camYaw: CAM.yaw, camPitch: CAM.pitch, quality: qName, vox: voxAtCPU(P.x, P.z), cubes: cubeLive, trans: G.trans ? G.trans.kind : null, shk: SH.on ? SH.kind : null, wave: [WV.R1, WV.R2], gf: GF, muted, time: G.t, rewinding, deaths: G.deaths, fps: frameMs.length, locked, chain: P.chainN, wallT: P.wallT, invuln: P.invuln, nan: [P.x, P.y, P.z, P.vx, P.vy, P.vz, CAM.yaw, CAM.pitch].some(v => !Number.isFinite(v)), xr: vrDbg() });
 Object.assign(window.__game, {
   advance(sec, doRender = false) { const n = Math.round(sec * 60); for (let i = 0; i < n; i++) frame(1 / 60, doRender && i === n - 1); },
   teleport(x, y, z) { setHeroPos(x, y, z); deathCheck(); }, setQuality(q) { applyQuality(q, true); }, collect(i) { const s = SHARDS.filter(s => !s.got)[i || 0]; if (s) collectShard(s); return !!s; }, shards: () => SHARDS.map(s => [s.x, s.y, s.z, s.got, s.final]),
   loadAct(n) { if (!G.started) { G.started = true; } G.ck = G.ck || { act: 1 }; loadAct(n); resetHero(LV ? { x: LV.O.x + LV.start.x, y: LV.O.y + LV.start.y, z: LV.O.z + LV.start.z } : G.ck.pos || { x: SITES.spawn.x, y: SITE_H.spawn, z: SITES.spawn.z }); }, level: () => LV, SH: () => SH, G, P, CAM, C, TREES, ROCKS,
   blocks: () => BLOCKS, enemies: () => ENEMIES, scene, grass, flowers, terrain, water, sky, hero, TREE_MESH, FAR, passes(b, g2) { if (bloomPass) bloomPass.enabled = !!b; if (gradePass) gradePass.enabled = !!g2; }, setScale(v) { qScale = v; onResize(); buildComposer(); }, camera, hfGround, HT, render() { renderFrame(); }, local(x, z) { startLocalShatter(x ?? P.x, z ?? P.z, TUNING.shatter.localR); }, world() { const s = SHARDS.find(s => s.final); startWorldShatter(G.act, G.act + 1, s ? s.x : P.x, s ? floorAt(s.x, s.z, s.y) : P.y, s ? s.z : P.z); },
-  pause(v) { window.__paused = !!v; }, wave(o) { Object.assign(WV, o); syncWave(); }, flip() { flipGravity(); }, hurt() { hurtHero(P.x + 1, P.z); }, kill() { killHero('hits'); },
+  pause(v) { window.__paused = !!v; }, renderer, rig, vr: { enter: () => vrEnter(), exit: () => vrExit(), check: () => vrCheckSupport(), state: VR, ui: () => UI }, wave(o) { Object.assign(WV, o); syncWave(); }, flip() { flipGravity(); }, hurt() { hurtHero(P.x + 1, P.z); }, kill() { killHero('hits'); },
 });
+
+// ============================================================================
+// WEBXR / VR - Quest Browser first (Touch controllers, optional hand pinch), also PC-VR through desktop Chrome.
+//  * DIORAMA camera: the rig (dolly) is scaled by S so the world is a ~14 cm-hero tabletop; the table follows the hero (heavily damped, XZ),
+//    right stick snap-turns the rig, the headset yaw drives the stick-relative movement. No shake / roll / forced camera moves (the flat chase-cam is NOT used).
+//  * input feeds the SAME code paths as keyboard / phone pad (keys, padFire, padPlace) plus an analog stick vector (VRIN).
+//  * DOM overlays are invisible in immersive-vr: world-space UI (wrist panel, laser-clickable menu / pause / fail / win panel, how-to panel, caption panel).
+//  * every object here is built lazily on the first VR entry; nothing in this block runs during flat play except a few boolean checks.
+// ============================================================================
+const VRT = TUNING.vr;
+const _va = new THREE.Vector3(), _vb = new THREE.Vector3(), _vc = new THREE.Vector3(), _vq = new THREE.Quaternion();
+const vrNoop = () => { };
+const vrCfg = { size: VRT.sizeDefault, snap: 1, q: 'vr' }; // persisted: table size index, snap(1)/smooth(0) turning, VR graphics tier
+try { const o = JSON.parse(localStorage.getItem('sw_vr') || 'null'); if (o) { if (o.size >= 0 && o.size < VRT.scales.length) vrCfg.size = o.size | 0; vrCfg.snap = o.snap ? 1 : 0; if (o.q === 'vrlite') vrCfg.q = 'vrlite'; } } catch (e) { }
+function vrSaveCfg() { try { localStorage.setItem('sw_vr', JSON.stringify(vrCfg)); } catch (e) { } }
+function vrFbScale() { let v = VRT.fbScale; try { const u = parseFloat(new URLSearchParams(location.search).get('vrscale')); if (u >= 0.5 && u <= 1.5) v = u; } catch (e) { } return v; }
+Object.assign(VR, {
+  prompt: false, built: false, wasPlay: false, headOk: false, needAnchor: true, snapFollow: true, first: true, floorY: 0,
+  hpx: 0, hpy: 1.6, hpz: 0, gx: 0, gz: -1, ax: 0, ay: 0.9, az: -0.6, hx: 0, hy: 0, hz: 0, gy: 0, lpx: 0, lpy: 0, lpz: 0,
+  snapArmed: true, turns: 0, haptics: 0, fire: false, place: false, fireHand: 1, eT: 0, xHold: 0, xDone: false, fade: 0, capAng: 0,
+  pinch: [false, false], perfT: 0, perfN: 0, avgMs: 0, autoLite: false, soft: false, prevQ: 'high', sessionFeatures: '', gazeLocked: false,
+});
+// ---- per-hand input state (0 = left, 1 = right) -----------------------------------------------------------------------------------
+// mask bits: 1 trigger, 2 grip, 4 A/X, 8 B/Y, 16 stick click. m = raw, e = effective (after suppression), pm/pe = previous frame
+const mkHand = () => ({ has: false, hand: false, src: null, ax: 0, ay: 0, trig: 0, grip: 0, stick: false, b4: false, b5: false, trigOn: false, gripOn: false, m: 0, pm: 0, e: 0, pe: 0, sup: 0, rawRise: 0, rise: 0, lastHap: 0 });
+const XI = [mkHand(), mkHand()];
+const XK = new Set(); // keys injected by the VR layer
+function xkey(k, on) { if (on) { if (!keys.has(k)) keys.add(k); XK.add(k); } else if (XK.has(k)) { XK.delete(k); keys.delete(k); } }
+function vrAxisKeys(neg, pos, v) { xkey(neg, XK.has(neg) ? v < -0.22 : v < -0.38); xkey(pos, XK.has(pos) ? v > 0.22 : v > 0.38); }
+
+// ---- haptics: Quest Browser exposes gamepad.hapticActuators[0].pulse(), Chrome desktop gamepad.vibrationActuator.playEffect() -------------
+const HAP = { startDelay: 0, duration: 0, weakMagnitude: 0, strongMagnitude: 0 };
+function vrHaptic(h, amp, ms) {
+  if (h === 2) { vrHaptic(0, amp, ms); vrHaptic(1, amp, ms); return; }
+  const X = XI[h]; if (!X || !X.has || !X.src) return; const gp = X.src.gamepad; if (!gp) return;
+  const now = performance.now(); if (now - X.lastHap < 22) return; X.lastHap = now;
+  try {
+    const ha = gp.hapticActuators;
+    if (ha && ha.length && ha[0] && ha[0].pulse) { const r = ha[0].pulse(amp, ms); if (r && r.catch) r.catch(vrNoop); VR.haptics++; return; }
+    const va = gp.vibrationActuator;
+    if (va && va.playEffect) { HAP.duration = ms; HAP.weakMagnitude = amp * 0.6; HAP.strongMagnitude = amp; const r = va.playEffect('dual-rumble', HAP); if (r && r.catch) r.catch(vrNoop); VR.haptics++; }
+  } catch (e) { }
+}
+function vrSfxHaptic(name, a) { // called from sfx() while presenting: every game event that has a sound also gets a feel
+  switch (name) {
+    case 'coin': vrHaptic(1, 0.18 + Math.min(0.22, a * 0.03), 24); break;
+    case 'hurt': vrHaptic(2, 1, 240); break;
+    case 'pound': vrHaptic(2, 1, 260); break;
+    case 'poundstart': vrHaptic(2, 0.25, 40); break;
+    case 'shatter': vrHaptic(2, 0.9, 320); break;
+    case 'shatter_big': vrHaptic(2, 1, 520); break;
+    case 'shatter_small': vrHaptic(2, 0.5, 140); break;
+    case 'rewind': vrHaptic(2, 0.35, 70); break;
+    case 'shard': vrHaptic(2, 0.7, 260); break;
+    case 'punch': vrHaptic(VR.fireHand, 0.5, 45); break;
+    case 'dive': vrHaptic(VR.fireHand, 0.4, 90); break;
+    case 'stomp': case 'kick': vrHaptic(2, 0.65, 70); break;
+    case 'land': if (a > 0.3) vrHaptic(2, 0.12 + a * 0.2, 26); break;
+    case 'jump': case 'jump2': case 'jump3': vrHaptic(1, 0.12, 18); break;
+    case 'powerup': vrHaptic(2, 0.5, 200); break;
+    case 'die': vrHaptic(2, 1, 500); break;
+    case 'click': vrHaptic(2, 0.2, 18); break;
+  }
+}
+
+// ---- draw-call diet: every joint's meshes (+ their toon outlines) become ONE vertex-coloured mesh while presenting (hero, twin, enemies) ------
+function vrBake(list, withColor) {
+  const geos = [];
+  for (let i = 0; i < list.length; i++) {
+    const it = list[i], g = it.geo.clone(); g.applyMatrix4(it.mat);
+    if (withColor) { const n = g.attributes.position.count, c = new Float32Array(n * 3), col = it.col; for (let k = 0; k < n; k++) { c[k * 3] = col.r; c[k * 3 + 1] = col.g; c[k * 3 + 2] = col.b; } g.setAttribute('color', new THREE.BufferAttribute(c, 3)); }
+    geos.push(g);
+  }
+  const m = mergeGeometries(geos, false); for (const g of geos) g.dispose(); return m;
+}
+let vrLitMat = null;
+function vrBuildMerged(g) {
+  const ud = g.userData, ps = ud.vrp; if (!ps || !ps.length || ud.vrM) return;
+  if (!vrLitMat) vrLitMat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x100e0c });
+  const l1 = []; for (const m of ps) { m.updateMatrix(); l1.push({ geo: m.geometry, mat: m.matrix, col: m.material.color }); }
+  const mesh = new THREE.Mesh(vrBake(l1, true), vrLitMat); mesh.castShadow = true; mesh.frustumCulled = false; mesh.visible = false; g.add(mesh); ud.vrM = mesh;
+  if (ud.vro && ud.vro.length) { const l2 = []; for (const o of ud.vro) { o.updateMatrix(); l2.push({ geo: o.geometry, mat: o.matrix }); } const om = new THREE.Mesh(vrBake(l2, false), outlineMat); om.renderOrder = -1; om.frustumCulled = false; om.visible = false; g.add(om); ud.vrO = om; }
+}
+function vrMergeApply(root, on) {
+  root.traverse(o => { const ud = o.userData; if (!ud || !ud.vrp) return; if (on) vrBuildMerged(o); for (const m of ud.vrp) m.visible = !on; if (ud.vro) for (const m of ud.vro) m.visible = !on; if (ud.vrM) ud.vrM.visible = on; if (ud.vrO) ud.vrO.visible = on; });
+}
+function vrMergeAll(on) { VR.merge = on; vrMergeApply(hero.root, on); vrMergeApply(twin.root, on); for (const e of ENEMIES) vrMergeApply(e.mesh, on); }
+
+// ---- procedural Touch-style controller (no asset download) ---------------------------------------------------------------------------
+const UI = { mode: 'none', built: false, btns: [], hotKey: -1, laserLen: [1.2, 1.2], hit: [false, false], hot: [-1, -1], cap: { talk: '', talkOn: false, toast: '', toastOn: false, prompt: '', promptOn: false, who: '' }, capT: 0, wr: { sig: '' }, howShown: false };
+const vrCtrl = [null, null]; // three controller groups (target-ray space); their hand is data.handedness
+UI.ch = [null, null];        // controller group currently carrying the LEFT (0) / RIGHT (1) hand, or null
+function vrBuildControllerModel() {
+  const g = new THREE.Group(), list = []; const M = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  const add = (geo, x, y, z, rx, ry, rz, hex) => { e.set(rx, ry, rz); q.setFromEuler(e); M.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(1, 1, 1)); list.push({ geo, mat: M.clone(), col: new THREE.Color(hex) }); };
+  add(new THREE.CylinderGeometry(0.017, 0.021, 0.12, 10), 0, -0.03, 0.06, 0.55, 0, 0, 0x2a2f3a);          // handle, angled back + down
+  add(new THREE.TorusGeometry(0.043, 0.0075, 6, 20), 0, 0.012, -0.008, PI / 2 - 0.35, 0, 0, 0x8892a6);       // tracking ring
+  add(new THREE.SphereGeometry(0.02, 10, 8), 0, 0.0, -0.016, 0, 0, 0, 0x3a4150);                              // nose
+  add(new THREE.CylinderGeometry(0.014, 0.014, 0.006, 12), 0, 0.022, 0.04, 0, 0, 0, 0x151820);                // thumbstick well
+  const body = new THREE.Mesh(vrBake(list, true), new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, fog: false })); body.frustumCulled = false; g.add(body);
+  const acc = new THREE.MeshBasicMaterial({ color: 0x53e0d0, toneMapped: false, fog: false });
+  const trig = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.03, 0.014), acc); trig.position.set(0, -0.036, 0.0); trig.frustumCulled = false; g.add(trig);
+  const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.011, 0.012, 10), new THREE.MeshBasicMaterial({ color: 0xdfe7f5, toneMapped: false, fog: false })); stick.position.set(0, 0.03, 0.04); stick.frustumCulled = false; g.add(stick);
+  const btnA = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 8, 6), new THREE.MeshBasicMaterial({ color: 0x444b5c, toneMapped: false, fog: false })); btnA.position.set(0.02, 0.026, 0.07); btnA.frustumCulled = false; g.add(btnA);
+  const btnB = btnA.clone(); btnB.material = btnA.material.clone(); btnB.position.set(0.02, 0.03, 0.052); g.add(btnB);
+  g.userData = { body, trig, stick, btnA, btnB, acc };
+  return g;
+}
+
+// ---- canvas panels -----------------------------------------------------------------------------------------------------------------------
+const VFONT = '"Trebuchet MS","Segoe UI",system-ui,sans-serif';
+function rrect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function vrPanel(wm, hm, pw, ph, mips) {
+  const cv = document.createElement('canvas'); cv.width = pw; cv.height = ph; const ctx = cv.getContext('2d');
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; if (!mips) { tex.generateMipmaps = false; tex.minFilter = THREE.LinearFilter; }
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, toneMapped: false, fog: false });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(wm, hm), mat); mesh.renderOrder = 1000; mesh.frustumCulled = false; mesh.visible = false;
+  return { cv, ctx, tex, mat, mesh, wm, hm, pw, ph, cx: 0, cy: 0, cz: -1, nx: 0, ny: 0, nz: 1, rx: 1, rz: 0 };
+}
+function vrPlacePanel(p, x, y, z, hx, hz) { // face the head (yaw only, always upright); store the plane basis for the analytic ray test
+  p.cx = x; p.cy = y; p.cz = z; const a = Math.atan2(hx - x, hz - z); p.mesh.position.set(x, y, z); p.mesh.rotation.set(0, a, 0);
+  p.nx = Math.sin(a); p.nz = Math.cos(a); p.ny = 0; p.rx = Math.cos(a); p.rz = -Math.sin(a);
+}
+function vrHitPanel(p, ox, oy, oz, dx, dy, dz, out) { // ray (rig-local) vs panel -> out.u/v in canvas px, out.t in real metres
+  const dn = dx * p.nx + dy * p.ny + dz * p.nz; if (dn > -0.02) return false;
+  const t = ((p.cx - ox) * p.nx + (p.cy - oy) * p.ny + (p.cz - oz) * p.nz) / dn; if (t < 0.03 || t > 6) return false;
+  const px = ox + dx * t - p.cx, py = oy + dy * t - p.cy, pz = oz + dz * t - p.cz;
+  const u = (px * p.rx + pz * p.rz) / p.wm + 0.5, v = py / p.hm + 0.5; if (u < 0 || u > 1 || v < 0 || v > 1) return false;
+  out.u = u * p.pw; out.v = (1 - v) * p.ph; out.t = t; return true;
+}
+const _hit = { u: 0, v: 0, t: 0 };
+function wrapLines(c, text, maxW, out) { out.length = 0; const words = String(text).split(/\s+/); let line = ''; for (const w of words) { const t = line ? line + ' ' + w : w; if (c.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; } if (line) out.push(line); return out; }
+const _wl = [];
+
+function vrDrawMain() {
+  const p = UI.main, c = p.ctx, W = p.pw, H = p.ph, m = UI.mode; c.clearRect(0, 0, W, H);
+  rrect(c, 8, 8, W - 16, H - 16, 46); const gr = c.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(12,30,48,.95)'); gr.addColorStop(1, 'rgba(6,14,24,.95)'); c.fillStyle = gr; c.fill();
+  c.lineWidth = 6; c.strokeStyle = m === 'lose' ? 'rgba(255,143,122,.9)' : 'rgba(255,214,107,.9)'; c.stroke();
+  c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+  let title = 'SHATTERWORLD', sub = '', sub2 = '', col = '#ffd66b';
+  if (m === 'start') { sub = 'A REALISTIC WORLD. SHATTERED INTO BLOCKS.'; sub2 = $('best').textContent; }
+  else if (m === 'pause') { title = 'PAUSED'; sub = 'Y also resumes'; }
+  else { title = $('deadT').textContent; col = m === 'lose' ? '#ff8f7a' : '#ffd66b'; sub = ($('deadS').innerHTML || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ''); }
+  c.fillStyle = col; c.font = '900 ' + (title.length > 12 ? 78 : 92) + 'px ' + VFONT; c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 12; c.fillText(title, W / 2, 128); c.shadowBlur = 0;
+  c.fillStyle = '#ffe9b8'; c.font = '600 36px ' + VFONT;
+  const sl = sub.split('\n'); let y = 190; for (const s of sl) { c.fillText(s, W / 2, y); y += 44; }
+  if (sub2) { c.fillStyle = '#53e0d0'; c.font = '700 34px ' + VFONT; c.fillText(sub2, W / 2, y + 4); }
+  for (let i = 0; i < UI.btns.length; i++) {
+    const b = UI.btns[i], hot = UI.hot[0] === i || UI.hot[1] === i; rrect(c, b.x, b.y, b.w, b.h, b.h / 2);
+    const g2 = c.createLinearGradient(0, b.y, 0, b.y + b.h);
+    if (b.primary) { g2.addColorStop(0, hot ? '#fff9d0' : '#fff2b0'); g2.addColorStop(0.55, hot ? '#ffd45f' : '#ffc54a'); g2.addColorStop(1, hot ? '#ffa43a' : '#ff9c2b'); } else { g2.addColorStop(0, hot ? 'rgba(120,200,255,.55)' : 'rgba(255,255,255,.14)'); g2.addColorStop(1, hot ? 'rgba(60,140,220,.55)' : 'rgba(255,255,255,.06)'); }
+    c.fillStyle = g2; c.fill(); c.lineWidth = hot ? 6 : 3; c.strokeStyle = hot ? '#ffffff' : (b.primary ? 'rgba(255,235,170,.6)' : 'rgba(255,255,255,.4)'); c.stroke();
+    c.fillStyle = b.primary ? '#2a1400' : '#eaf6ff'; c.font = (b.primary ? '900 54px ' : '800 36px ') + VFONT; c.textBaseline = 'middle'; c.fillText(b.label(), b.x + b.w / 2, b.y + b.h / 2 + 2); c.textBaseline = 'alphabetic';
+  }
+  p.tex.needsUpdate = true;
+}
+function vrBuildButtons(mode) {
+  const W = UI.main.pw, B = UI.btns; B.length = 0;
+  const sizeL = () => 'SIZE: ' + ['S', 'M', 'L'][vrCfg.size], turnL = () => 'TURN: ' + (vrCfg.snap ? 'SNAP 30°' : 'SMOOTH'), gfxL = () => 'GFX: ' + (vrCfg.q === 'vr' ? 'VR' : 'LITE');
+  const rows = mode === 'start' ? [[['cta', () => 'BEGIN', 1]], [['size', sizeL], ['turn', turnL], ['qual', gfxL]], [['exit', () => 'EXIT VR']]]
+    : mode === 'pause' ? [[['resume', () => 'RESUME', 1]], [['menu', () => 'MAIN MENU'], ['exit', () => 'EXIT VR']], [['size', sizeL], ['turn', turnL], ['qual', gfxL]]]
+      : [[['cta2', () => $('cta2').textContent || 'RETRY', 1]], [['menu', () => 'MAIN MENU'], ['exit', () => 'EXIT VR']]];
+  let y = 300; const m = 48;
+  rows.forEach((row, ri) => { const h = ri === 0 ? 112 : 84, n = row.length, gap = 22, w = (W - 2 * m - gap * (n - 1)) / n; row.forEach((r, i) => B.push({ id: r[0], label: r[1], primary: !!r[2], x: m + i * (w + gap), y, w, h })); y += h + 22; });
+}
+function vrDrawHow() {
+  const p = UI.how, c = p.ctx, W = p.pw, H = p.ph; c.clearRect(0, 0, W, H);
+  rrect(c, 8, 8, W - 16, H - 16, 42); c.fillStyle = 'rgba(8,22,34,.93)'; c.fill(); c.lineWidth = 6; c.strokeStyle = 'rgba(83,224,208,.9)'; c.stroke();
+  c.textBaseline = 'alphabetic'; c.textAlign = 'center'; c.fillStyle = '#53e0d0'; c.font = '900 52px ' + VFONT; c.fillText('TOUCH CONTROLS', W / 2, 84);
+  const rows = [['LEFT STICK', 'move (relative to your head)'], ['RIGHT STICK', 'turn the table 30° (flick)'], ['A', 'jump - chain 3 for a triple'], ['B', 'crouch / ground-pound in air'], ['TRIGGER', 'punch / dive in air'], ['GRIP (hold)', 'REWIND shattered blocks'], ['X  tap / hold', 'table size / recentre'], ['Y', 'pause menu'], ['L-STICK CLICK', 'sprint'], ['R-STICK CLICK', 'talk / flip pad']];
+  let y = 150; c.textAlign = 'left';
+  for (const r of rows) { c.fillStyle = '#ffd66b'; c.font = '800 34px ' + VFONT; c.fillText(r[0], 44, y); c.fillStyle = '#eaf6ff'; c.font = '600 34px ' + VFONT; c.fillText(r[1], 330, y); y += 52; }
+  c.textAlign = 'center'; c.fillStyle = '#9fd8ff'; c.font = '600 30px ' + VFONT; c.fillText('Bluetooth pad: same as flat play', W / 2, H - 38);
+  p.tex.needsUpdate = true;
+}
+function vrDrawCaption() {
+  const p = UI.capP, c = p.ctx, W = p.pw, H = p.ph, k = UI.cap; c.clearRect(0, 0, W, H); c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+  if (k.talkOn) {
+    rrect(c, 8, 8, W - 16, H - 16, 36); const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(14,40,32,.93)'); g.addColorStop(1, 'rgba(8,24,22,.93)'); c.fillStyle = g; c.fill(); c.lineWidth = 5; c.strokeStyle = '#7be08a'; c.stroke();
+    c.textAlign = 'left'; c.fillStyle = '#9cf0a0'; c.font = '800 32px ' + VFONT; c.fillText(k.who, 40, 62); c.fillStyle = '#f4fff4'; c.font = '600 38px ' + VFONT; wrapLines(c, k.talk, W - 80, _wl); let y = 114; for (let i = 0; i < _wl.length && i < 4; i++) { c.fillText(_wl[i], 40, y); y += 48; }
+  } else {
+    let y = H - 20;
+    if (k.promptOn) { c.font = '700 38px ' + VFONT; const w = c.measureText(k.prompt).width + 60; rrect(c, W / 2 - w / 2, y - 60, w, 70, 20); c.fillStyle = 'rgba(10,22,34,.9)'; c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(255,255,255,.4)'; c.stroke(); c.fillStyle = '#fff4d8'; c.fillText(k.prompt, W / 2, y - 12); y -= 84; }
+    if (k.toastOn) { c.font = '700 42px ' + VFONT; const w = Math.min(W - 20, c.measureText(k.toast).width + 80); rrect(c, W / 2 - w / 2, y - 66, w, 76, 38); c.fillStyle = 'rgba(10,22,34,.9)'; c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(255,230,160,.6)'; c.stroke(); c.fillStyle = '#fff4d8'; c.fillText(k.toast, W / 2, y - 12); }
+  }
+  p.tex.needsUpdate = true;
+}
+function vrDrawWrist() {
+  const p = UI.wrP, c = p.ctx, W = p.pw, H = p.ph; c.clearRect(0, 0, W, H);
+  rrect(c, 8, 8, W - 16, H - 16, 52); const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(10,26,42,.94)'); g.addColorStop(1, 'rgba(6,14,24,.94)'); c.fillStyle = g; c.fill(); c.lineWidth = 6; c.strokeStyle = 'rgba(83,224,208,.9)'; c.stroke();
+  c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.fillStyle = '#ffd66b'; c.font = '800 42px ' + VFONT; c.fillText(ACT_NAMES[G.act] || '', 48, 84);
+  for (let i = 0; i < 3; i++) { const x = 100 + i * 118, y = 190; c.beginPath(); c.arc(x, y, 46, 0, TAU); c.fillStyle = i < P.hp ? (P.big ? '#ffd24a' : '#ff5a4a') : 'rgba(255,255,255,.1)'; c.fill(); c.lineWidth = 5; c.strokeStyle = 'rgba(255,230,160,.7)'; c.stroke(); }
+  c.beginPath(); c.arc(590, 190, 36, 0, TAU); const cg = c.createRadialGradient(580, 180, 4, 590, 190, 38); cg.addColorStop(0, '#fff7c2'); cg.addColorStop(0.55, '#ffc93a'); cg.addColorStop(1, '#d98a12'); c.fillStyle = cg; c.fill();
+  c.fillStyle = '#fff4d8'; c.font = '900 84px ' + VFONT; c.fillText('×' + G.coins, 648, 220);
+  const n = ACT_SHARDS[G.act] || 0; for (let i = 0; i < n; i++) { const x = 90 + i * (n > 4 ? 100 : 118), y = 350, on = i < G.shards; c.save(); c.translate(x, y); c.rotate(PI / 4); rrect(c, -30, -30, 60, 60, 7); c.fillStyle = on ? '#ffc54a' : 'rgba(255,255,255,.12)'; c.fill(); c.lineWidth = 4; c.strokeStyle = on ? '#fff2b8' : 'rgba(255,230,160,.5)'; c.stroke(); c.restore(); }
+  c.fillStyle = '#9fb4c8'; c.font = '700 34px ' + VFONT; c.fillText('TIME', 48, 468); c.fillText('SCORE', 470, 468);
+  c.fillStyle = '#fff4d8'; c.font = '900 78px ' + VFONT; c.fillText(fmtTime(G.t), 48, 548); c.fillText(String(G.score), 470, 548);
+  c.fillStyle = '#53e0d0'; c.font = '800 42px ' + VFONT; c.fillText(G.nsd >= 0 ? 'NEXT SHARD  ' + G.nsd + ' m' : 'ALL SHARDS FOUND', 48, 686);
+  p.tex.needsUpdate = true;
+}
+
+// ---- build (lazy, once) -------------------------------------------------------------------------------------------------------------------
+const vrBlink = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8), new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false, toneMapped: false }));
+vrBlink.renderOrder = 2000; vrBlink.frustumCulled = false; vrBlink.visible = false; camera.add(vrBlink);
+const vrRing = new THREE.Mesh(new THREE.RingGeometry(1.46, 1.49, 96).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: 0x9ff0e4, transparent: true, opacity: 0.30, depthTest: false, depthWrite: false, fog: false, toneMapped: false })); // fixed "rest frame": the table rim does not move while the world slides under it
+vrRing.renderOrder = 50; vrRing.frustumCulled = false; vrRing.visible = false; rig.add(vrRing);
+const vrArrow = new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.15, 10).rotateX(PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd060, transparent: true, opacity: 0.9, fog: false, toneMapped: false })); vrArrow.frustumCulled = false; vrArrow.visible = false; scene.add(vrArrow);
+function vrBuild() {
+  if (VR.built) return; VR.built = true;
+  for (let i = 0; i < 2; i++) {
+    const c = renderer.xr.getController(i); const model = vrBuildControllerModel(); c.add(model); c.userData = { hand: '', model, hasSrc: false };
+    const laser = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0022, 1, 6, 1, true).rotateX(PI / 2).translate(0, 0, -0.5), new THREE.MeshBasicMaterial({ color: 0x9ff0e4, transparent: true, opacity: 0.85, depthTest: false, toneMapped: false, fog: false })); laser.renderOrder = 1001; laser.frustumCulled = false; laser.visible = false; c.add(laser); c.userData.laser = laser;
+    const ret = new THREE.Mesh(new THREE.CircleGeometry(0.012, 14), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthTest: false, toneMapped: false, fog: false })); ret.renderOrder = 1002; ret.frustumCulled = false; ret.visible = false; rig.add(ret); c.userData.ret = ret;
+    c.addEventListener('connected', e => { const d = e.data; c.userData.hand = d.handedness || ''; c.userData.hasSrc = true; c.userData.model.visible = !d.hand; c.userData.isHand = !!d.hand; const left = c.userData.hand === 'left'; c.userData.model.userData.acc.color.setHex(left ? 0x53e0d0 : 0xff6fb1); vrAttachWrist(); });
+    c.addEventListener('disconnected', () => { c.userData.hasSrc = false; c.userData.hand = ''; vrAttachWrist(); });
+    rig.add(c); vrCtrl[i] = c;
+  }
+  UI.main = vrPanel(1.15, 0.79, 1024, 704, true); UI.how = vrPanel(0.92, 0.64, 1024, 712, true); UI.capP = vrPanel(0.8, 0.25, 1024, 320, false); UI.wrP = vrPanel(0.26, 0.195, 1024, 768, false);
+  rig.add(UI.main.mesh, UI.how.mesh, UI.capP.mesh); UI.wrP.mesh.rotation.x = -PI / 2 + 0.5; UI.wrP.mesh.position.set(0, 0.06, 0.07); rig.add(UI.wrP.mesh);
+  UI.wrP.mat.opacity = 0; vrDrawHow(); UI.built = true;
+}
+function vrAttachWrist() { // the wrist panel rides on the left controller; with no left controller it floats low in front (re-parented to the rig)
+  UI.ch[0] = UI.ch[1] = null; for (let i = 0; i < 2; i++) { const c = vrCtrl[i]; if (c && c.userData.hasSrc) { if (c.userData.hand === 'left') UI.ch[0] = c; else if (c.userData.hand === 'right') UI.ch[1] = c; } }
+  if (!UI.wrP) return; const tgt = UI.ch[0] && !UI.ch[0].userData.isHand ? UI.ch[0] : null;
+  const m = UI.wrP.mesh; if (tgt) { if (m.parent !== tgt) { tgt.add(m); m.position.set(0, 0.06, 0.07); m.rotation.set(-PI / 2 + 0.5, 0, 0); } UI.wristFloat = false; } else { if (m.parent !== rig) rig.add(m); UI.wristFloat = true; }
+}
+
+// ---- session lifecycle ---------------------------------------------------------------------------------------------------------------------
+function vrMenuRefresh(msg, warn) {
+  $('ctaVR').classList.toggle('hidden', !VR.supported);
+  let t = msg, w = !!warn;
+  if (!t) { if (VR.supported) t = VR.prompt ? 'Headset detected. Press ENTER VR (Touch controllers, or a Bluetooth pad).' : 'VR ready: press ENTER VR.'; else { t = 'VR not available here: open this page in Quest Browser'; w = true; } }
+  const st = $('vrStatus'); st.textContent = t; st.classList.toggle('warn', w);
+}
+async function vrCheckSupport() {
+  let ok = false;
+  try { ok = !!(navigator.xr && navigator.xr.isSessionSupported && await navigator.xr.isSessionSupported('immersive-vr')); } catch (e) { ok = false; }
+  VR.supported = ok; VR.checked = true; if (!VR.presenting) vrMenuRefresh(); return ok;
+}
+function vrInit() {
+  $('ctaVR').addEventListener('click', e => { e.stopPropagation(); vrEnter(); });
+  try { if (new URLSearchParams(location.search).get('vr') === '1') { VR.prompt = true; $('vrPrompt').classList.remove('hidden'); document.body.classList.add('vrmode'); } } catch (e) { }
+  renderer.xr.addEventListener('sessionstart', vrOnStart); renderer.xr.addEventListener('sessionend', vrOnEnd);
+  vrMenuRefresh('Checking VR...'); vrCheckSupport();
+  try { if (navigator.xr && navigator.xr.addEventListener) navigator.xr.addEventListener('devicechange', vrCheckSupport); } catch (e) { }
+}
+async function vrEnter() {
+  if (VR.presenting || VR.entering) return;
+  if (!VR.supported) { vrMenuRefresh('VR not available here: open this page in Quest Browser', true); return; }
+  VR.entering = true; vrMenuRefresh('Starting VR...');
+  let session = null;
+  try {
+    audioInit(); // inside the click: the AudioContext may only start from a user gesture
+    session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
+    VR.session = session; VR.sessionFeatures = session.enabledFeatures ? Array.from(session.enabledFeatures).join(',') : '';
+    VR.floorY = 0; renderer.xr.setReferenceSpaceType('local-floor');
+    if (session.enabledFeatures && Array.from(session.enabledFeatures).indexOf('local-floor') < 0) { renderer.xr.setReferenceSpaceType('local'); VR.floorY = 1.5; } // no floor space: origin is the eyes
+    renderer.xr.setFramebufferScaleFactor(vrFbScale()); renderer.xr.setFoveation(VRT.foveation);
+    vrBuild(); VR.soft = detectSoftware(); VR.S = VRT.scales[vrCfg.size]; VR.prevQ = qName;
+    applyQuality(vrCfg.q, true); // VR tier: no composer / bloom / god rays, small shadow map, trimmed grass + cubes (applied BEFORE the session starts so the canvas is still resizable)
+    vrMergeAll(true); camera.near = VRT.near; camera.far = VRT.far; camera.updateProjectionMatrix();
+    await renderer.xr.setSession(session);
+  } catch (e) {
+    VR.entering = false; try { if (session) await session.end(); } catch (e2) { }
+    if (!VR.presenting) { vrRestore(); vrMenuRefresh('Could not start VR: ' + String(e && e.message || e).slice(0, 90), true); }
+  }
+}
+function vrExit() { if (VR.session) { try { VR.session.end(); } catch (e) { } } }
+function vrOnStart() {
+  VR.presenting = true; VR.entering = false; VR.frames = 0; VR.needAnchor = true; VR.snapFollow = true; VR.first = true; VR.wasPlay = G.state === 'play'; VR.pinch[0] = VR.pinch[1] = false; VR.fade = 0; VR.perfT = VR.perfN = 0; VR.autoLite = false;
+  const sess = VR.session = renderer.xr.getSession();
+  sess.addEventListener('visibilitychange', vrOnVis); sess.addEventListener('selectstart', vrOnSelect); sess.addEventListener('selectend', vrOnSelect);
+  const rs = renderer.xr.getReferenceSpace(); if (rs && rs.addEventListener) rs.addEventListener('reset', () => { VR.needAnchor = true; });
+  vrRing.visible = true; UI.mode = 'none'; UI.hotKey = -1; vrAttachWrist(); VR.beamK = VRT.beamLen / 90; if (window.__qdbg) console.log('vr start');
+  vrMenuRefresh('VR session running');
+}
+function vrOnSelect(e) { const s = e.inputSource; if (!s || !s.hand) return; const h = s.handedness === 'left' ? 0 : s.handedness === 'right' ? 1 : -1; if (h >= 0) VR.pinch[h] = e.type === 'selectstart'; }
+function vrOnVis() { const v = VR.session && VR.session.visibilityState; if (v && v !== 'visible' && G.state === 'play') pauseGame(); } // system menu / headset off: never keep playing blind
+function vrOnEnd() {
+  VR.presenting = false; VR.entering = false; VR.session = null; vrReleaseAll(); XI[0].has = XI[1].has = false; vrRestore();
+  if (G.state === 'play') pauseGame(); // pointer lock is gone: flat play resumes with a click, nothing is lost
+  plFailed = false; lastT = performance.now(); vrMenuRefresh();
+}
+function vrRestore() {
+  rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); rig.scale.set(1, 1, 1); camera.near = 0.1; camera.far = 1400; camera.scale.set(1, 1, 1); camera.fov = TUNING.cam.fov; camera.aspect = W / H; camera.updateProjectionMatrix();
+  VR.beamK = 1; ptMat.uniforms.uWS.value = 1; moteMat.uniforms.uWS.value = 1; vrBlink.visible = false; vrRing.visible = false; vrArrow.visible = false; VR.fade = 0;
+  if (UI.built) { UI.main.mesh.visible = UI.how.mesh.visible = UI.capP.mesh.visible = UI.wrP.mesh.visible = false; for (let i = 0; i < 2; i++) { const u = vrCtrl[i].userData; u.laser.visible = false; u.ret.visible = false; } }
+  UI.mode = 'none'; vrMergeAll(false); for (const s of SHARDS) s.mesh.visible = !s.got;
+  if (VR.prevQ && QUALITY[VR.prevQ] && !QUALITY[VR.prevQ].vr) applyQuality(VR.prevQ, true); else if (Q.vr) applyQuality('high', true);
+  applyAtmosphere(); onResize();
+}
+function vrReleaseAll() {
+  for (const k of Array.from(XK)) { XK.delete(k); keys.delete(k); }
+  VRIN.mag = 0; VRIN.x = VRIN.z = 0; INP.spd = 1; VR.eT = 0; if (VR.fire) { VR.fire = false; padFire(false); } if (VR.place) { VR.place = false; padPlace(false); }
+}
+function vrSetQuality(name) { vrCfg.q = name; vrSaveCfg(); if (VR.presenting) applyQuality(name, true); }
+function vrPerf(real) { // auto-downgrade for real headsets only (software GL runs at ~2 fps and would trip it): 3 s average above ~19 ms at 72 Hz -> lite tier
+  VR.frames++; if (VR.frames < 40 || VR.soft || document.hidden) return; VR.perfT += real; VR.perfN++;
+  if (VR.perfT >= 3) { VR.avgMs = VR.perfT / VR.perfN * 1000; VR.perfT = 0; VR.perfN = 0; if (VR.avgMs > 19 && vrCfg.q === 'vr' && !VR.autoLite) { VR.autoLite = true; vrSetQuality('vrlite'); toast('VR: lite graphics (frame time ' + Math.round(VR.avgMs) + ' ms)'); } }
+}
+
+// ---- per-frame: inputs -> game, head pose, UI ----------------------------------------------------------------------------------------
+function vrReadInputs() {
+  XI[0].has = XI[1].has = false; const srcs = VR.session.inputSources;
+  for (let i = 0; i < srcs.length; i++) {
+    const s = srcs[i], h = s.handedness === 'left' ? 0 : s.handedness === 'right' ? 1 : -1; if (h < 0) continue;
+    const X = XI[h], gp = s.gamepad; X.has = true; X.src = s; X.hand = !!s.hand;
+    if (gp) { // xr-standard: buttons[0] trigger, [1] squeeze, [3] thumbstick, [4] A/X, [5] B/Y; axes[2],[3] thumbstick
+      const a = gp.axes, b = gp.buttons, n = b.length;
+      X.ax = a.length > 2 ? a[2] : (a.length > 0 ? a[0] : 0); X.ay = a.length > 3 ? a[3] : (a.length > 1 ? a[1] : 0);
+      X.trig = n > 0 ? b[0].value : 0; X.grip = n > 1 ? b[1].value : 0; X.stick = n > 3 && b[3].pressed; X.b4 = n > 4 && b[4].pressed; X.b5 = n > 5 && b[5].pressed;
+    } else { X.ax = X.ay = 0; X.trig = VR.pinch[h] ? 1 : 0; X.grip = 0; X.stick = X.b4 = X.b5 = false; } // hand tracking: a pinch is the trigger
+    X.trigOn = X.trig > (X.trigOn ? 0.35 : 0.55); X.gripOn = X.grip > (X.gripOn ? 0.35 : 0.55);
+  }
+  for (let h = 0; h < 2; h++) { const X = XI[h]; if (!X.has) { X.trig = X.grip = X.ax = X.ay = 0; X.trigOn = X.gripOn = X.stick = X.b4 = X.b5 = false; }
+    X.m = (X.trigOn ? 1 : 0) | (X.gripOn ? 2 : 0) | (X.b4 ? 4 : 0) | (X.b5 ? 8 : 0) | (X.stick ? 16 : 0); X.rawRise = X.m & ~X.pm; X.pm = X.m; }
+}
+function vrHead(rdt) {
+  const xc = renderer.xr.getCamera(), cs = xc.cameras; VR.headOk = cs.length > 0; if (!VR.headOk) return;
+  const c0 = cs[0], c1 = cs.length > 1 ? cs[1] : c0;
+  VR.hpx = (c0.position.x + c1.position.x) * 0.5; VR.hpy = (c0.position.y + c1.position.y) * 0.5; VR.hpz = (c0.position.z + c1.position.z) * 0.5;
+  _va.set(0, 0, -1).applyQuaternion(c0.quaternion); _vb.set(0, 1, 0).applyQuaternion(c0.quaternion); // heading = forward + up*(looking-down amount): stable while you look down at the table
+  const w = Math.max(0, -_va.y); let gx = _va.x + _vb.x * w, gz = _va.z + _vb.z * w; const l = Math.hypot(gx, gz); if (l > 1e-4) { gx /= l; gz /= l; } else { gx = VR.gx; gz = VR.gz; }
+  VR.gx = gx; VR.gz = gz; const c = Math.cos(VR.yaw), s = Math.sin(VR.yaw); const ty = Math.atan2(gx * c + gz * s, -gx * s + gz * c);
+  CAM.yaw += angDiff(CAM.yaw, ty) * (VR.first ? 1 : 1 - Math.exp(-14 * rdt)); VR.first = false; // the sim's camera-relative movement basis IS the head yaw
+}
+function vrPlaceTable() { // put the diorama in front of the viewer, below eye level, facing so the hero runs away from them
+  if (!VR.headOk) return;
+  VR.ax = VR.hpx + VR.gx * VRT.fwd; VR.az = VR.hpz + VR.gz * VRT.fwd; const fy = VR.hpy + VR.floorY;
+  VR.ay = clamp(fy - VRT.drop, VRT.tableMin, VRT.tableMax) - VR.floorY; VR.yaw = P.yaw - Math.atan2(VR.gx, VR.gz);
+  VR.needAnchor = false; VR.snapFollow = true; VR.capAng = Math.atan2(VR.gx, VR.gz); vrRing.position.set(VR.ax, VR.ay, VR.az); UI.mode = 'none'; // re-opens (and re-places) the menu panels below
+}
+function vrCycleSize() { vrCfg.size = (vrCfg.size + 1) % VRT.scales.length; VR.S = VRT.scales[vrCfg.size]; vrSaveCfg(); vrHaptic(2, 0.3, 30); toast('Table size ' + ['SMALL', 'MEDIUM', 'LARGE'][vrCfg.size]); sfx('click'); UI.dirtyMain = true; }
+function vrActions(rdt) {
+  const L = XI[0], R = XI[1], play = G.state === 'play';
+  if (play !== VR.wasPlay) { VR.wasPlay = play; vrReleaseAll(); L.sup = L.m; R.sup = R.m; } // buttons held across a state change must be released before they count again
+  for (let h = 0; h < 2; h++) { const X = XI[h]; X.sup &= X.m; X.e = X.m & ~X.sup; X.rise = X.e & ~X.pe; X.pe = X.e; }
+  // ---- left stick: analog direction + proportional speed (VRIN) and the same WASD keys the shim uses -------------------------------------
+  let mag = 0, ix = 0, iz = 0, ly = 0, lx = 0;
+  if (play && L.has) { const m = Math.hypot(L.ax, L.ay), dz = VRT.stickDead; if (m > dz) { const k = (Math.min(m, 1) - dz) / (1 - dz) / m; lx = L.ax * k; ly = L.ay * k; mag = Math.hypot(lx, ly); ix = lx; iz = -ly; } }
+  if (play) { vrAxisKeys('a', 'd', lx); vrAxisKeys('w', 's', ly); } else { xkey('a', false); xkey('d', false); xkey('w', false); xkey('s', false); }
+  VRIN.mag = mag > 0 ? clamp(mag / 0.85, 0.22, 1) : 0; VRIN.x = ix; VRIN.z = iz;
+  xkey(' ', play && !!(R.e & 4)); xkey('z', play && !!(R.e & 8)); xkey('shift', play && !!(L.e & 16));
+  if (play && (R.rise & 16)) { VR.eT = 0.12; keys.add('e'); } if (VR.eT > 0) { VR.eT -= rdt; if (VR.eT <= 0) keys.delete('e'); } // R-stick click: talk / flip pad
+  const fireNow = play && !!((L.e | R.e) & 1), placeNow = play && !!((L.e | R.e) & 2);
+  if (fireNow !== VR.fire) { VR.fire = fireNow; padFire(fireNow); if (fireNow) VR.fireHand = (R.e & 1) ? 1 : 0; }
+  if (placeNow !== VR.place) { VR.place = placeNow; padPlace(placeNow); }
+  // ---- Y: pause menu; X: tap = table size, hold = recentre ------------------------------------------------------------------------------
+  if (L.rawRise & 8) { if (G.state === 'play') pauseGame(); else if (G.state === 'pause') resumeGame(); }
+  if (L.m & 4) { VR.xHold += rdt; if (VR.xHold > 0.6 && !VR.xDone) { VR.xDone = true; vrPlaceTable(); vrHaptic(0, 0.5, 60); toast('Table recentred'); } }
+  else { if (VR.xHold > 0 && !VR.xDone) vrCycleSize(); VR.xHold = 0; VR.xDone = false; }
+  // ---- right stick: snap turn (30 deg per flick, re-armed when the stick returns) or smooth turn ----------------------------------------
+  const rx = R.has ? R.ax : 0;
+  if (vrCfg.snap) { if (VR.snapArmed) { if (Math.abs(rx) > VRT.snapOn) { VR.yaw -= Math.sign(rx) * VRT.snapDeg * PI / 180; VR.snapArmed = false; VR.turns++; vrHaptic(1, 0.12, 12); } } else if (Math.abs(rx) < VRT.snapOff) VR.snapArmed = true; }
+  else { const m = Math.abs(rx); if (m > VRT.stickDead) VR.yaw -= Math.sign(rx) * (m - VRT.stickDead) / (1 - VRT.stickDead) * VRT.smoothDegPerSec * PI / 180 * rdt; VR.snapArmed = true; }
+}
+function vrUiMode() { return G.state === 'menu' ? 'start' : G.state === 'pause' ? 'pause' : G.state === 'dead' ? (G.won ? 'win' : 'lose') : 'none'; }
+function vrUiOpen(mode) {
+  UI.mode = mode; UI.hot[0] = UI.hot[1] = -1; UI.hotKey = -1; const on = mode !== 'none'; UI.main.mesh.visible = on; UI.how.mesh.visible = on && (mode === 'start' || mode === 'pause'); if (!on) return;
+  vrBuildButtons(mode);
+  const hx = VR.hpx, hz = VR.hpz, gx = VR.gx, gz = VR.gz, y = Math.max(0.95, VR.hpy + VR.floorY - 0.12) - VR.floorY;
+  vrPlacePanel(UI.main, hx + gx * 1.3, y, hz + gz * 1.3, hx, hz);
+  const a = -0.62, ca = Math.cos(a), sa = Math.sin(a), dx = gx * ca + gz * sa, dz = -gx * sa + gz * ca; // how-to panel: 35 deg to the right
+  vrPlacePanel(UI.how, hx + dx * 1.2, y - 0.03, hz + dz * 1.2, hx, hz);
+  vrDrawMain(); toastPollForce();
+}
+function vrUiClick(id) {
+  sfx('click'); vrHaptic(2, 0.3, 24);
+  switch (id) {
+    case 'cta': $('cta').click(); break;
+    case 'cta2': $('cta2').click(); break;
+    case 'resume': resumeGame(); break;
+    case 'menu': toMenu(); break;
+    case 'size': vrCycleSize(); break;
+    case 'turn': vrCfg.snap = vrCfg.snap ? 0 : 1; vrSaveCfg(); toast(vrCfg.snap ? 'Snap turn 30°' : 'Smooth turn'); UI.dirtyMain = true; break;
+    case 'qual': vrSetQuality(vrCfg.q === 'vr' ? 'vrlite' : 'vr'); toast(vrCfg.q === 'vr' ? 'VR graphics' : 'VR lite graphics (no shadows)'); UI.dirtyMain = true; break;
+    case 'exit': vrExit(); break;
+  }
+}
+function vrUiFrame(rdt) {
+  const mode = vrUiMode(); if (mode !== UI.mode) vrUiOpen(mode);
+  const open = UI.mode !== 'none';
+  if (open) {
+    let hotKey = 0;
+    for (let h = 0; h < 2; h++) {
+      const c = UI.ch[h]; let hot = -1, hit = false; UI.hit[h] = false;
+      const X = XI[h]; if (X.has && c && c.visible) {
+        _vb.set(0, 0, -1).applyQuaternion(c.quaternion); const p = c.position;
+        if (vrHitPanel(UI.main, p.x, p.y, p.z, _vb.x, _vb.y, _vb.z, _hit)) {
+          hit = true; UI.laserLen[h] = _hit.t; UI.hit[h] = true;
+          for (let i = 0; i < UI.btns.length; i++) { const b = UI.btns[i]; if (_hit.u >= b.x && _hit.u <= b.x + b.w && _hit.v >= b.y && _hit.v <= b.y + b.h) { hot = i; break; } }
+          const r = c.userData.ret; r.position.set(p.x + _vb.x * _hit.t, p.y + _vb.y * _hit.t, p.z + _vb.z * _hit.t); r.rotation.y = Math.atan2(UI.main.nx, UI.main.nz);
+        } else UI.laserLen[h] = 1.2;
+        if (hot >= 0 && hot !== UI.hot[h]) vrHaptic(h, 0.15, 10);
+        if (hot >= 0 && (X.rawRise & 1)) vrUiClick(UI.btns[hot].id);
+      }
+      UI.hot[h] = hot; hotKey |= (hot + 1) << (h * 8);
+    }
+    if ((XI[1].rawRise & 4) && UI.btns.length) vrUiClick(UI.btns[0].id); // A confirms the primary button
+    if (hotKey !== UI.hotKey || UI.dirtyMain) { UI.hotKey = hotKey; UI.dirtyMain = false; if (UI.mode !== 'none') vrDrawMain(); }
+  }
+  // lasers / reticles visible only while a panel is open
+  for (let i = 0; i < 2; i++) { const c = vrCtrl[i], u = c.userData, h = u.hand === 'left' ? 0 : u.hand === 'right' ? 1 : -1; const show = open && h >= 0 && u.hasSrc && XI[h].has && c.visible; u.laser.visible = show; u.ret.visible = show && UI.hit[h]; if (show) u.laser.scale.z = Math.max(0.01, UI.laserLen[h] - 0.004); }
+}
+// DOM-driven captions (toast / NPC talk / prompt) are polled at ~8 Hz so every existing code path that writes them keeps working in VR
+const domToast = $('toast'), domTalk = $('talk'), domPrompt = $('prompt'), domTalkTxt = $('talkTxt'), domTalkWho = $('talkWho');
+function toastPollForce() { UI.capT = 0; }
+function vrCaptionPoll(rdt) {
+  UI.capT -= rdt; if (UI.capT > 0) return; UI.capT = 0.125; const k = UI.cap; let ch = false;
+  const to = domToast.classList.contains('on'), tt = to ? domToast.textContent : k.toast; if (to !== k.toastOn || tt !== k.toast) { k.toastOn = to; k.toast = tt; ch = true; }
+  const ta = domTalk.classList.contains('on'), tx = ta ? domTalkTxt.textContent : k.talk; if (ta !== k.talkOn || tx !== k.talk) { k.talkOn = ta; k.talk = tx; k.who = domTalkWho.textContent; ch = true; }
+  const po = domPrompt.classList.contains('on') && G.state === 'play', pt = po ? domPrompt.textContent : k.prompt; if (po !== k.promptOn || pt !== k.prompt) { k.promptOn = po; k.prompt = pt; ch = true; }
+  if (ch) vrDrawCaption();
+}
+function vrWristSig() { // redraw the wrist panel only when something it shows changed
+  const w = UI.wr; const hp = P.hp | 0, big = P.big ? 1 : 0, t = G.t | 0;
+  if (w.hp !== hp || w.big !== big || w.coins !== G.coins || w.shards !== G.shards || w.act !== G.act || w.score !== G.score || w.t !== t || w.nsd !== G.nsd) { w.hp = hp; w.big = big; w.coins = G.coins; w.shards = G.shards; w.act = G.act; w.score = G.score; w.t = t; w.nsd = G.nsd; return true; }
+  return false;
+}
+function vrPre(rdt) {
+  if (!UI.built || !VR.session) return;
+  vrReadInputs(); vrHead(rdt);
+  if (VR.needAnchor && VR.headOk) vrPlaceTable();
+  vrActions(rdt); vrUiFrame(rdt); vrCaptionPoll(rdt);
+}
+
+// ---- the rig: camera dolly follows the hero (replaces the flat chase camera in VR) ---------------------------------------------------
+function vrRig(dt, rdt) {
+  const sc = VR.S;
+  if (VR.snapFollow) { VR.hx = P.x; VR.hy = P.y; VR.hz = P.z; VR.gy = P.y; VR.lpx = P.x; VR.lpy = P.y; VR.lpz = P.z; VR.snapFollow = false; }
+  const dx = P.x - VR.lpx, dy = P.y - VR.lpy, dz = P.z - VR.lpz; VR.lpx = P.x; VR.lpy = P.y; VR.lpz = P.z; const bd = VRT.blinkDist + 20 * rdt;
+  if (dx * dx + dz * dz > bd * bd || dy > 12 || dy < -12) { VR.hx = P.x; VR.hy = P.y; VR.hz = P.z; VR.gy = P.y; VR.fade = 1; } // respawn / pipe warp: blink, never slide the table across the map
+  else if (VR.fade > 0) VR.fade = Math.max(0, VR.fade - rdt / VRT.blinkTime);
+  if (P.grounded) VR.gy = P.y; // jumps do not move the table; only changes of ground level do
+  if (P.y > VR.gy + VRT.slackUp) VR.gy = P.y - VRT.slackUp; else if (P.y < VR.gy - VRT.slackDown) VR.gy = P.y + VRT.slackDown;
+  const kx = 1 - Math.exp(-VRT.followXZ * rdt), ky = 1 - Math.exp(-VRT.followY * rdt);
+  VR.hx += (P.x - VR.hx) * kx; VR.hz += (P.z - VR.hz) * kx; VR.hy += (VR.gy - VR.hy) * ky;
+  const c = Math.cos(VR.yaw), s = Math.sin(VR.yaw);
+  rig.rotation.y = VR.yaw; rig.scale.set(sc, sc, sc);
+  rig.position.set(VR.hx - sc * (c * VR.ax + s * VR.az), VR.hy - sc * VR.ay, VR.hz - sc * (-s * VR.ax + c * VR.az)); // the anchor (a point on the real table) stays glued to the damped hero
+  CP.set(rig.position.x + sc * (c * VR.hpx + s * VR.hpz), rig.position.y + sc * VR.hpy, rig.position.z + sc * (-s * VR.hpx + c * VR.hpz));
+  scene.fog.density = VRT.fog * (ATM.fogD / 0.0038); // fog is measured in REAL metres here: it hazes the table out at ~3-5 m (act 3's thicker mist scales along)
+  ptMat.uniforms.uWS.value = sc; moteMat.uniforms.uWS.value = sc;
+  const cs = renderer.xr.getCamera().cameras; if (cs.length) { const v = cs[0].viewport, e5 = cs[0].projectionMatrix.elements[5]; VR.pix = 0.507 * (v.w * e5 * 0.5) / 380; ptMat.uniforms.uPix.value = VR.pix; moteMat.uniforms.uPix.value = VR.pix; }
+  VR.beamK = VRT.beamLen / 90;
+  // arrow to the nearest shard when it is out of sight
+  const ns = G.nextShard; if (ns && G.state === 'play' && G.nsd > 24) { const ax = ns.x - P.x, az = ns.z - P.z, l = Math.hypot(ax, az) + 1e-4; vrArrow.visible = true; vrArrow.position.set(P.x + ax / l * 2.7, P.y + 0.35, P.z + az / l * 2.7); vrArrow.rotation.y = Math.atan2(ax, az); const pu = 1 + 0.12 * Math.sin(U.time.value * 6); vrArrow.scale.set(pu, pu, pu); } else vrArrow.visible = false;
+}
+// last-moment work before renderer.render(): panel placement that depends on this frame's poses, animations, blink
+function vrRenderPrep() {
+  vrBlink.visible = VR.fade > 0.003; vrBlink.material.opacity = VR.fade;
+  // controllers: trigger / stick / buttons animate
+  for (let i = 0; i < 2; i++) {
+    const c = vrCtrl[i], u = c.userData; if (!u.hasSrc || (u.hand !== 'left' && u.hand !== 'right')) continue; const h = u.hand === 'left' ? 0 : 1, X = XI[h]; const md = u.model.userData;
+    md.trig.rotation.x = -X.trig * 0.45; md.stick.position.x = X.ax * 0.008; md.stick.position.z = 0.04 + X.ay * 0.008; md.btnA.material.color.setHex(X.b4 ? 0xffd66b : 0x444b5c); md.btnB.material.color.setHex(X.b5 ? 0xffd66b : 0x444b5c);
+  }
+  if (UI.wrP) {
+    if (vrWristSig()) vrDrawWrist();
+    const m = UI.wrP.mesh; let a = 0.0;
+    if (!UI.wristFloat && m.parent && m.parent !== rig) { // facing test in rig space: panel normal vs direction to the head
+      const c = m.parent; _va.set(0, 0.06, 0.07).applyQuaternion(c.quaternion).add(c.position); _vb.set(0, Math.cos(0.5), Math.sin(0.5)).applyQuaternion(c.quaternion);
+      _vc.set(VR.hpx - _va.x, VR.hpy - _va.y, VR.hpz - _va.z).normalize(); const d = _vb.x * _vc.x + _vb.y * _vc.y + _vb.z * _vc.z; a = sstep(0.15, 0.55, d);
+    } else if (UI.wristFloat) { // no left controller: a small floating readout low in front of the viewer
+      m.position.set(VR.hpx + VR.gx * 0.75 - VR.gz * 0.0, Math.max(0.5, VR.hpy - 0.42), VR.hpz + VR.gz * 0.75); m.rotation.set(0, Math.atan2(VR.hpx - m.position.x, VR.hpz - m.position.z), 0); a = 1;
+    }
+    UI.wrP.mat.opacity += (a - UI.wrP.mat.opacity) * 0.35; m.visible = UI.wrP.mat.opacity > 0.02 && !(UI.mode !== 'none' && false);
+  }
+  if (UI.capP) { // caption panel: lags behind the gaze direction (does not rigidly follow the head), upright, below the eye line
+    const k = UI.cap, want = (k.talkOn || k.promptOn || k.toastOn) && UI.mode === 'none' ? 1 : 0; const ga = Math.atan2(VR.gx, VR.gz), err = angDiff(VR.capAng, ga);
+    VR.capAng += err * 0.1 * sstep(0.2, 0.7, Math.abs(err));
+    const p = UI.capP, x = VR.hpx + Math.sin(VR.capAng) * 1.05, z = VR.hpz + Math.cos(VR.capAng) * 1.05; vrPlacePanel(p, x, Math.max(0.4, VR.hpy - 0.4), z, VR.hpx, VR.hpz);
+    p.mat.opacity += (want - p.mat.opacity) * 0.25; p.mesh.visible = p.mat.opacity > 0.02;
+  }
+}
+function vrDbg() {
+  const inp = [];
+  for (let h = 0; h < 2; h++) { const X = XI[h]; inp.push({ hand: h ? 'right' : 'left', has: X.has, isHand: X.hand, axes: [+X.ax.toFixed(2), +X.ay.toFixed(2)], trig: +X.trig.toFixed(2), grip: +X.grip.toFixed(2), a: X.b4, b: X.b5, stick: X.stick }); }
+  const r = renderer.info.render;
+  return { supported: VR.supported, presenting: VR.presenting, mode: VR.mode, snapDeg: vrCfg.snap ? VRT.snapDeg : 0, scale: VR.S, size: vrCfg.size, rigYawDeg: +(VR.yaw * 180 / PI).toFixed(3), rigPos: [rig.position.x, rig.position.y, rig.position.z], frames: VR.frames, turns: VR.turns, haptics: VR.haptics, ui: UI.mode, tier: Q.vr ? qName : null, features: VR.sessionFeatures, fade: VR.fade, avgMs: +VR.avgMs.toFixed(1), draw: { calls: r.calls, triangles: r.triangles }, inputs: inp };
+}
 
 // ============================================================================
 // BOOT + shelf bridge
@@ -2978,7 +3507,7 @@ function bootGame() {
   onQualityChanged(); drawLogo(); setMuted(muted); updateBestLine();
   startRun(); updateEnv();
   $('boot').classList.add('off'); setTimeout(() => $('boot').remove(), 1200);
-  requestAnimationFrame(loop);
+  vrInit(); renderer.setAnimationLoop(tick);
 }
 bootGame();
 
@@ -3019,7 +3548,7 @@ bootGame();
 })();
 
 // <gamepad-shim>
-// gamepad shim v1: standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
+// gamepad shim v1 (+ __gpPoll hook for XR loops): standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
 // Pasted verbatim inside each game's module <script> (needs the contract globals: keys, padFire, padPlace, padLook, padMenu).
 // Mapping (Xbox name / PlayStation name):
 //   left stick = WASD   right stick = look   A/Cross = jump   X/Square = J   B/Circle = Z   Y/Triangle = E
@@ -3042,7 +3571,7 @@ bootGame();
   const click=id=>{ const el=document.getElementById(id); if(shown(el)){ el.click(); return true; } return false; };
   const edge=(name,on,down,up)=>{ if(on&&!was[name]){ was[name]=1; down&&down(); } else if(!on&&was[name]){ was[name]=0; up&&up(); } };
   const call=(f,...a)=>{ if(typeof f==='function') f(...a); };
-  const pick=()=>{ for(const g of navigator.getGamepads()) if(g&&g.connected) return g; return null; };
+  const pick=()=>{ const gs=navigator.getGamepads(); for(let i=0;i<gs.length;i++){ const g=gs[i]; if(g&&g.connected&&g.mapping!=='xr-standard') return g; } return null; };
   let lookLive=false;
   function releaseAll(){ [...held].forEach(k=>setKey(k,false)); Object.keys(was).forEach(k=>{ if(was[k]) edge(k,false,null,()=>{}); });
     if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
@@ -3053,16 +3582,22 @@ bootGame();
   window.__rumble=(strong,weak,ms)=>{ const g=pick(), a=g&&g.vibrationActuator;
     if(a&&a.playEffect) a.playEffect('dual-rumble',{duration:ms||80,strongMagnitude:strong||0,weakMagnitude:weak||0}).catch(()=>{}); };
   window.__gpDbg=()=>({ connected:!!pick(), held:[...held] });
-  function frame(){
+  // hot path is allocation-free (it also runs every XR frame): shared scratch + static edge callbacks
+  const _dz=[0,0]; let cur=null;
+  const bb=i=>{ const x=cur.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+  const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ){ _dz[0]=0; _dz[1]=0; return _dz; } const s=(Math.min(m,1)-DZ)/(1-DZ)/m; _dz[0]=x*s; _dz[1]=y*s; return _dz; };
+  const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+  const onRtDown=()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); }, onRtUp=()=>call(typeof padFire==='function'?padFire:null,false);
+  const onLtDown=()=>call(typeof padPlace==='function'?padPlace:null,true), onLtUp=()=>call(typeof padPlace==='function'?padPlace:null,false);
+  const onA=()=>{ if(!click('cta')) click('cta2'); }, onStart=()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); }, onSelect=()=>call(typeof padMenu==='function'?padMenu:null);
+  function poll(){
     const g=pick();
     if(g){
-      const b=i=>{ const x=g.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+      cur=g; const b=bb;
       // sticks (radial deadzone)
-      const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ) return [0,0]; const s=(Math.min(m,1)-DZ)/(1-DZ)/m; return [x*s,y*s]; };
-      const [lx,ly]=dz(g.axes[0]||0,g.axes[1]||0);
+      let d=dz(g.axes[0]||0,g.axes[1]||0); const lx=d[0], ly=d[1];
       axisKeys('a','d',lx); axisKeys('w','s',ly);
-      const [rx,ry]=dz(g.axes[2]||0,g.axes[3]||0);
-      const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+      d=dz(g.axes[2]||0,g.axes[3]||0); const rx=d[0], ry=d[1];
       if(rx||ry){ lookLive=true; call(typeof padLook==='function'?padLook:null,cv(rx),cv(ry)); }
       else if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
       // face / shoulder buttons -> keys
@@ -3070,15 +3605,16 @@ bootGame();
       setKey('q',b(4)||b(11)); setKey('shift',b(5)||b(10));
       setKey('arrowup',b(12)); setKey('arrowdown',b(13)); setKey('arrowleft',b(14)); setKey('arrowright',b(15));
       // triggers -> primary / secondary
-      edge('rt',b(7),()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); },()=>call(typeof padFire==='function'?padFire:null,false));
-      edge('lt',b(6),()=>call(typeof padPlace==='function'?padPlace:null,true),()=>call(typeof padPlace==='function'?padPlace:null,false));
+      edge('rt',b(7),onRtDown,onRtUp);
+      edge('lt',b(6),onLtDown,onLtUp);
       // A also confirms on start / retry screens; Start confirms there, pauses in game
-      edge('a',b(0),()=>{ if(!click('cta')) click('cta2'); });
-      edge('start',b(9),()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); });
-      edge('select',b(8),()=>call(typeof padMenu==='function'?padMenu:null));
+      edge('a',b(0),onA);
+      edge('start',b(9),onStart);
+      edge('select',b(8),onSelect);
     }
-    requestAnimationFrame(frame);
   }
+  function frame(){ poll(); requestAnimationFrame(frame); }
+  window.__gpPoll=poll; // window rAF does not run while an immersive session is presenting (Quest Browser): the game's XR loop calls this every XR frame
   requestAnimationFrame(frame);
 })();
 // </gamepad-shim>
