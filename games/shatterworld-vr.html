@@ -55,6 +55,7 @@
   #vrPrompt { padding:.7em 1.6em; border-radius:14px; border:2px solid var(--teal); background:rgba(8,40,38,.74); color:#d9fff9; font-weight:800; letter-spacing:.22em; font-size:clamp(12px,1.8vw,20px); text-align:center; animation:vrpulse 1.6s ease-in-out infinite; }
   @keyframes vrpulse { 0%,100% { box-shadow:0 0 0 0 rgba(83,224,208,.55); } 50% { box-shadow:0 0 0 14px rgba(83,224,208,0); } }
   body.vrmode #ctaVR { font-size:clamp(18px,2.8vw,32px); animation:vrpulse 1.6s ease-in-out infinite; }
+  body.vrmode .tag { display:none; } body.vrmode #logo { width:min(560px,58vw); } #menu { align-items:safe center; } /* ?vr=1 adds rows: compact the title + never clip the top of a menu that overflows */
     .best { font-size:clamp(10px,1.3vw,14px); letter-spacing:.24em; color:var(--teal); min-height:1.2em; text-shadow:0 1px 8px rgba(0,0,0,.7); }
   .cheat { display:grid; grid-template-columns:repeat(3,1fr); gap:6px 18px; width:100%; padding:clamp(8px,1.6vh,16px) clamp(10px,2vw,22px); border-radius:16px; background:var(--glass); border:1px solid rgba(255,230,160,.22);
     text-align:left; font-size:clamp(10px,1.28vw,14px); line-height:1.5; }
@@ -158,7 +159,7 @@ const TUNING = {
     sizeDefault: 1,
     drop: 0.7, fwd: 0.65,           // the hero's ground sits 0.7 m below the eyes and 0.65 m in front of them (re-measured on recentre)
     tableMin: 0.45, tableMax: 1.2,  // clamp of that ground height above the real floor
-    clear: 0.3,                     // the rig floats up whenever terrain under the head rises closer than this (hills beside the table)
+    clear: 0.5,                     // the rig floats up whenever terrain under the head rises closer than this (hills beside the table)
     followXZ: 3.2, followY: 3.0,    // 1/s damping of the table following the hero (heavy: world slides gently, never snaps)
     slackUp: 9, slackDown: 6,       // (world m) vertical slack: jumps do not move the table, only ground-level changes do
     snapDeg: 30, snapOn: 0.75, snapOff: 0.35, smoothDegPerSec: 110, stickDead: 0.18,
@@ -3235,7 +3236,7 @@ function vrBuild() {
     c.addEventListener('disconnected', () => { c.userData.hasSrc = false; c.userData.hand = ''; vrAttachWrist(); });
     rig.add(c); vrCtrl[i] = c;
   }
-  UI.main = vrPanel(1.15, 0.79, 1024, 704, true); UI.how = vrPanel(0.92, 0.64, 1024, 712, true); UI.capP = vrPanel(0.8, 0.25, 1024, 320, false); UI.wrP = vrPanel(0.26, 0.195, 1024, 768, false);
+  UI.main = vrPanel(1.15, 0.79, 1024, 704, true); UI.how = vrPanel(0.84, 0.584, 1024, 712, true); UI.capP = vrPanel(0.8, 0.25, 1024, 320, false); UI.wrP = vrPanel(0.26, 0.195, 1024, 768, false);
   rig.add(UI.main.mesh, UI.how.mesh, UI.capP.mesh); UI.wrP.mesh.rotation.x = -PI / 2 + 0.5; UI.wrP.mesh.position.set(0, 0.06, 0.07); rig.add(UI.wrP.mesh);
   UI.wrP.mat.opacity = 0; vrDrawHow(); UI.built = true;
 }
@@ -3382,7 +3383,7 @@ function vrUiOpen(mode) {
   const hx = VR.hpx, hz = VR.hpz, gx = VR.gx, gz = VR.gz, pit = clamp(Math.asin(clamp(VR.fy, -1, 1)), -0.5, 0.09); // panel sits where you are looking, but never steeper than ~28 deg down
   const y = Math.max(0.6, VR.hpy + VR.floorY + Math.sin(pit) * 1.3) - VR.floorY, hd = Math.cos(pit) * 1.3;
   vrPlacePanel(UI.main, hx + gx * hd, y, hz + gz * hd, hx, hz);
-  const a = -0.95, ca = Math.cos(a), sa = Math.sin(a), dx = gx * ca + gz * sa, dz = -gx * sa + gz * ca; // how-to panel: ~54 deg to the right of the menu
+  const a = -0.85, ca = Math.cos(a), sa = Math.sin(a), dx = gx * ca + gz * sa, dz = -gx * sa + gz * ca; // how-to panel: ~49 deg to the right of the menu
   vrPlacePanel(UI.how, hx + dx * 1.15, y - 0.02, hz + dz * 1.15, hx, hz);
   vrDrawMain(); toastPollForce();
 }

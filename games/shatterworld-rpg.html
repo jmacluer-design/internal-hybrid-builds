@@ -3713,7 +3713,7 @@ function rpgLootTick(dt) {
   for (let i = LOOT.length - 1; i >= 0; i--) {
     const L = LOOT[i]; L.t += dt; L.ph += dt * 2.4;
     if (!L.landed) {
-      L.vy -= 26 * dt; L.x += L.vx * dt; L.z += L.vz * dt; L.y += L.vy * dt; const f = floorAt(L.x, L.z, L.y + 0.7), gr = f > -1e8 ? f : -1e9;
+      L.vy -= 26 * dt; L.x += L.vx * dt; L.z += L.vz * dt; L.y += L.vy * dt; const f = floorAt(L.x, L.z, L.y + 2.5), gr = f > -1e8 ? f : -1e9; // generous ceiling: loot that lands inside a slope is lifted onto it
       if (gr > -1e8 && L.y <= gr + 0.32 && L.vy < 0) { L.y = gr + 0.32; if (L.vy < -3.5) { L.vy *= -0.38; L.vx *= 0.55; L.vz *= 0.55; } else { L.landed = true; L.vy = 0; L.gy = gr; if (L.kind === 'item') { L.g.position.y = L.y; } } }
       if (L.y < P.y - 45) { L.x = P.x; L.z = P.z; L.y = P.y + 3; L.vy = 0; L.vx = L.vz = 0; }
     } else {
@@ -3980,7 +3980,8 @@ function rpgEnemiesTick(dt) {
   RT_MINIONS = minions; RT.chill += (RT.chillWant - RT.chill) * Math.min(1, dt * 5); if (Math.abs(RT.chill - (RT.chillApplied || 0)) > 0.03) { RT.chillApplied = RT.chill; rpgApplyTuning(); }
   rpgProjectiles(dt); if (ENEMIES.length > 70) rpgCompactEnemies();
 }
-function rpgCompactEnemies() { for (let i = ENEMIES.length - 1; i >= 0; i--) { const e = ENEMIES[i]; if (!e.alive) { scene.remove(e.mesh); ENEMIES.splice(i, 1); } } }
+function rpgDisposeEnemy(e) { if (e.aura && !e.auraGone) { e.auraGone = true; e.aura.traverse(o => { if (o.isMesh && o.material && o.material.dispose && o.material !== LOOT_BEAM[2] && o.material !== LOOT_BEAM[3]) o.material.dispose(); }); } }
+function rpgCompactEnemies() { for (let i = ENEMIES.length - 1; i >= 0; i--) { const e = ENEMIES[i]; if (!e.alive) { rpgDisposeEnemy(e); scene.remove(e.mesh); ENEMIES.splice(i, 1); } } }
 function rpgSpawnEnemy(type, x, z, o = {}) { const y = o.y != null ? o.y : floorAt(x, z, P.y + 30); if (!(y > -1e8)) return null; const e = addEnemy({ type, x, y, z, r: o.r || 3 }); rpgDecorate(e, o); if (o.minion) puff(x, y + 0.3, z, 6, 0.8, 0xc28cff, 2); return e; }
 
 // ---- hero verbs: rewind pulse, pound / landing hooks, gold + shard + block hooks, per-frame hero tick ---------------------------------------------------------------
@@ -3988,7 +3989,7 @@ function rpgSetBuffs() { const k = 0.03 * RT.goldStack + (RT.surgeT > 0 ? 0.12 :
 function rpgPulse(free) { // Rewind Pulse: tapping RMB with enemies close fires a time ring (1 charge). Debris rewinding on the same press is untouched.
   if (G.state !== 'play' || P.dead) return; const S = RT.S, R = RPG_TUNING.rewind, near = rpgNearest(P.x, P.z, R.radius * 1.4, null, 40); if (!near.length) return;
   if (!free) { if (RT.rw < 1 || RT.pulseCd > 0) return; RT.rw -= 1; RT.pulseCd = R.cd; }
-  rsfx('pulse'); fxRing(P.x, P.y, P.z, 0.5, R.radius, 0.5, 0x53e0d0, 0.9); fxRing(P.x, P.y, P.z, 0.2, R.radius * 0.55, 0.35, 0xffffff, 0.6); camShake(0.15); G.flash = Math.max(G.flash, 0.05);
+  RT.pulses = (RT.pulses || 0) + 1; RT.pulseNear = near.length;   rsfx('pulse'); fxRing(P.x, P.y, P.z, 0.5, R.radius, 0.5, 0x53e0d0, 0.9); fxRing(P.x, P.y, P.z, 0.2, R.radius * 0.55, 0.35, 0xffffff, 0.6); camShake(0.15); G.flash = Math.max(G.flash, 0.05);
   const v = rpgHitDamage(S, 'pulse'), pull = S.fx.rewindPull ? R.pull : 0;
   for (const o of near) { if (Math.hypot(o.x - P.x, o.z - P.z) > R.radius) continue; const dx = o.x - P.x, dz = o.z - P.z, l = Math.hypot(dx, dz) + 0.01; rpgDamageEnemy(o, v, 'pulse', P); if (pull && o.alive && o.rpg && !o.rpg.aff.includes('juggernaut')) { o.kbx = -dx / l * pull; o.kbz = -dz / l * pull; } }
   if (S.powers.includes('afterimage')) { const ax = P.x, ay = P.y, az = P.z, dmg = rpgHitDamage(S, 'punch') * 1.2 * (1 + S.rewindDmg); fxChunks(ax, ay + 0.9, az, 8, 0x53e0d0, 0.14, 1.5, ay); rpgLater(1.4, () => { fxRing(ax, ay, az, 0.4, 4.6, 0.45, 0x9ffff0, 1); sparkBurst(ax, ay + 0.8, az, 22, 0x9ffff0, 8); rsfx('nova'); camShake(0.25); rpgAoE(ax, ay, az, 4.6, dmg, 'afterimage'); }); for (let i = 0; i < 5; i++) rpgLater(i * 0.28, () => puff(ax, ay + 0.9, az, 2, 0.8, 0x9ffff0, 0.4, 0.2, 0.5)); toast('Afterimage'); }
@@ -4043,12 +4044,13 @@ function rpgLevelUp() {
   fxRing(P.x, P.y, P.z, 0.5, 8, 1.0, 0xffe27a, 1); fxRing(P.x, P.y, P.z, 0.3, 5, 0.8, 0xffffff, 0.8); fxRing(P.x, P.y + 1.2, P.z, 0.3, 3.5, 1.3, 0x53e0d0, 0.8); sparkBurst(P.x, P.y + 1, P.z, 40, 0xffe27a, 9); G.flash = Math.max(G.flash, 0.3); camShake(0.2);
   rpgBanner('LEVEL UP', 'LEVEL ' + RP.level + '  ·  +' + RPG_TUNING.pointsPerLevel + ' POINTS  ·  PERK READY'); rpgLogLine('Level ' + RP.level + '! New perk available', '#ffe27a'); RT.perkOpenAt = RT.real + 1.5; rpgSaveNow();
 }
-const PK = { open: false, choices: [], i: 0, from: 'play' };
+const PK = { open: false, choices: [], i: 0, from: 'play', hid: [] };
 function rpgMaybePerks() {
-  if (RP.pending > 0 && !PK.open && !UI.open && G.state === 'play' && !G.trans && !G.finale && !P.dead && RT.real >= RT.perkOpenAt && !SH.on) openPerks();
+  if (RP.pending > 0 && !PK.open && !UI.open && G.state === 'play' && !G.trans && !G.finale && !P.dead && RT.real >= RT.perkOpenAt && !SH.on && !(RIFT && RIFT.phase === 'victory')) openPerks();
 }
-function openPerks() {
-  if (PK.open) return; PK.choices = rpgPerkChoices({ seed: RP.seed, picks: RP.picks, perks: RP.perks }); if (!PK.choices.length) { RP.pending = 0; return; } PK.open = true; PK.i = 1; G.state = 'perk'; keys.clear(); mouseFire = mousePlace = false; document.exitPointerLock && document.exitPointerLock();
+function openPerks() { // from play (automatic after a level-up) or from the menu / pause / result screens (PERKS tab)
+  if (PK.open || UI.open) return; const st = G.state; if (!(st === 'play' || st === 'pause' || st === 'menu' || st === 'dead')) return; PK.choices = rpgPerkChoices({ seed: RP.seed, picks: RP.picks, perks: RP.perks }); if (!PK.choices.length) { RP.pending = 0; return; }
+  PK.from = st; PK.open = true; PK.i = 1; G.state = 'perk'; keys.clear(); mouseFire = mousePlace = false; document.exitPointerLock && document.exitPointerLock(); PK.hid = []; for (const id of ['menu', 'dead', 'pause']) { const el = $(id); if (el && !el.classList.contains('hidden')) { el.classList.add('hidden'); PK.hid.push(id); } }
   $('perkpick').classList.remove('hidden'); renderPerks(); rsfx('uiopen');
 }
 function renderPerks() {
@@ -4062,7 +4064,7 @@ function perkPick(i) {
   if (RP.pending > 0) { PK.choices = rpgPerkChoices({ seed: RP.seed, picks: RP.picks, perks: RP.perks }); PK.i = 1; if (PK.choices.length) { renderPerks(); return; } RP.pending = 0; }
   closePerks();
 }
-function closePerks() { PK.open = false; $('perkpick').classList.add('hidden'); if (G.state === 'perk') { G.state = 'play'; requestLock(); } }
+function closePerks() { PK.open = false; $('perkpick').classList.add('hidden'); const from = PK.from; for (const id of PK.hid) if (!(id === 'pause' && (from === 'play' || from === 'pause'))) $(id).classList.remove('hidden'); PK.hid = []; if (G.state === 'perk') { if (from === 'play' || from === 'pause') { G.state = 'play'; $('pause').classList.add('hidden'); requestLock(); } else G.state = from; } if (from === 'menu') rpgRenderMenu(); }
 function perkKey(k) {
   if (k === 'arrowleft' || k === 'a') { PK.i = (PK.i + PK.choices.length - 1) % PK.choices.length; renderPerks(); rsfx('ui'); } else if (k === 'arrowright' || k === 'd') { PK.i = (PK.i + 1) % PK.choices.length; renderPerks(); rsfx('ui'); }
   else if (k === ' ' || k === 'enter') perkPick(PK.i); else if (k === '1' || k === '2' || k === '3') perkPick((+k) - 1 < PK.choices.length ? (+k) - 1 : PK.i);
@@ -4080,14 +4082,19 @@ function rpgSpot(rng, anchors, used, o) {
   }
   return null;
 }
+function rpgScatter(rng, out, n) { // extra floor anchors: terrain samples in the valley, headroom-checked top cubes in the block worlds
+  if (WC.hf && !VG.on) { for (let i = 0; i < n * 3 && out.length < n + 20; i++) { const x = (rng() * 2 - 1) * 56, z = (rng() * 2 - 1) * 56, y = HT(x, z); if (y > WATER_Y + 0.35 && terrSlope(x, z) < 0.55) out.push([x, y, z]); } return; }
+  if (LV && LV.vb && LV.surf) { const vb = LV.vb, s = LV.surf, O = LV.O; for (let i = 0; i < n * 8 && out.length < n + 20; i++) { const k = (rng() * s.n) | 0, x = s.x[k], y = s.y[k], z = s.z[k]; if (vb.get(x, y + 1, z) || vb.get(x, y + 2, z) || vb.get(x, y + 3, z)) continue; out.push([O.x + x + 0.5, O.y + y + 1, O.z + z + 0.5]); } }
+}
 function rpgSpawnAct() {
   const act = G.act, diff = rpgDiffIdx(), TC = RPG_TUNING.campaign, rng = rpgRng(rpgHashSeed(RP.seed ^ 0x51ED, act * 977 + diff * 31 + 7));
   let idx = 0; for (const e of ENEMIES) if (!e.rpg) { const tier = idx === 3 && rng() < 0.6 ? 'champion' : 'normal'; rpgDecorate(e, { idx, tier, seed: (rng() * 4294967296) >>> 0 }); idx++; }
-  const anchors = []; for (const c of COINS) if (c.alive && !c.pop) anchors.push([c.x, c.y - 1, c.z]); for (const e of ENEMIES) if (e.alive && !e.ceil) anchors.push([e.hx, e.y, e.hz]); if (!anchors.length) return;
+  const anchors = []; for (const c of COINS) if (c.alive && !c.pop) anchors.push([c.x, c.y - 1, c.z]); for (const e of ENEMIES) if (e.alive && !e.ceil) anchors.push([e.hx, e.y, e.hz]);
+  rpgScatter(rng, anchors, act === 1 ? 160 : 220); if (!anchors.length) return;
   const used = ENEMIES.filter(e => e.alive).map(e => [e.x, e.y, e.z]);
   for (let i = 0; i < TC.extraPerAct[act]; i++) {
     const r = rng(), forced = i === 0, big = forced || r < TC.elite + TC.champion, s = rpgSpot(rng, anchors, used, { minHero: big ? 20 : 12 }); if (!s) continue; const tier = forced ? 'elite' : r < TC.elite ? 'elite' : r < TC.elite + TC.champion ? 'champion' : 'normal', q = rng();
-    const type = forced ? (rng() < 0.6 ? 'brute' : 'walker') : q < TC.brute ? 'brute' : q < TC.brute + TC.hopper ? 'hopper' : q < TC.brute + TC.hopper + TC.spitter ? 'spitter' : rng() < 0.35 ? 'shell' : 'walker';
+    const type = forced ? (act >= 2 && rng() < 0.6 ? 'brute' : rng() < 0.5 ? 'hopper' : 'walker') : q < TC.brute ? 'brute' : q < TC.brute + TC.hopper ? 'hopper' : q < TC.brute + TC.hopper + TC.spitter ? 'spitter' : rng() < 0.35 ? 'shell' : 'walker';
     rpgSpawnEnemy(type, s[0], s[2], { y: s[1], idx: idx++, tier, seed: (rng() * 4294967296) >>> 0, r: 2.5 + rng() * 2 });
   }
   // chests: the first one of each act is the guaranteed ACT CHEST (placed far from the start)
@@ -4161,12 +4168,13 @@ function rpgRenderInv() {
   $('invTabs').innerHTML = TAB_NAMES.map((n, i) => `<button data-tab="${i}" class="${i === UI.tab ? 'on' : ''}">${n}${i === 2 && RP.pending ? `<span class="nb">${RP.pending}</span>` : ''}${i === 1 && RP.free ? `<span class="nb">${RP.free}</span>` : ''}</button>`).join('');
   const body = $('invBody'); body.innerHTML = [itemsHTML, sheetHTML, perksHTML, codexHTML, riftHTML][UI.tab]();
   body.querySelectorAll('canvas[data-ic]').forEach(cv => { const [z, i] = cv.dataset.ic.split(':'); const it = z === 'eq' ? RP.equipped[RPG_EQUIP[+i]] : RP.bag[+i]; if (it) rpgDrawIcon(cv, it); });
+  body.querySelectorAll('canvas[data-gh]').forEach(cv => rpgDrawIcon(cv, { slot: cv.dataset.gh, rarity: 'common', seed: 0, ilvl: 1, affixes: [] }));
   body.querySelectorAll('canvas[data-sg]').forEach(cv => rpgSigil(cv, cv.dataset.sg, cv.dataset.col || '#ffd66b'));
   const K = (cls, t, lab) => `<span><i class="kk ${cls}">${t}</i>${lab}</span>`;
   $('invFoot').innerHTML = UI.tab === 0 ? K('a', 'A', 'Equip') + K('x', 'X', 'Salvage (x2)') + K('y', 'Y', 'Lock') + K('t', 'RT', 'Reroll') + K('t', 'LT', 'Sort') + K('t', 'LB RB', 'Tabs') + K('b', 'B', 'Close') + '<span style="opacity:.6">keys: Space J E R T Q/Shift Z</span>'
     : K('a', 'A', UI.tab === 1 ? 'Spend point' : UI.tab === 4 ? 'Change / Start' : 'Select') + K('t', '&larr;&rarr;', 'Adjust') + K('t', 'LB RB', 'Tabs') + K('b', 'B', 'Close');
 }
-function slotDiv(zone, i, it, extra = '') { const f = UI.zone === zone && UI.i === i; return `<div class="slot ${rcl(it)}${f ? ' focus' : ''}${extra}" data-z="${zone}" data-i="${i}">${it ? `<canvas data-ic="${zone}:${i}"></canvas>${it.locked ? '<span class="lk">&#9679;</span>' : ''}<span class="il">${it.ilvl}</span>` : ''}${zone === 'bag' && it && rpgItemScore(it) > rpgItemScore(rpgCmpTarget(it)) ? '<span class="up">&#9650;</span>' : ''}</div>`; }
+function slotDiv(zone, i, it, extra = '') { const f = UI.zone === zone && UI.i === i; return `<div class="slot ${rcl(it)}${f ? ' focus' : ''}${extra}" data-z="${zone}" data-i="${i}">${!it && zone === 'eq' ? `<canvas data-gh="${RPG_EQUIP[i].replace(/\d/, '')}" style="opacity:.22"></canvas>` : ''}${it ? `<canvas data-ic="${zone}:${i}"></canvas>${it.locked ? '<span class="lk">&#9679;</span>' : ''}<span class="il">${it.ilvl}</span>` : ''}${zone === 'bag' && it && rpgItemScore(it) > rpgItemScore(rpgCmpTarget(it)) ? '<span class="up">&#9650;</span>' : ''}</div>`; }
 function itemsHTML() {
   const eq = RPG_EQUIP.map((k, i) => `<div class="eq">${slotDiv('eq', i, RP.equipped[k])}<label>${RPG_SLOT_LABEL[k]}</label></div>`).join('');
   const bag = RP.bag.map((it, i) => slotDiv('bag', i, it)).join(''), chips = CHIPS.map((c, i) => `<button class="chip${UI.zone === 'chip' && UI.i === i ? ' focus' : ''}${i === 3 && RP.filter ? ' on' : ''}" data-z="chip" data-i="${i}">${c}${i === 3 ? (RP.filter ? ': ON' : ': OFF') : ''}</button>`).join('');
@@ -4231,7 +4239,7 @@ function uiAct(kind) { // A / X / Y / RT / LT on the current tab
     else if (kind === 'RT') { if (sel.item && sel.item.affixes.length) { UI.rr = UI.rr ? null : { row: 0 }; rsfx('ui'); } else { toast('Nothing to reroll'); rsfx('deny'); } rpgRenderInv(); }
     else if (kind === 'LT') { invSort(); rpgRenderInv(); }
   } else if (UI.tab === 1) { if (kind === 'A') { const k = ['power', 'agility', 'resolve'][UI.sheetRow]; if (RP.free > 0) { RP.free--; RP.spent[k]++; rpgRecalc(); rsfx('perk'); } else rsfx('deny'); rpgRenderInv(); } }
-  else if (UI.tab === 2) { if (kind === 'A' && RP.pending > 0) { closeInv(); RT.perkOpenAt = 0; setTimeout(() => { if (RP.pending > 0 && G.state === 'play') openPerks(); }, 30); } }
+  else if (UI.tab === 2) { if (kind === 'A' && RP.pending > 0) { closeInv(); openPerks(); } }
   else if (UI.tab === 4) {
     if (kind === 'A') { if (UI.riftRow === 0) { RP.diff = (RP.diff + 1) % (RP.diffUnlocked + 1); RT.dirty = true; rpgRenderMenu(); rsfx('ui'); rpgRenderInv(); } else if (UI.riftRow === 1 && RP.riftUnlocked) { const mx = Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1); RP.riftTier = RP.riftTier >= mx ? 1 : RP.riftTier + 1; RP.riftSeed = 0; rsfx('ui'); rpgRenderInv(); } else if (UI.riftRow === 2 && RP.riftUnlocked) { RP.riftSeed = (dseed() & 0xFFFFFF) | 1; rsfx('ui'); rpgRenderInv(); } else if (UI.riftRow === 3 && RP.riftUnlocked) { const { t, seed } = riftInfo(); closeInv(); rpgStartRift(t, seed); } }
   }
@@ -4339,7 +4347,7 @@ function rpgRiftEnd(win, why) {
   if (win) { RP.bestRift = Math.max(RP.bestRift, tier); RP.totals.rifts++; const mlvl = RIFT.mlvl; rpgGainXp(rpgObjectiveXp('rift', mlvl, 0, RP.level) * RPG_TUNING.rift.xpMul, 'rift'); rpgVacuum(); RP.riftTier = Math.min(RPG_TUNING.rift.maxTier, tier + 1); RP.riftSeed = 0; }
   else rpgVacuum(); rpgSaveNow(); G.state = 'dead'; G.won = false; rsfx(win ? 'riftwin' : 'riftlose');
   const d = $('dead'); d.className = win ? 'ovl' : 'ovl lose'; $('deadT').textContent = win ? 'RIFT CLEARED' : (why === 'time' ? 'TIME EXPIRED' : 'RIFT LOST');
-  $('deadS').innerHTML = `Tier ${tier} &middot; seed ${hexSeed(RIFT.seed)} &middot; ${fmtTime(RIFT.t)}<br>${RIFT.kills} kills &middot; ${RUN.elites} elites &middot; best cleared tier ${RP.bestRift || '-'}`;
+  $('deadS').innerHTML = `Tier ${tier} &middot; seed ${hexSeed(RIFT.seed)} &middot; ${fmtTime(RIFT.t)}`;
   $('cta2').textContent = win ? 'NEXT TIER' : 'RETRY'; d.classList.remove('hidden'); rpgDeadExtras(); G.slow = 1;
 }
 function rpgRiftRestart(sameSeed, nextTier) { if (!RIFT) return; const t = nextTier ? Math.min(RPG_TUNING.rift.maxTier, RIFT.tier + 1, RP.bestRift + 1) : RIFT.tier; rpgStartRift(t, sameSeed ? RIFT.seed : null); }
@@ -4367,7 +4375,7 @@ function rpgPlatesTick() {
 function rpgHud() {
   const cap = RP.level >= RPG_TUNING.levelCap, xpn = cap ? 1 : rpgXpNext(RP.level); rpgSty($('rpgHPfill'), 'width', (sat(RT.hp / RT.max, 0, 1) * 100).toFixed(1) + '%', 'hpw'); rpgSet($('rpgHPtxt'), Math.ceil(RT.hp) + ' / ' + RT.max + (RT.shield > 0.5 ? '  +' + Math.round(RT.shield) : ''), 'hpt'); rpgSty($('rpgHPshield'), 'width', (sat(RT.shield / RT.max, 0, 1) * 100).toFixed(1) + '%', 'shw');
   rpgSty($('rpgXPfill'), 'width', (cap ? 100 : sat(RP.xp / xpn, 0, 1) * 100).toFixed(1) + '%', 'xpw'); rpgSet($('rpgLv'), 'LV ' + RP.level + (cap ? ' MAX' : ''), 'lv');
-  const rw = $('rpgRW'), n = Math.ceil(RT.rwMax); if (HC.rwn !== n) { HC.rwn = n; rw.innerHTML = '<span>REWIND</span>' + '<i><b></b></i>'.repeat(n); HC.rwf = null; } const pips = rw.querySelectorAll('i b'); const fk = pips.length + ':' + Math.floor(RT.rw * 10); if (HC.rwf !== fk) { HC.rwf = fk; pips.forEach((b, i) => b.style.transform = 'scaleX(' + sat(RT.rw - i, 0, 1).toFixed(2) + ')'); }
+  const rw = $('rpgRW'), n = Math.ceil(RT.rwMax); if (HC.rwn !== n) { HC.rwn = n; rw.innerHTML = '<span>REWIND</span>' + '<i><b></b></i>'.repeat(n); HC.rwf = null; HC.pips = rw.querySelectorAll('i b'); } const pips = HC.pips, fk = pips.length + ':' + Math.floor(RT.rw * 10); if (HC.rwf !== fk) { HC.rwf = fk; pips.forEach((b, i) => b.style.transform = 'scaleX(' + sat(RT.rw - i, 0, 1).toFixed(2) + ')'); }
   const buf = []; if (RT.chill > 0.05) buf.push('CHILLED'); if (RT.goldStack) buf.push('GOLD RUSH x' + RT.goldStack); if (RT.surgeT > 0) buf.push('STAR SURGE'); if (RT.S.fx.comboFiend && RT.combo > 1) buf.push('COMBO x' + Math.min(5, RT.combo)); if (RT.shield > 0.5) buf.push('SHIELD'); if (P.big) buf.push('SUPER'); rpgSet($('rpgBuff'), buf.join('  ·  '), 'buf');
   rpgSty($('rpgChill'), 'opacity', RT.chill > 0.02 ? Math.min(1, RT.chill * 2.4).toFixed(2) : '0', 'chl');
   const rf = $('rpgRift'); if (RIFT) { rf.classList.add('on'); const left = Math.max(0, RIFT.limit - RIFT.t); rpgSet($('rpgRiftT'), fmtTime(left), 'rt'); $('rpgRiftT').classList.toggle('low', left < 30);
@@ -4377,7 +4385,7 @@ function rpgHud() {
   const bo = $('rpgBoss'); const g = RIFT && RIFT.guardian && RIFT.guardian.alive && RIFT.guardian.rpg ? RIFT.guardian : null; if (g) { bo.classList.add('on'); rpgSet($('rpgBossN'), g.rpg.name.toUpperCase(), 'bn'); rpgSty($('rpgBossBar'), 'width', (sat(g.rpg.hp / g.rpg.maxhp, 0, 1) * 100).toFixed(1) + '%', 'bb'); } else bo.classList.remove('on');
 }
 function rpgUiTick(rdt) {
-  uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || UI.open || PK.open; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide) return;
+  uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || UI.open || PK.open || G.state === 'dead'; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide) return;
   if (HC.php !== P.hp) { HC.php = P.hp; updateHUD(); } rpgHud(); rpgPlatesTick();
 }
 function rpgRunSummary() {
@@ -4389,18 +4397,18 @@ function rpgDeadExtras() {
   let sum = $('rpgRunSum'); if (!sum) { sum = document.createElement('div'); sum.id = 'rpgRunSum'; $('deadS').after(sum); const b = document.createElement('div'); b.id = 'rpgDeadBtns'; $('cta2').after(b); const h = document.createElement('div'); h.id = 'rpgDeadHint'; b.after(h);
     b.addEventListener('click', e => { const a = e.target.dataset && e.target.dataset.a; e.stopPropagation(); if (a === 'inv') openInv(); else if (a === 'menu') toMenu(); else if (a === 'seed') rpgRiftRestart(false, false); else if (a === 'rift') { rpgStartRift(RP.riftTier, RP.riftSeed || null); } }); }
   sum.innerHTML = rpgRunSummary(); const b = $('rpgDeadBtns'); b.innerHTML = '<button data-a="inv">INVENTORY (Y)</button>' + (RIFT ? '<button data-a="seed">NEW SEED</button>' : G.won && RP.riftUnlocked ? '<button data-a="rift">SHATTER RIFT</button>' : '') + (RIFT || G.won ? '<button data-a="menu">MENU (B)</button>' : '');
-  $('rpgDeadHint').textContent = RIFT ? 'A: ' + (RIFT.won ? 'next tier' : 'retry same seed') + '  ·  Y: inventory  ·  B: menu' : G.won ? 'A: play again  ·  Y: inventory  ·  B: menu' : 'A: retry  ·  Y: inventory';
+  $('rpgDeadHint').textContent = (RP.pending ? 'PERK READY: press Y, then A on the PERKS tab  ·  ' : '') + (RIFT ? 'A: ' + (RIFT.won ? 'next tier' : 'retry same seed') + '  ·  Y: inventory  ·  B: menu' : G.won ? 'A: play again  ·  Y: inventory  ·  B: menu' : 'A: retry  ·  Y: inventory');
 }
 function rpgRenderMenu() {
   const m = $('rpgMenu'); if (!m) return; const D = RPG_TUNING.difficulty, ul = RP.riftUnlocked, mx = Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1);
   m.innerHTML = `<span class="lbl">DIFFICULTY</span>${D.map((d, i) => `<button data-diff="${i}" class="${RP.diff === i ? 'on' : ''}"${i > RP.diffUnlocked ? ' disabled title="finish the finale on the previous difficulty"' : ''}>${d.name}</button>`).join('')}<span class="lbl">RIFT</span>${ul ? `<button data-rt="-1">-</button><b>TIER ${RP.riftTier}</b><button data-rt="1">+</button><button class="go" data-go="rift">SHATTER RIFT</button>` : '<span style="opacity:.55">unlocks after the finale</span>'}<button data-go="inv">INVENTORY</button>
-  <div id="rpgMenuSub">LEVEL ${RP.level}${RP.level >= RPG_TUNING.levelCap ? '' : ' · ' + rfmt(RP.xp) + ' / ' + rfmt(rpgXpNext(RP.level)) + ' XP'} · ${Object.keys(RP.codex).length}/${RPG_LEGENDARIES.length} LEGENDARIES · ${rfmt(RP.gold)} GOLD · BEST RIFT ${RP.bestRift ? 'T' + RP.bestRift : '-'}<br>PAD: &larr; &rarr; difficulty &nbsp; &uarr; &darr; rift tier &nbsp; X rift &nbsp; Y inventory &nbsp; | &nbsp; KEYS: I / Tab inventory &nbsp; F hide commons</div>`;
+  <div id="rpgMenuSub">LEVEL ${RP.level}${RP.level >= RPG_TUNING.levelCap ? '' : ' · ' + rfmt(RP.xp) + ' / ' + rfmt(rpgXpNext(RP.level)) + ' XP'} · ${Object.keys(RP.codex).length}/${RPG_LEGENDARIES.length} LEGENDARIES · ${rfmt(RP.gold)} GOLD · BEST RIFT ${RP.bestRift ? 'T' + RP.bestRift : '-'}${RP.pending ? ' · <b style="color:#ffe27a">PERK READY (Y)</b>' : ''}<br>PAD: &larr; &rarr; difficulty &nbsp; &uarr; &darr; rift tier &nbsp; X rift &nbsp; Y inventory &nbsp; | &nbsp; KEYS: I / Tab inventory &nbsp; F hide commons</div>`;
 }
 $('rpgMenu').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); if (b.dataset.diff != null) { RP.diff = +b.dataset.diff; RT.dirty = true; rsfx('ui'); rpgRenderMenu(); } else if (b.dataset.rt) { RP.riftTier = sat(RP.riftTier + +b.dataset.rt, 1, Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1)); RP.riftSeed = 0; RT.dirty = true; rsfx('ui'); rpgRenderMenu(); } else if (b.dataset.go === 'rift') rpgStartRift(RP.riftTier, RP.riftSeed || null); else if (b.dataset.go === 'inv') openInv(); });
 function menuKey(k) {
   if (k === 'arrowleft' || k === 'a') { RP.diff = sat(RP.diff - 1, 0, RP.diffUnlocked); rsfx('ui'); rpgRenderMenu(); } else if (k === 'arrowright' || k === 'd') { RP.diff = sat(RP.diff + 1, 0, RP.diffUnlocked); rsfx('ui'); rpgRenderMenu(); }
   else if ((k === 'arrowup' || k === 'w') && RP.riftUnlocked) { RP.riftTier = sat(RP.riftTier + 1, 1, Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1)); RP.riftSeed = 0; rsfx('ui'); rpgRenderMenu(); } else if ((k === 'arrowdown' || k === 's') && RP.riftUnlocked) { RP.riftTier = sat(RP.riftTier - 1, 1, 99); RP.riftSeed = 0; rsfx('ui'); rpgRenderMenu(); }
-  else if (k === 'j' && RP.riftUnlocked) rpgStartRift(RP.riftTier, RP.riftSeed || null); else if (k === 'e' || k === 'i' || k === 'tab') openInv();
+  else if (k === 'j' && RP.riftUnlocked) rpgStartRift(RP.riftTier, RP.riftSeed || null); else if (k === 'e' || k === 'i' || k === 'tab') openInv(RP.pending ? 2 : null);
 }
 $('pause').insertAdjacentHTML('beforeend', '<small id="pauseInv">Y / I / Tab: inventory &amp; character</small><button id="pauseInvBtn" style="margin-top:6px;font:inherit;letter-spacing:.2em;font-size:12px;color:#2a1400;background:linear-gradient(180deg,#fff2b0,#ffc54a 55%,#ff9c2b);border:0;border-radius:999px;padding:.4em 1.4em;cursor:pointer;font-weight:800">INVENTORY</button>');
 $('pauseInvBtn').addEventListener('click', e => { e.stopPropagation(); openInv(); });
@@ -4409,7 +4417,7 @@ $('menu').querySelector('.cheat').insertAdjacentHTML('beforeend', '<div class="w
 // ---- wrappers: world / run / screens -----------------------------------------------------------------------------------------------------------------------------------------
 const _setupAct1Entities = setupAct1Entities; setupAct1Entities = function () { _setupAct1Entities(); RT.pend = { act: 1 }; };
 const _setupLevelEntities = setupLevelEntities; setupLevelEntities = function (L) { _setupLevelEntities(L); RT.pend = { act: L.act }; };
-const _clearEntities = clearEntities; clearEntities = function () { if (RT.S && !RIFT) rpgVacuum(); rpgClearProps(); for (const p of PROJ) { p.on = false; p.m.visible = false; } RT_TIMERS.length = 0; _clearEntities(); };
+const _clearEntities = clearEntities; clearEntities = function () { if (RT.S && !RIFT) rpgVacuum(); rpgClearProps(); for (const e of ENEMIES) rpgDisposeEnemy(e); for (const p of PROJ) { p.on = false; p.m.visible = false; } RT_TIMERS.length = 0; _clearEntities(); };
 const _resetHero = resetHero; resetHero = function (pos, keepHp) { _resetHero(pos, keepHp); rpgHealFull(); RT.shield = 0; RT.chill = 0; RT.combo = 0; RT.goldStack = 0; RT.surgeT = 0; rpgSetBuffs(); };
 const _startRun = startRun;
 startRun = function () { RIFT = null; RT.runFlags = {}; RT.runDiff = RP.diff; Object.assign(RUN, { xp: 0, kills: 0, elites: 0, loot: [0, 0, 0, 0], gold: 0, dust: 0, lvStart: RP.level, levels: 0, legends: [], salv: 0, shards: 0 }); document.body.classList.remove('rift'); _startRun(); RT.hp = RT.max; rpgMirror(); };
@@ -4437,9 +4445,9 @@ function rpgKeyDown(k) {
   if (PK.open) { perkKey(k); return; } if (UI.open) { uiKey(k); return; }
   const st = G.state;
   if (st === 'play') { if (k === 'i' || k === 'tab') openInv(); else if (k === 'e' && !(NPC.active && NPC.near) && !/Press E/.test(PROMPT)) openInv(); else if (k === 'f') { RP.filter = !RP.filter; RT.dirty = true; toast(RP.filter ? 'Common drops hidden' : 'Showing all drops'); rsfx('lock'); } }
-  else if (st === 'pause') { if (k === 'i' || k === 'tab' || k === 'e') openInv(); }
+  else if (st === 'pause') { if (k === 'i' || k === 'tab' || k === 'e') openInv(RP.pending ? 2 : null); }
   else if (st === 'menu') menuKey(k);
-  else if (st === 'dead') { if (k === 'i' || k === 'tab' || k === 'e') openInv(); else if (k === 'z' && (RIFT || G.won)) toMenu(); else if (k === 'j' && RIFT) rpgRiftRestart(false, false); }
+  else if (st === 'dead') { if (k === 'i' || k === 'tab' || k === 'e') openInv(RP.pending ? 2 : null); else if (k === 'z' && (RIFT || G.won)) toMenu(); else if (k === 'j' && RIFT) rpgRiftRestart(false, false); }
 }
 { const proto = Object.getPrototypeOf(keys), base = proto.add; keys.add = function (k) { const fresh = !keys.has(k); const r = base.call(keys, k); if (fresh) { try { rpgKeyDown(k); } catch (err) { console.error('rpg key', err); } } return r; }; }
 addEventListener('keydown', e => { if (e.key === 'Tab') e.preventDefault(); if (e.key === 'Escape' && UI.open) { if (UI.rr) { UI.rr = null; rpgRenderInv(); } else closeInv(); } });
@@ -4471,9 +4479,12 @@ window.__rpg = {
   spawnElite(spec = {}) { const f = spec.dist || 5, x = P.x + Math.sin(P.yaw) * f, z = P.z + Math.cos(P.yaw) * f, y = floorAt(x, z, P.y + 3); const e = rpgSpawnEnemy(spec.type || 'brute', x, z, { y: y > -1e8 ? y : P.y, tier: spec.tier || 'elite', aff: spec.aff, mlvl: spec.mlvl, aggroR: spec.aggroR != null ? spec.aggroR : 12, r: 3, seed: spec.seed }); return e ? { name: e.rpg.name, tier: e.rpg.tier, lvl: e.rpg.lvl, hp: e.rpg.hp, aff: e.rpg.aff, x: e.x, y: e.y, z: e.z } : null; },
   killAll() { let n = 0; for (const e of ENEMIES.slice()) if (e.alive && e.state !== 'dead' && e.state !== 'squash' && e.rpg) { RT.inAttack = true; rpgDamageEnemy(e, 1e9, 'punch', P); RT.inAttack = false; n++; } return n; },
   drop(src = 'elite', n = 1, dist = 2) { for (let i = 0; i < n; i++) rpgDrops(src, P.x + Math.sin(P.yaw) * dist, P.y + 0.3, P.z + Math.cos(P.yaw) * dist, 10); return LOOT.length; }, loot() { return LOOT.map(L => ({ kind: L.kind, rarity: L.item ? L.item.rarity : null, landed: L.landed, x: L.x, y: L.y, z: L.z })); },
+  dropGold(v = 20, dist = 2) { spawnLoot('gold', P.x + Math.sin(P.yaw) * dist, P.y + 0.3, P.z + Math.cos(P.yaw) * dist, v); },
+  dropLegendary(id, dist = 3) { const it = rpgGenItem(dseed(), { ilvl: 20, legendary: id }); spawnLoot('item', P.x + Math.sin(P.yaw) * dist, P.y + 0.3, P.z + Math.cos(P.yaw) * dist, it); return rpgItemName(it); },
   pick(i) { if (PK.open) perkPick(i); }, rift(tier, seed) { rpgStartRift(tier, seed); }, endRift(win) { if (RIFT) { RIFT.phase = 'fight'; rpgRiftEnd(!!win, win ? null : 'test'); } }, riftTime(t) { if (RIFT) RIFT.t = t; }, perk(id, rank) { if (rank) RP.perks[id] = rank; else delete RP.perks[id]; rpgRecalc(); },
   levelInfo() { if (!LV) return null; let h = 0; const s = LV.surf; if (s) for (let i = 0; i < s.n; i++) h = (Math.imul(h, 31) + s.x[i] * 73856093 ^ s.y[i] * 19349663 ^ s.z[i] * 83492791 ^ s.p[i]) | 0; return { act: LV.act, n: LV.n, hash: h, r: LV.arenaR || 0, groups: LV.groups.filter(Boolean).length, broken: LV.groups.filter(g => g && g.broken).length, lowg: LV.lowg.length, deathY: LV.deathY }; },
-  inLowG() { return !!P.inLowG; },
+  inLowG() { return !!P.inLowG; }, toMenu() { toMenu(); },
+  rt() { return { pulses: RT.pulses || 0, pulseNear: RT.pulseNear || 0, bellT: RT.bellT, pulseCd: RT.pulseCd, t: RT.t, real: RT.real, combo: RT.combo, goldStack: RT.goldStack, shield: RT.shield, chill: RT.chill, buffRun: RT.buffRun }; },
   save() { rpgSaveNow(); }, load() { const ok = rpgLoad(); rpgRecalc(); rpgRenderMenu(); return ok; }, snapshot: rpgSnapshot, unlockRifts() { RP.riftUnlocked = true; RP.diffUnlocked = Math.max(RP.diffUnlocked, 1); rpgRenderMenu(); },
   reset() { try { localStorage.removeItem(RPG_SAVE_KEY); } catch (e) { } const fresh = { v: 1, level: 1, xp: 0 }; rpgApplySnapshot(fresh); RP.bag = new Array(BAG_N).fill(null); for (const k of RPG_EQUIP) RP.equipped[k] = null; RP.perks = {}; RP.spent = { power: 0, agility: 0, resolve: 0 }; RP.free = 0; RP.pending = 0; RP.gold = RP.dust = 0; RP.codex = {}; RP.bestRift = 0; RP.riftUnlocked = false; RP.diff = RP.diffUnlocked = 0; rpgRecalc(); rpgHealFull(); rpgRenderMenu(); },
   victory() { if (G.state === 'play') { G.won = true; G.state = 'play'; } victory(); }, hurt(v) { RT.curEnemy = null; RT.dmgOverride = v || 20; P.invuln = 0; hurtHero(P.x + 1, P.z); }, heal() { rpgHealFull(); }, tuning: RPG_TUNING, core: { rpgGenItem, rpgComputeStats, rpgItemName, rpgRerollAffix, rpgRiftSpec, rpgPerkChoices, rpgItemLevel, rpgKillXp, rpgMonsterStats, RPG_AFFIXES, RPG_PERKS, RPG_LEGENDARIES }, enemies: () => ENEMIES.filter(e => e.alive && e.rpg && e.state !== 'dead' && e.state !== 'squash').map(e => ({ type: e.type, tier: e.rpg.tier, lvl: e.rpg.lvl, hp: e.rpg.hp, maxhp: e.rpg.maxhp, name: e.rpg.name, state: e.state, x: e.x, z: e.z, y: e.y })),
