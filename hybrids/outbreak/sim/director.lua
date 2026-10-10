@@ -324,11 +324,13 @@ function M.force(w, id, cost)
 	local d = w.s.director
 	local rng = w:rng("director")
 	if ev.cat == "boon" then
+		if not can_fire(w, ev) then return nil, "not_possible" end
 		local detail = H[id](w, ev, 0, rng)
 		if not detail then return nil, "not_possible" end
 		log_event(w, id, ev.cat, 0, d.budget, d.budget, detail)
 		return detail
 	end
+	if not can_fire(w, ev) then return nil, "not_possible" end
 	cost = cost or ev.fixed_cost or ev.min_cost
 	if cost > d.budget then return nil, "over_budget" end
 	local detail = H[id](w, ev, cost, rng)

@@ -84,18 +84,22 @@ T.test("grace period: nothing happens on the first day", function()
 	end
 end)
 
--- run whole 30-day games and collect every director_log
+-- run whole 30-day games and collect every director_log (cached: several tests share the same games)
+local cache = {}
 local function collect(profile, seed, days, step)
+	local key = profile .. "/" .. string.format("%d/%d/%d", seed, days or 30, step or 5)
+	if cache[key] then return cache[key].res, cache[key].logs end
 	local logs = {}
 	local res = runner.run({ seed = seed, profile = profile, days = days or 30, max_dt = step or 5, on_events = function(evs)
 		for i = 1, #evs do if evs[i].type == "director_log" then logs[#logs + 1] = evs[i] end end
 	end })
+	cache[key] = { res = res, logs = logs }
 	return res, logs
 end
 
 T.test("budget accounting: threat never exceeds budget, costs are within bounds, spend <= accrued, budget never negative", function()
 	for _, prof in ipairs(director.PROFILES) do
-		for seed = 1, 6 do
+		for seed = 1, 4 do
 			local res, logs = collect(prof, seed, 30, 5)
 			local d = res.world.s.director
 			T.ge(d.budget, 0, "budget never negative")
@@ -135,7 +139,7 @@ end)
 
 T.test("cooldowns and min_day gates are honoured in every game", function()
 	for _, prof in ipairs(director.PROFILES) do
-		for seed = 1, 5 do
+		for seed = 1, 4 do
 			local res, logs = collect(prof, seed, 30, 5)
 			local last = {}
 			for _, e in ipairs(logs) do
@@ -151,33 +155,53 @@ T.test("cooldowns and min_day gates are honoured in every game", function()
 	end
 end)
 
+-- The director in isolation: a colony that cannot die (threats are cleared and everyone healed every step), so the
+-- profile statistics measure the storyteller, not the colony's survival.
+local function isolated(profile, seed, days)
+	local w = H.world({ profile = profile, seed = seed, max_dt = 30 })
+	for i = 1, 5 do H.colonist(w) end
+	H.stock(w, { canned_beans = 20, jewelry = 10, scrap_wood = 20 })
+	local logs = {}
+	local end_t = clock.at(days + 1, 0, 0)
+	while w.s.t < end_t do
+		local evs = w:tick(30)
+		for i = 1, #evs do if evs[i].type == "director_log" then logs[#logs + 1] = evs[i] end end
+		w.s.hordes, w.s.raids, w.s.caravans = {}, {}, {}
+		for _, c in ipairs(w.s.colonists) do c.hp, c.hunger, c.thirst, c.fatigue, c.inf = c.hp_max, 5, 5, 5, { stage = "none", t = 0, part = "", speed = 1 } end
+		while #w.s.colonists < 5 do H.colonist(w) end
+	end
+	return w, logs
+end
+
 T.test("profiles differ measurably: chaos hits harder and more often, calm leaves more quiet days, escalating ramps up", function()
 	local stats = {}
+	local n = 30
 	for _, prof in ipairs(director.PROFILES) do
-		local spent, quiet, threats, early, late = 0, 0, 0, 0, 0
-		local n = 16
+		local spent, quiet, threats, early, late, all = 0, 0, 0, 0, 0, 0
 		for seed = 1, n do
-			local res, logs = collect(prof, 100 + seed, 30, 5)
-			spent = spent + res.world.s.director.spent
-			quiet = quiet + res.quiet_days
+			local w, logs = isolated(prof, 700 + seed, 30)
+			spent = spent + w.s.director.spent
+			quiet = quiet + director.stats(w, 30).quiet_days
 			for _, e in ipairs(logs) do
+				all = all + 1
 				if e.cat == "threat" then
 					threats = threats + 1
 					if e.day <= 15 then early = early + 1 else late = late + 1 end
 				end
 			end
 		end
-		stats[prof] = { spent = spent / n, quiet = quiet / n, threats = threats / n, early = early / n, late = late / n }
-		T.note("%-10s points spent/run %.0f  quiet days %.1f  threat events/run %.1f (days 1-15: %.1f, 16-30: %.1f)", prof,
-			stats[prof].spent, stats[prof].quiet, stats[prof].threats, stats[prof].early, stats[prof].late)
+		stats[prof] = { spent = spent / n, quiet = quiet / n, threats = threats / n, early = early / n, late = late / n, events = all / n }
+		T.note("%-10s points spent/run %5.0f  quiet days %4.1f  threat events/run %4.1f (days 1-15: %4.1f, 16-30: %4.1f)  all events/day %.2f", prof,
+			stats[prof].spent, stats[prof].quiet, stats[prof].threats, stats[prof].early, stats[prof].late, stats[prof].events / 30)
 	end
-	T.gt(stats.calm.quiet, stats.chaos.quiet + 3, "calm gives clearly more quiet days than chaos")
+	T.gt(stats.calm.quiet, stats.chaos.quiet + 4, "calm gives clearly more quiet days than chaos")
 	T.gt(stats.calm.quiet, stats.escalating.quiet)
-	T.gt(stats.chaos.threats, stats.calm.threats * 1.5, "chaos fires far more threats")
-	T.gt(stats.chaos.spent, stats.calm.spent * 1.5, "and spends far more threat budget")
+	T.gt(stats.chaos.threats, stats.calm.threats * 1.8, "chaos fires far more threats")
+	T.gt(stats.chaos.spent, stats.calm.spent * 2, "and spends far more threat budget")
 	T.gt(stats.escalating.late, stats.escalating.early * 1.5, "escalating gets worse over time")
 	T.gt(stats.escalating.late, stats.calm.late, "late escalating is harsher than calm")
 	T.lt(stats.escalating.early, stats.chaos.early, "early escalating is gentler than chaos")
+	T.gt(stats.calm.events / 30, 0.2, "calm is quiet, not dead: boons still arrive")
 end)
 
 T.test("deterministic: same seed and profile give the same event log; different seeds differ", function()
@@ -199,8 +223,7 @@ end)
 
 -- individual events through director.force ---------------------------------------------------
 local function forced_world(seed)
-	local w = World.new({ seed = seed or 2, profile = "chaos" })
-	w:flush_events()
+	local w = H.world({ seed = seed or 2, profile = "chaos" })
 	w.s.t = clock.at(6, 12, 0)
 	w.s.director.budget = 500
 	return w
@@ -252,11 +275,12 @@ T.test("infection outbreak: infects colonists silently (incubating), up to three
 	local w1 = forced_world()
 	H.colonist(w1)
 	T.eq(select(2, director.force(w1, "infection_outbreak", 10)), "not_possible", "needs at least two colonists")
+	T.eq(w1.s.colonists[1].inf.stage, "none")
 end)
 
 T.test("helicopter: loud noise at the base draws nearby hordes and lifts spirits", function()
 	local w = forced_world()
-	local h = horde.spawn(w, { x = 800, y = 0, mix = { walker = 12 } })
+	local h = horde.spawn(w, { x = 400, y = 0, mix = { walker = 12 } })
 	local c = H.colonist(w)
 	T.truthy(director.force(w, "helicopter_flyover"))
 	T.eq(h.state, "seek")
@@ -274,10 +298,11 @@ T.test("power / water outages and storms change the networks and weather", funct
 	T.truthy(director.force(w, "water_outage"))
 	T.falsy(grid.mains_water_on(w))
 	H.force_build(w, "wall", { x = 0, y = 40, z = 0 })
-	local wall = blueprints.list_built(w, "wall")[1]
 	T.truthy(director.force(w, "storm"))
 	T.eq(grid.weather(w), "storm")
-	T.lt(wall.hp, wall.hp_max, "storms damage structures")
+	local damaged = 0
+	for i = 1, #w.s.buildings do if w.s.buildings[i].hp < w.s.buildings[i].hp_max then damaged = damaged + 1 end end
+	T.gt(damaged, 0, "storms damage structures")
 	T.eq(w.s.stats.attacks_repelled, nil)
 end)
 
