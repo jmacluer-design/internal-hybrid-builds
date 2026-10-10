@@ -241,11 +241,11 @@ const TUNING = {
   assist: { azDeg: [-44, -30, -15, 0, 15, 30, 44], elDeg: [-6, 8, 20, 32, 44, 56, 68], minDist: 16, idealDist: 55, simT: 2.2, simDt: 0.05, wpSnapDeg: 11 },
   zip:    { speed: 62, accel: 170, start: 24, arrive: 3.2, maxT: 2.6, range: 124, ledgeMax: 80 },
   dive:   { grav: 62, terminal: 92, steer: 3.1, impactMin: 24, pullT: 0.4, pullRate: 7, pullPitch: 0.42, keep: 0.93 },
-  cling:  { skin: 0.6, speed: 7.2, sprint: 11.5, grip: 100, regen: 14, move: 1.6, hang: 4.5, thrash: 0.5, leap: 13, leapUp: 8.5, cooldown: 0.32, attach: 0.8 },
+  cling:  { skin: 0.6, speed: 7.2, sprint: 11.5, grip: 100, regen: 14, move: 1.6, hang: 4.5, thrash: 0.36, leap: 13, leapUp: 8.5, cooldown: 0.32, attach: 0.8 },
   yank:   { chargeT: 1.05, tearAt: 0.88, reach: 7.5, diveDmg: 100, partial: 0.55, pullBase: 14, pullGain: 40, slowmo: 0.28, slowT: 0.6, hitStop: 0.12 },
   hero:   { hp: 5, invuln: 1.4, hurt1: 46, hurt2: 66, hurt3: 82, respawnPenalty: 5 },
   titan:  { walk: 6.4, turn: 0.5, stopDist: 46, attackCd: [3.4, 2.7, 2.2], speedPh: [1.0, 1.12, 1.25],
-            shakeAfter: 2.4, shockSpeed: 58, shockR: 130, stompDmgR: 9, rockN: [7, 9, 11], grabReach: 7.5, laserSweep: 2.3, kneelT: 5.2 },
+            shakeAfter: [3.6, 3.0, 2.5], shockSpeed: 58, shockR: 130, stompDmgR: 9, rockN: [7, 9, 11], grabReach: 7.5, laserSweep: 2.3, kneelT: 5.2 },
   cam:    { sens: 0.0022, padRate: 2.6, dist: 9.0, distSpeed: 0.05, shoulder: 1.1, height: 0.5, lead: 0.085,
             fovBase: 66, fovMax: 92, fovSpeedLo: 10, fovSpeedHi: 70, followH: 14, followV: 9, pitchMin: -1.2, pitchMax: 1.38, titanPull: 14 },
 };
@@ -1433,7 +1433,7 @@ function pickAttack(){
   for (const k of a) w[k] = 1;
   w.stomp = d < 100 ? 3.2 : 1.2; w.swat = d < 62 ? 3.4 : 0.15; if (w.slam) w.slam = d < 90 ? 2.6 : 0.8; if (w.grab) w.grab = (P.state === 'ground' && d < 70) ? 2.8 : 0.3;
   if (w.laser) w.laser = d > 38 ? 3.0 : 0.8;
-  w.shake = TI.clingT > TUNING.titan.shakeAfter ? 30 : 0;
+  w.shake = TI.clingT > TUNING.titan.shakeAfter[TI.phase] ? 30 : 0;
   if (P.state === 'cling' && TI.clingT > 0.8 && w.shake === 0) { w.swat = 0; w.laser = 0; if (w.slam) w.slam *= 0.4; }
   if (TI.last && w[TI.last] && w[TI.last] < 30) w[TI.last] *= 0.25;
   let tot = 0; for (const k in w) tot += w[k]; let r = Math.random() * tot;
@@ -2476,6 +2476,7 @@ function physicsTick(dt){
   const S = P.sw;
   if (IN.resetP && P.state !== 'dead' && P.respawnCd <= 0) { respawnPlayer(true); P.respawnCd = 1.0; }
   P.respawnCd = (P.respawnCd || 0) - dt;
+  if (P.state !== 'cling' && P.state !== 'dead') P.cl.grip = Math.min(CL.grip, P.cl.grip + 22 * dt);
   handleWebInput(dt);
   RW.ground = false; RW.wall = false; RW.impact = 0; RW.gcol = null;
   if (P.state === 'dead') { P.deadT += dt; vel[0] *= 0.98; vel[2] *= 0.98; vel[1] -= G * dt; integrate(dt); if (P.deadT > 1.4 && gstate === 'playing') endRun('lose'); finishTick(dt); return; }
@@ -2892,7 +2893,7 @@ function updateHud(dt){
   const cl = P.state === 'cling'; E.gripBox.classList.toggle('on', cl); if (cl) { E.gripBar.style.width = Math.max(0, P.cl.grip) + '%'; E.gripBox.classList.toggle('low', P.cl.grip < 30); }
   const gb = P.state === 'grabbed'; E.grabBox.classList.toggle('on', gb); if (gb) E.grabBar.style.width = Math.min(100, P.grab.prog * 100) + '%';
   // yank ring
-  const Y = P.yank; E.yankRing.classList.toggle('on', Y.charge > 0.02); E.yankRing.classList.toggle('full', Y.charge >= YK.tearAt); E.yankRing.style.setProperty('--p', Math.round(Y.charge * 100));
+  const Y = P.yank; if (Y.charge >= YK.tearAt && Y.canTarget) showHint('RELEASE TO TEAR IT LOOSE', 500); E.yankRing.classList.toggle('on', Y.charge > 0.02); E.yankRing.classList.toggle('full', Y.charge >= YK.tearAt); E.yankRing.style.setProperty('--p', Math.round(Y.charge * 100));
   // reticle + anchor preview
   const S = P.sw; previewT -= dt;
   if (!S.on && !S.pending && P.state !== 'dead' && P.state !== 'grabbed' && previewT <= 0) {

@@ -182,15 +182,16 @@ const $ = id => document.getElementById(id);
 // input state (contract globals)
 // ---------------------------------------------------------------------------
 const latch = new Set(); // keys pressed since the last frame (so a quick tap between two slow frames is never lost)
-class KeySet extends Set { add(k) { if (!super.has(k)) latch.add(k); return super.add(k); } }
+class KeySet extends Set { add(k) { const fresh = !super.has(k); if (fresh) latch.add(k); const r = super.add(k); if (fresh && typeof immediateInput === 'function') immediateInput(); return r; }
+  delete(k) { const r = super.delete(k); if (r && typeof immediateInput === 'function') immediateInput(); return r; } }
 const keys = new KeySet();
 let placeLatch = false, padFireDown = false, padPlaceDown = false; const padLookV = { x: 0, y: 0 };
 let mouseFire = false, mousePlace = false, lookDX = 0, lookDY = 0;
 const edge = { fire: false, place: false, jump: false, z: false, e: false, j: false, q: false, m: false, p: false }; // pressed-this-frame latches
 let locked = false, plFailed = false;
-function padFire(down) { if (down === undefined) { edge.fire = true; } else { padFireDown = !!down; if (down) edge.fire = true; } }
-function padPlace(down) { if (down === undefined) { edge.place = true; placeLatch = true; } else { padPlaceDown = !!down; if (down) placeLatch = true; } }
-function padLook(dx, dy) { padLookV.x = Math.abs(dx) < 0.12 ? 0 : dx; padLookV.y = Math.abs(dy) < 0.12 ? 0 : dy; }
+function padFire(down) { if (down === undefined) { edge.fire = true; } else { padFireDown = !!down; if (down) edge.fire = true; } if (typeof immediateInput === 'function') immediateInput(); }
+function padPlace(down) { if (down === undefined) { edge.place = true; placeLatch = true; } else { padPlaceDown = !!down; if (down) placeLatch = true; } if (typeof immediateInput === 'function') immediateInput(); }
+function padLook(dx, dy) { const had = padLookV.x !== 0 || padLookV.y !== 0; padLookV.x = Math.abs(dx) < 0.12 ? 0 : dx; padLookV.y = Math.abs(dy) < 0.12 ? 0 : dy; if (!had && (padLookV.x || padLookV.y) && typeof CAM !== 'undefined') { CAM.yaw -= padLookV.x * TUNING.cam.padRate * 0.06; CAM.pitch += padLookV.y * TUNING.cam.padRate * 0.04; CAM.idle = 0; } }
 function padMenu() { if (G.state === 'play') pauseGame(); else if (G.state === 'pause') resumeGame(); else if (G.state === 'dead') {} else toMenu(); }
 
 // ---------------------------------------------------------------------------
@@ -1525,8 +1526,6 @@ function updateCamera(dt, rdt) {
   if (manual) { CAM.yaw -= lookDX * T.sens + padLookV.x * T.padRate * rdt; CAM.pitch += lookDY * T.sens * 0.9 + padLookV.y * T.padRate * 0.7 * rdt; CAM.idle = 0; lookDX = lookDY = 0; }
   CAM.pitch = clamp(CAM.pitch, -0.3, 1.3);
   CAM.idle += rdt;
-  if (edge.q) { edge.q = false; CAM.recent = 0.4; }
-  if (edge.j) { edge.j = false; CAM.wide = !CAM.wide; toast(CAM.wide ? 'Camera: wide cinematic' : 'Camera: chase'); }
   if (CAM.recent > 0) { CAM.recent -= rdt; CAM.yaw += angDiff(CAM.yaw, P.yaw + 0) * Math.min(1, rdt * 9); }
   else if (CAM.idle > 0.5 && G.state === 'play' && P.grounded && !CAM.fixed) CAM.yaw -= INP.ix * (INP.iz < 0.4 ? 0.8 : 0.25) * rdt * (CAM.wide ? 0.6 : 1);
   // cinematic override (shatter / victory)
@@ -2773,7 +2772,7 @@ function collectShard(s) {
   if (s.got || G.trans || SH.on) return; s.got = true; s.mesh.visible = false; G.shards++; G.totalShards++; G.flags[G.act][s.id] = 1; G.score += 1000; sfx('shard'); sparkBurst(s.x, s.y, s.z, 40, 0xffd060, 9); P.hp = TUNING.hp; heroKick(hero, 10); updateHUD();
   const fy = floorAt(s.x, s.z, s.y); const stand = fy > -1e8 ? fy : P.y;
   if (s.final) { // world shatter -> next act
-    G.ck = { act: G.act, O: G.ck ? G.ck.O : null, pos: { x: P.x, y: P.y, z: P.z }, coins: G.coins, t: G.t, shatterPending: true };
+    G.ck = G.act >= 3 ? { act: 4, coins: G.coins, t: G.t } : { act: G.act + 1, O: { x: Math.floor(s.x), y: Math.round(stand), z: Math.floor(s.z) }, pos: null, coins: G.coins, t: G.t, shatterPending: true }; // dying mid-transition restarts at the next act's beginning
     startWorldShatter(G.act, G.act + 1, s.x, stand, s.z);
   } else {
     G.ck = { act: G.act, O: LV ? LV.O : G.ck && G.ck.O, pos: { x: s.x, y: stand + 0.05, z: s.z + 1.6 }, coins: G.coins, t: G.t };
@@ -2814,7 +2813,7 @@ function startRun() {
   loadAct(1); resetHero(G.ck.pos); P.yaw = 0.55; CAM.yaw = 0.55; CAM.pitch = 0.27;
 }
 function retry() {
-  const ck = G.ck; if (!ck) { startRun(); } else {
+  const ck = G.ck; if (ck && ck.act === 4) { $('dead').classList.add('hidden'); victory(); return; } if (!ck) { startRun(); } else {
     SH = { on: false }; G.trans = null; WV.R1 = -1; WV.R2 = -1; syncWave(); G.slow = 1; G.cine = 0; CAM.cine = 0;
     if (ck.act === 1) { const keep = G.flags[1].slice(); loadAct(1); } else loadAct(ck.act);
     G.coins = ck.coins || 0; G.t = ck.t || G.t; G.flags[G.act].forEach((v, i) => { }); let pos = ck.pos; if (!pos) pos = LV ? { x: LV.O.x + LV.start.x, y: LV.O.y + LV.start.y, z: LV.O.z + LV.start.z } : { x: SITES.spawn.x, y: SITE_H.spawn, z: SITES.spawn.z };
@@ -2849,10 +2848,10 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys.delete(k); });
 addEventListener('blur', () => { keys.clear(); mouseFire = mousePlace = false; });
-addEventListener('mousedown', e => { if (G.state === 'pause') { if (e.target.id !== 'toMenuBtn') resumeGame(); return; } if (G.state !== 'play') return; if (e.button === 0) { mouseFire = true; edge.fire = true; } else if (e.button === 2) { mousePlace = true; placeLatch = true; } audioInit(); if (!locked && !plFailed && document.pointerLockElement !== canvas) requestLock(); });
-addEventListener('mouseup', e => { if (e.button === 0) mouseFire = false; else if (e.button === 2) mousePlace = false; });
+addEventListener('mousedown', e => { if (G.state === 'pause') { if (e.target.id !== 'toMenuBtn') resumeGame(); return; } if (G.state !== 'play') return; if (e.button === 0) { mouseFire = true; edge.fire = true; } else if (e.button === 2) { mousePlace = true; placeLatch = true; } audioInit(); immediateInput(); if (!locked && !plFailed && document.pointerLockElement !== canvas) requestLock(); });
+addEventListener('mouseup', e => { if (e.button === 0) mouseFire = false; else if (e.button === 2) mousePlace = false; immediateInput(); });
 addEventListener('contextmenu', e => e.preventDefault());
-addEventListener('mousemove', e => { if (G.state !== 'play') return; if (locked || plFailed) { lookDX += e.movementX || 0; lookDY += e.movementY || 0; } });
+addEventListener('mousemove', e => { if (G.state !== 'play') return; if (locked || plFailed) { CAM.yaw -= (e.movementX || 0) * TUNING.cam.sens; CAM.pitch += (e.movementY || 0) * TUNING.cam.sens * 0.9; CAM.idle = 0; } });
 $('cta').addEventListener('click', e => { e.stopPropagation(); beginGame(); });
 $('cta2').addEventListener('click', e => { e.stopPropagation(); audioInit(); if (G.won) restartAll(); else retry(); });
 $('pause').addEventListener('click', e => { if (e.target.id === 'toMenuBtn') { toMenu(); return; } resumeGame(); });
@@ -2860,24 +2859,36 @@ document.querySelectorAll('.qrow button').forEach(b => b.addEventListener('click
 $('menu').addEventListener('pointerdown', () => audioInit());
 
 // ---- main loop -------------------------------------------------------------------------------------------------------------------------
+function handleEdges() {
+  if (edge.m) { edge.m = false; setMuted(!muted); toast(muted ? 'Muted' : 'Sound on'); }
+  if (edge.p) { edge.p = false; applyQuality(QORDER[(QORDER.indexOf(qName) + 1) % 3]); }
+  if (edge.j) { edge.j = false; CAM.wide = !CAM.wide; toast(CAM.wide ? 'Camera: wide cinematic' : 'Camera: chase'); }
+  if (edge.q) { edge.q = false; CAM.recent = 0.4; CAM.yaw += angDiff(CAM.yaw, P.yaw) * 0.25; }
+}
+// a key / button event takes effect at once (one fixed step is run and borrowed from the accumulator) so input never waits for a slow frame
+let inImm = false;
+function deathCheck() { if (P.dead || G.state !== 'play') return; const killY = LV ? LV.deathY + LV.O.y : -28; if (P.y < killY && !(GF < 0)) killHero('fall'); if (GF < 0 && LV && P.y > LV.O.y + 90) killHero('fall'); }
+function immediateInput() {
+  if (inImm || G.state !== 'play' || P.dead || G.finale) return; inImm = true;
+  try { pollInput(0); handleEdges(); stepHero(STEP); acc -= STEP; doRewind(0); updateNPC(0, U.time.value); edge.e = false; } finally { inImm = false; }
+}
 let shardHudT = 0, acc = 0, lastT = performance.now(), frameMs = [], qCheckT = 0, frameCount = 0;
 const STEP = TUNING.step;
 function frame(rdt, doRender) {
   frameCount++; const playing = G.state === 'play' || G.state === 'menu' && false;
   pollInput(rdt);
-  if (edge.m) { edge.m = false; setMuted(!muted); toast(muted ? 'Muted' : 'Sound on'); }
-  if (edge.p) { edge.p = false; applyQuality(QORDER[(QORDER.indexOf(qName) + 1) % 3]); }
+  handleEdges();
   // time scale: slow-mo recovers toward 1; hitstop freezes briefly
   G.slow += (1 - G.slow) * Math.min(1, rdt * (G.trans ? 0.55 : 1.1)); let sdt = rdt * G.slow;
   if (G.hitstop > 0) { G.hitstop -= rdt; sdt *= 0.04; }
   if (G.state === 'play') {
-    G.t += rdt; acc = Math.min(acc + sdt, 0.25);
+    G.t += rdt; acc = Math.min(acc + sdt, 0.5);
     while (acc >= STEP) { if (!G.finale) stepHero(STEP); updateEnemies(STEP, U.time.value); updatePowerups(STEP); acc -= STEP; }
     if (G.coinComboT > 0) { G.coinComboT -= rdt; if (G.coinComboT <= 0) G.coinCombo = 0; }
     // death
-    if (!P.dead) { const killY = LV ? LV.deathY + LV.O.y : -28; if (P.y < killY && !(GF < 0 && P.y < killY + 200 && P.y > -killY)) killHero('fall'); if (GF < 0 && LV && P.y > LV.O.y + 90) killHero('fall'); if (G.act === 1 && !WC.hf && !LV && P.y < -20) killHero('fall'); }
+    deathCheck();
     PROMPT = ''; doRewind(sdt); updateCoins(sdt, U.time.value); updateShards(sdt, U.time.value); updateBlocks(sdt); updateNPC(sdt, U.time.value); updatePipesPads(sdt); updateRotators(sdt);
-    const pe = $('prompt'); if (PROMPT) { pe.textContent = PROMPT; pe.classList.add('on'); } else pe.classList.remove('on');
+    edge.e = false; const pe = $('prompt'); if (PROMPT) { pe.textContent = PROMPT; pe.classList.add('on'); } else pe.classList.remove('on');
     shardHudT -= rdt; if (shardHudT <= 0) { shardHudT = 0.25; let best = 1e9, bs = null; for (const s of SHARDS) if (!s.got) { const d = Math.hypot(s.x - P.x, s.y - P.y, s.z - P.z); if (d < best) { best = d; bs = s; } } $('shardDist').textContent = bs ? 'NEXT SHARD ' + Math.round(best) + ' m' : ''; }
   } else if (G.state === 'menu') { updateNPC(rdt, U.time.value); updateShards(rdt, U.time.value); updateCoins(rdt, U.time.value); acc = 0; }
   U.time.value += rdt;
@@ -2911,9 +2922,9 @@ function onQualityChanged() { U.lite.value = Q.lite; onGrassQuality(); onTreeQua
 window.__dbg = () => ({ frames: frameCount, stats: P.stats, rewinds: G.rewinds || 0, speed: P.speed, crouch: P.crouch, camWide: CAM.wide, talk: NPC.talkT > 0, npcNear: NPC.near, qScale, state: G.state, act: G.act, pos: [P.x, P.y, P.z], vel: [P.vx, P.vy, P.vz], hp: P.hp, big: P.big, score: G.score, coins: G.coins, shards: G.shards, totalShards: G.totalShards, grounded: P.grounded, pact: P.act, yaw: P.yaw, camYaw: CAM.yaw, camPitch: CAM.pitch, quality: qName, vox: voxAtCPU(P.x, P.z), cubes: cubeLive, trans: G.trans ? G.trans.kind : null, shk: SH.on ? SH.kind : null, wave: [WV.R1, WV.R2], gf: GF, muted, time: G.t, rewinding, deaths: G.deaths, fps: frameMs.length, locked, chain: P.chainN, wallT: P.wallT, invuln: P.invuln, nan: [P.x, P.y, P.z, P.vx, P.vy, P.vz, CAM.yaw, CAM.pitch].some(v => !Number.isFinite(v)) });
 Object.assign(window.__game, {
   advance(sec, doRender = false) { const n = Math.round(sec * 60); for (let i = 0; i < n; i++) frame(1 / 60, doRender && i === n - 1); },
-  teleport(x, y, z) { setHeroPos(x, y, z); }, setQuality(q) { applyQuality(q, true); }, collect(i) { const s = SHARDS.filter(s => !s.got)[i || 0]; if (s) collectShard(s); return !!s; }, shards: () => SHARDS.map(s => [s.x, s.y, s.z, s.got, s.final]),
+  teleport(x, y, z) { setHeroPos(x, y, z); deathCheck(); }, setQuality(q) { applyQuality(q, true); }, collect(i) { const s = SHARDS.filter(s => !s.got)[i || 0]; if (s) collectShard(s); return !!s; }, shards: () => SHARDS.map(s => [s.x, s.y, s.z, s.got, s.final]),
   loadAct(n) { if (!G.started) { G.started = true; } G.ck = G.ck || { act: 1 }; loadAct(n); resetHero(LV ? { x: LV.O.x + LV.start.x, y: LV.O.y + LV.start.y, z: LV.O.z + LV.start.z } : G.ck.pos || { x: SITES.spawn.x, y: SITE_H.spawn, z: SITES.spawn.z }); }, level: () => LV, SH: () => SH, G, P, CAM, C, TREES, ROCKS,
-  scene, grass, flowers, terrain, water, sky, hero, TREE_MESH, FAR, passes(b, g2) { if (bloomPass) bloomPass.enabled = !!b; if (gradePass) gradePass.enabled = !!g2; }, setScale(v) { qScale = v; onResize(); buildComposer(); }, camera, hfGround, HT, render() { renderFrame(); }, local(x, z) { startLocalShatter(x ?? P.x, z ?? P.z, TUNING.shatter.localR); }, world() { const s = SHARDS.find(s => s.final); startWorldShatter(G.act, G.act + 1, s ? s.x : P.x, s ? floorAt(s.x, s.z, s.y) : P.y, s ? s.z : P.z); },
+  blocks: () => BLOCKS, enemies: () => ENEMIES, scene, grass, flowers, terrain, water, sky, hero, TREE_MESH, FAR, passes(b, g2) { if (bloomPass) bloomPass.enabled = !!b; if (gradePass) gradePass.enabled = !!g2; }, setScale(v) { qScale = v; onResize(); buildComposer(); }, camera, hfGround, HT, render() { renderFrame(); }, local(x, z) { startLocalShatter(x ?? P.x, z ?? P.z, TUNING.shatter.localR); }, world() { const s = SHARDS.find(s => s.final); startWorldShatter(G.act, G.act + 1, s ? s.x : P.x, s ? floorAt(s.x, s.z, s.y) : P.y, s ? s.z : P.z); },
   pause(v) { window.__paused = !!v; }, wave(o) { Object.assign(WV, o); syncWave(); }, flip() { flipGravity(); }, hurt() { hurtHero(P.x + 1, P.z); }, kill() { killHero('hits'); },
 });
 
