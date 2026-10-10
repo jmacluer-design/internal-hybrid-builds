@@ -1522,11 +1522,12 @@ function grabTick(t, dt){
   if (!TI.grab) {
     // reaching: track the player's ground position with limited speed, creep forward if out of reach
     const k = ramp(t, 0, 1.2); const tx = pos[0], tz = pos[2], dx = tx - TI.gx, dz = tz - TI.gz, dl = Math.hypot(dx, dz), step = Math.min(dl, (t < 1.15 ? 24 : 0) * dt);
-    if (dl > 0.001) { TI.gx += dx / dl * step; TI.gz += dz / dl * step; } TI.gy = Math.max(hAt(TI.gx, TI.gz) + 1.6, Math.min(pos[1], hAt(TI.gx, TI.gz) + 30));
+    if (dl > 0.001) { TI.gx += dx / dl * step; TI.gz += dz / dl * step; } TI.gy = Math.max(hAt(TI.gx, TI.gz) + 2.4, Math.min(pos[1], hAt(TI.gx, TI.gz) + 30));
     IKA[S].tw = reach * (1 - ramp(t, 2.0, 3.0)); IKA[S].x = TI.gx; IKA[S].y = TI.gy; IKA[S].z = TI.gz; IKA[S].px = s * 0.5; IKA[S].py = 0.7; IKA[S].pz = -0.3;
-    const dd = Math.hypot(TI.gx - TI.x, TI.gz - TI.z); if (dd > 40 && t < 1.2) TI.speed = Math.max(TI.speed, 5);
+    const she = TB['sh' + S].matrixWorld.elements, ds = Math.hypot(TI.gx - she[12], TI.gz - she[14]);
+    if (ds > 24 && t < 1.3) { TI.speed = Math.max(TI.speed, 6.5); const ty = Math.atan2(TI.gx - TI.x, TI.gz - TI.z); TI.yaw += clamp(angDiff(TI.yaw, ty), -0.7 * dt, 0.7 * dt); }
     const close = ramp(t, 1.15, 1.5); Zs('curl' + S, 0.05 + 0.95 * close, 16);
-    Zs('spX', 0.45 * reach * (1 - ramp(t, 2.2, 3.2)), 8); legPose('L', -0.4 * reach, 0.07 + 0.8 * reach); legPose('R', -0.4 * reach, 0.07 + 0.8 * reach);
+    const bow = reach * (1 - ramp(t, 2.2, 3.2)); Zs('spX', 0.95 * bow, 8); legPose('L', -1.1 * bow, 0.07 + 2.2 * bow, 6); legPose('R', -1.1 * bow, 0.07 + 2.2 * bow, 6);
     tl(armCols(S), t < 1.5 ? 1 : 0); TI.speed *= 0.97;
     if (t >= 1.5 && !(TI.ev & 1)) {
       TI.ev |= 1; const c = CN['hand' + S], d = Math.hypot(pos[0] - c.ax, pos[1] - c.ay, pos[2] - c.az);
@@ -2218,7 +2219,6 @@ function attachCling(c, sx, sy, sz, nx, ny, nz){
   vel[0] = vel[1] = vel[2] = 0; P.pullT = 0;
   sfx.cling(); fxPuff(sx, sy, sz, 6, 3, 2, 2.0, 0.8); cam.shake = Math.max(cam.shake, 0.12);
   if (was === 'dive') { /* dive impact handled by caller */ }
-  P.yank.charge = 0;
 }
 function leaveCling(why){
   const C = P.cl; if (P.state !== 'cling') return; P.state = 'air'; C.cd = (why === 'slip') ? 0.8 : CL.cooldown; C.since = 0;
@@ -2785,7 +2785,15 @@ function updateCamera(dt, rx, ry, rz){
   const want = C.dist + near * C.titanPull + clamp(sp * C.distSpeed, 0, 3.4) + (S.on ? 0.8 : 0) + (P.state === 'dive' ? 1.2 : 0) + (cl ? 3.5 : 0) - 1.4 * P.yank.charge;
   const sh = C.shoulder * (0.5 + 0.5 * smooth(2, 7, want));
   let wx = -dx * want + rxv * sh, wy = -dy * want + C.height - cam.dip, wz = -dz * want + rzv * sh; const wl = Math.hypot(wx, wy, wz); let allowed = wl;
-  if (castRay(camFocus.x, camFocus.y, camFocus.z, wx / wl, wy / wl, wz / wl, wl + 0.6, cl ? 4 : 0, null)) allowed = Math.max(1.2, Math.min(wl, RH.t - 0.55));
+  const ray = (yw, pt, len) => { const c2 = Math.cos(pt), ddx = Math.sin(yw) * c2, ddy = -Math.sin(pt), ddz = Math.cos(yw) * c2; return castRay(camFocus.x, camFocus.y, camFocus.z, ddx, ddy, ddz, len + 0.6, 0, null) ? Math.max(0.8, RH.t - 0.55) : len; };
+  if (castRay(camFocus.x, camFocus.y, camFocus.z, wx / wl, wy / wl, wz / wl, wl + 0.6, 0, null)) allowed = Math.max(0.9, Math.min(wl, RH.t - 0.55));
+  if (cl && allowed < want * 0.55) {      // cramped against the hide: slide the orbit toward the roomiest direction
+    let bestS = -1e9, byw = cam.yaw, bpt = cam.pitch;
+    for (const dy of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9, 2.6]) for (const dp of [0, 0.35, -0.3]) {
+      const yw = cam.yaw + dy, pt = clamp(cam.pitch + dp, -0.9, 1.1), room = ray(yw, pt, want), sc = Math.min(room, want) - 0.9 * Math.abs(dy) - 2 * Math.abs(dp); if (sc > bestS) { bestS = sc; byw = yw; bpt = pt; }
+    }
+    const e = angDiff(cam.yaw, byw); cam.yaw += clamp(e, -3.2 * dt, 3.2 * dt); cam.pitch += clamp(bpt - cam.pitch, -1.5 * dt, 1.5 * dt);
+  }
   if (allowed < camLen) camLen = allowed; else camLen += (allowed - camLen) * damp(4, dt);
   const k = camLen / wl; let px = camFocus.x + wx * k, py = camFocus.y + wy * k, pz = camFocus.z + wz * k;
   const gh = hAt(px, pz) + 0.8; if (py < gh) py = gh;

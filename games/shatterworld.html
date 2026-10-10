@@ -16,7 +16,7 @@
   .hidden { display:none !important; }
   #hud { position:fixed; inset:0; pointer-events:none; z-index:3; }
   #hudL { position:absolute; left:max(16px,2.2vw); top:max(12px,2vh); display:flex; flex-direction:column; gap:6px; }
-  .act { font-size:clamp(10px,1.35vw,14px); letter-spacing:.28em; text-transform:uppercase; color:var(--gold); text-shadow:0 1px 8px rgba(0,0,0,.65); }
+  .act { font-size:clamp(10px,1.35vw,14px); letter-spacing:.28em; text-transform:uppercase; color:var(--gold); text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 10px rgba(0,0,0,.75); font-weight:700; }
   #shards { display:flex; gap:7px; align-items:center; }
   .sh { width:clamp(14px,2vw,22px); height:clamp(14px,2vw,22px); transform:rotate(45deg) scale(.82); border-radius:3px; background:rgba(255,255,255,.12); border:1.5px solid rgba(255,230,160,.55); transition:all .4s; }
   .sh.on { background:linear-gradient(135deg,#fff6c4,#ffb734 60%,#ff8a2a); box-shadow:0 0 14px 3px rgba(255,190,80,.75); border-color:#fff2b8; transform:rotate(45deg) scale(1); }
@@ -330,7 +330,7 @@ if (vxK > 0.001) {
   diffuseColor.rgb *= mix(1.0, (0.9 + h * 0.2) * mix(0.72, 1.0, smoothstep(0.0, 0.09, ed)), vxK); }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
 if (vxK > 0.001) { vec3 nv = normalize((viewMatrix * vec4(vxN, 0.0)).xyz); normal = normalize(mix(normal, nv, vxK)); }`)
-      .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vVox, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.78, 0.4) * ringAt(vWP.xz) * 1.5;
+      .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vVox, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.78, 0.4) * ringAt(vWP.xz) * 0.9;
 #include <opaque_fragment>`);
   };
   return mat;
@@ -590,7 +590,7 @@ diffuseColor.rgb *= colT;`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
 { vec3 nw = isWall ? vWN : normalize(mix(nSm, vec3(0., 1., 0.), smoothstep(0.05, 0.7, vox)));
   normal = normalize((viewMatrix * vec4(nw, 0.0)).xyz); }`)
-    .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vox, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.8, 0.42) * ringAt(vWP.xz) * 1.4;
+    .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vox, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.8, 0.42) * ringAt(vWP.xz) * 0.8;
 #include <opaque_fragment>`);
 };
 const terrain = new THREE.Mesh(buildTerrainGeo(), terrMat);
@@ -1613,6 +1613,8 @@ cubeMat.onBeforeCompile = sh => {
 ${GLSL.vox}
 attribute float aCorner; attribute vec2 aAO; attribute vec2 aFx; uniform float uTime;
 varying float vAO; varying vec2 vFx; varying vec2 vFUv; varying vec3 vCC; varying vec3 vWP; varying float vFace; varying float vVoxW;`)
+    .replace('#include <begin_vertex>', `#include <begin_vertex>
+{ vec3 ccw = instanceMatrix[3].xyz; float cdist = length(ccw - cameraPosition); float shr = smoothstep(0.9, 3.4, cdist); transformed *= shr; }`)
     .replace('#include <project_vertex>', `#include <project_vertex>
 { int k = int(aCorner + 0.5); int face = k / 4; int cor = k - face * 4;
   int packed = face < 3 ? int(aAO.x + 0.5) : int(aAO.y + 0.5); int sh = (face - (face < 3 ? 0 : 3)) * 8 + cor * 2; int lvl = (packed >> sh) & 3;
@@ -1923,7 +1925,7 @@ function startLocalShatter(cx, cz, R) {
   for (const t of TREES) if (t.alive && Math.hypot(t.x - cx, t.z - cz) < R - 2 && TREE_MESH[t.type].visible) SH.items.push({ d: Math.hypot(t.x - cx, t.z - cz), t: 1, ref: t });
   for (const r of ROCKS) if (r.alive && Math.hypot(r.x - cx, r.z - cz) < R - 2) SH.items.push({ d: Math.hypot(r.x - cx, r.z - cz), t: 2, ref: r });
   SH.items.sort((a, b) => a.d - b.d);
-  G.slow = 0.45; G.flash = 0.5; camShake(0.5); camCine(3.2, 1.35, 0.1, 0.04); sfx('shatter'); toast('SUN SHARD');
+  G.slow = 0.45; G.flash = 0.3; camShake(0.45); camCine(3.8, 1.9, 0.3, 0.05); sfx('shatter'); toast('SUN SHARD');
 }
 function updateLocalShatter(rdt) {
   const T = TUNING.shatter; SH.t += rdt;
@@ -2284,7 +2286,7 @@ const SHARDS = [];
 const shardCoreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 2.4, 0.9) }), shardRingMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.7, 0.7) });
 const beamMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false, uniforms: { uTime: U.time, uCol: { value: new THREE.Color(1.0, 0.72, 0.3) } },
   vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ vUv = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
-  fragmentShader: `uniform float uTime; uniform vec3 uCol; varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(abs(dot(vN, vV)), 1.6); float h = vUv.y; float a = f * (1.0 - h) * (0.55 + 0.25 * sin(uTime * 3.0 + h * 14.0)) * smoothstep(0.0, 0.04, h); gl_FragColor = vec4(uCol * 2.0, a * 0.55);
+  fragmentShader: `uniform float uTime; uniform vec3 uCol; varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(abs(dot(vN, vV)), 1.6); float h = vUv.y; float a = f * (1.0 - h) * (0.55 + 0.25 * sin(uTime * 3.0 + h * 14.0)) * smoothstep(0.0, 0.04, h); gl_FragColor = vec4(uCol * 2.0, a * 0.4);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   }` });
@@ -2293,7 +2295,7 @@ function makeShardMesh() {
   const g = new THREE.Group(); const core = new THREE.Mesh(SHARD_GEO, shardCoreMat); core.scale.set(0.55, 0.95, 0.55); g.add(core);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.035, 8, 40), shardRingMat); ring.rotation.x = PI / 2; g.add(ring); const ring2 = ring.clone(); ring2.rotation.set(PI / 2.6, 0.4, 0); ring2.scale.setScalar(1.2); g.add(ring2);
   const bits = []; for (let i = 0; i < 4; i++) { const b = new THREE.Mesh(SHARD_GEO, shardCoreMat); b.scale.set(0.12, 0.2, 0.12); g.add(b); bits.push(b); }
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 1.1, 90, 20, 1, true), beamMat); beam.position.y = 45; g.add(beam);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.7, 90, 20, 1, true), beamMat); beam.position.y = 45; g.add(beam);
   g.userData = { core, ring, ring2, bits, beam }; g.traverse(o => o.frustumCulled = false); return g;
 }
 function addShard(x, y, z, final, extra) { const m = makeShardMesh(); m.position.set(x, y, z); scene.add(m); const s = { x, y, z, final, got: false, mesh: m, ph: Math.random() * 6, ...extra }; SHARDS.push(s); return s; }
