@@ -2,7 +2,7 @@
 //   cd tools/bench && npm install && npx playwright install chromium        (once; skip the 2nd if Chrome is installed: add --chrome)
 //   node gpu-bench.mjs                              # all games, desktop 1080p + phone-emulated (4x CPU throttle), vsync on, headed
 //   node gpu-bench.mjs --games shatterworld,colossus --seconds 12 --uncapped
-// Flags: --games a,b   --mode desktop|phone|both   --seconds N   --uncapped (disable vsync/frame cap = headroom)   --chrome (use installed Chrome)   --headless   --software (sandbox self-test only)
+// Flags: --headless-gpu (no desktop session, e.g. a server: headless Chrome via Vulkan/ANGLE, best effort)   --games a,b   --mode desktop|phone|both   --seconds N   --uncapped (disable vsync/frame cap = headroom)   --chrome (use installed Chrome)   --headless   --software (sandbox self-test only)
 // Output: a table on screen + bench-results/<host>-<time>.json. It contains the GPU name and timings only. Do not commit it (it is in .gitignore); paste the table back.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url)); const REPO = path.resolve(HERE, '../..');
@@ -21,7 +21,8 @@ const srv = http.createServer((q, r) => { const u = decodeURIComponent(q.url.spl
 await new Promise(r => srv.listen(0, '127.0.0.1', r)); const port = srv.address().port;
 const args = SOFT ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : ['--ignore-gpu-blocklist', '--enable-gpu-rasterization'];
 if (UNCAPPED) args.push('--disable-gpu-vsync', '--disable-frame-rate-limit');
-const launchOpts = { headless: SOFT || !!arg('headless', false), args }; if (arg('chrome', false)) launchOpts.channel = 'chrome'; else if (SOFT) launchOpts.executablePath = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const HGPU = !!arg('headless-gpu', false); if (HGPU) args.push('--use-angle=vulkan', '--enable-features=Vulkan', '--disable-vulkan-surface', '--enable-gpu');
+const launchOpts = { headless: SOFT || HGPU || !!arg('headless', false), args }; if (arg('chrome', false)) launchOpts.channel = 'chrome'; else if (SOFT) launchOpts.executablePath = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const browser = await chromium.launch(launchOpts);
 const PROFILES = { desktop: { viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false, cpu: 1 },
   phone: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, cpu: 4 } }; // iPhone-class landscape; the GPU cannot be throttled, see notes
