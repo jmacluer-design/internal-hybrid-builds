@@ -8901,8 +8901,12 @@ function vlBake(root, shadow) {
   let out = null; if (l2.length) { out = new THREE.Mesh(vrBake(l2, false), outlineMat); out.renderOrder = -1; out.frustumCulled = false; out.visible = false; root.add(out); }
   return (ud.vlB = { body, out, gs, on: false });
 }
+function vlCull(B) { // the merged limb meshes are baked in group space, so three's own frustum culling is exact: models behind the head or off to the side cost nothing in either eye
+  let all = true; for (const o of B.gs) { const u = o.userData; if (u.vrM) { u.vrM.frustumCulled = true; if (u.vrO) u.vrO.frustumCulled = true; } else all = false; } B.body.frustumCulled = true; if (B.out) B.out.frustumCulled = true; if (all) B.cul = true;
+}
 function vlApply(root, far, keepOut) { // idempotent, allocation-free; only touches visibility while presenting
-  const B = root.userData.vlB; if (!B) return; const on = !!(VR.merge && far); if (!on && !B.on) return;
+  const B = root.userData.vlB; if (!B) return; if (VR.merge && !B.cul) vlCull(B);
+  const on = !!(VR.merge && far); if (!on && !B.on) return;
   B.body.visible = on; if (B.out) B.out.visible = on && keepOut !== false;
   if (on || VR.merge) for (const o of B.gs) { const u = o.userData; if (u.vrM) u.vrM.visible = !on; if (u.vrO) u.vrO.visible = !on; }
   B.on = on;
