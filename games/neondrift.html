@@ -170,7 +170,8 @@ function sfx(type, opt={}){
     o.frequency.value = opt.f||440;
     if(opt.to) o.frequency.exponentialRampToValueAtTime(opt.to, actx.currentTime+ (opt.dur||.15));
     g.gain.value = .12; g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime+(opt.dur||.15));
-    o.start(); o.stop();
+    const t0=actx.currentTime, dur=(opt.dur||.15);
+    o.start(t0); o.stop(t0+dur+.02);
   }catch(e){}
 }
 let muted=false;
@@ -179,6 +180,8 @@ engOsc.type='sawtooth'; engOsc.connect(engGain); engGain.connect(actx.destinatio
 try { engOsc.start(); } catch(e){}
 
 // ---- input --------------------------------------------------------------
+const __resume=()=>{ if(actx.state==='suspended') actx.resume().catch(()=>{}); };
+addEventListener('pointerdown',__resume); addEventListener('keydown',__resume);
 const keys = new Set();
 let mouseT = null, mouseIn = false;
 addEventListener('keydown',e=>keys.add(e.key.toLowerCase()));
@@ -393,19 +396,21 @@ tick();
   const SUPA = window.__SUPA || (()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
   function saveSrv(data){
     fetch('/api/save?game='+GAME,{method:'POST',body:JSON.stringify(data),
-      headers:{'Content-Type':'application/json'}}).catch(()=>{
+      headers:{'Content-Type':'application/json'}})
+      .then(r=>{ if(!r.ok) throw 0; })
+      .catch(()=>{
         if(SUPA){ fetch(SUPA.url+'/rest/v1/ib_saves?game=eq.'+GAME,
           {method:'POST',headers:{'apikey':SUPA.key,'Content-Type':'application/json',
-           'Prefer':'resolution:merge'},body:JSON.stringify({game:GAME,data})}); }
-        else { const s=JSON.parse(localStorage.getItem('ib_saves')||'{}');
-               s[GAME]=Object.assign(s[GAME]||{},data); localStorage.setItem('ib_saves',JSON.stringify(s)); }
+           'Prefer':'resolution:merge'},body:JSON.stringify({game:GAME,data})}).catch(()=>{}); }
+        try{ const s=JSON.parse(localStorage.getItem('ib_saves')||'{}');
+             s[GAME]=Object.assign(s[GAME]||{},data); localStorage.setItem('ib_saves',JSON.stringify(s)); }catch(e){}
       });
   }
   window.__save = saveSrv;
   if(!/^https?:/.test(location.protocol)) return; // data: standalone
   let cursor = 0;
   function poll(){
-    fetch('/api/input?sid=main&since='+cursor).then(r=>r.json()).then(d=>{
+    fetch('/api/input?sid=main&since='+cursor).then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(d=>{
       cursor = d.n; apply(d.ev); setTimeout(poll,120);
     }).catch(()=>{
       if(SUPA){ fetch(SUPA.url+'/rest/v1/ib_input?order=seq.asc&seq=gt.'+cursor,
@@ -413,11 +418,11 @@ tick();
           rows.forEach(r=>{ apply([r.ev]); cursor=Math.max(cursor,r.seq); });
           setTimeout(poll,300);
         }).catch(()=>setTimeout(poll,2000)); }
-      else setTimeout(poll,2000);
+      else setTimeout(poll,5000);
     });
   }
   function apply(ev){ ev.forEach(e=>{
-    if(e.type==='key'){ if(e.down) keys.add(e.k); else keys.delete(e.k); }
+    if(e.type==='key'){ const k=String(e.k).toLowerCase(); if(e.down) keys.add(k); else keys.delete(k); }
     else if(e.type==='menu'){ state='menu'; document.getElementById('menu').classList.remove('hidden'); }
   }); }
   poll();
