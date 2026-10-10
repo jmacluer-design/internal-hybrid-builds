@@ -2,7 +2,7 @@
 //   cd tools/bench && npm install && npx playwright install chromium        (once; skip the 2nd if Chrome is installed: add --chrome)
 //   node gpu-bench.mjs                              # all games, desktop 1080p + phone-emulated (4x CPU throttle), vsync on, headed
 //   node gpu-bench.mjs --games shatterworld,colossus --seconds 12 --uncapped
-// Flags: --headless-gpu (no desktop session, e.g. a server: headless Chrome via Vulkan/ANGLE, best effort)   --games a,b   --mode desktop|phone|both   --seconds N   --uncapped (disable vsync/frame cap = headroom)   --chrome (use installed Chrome)   --headless   --software (sandbox self-test only)
+// Flags: --share (upload ONLY the GPU name + timings to paste.rs and print a short URL, for when you can't copy the table)   --headless-gpu (no desktop session, e.g. a server: headless Chrome via Vulkan/ANGLE, best effort)   --games a,b   --mode desktop|phone|both   --seconds N   --uncapped (disable vsync/frame cap = headroom)   --chrome (use installed Chrome)   --headless   --software (sandbox self-test only)
 // Output: a table on screen + bench-results/<host>-<time>.json. It contains the GPU name and timings only. Do not commit it (it is in .gitignore); paste the table back.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url)); const REPO = path.resolve(HERE, '../..');
@@ -65,3 +65,7 @@ await browser.close(); srv.close();
 const out = { host: os.hostname(), when: new Date().toISOString(), gpu, uncapped: UNCAPPED, seconds: SECS, note: 'phone rows throttle CPU 4x only; real phone GPUs are far weaker than this GPU: use calls/tris/buf to judge them', rows };
 fs.mkdirSync(path.join(HERE, 'bench-results'), { recursive: true }); const file = path.join(HERE, 'bench-results', `${os.hostname()}-${Date.now()}.json`); fs.writeFileSync(file, JSON.stringify(out, null, 1));
 console.log(`\nGPU: ${gpu}   uncapped=${UNCAPPED}   ${SECS}s per run`); console.table(rows); console.log('saved', file);
+if (arg('share', false)) { // opt-in: no hostname, no paths, just GPU + timings
+  try { const shared = { gpu, uncapped: UNCAPPED, seconds: SECS, when: out.when, note: out.note, rows };
+    const r = await fetch('https://paste.rs', { method: 'POST', body: JSON.stringify(shared, null, 1) }); const url = (await r.text()).trim();
+    console.log('\n>>> SHARED RESULTS: ' + url + '   <<< (tell Claude this address)'); } catch (e) { console.log('share failed: ' + e.message); } }
