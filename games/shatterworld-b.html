@@ -3454,12 +3454,12 @@ function vrBuildButtons(mode) {
   const W = UI.main.pw, B = UI.btns, ctx = UI.main.ctx; B.length = 0; UI.chips.length = 0;
   const sizeL = () => 'SIZE: ' + ['S', 'M', 'L'][vrCfg.size], turnL = () => 'TURN: ' + (vrCfg.snap ? 'SNAP 30\u00b0' : 'SMOOTH'), gfxL = () => 'GFX: ' + (vrCfg.q === 'vr' ? 'VR' : 'LITE'), diffL = () => 'DIFFICULTY: ' + RPG_TUNING.difficulty[RP.diff].name, tierL = () => 'RIFT TIER ' + RP.riftTier;
   let rows, y = 300; const ul = RP.riftUnlocked;
-  if (mode === 'start') { y = 372; rows = [[['cta', () => 'BEGIN', 1]], [['diff', diffL], ['inv', () => 'INVENTORY']], ul ? [['rtm', () => '-', 0, 1], ['rtl', tierL, 0, 3, 1], ['rtp', () => '+', 0, 1], ['rift', () => 'SHATTER RIFT', 0, 4]] : [['rtl', () => 'SHATTER RIFTS UNLOCK AFTER THE FINALE', 0, 1, 1]], [['size', sizeL], ['turn', turnL], ['qual', gfxL]], [['cls', () => 'CHARACTER: ' + classDef(RP.cls).name.toUpperCase()], ['exit', () => 'EXIT VR']]]; }
-  else if (mode === 'pause') rows = [[['resume', () => 'RESUME', 1]], [['cls', () => 'CHARACTER'], ['inv', () => 'INVENTORY'], ['menu', () => 'MAIN MENU'], ['exit', () => 'EXIT VR']], [['size', sizeL], ['turn', turnL], ['qual', gfxL]]];
+  if (mode === 'start') { y = 372; rows = [[['cta', () => 'BEGIN', 1]], [['diff', diffL], ['inv', () => 'INVENTORY']], ul ? [['rtm', () => '-', 0, 1], ['rtl', tierL, 0, 3, 1], ['rtp', () => '+', 0, 1], ['rift', () => 'SHATTER RIFT', 0, 4]] : [['rtl', () => 'SHATTER RIFTS UNLOCK AFTER THE FINALE', 0, 1, 1]], [['size', sizeL], ['turn', turnL], ['qual', gfxL]], [['cls', () => 'CHARACTER: ' + classDef(RP.cls).name.toUpperCase()], ['town', () => 'HOME TOWN'], ['exit', () => 'EXIT VR']]]; }
+  else if (mode === 'pause') rows = [[['resume', () => 'RESUME', 1]], [['cls', () => 'CHARACTER'], ['inv', () => 'INVENTORY'], ['menu', () => 'MAIN MENU'], ['exit', () => 'EXIT VR']], [['size', sizeL], ['turn', turnL], ['qual', gfxL], ['town', () => TW.on ? 'THE GATE' : 'HOME TOWN']]];
   else {
     const lines = (($('deadS').innerHTML || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')).split('\n').length; y = 190 + lines * 44 + 12;
     const sum = $('rpgRunSum'); if (sum && sum.children.length) { ctx.font = '700 32px ' + VFONT; let x = 48, ry = y; for (const el of sum.children) { const w = Math.ceil(ctx.measureText(el.textContent).width) + 40; if (x + w > W - 48 && x > 48) { x = 48; ry += 64; } UI.chips.push({ t: el.textContent, cls: el.className, x, y: ry, w }); x += w + 12; } y = ry + 52 + 26; const rowW = {}; for (const q of UI.chips) rowW[q.y] = (rowW[q.y] || 48) + q.w + 12; for (const q of UI.chips) { const tot = rowW[q.y] - 12 - 48, off = (W - 96 - tot) / 2; q.x += off; } }
-    const ex = [['inv', () => 'INVENTORY']]; if (RIFT) ex.push(['seed', () => 'NEW SEED']); else if (G.won && RP.riftUnlocked) ex.push(['rift', () => 'SHATTER RIFT']); ex.push(['menu', () => 'MAIN MENU']);
+    const ex = [['inv', () => 'INVENTORY']]; if (RIFT) ex.push(['seed', () => 'NEW SEED']); else if (G.won && RP.riftUnlocked) ex.push(['rift', () => 'SHATTER RIFT']); ex.push(['town', () => 'HOME TOWN']); ex.push(['menu', () => 'MAIN MENU']);
     rows = [[['cta2', () => $('cta2').textContent || 'RETRY', 1]], ex, [['exit', () => 'EXIT VR']]];
   }
   const m = 48; UI.sumBottom = y;
@@ -3492,7 +3492,7 @@ function vrDrawCaption() {
 function vrDrawWrist() {
   const p = UI.wrP, c = p.ctx, W = p.pw, H = p.ph; c.clearRect(0, 0, W, H);
   rrect(c, 8, 8, W - 16, H - 16, 52); const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(10,26,42,.94)'); g.addColorStop(1, 'rgba(6,14,24,.94)'); c.fillStyle = g; c.fill(); c.lineWidth = 6; c.strokeStyle = 'rgba(83,224,208,.9)'; c.stroke();
-  c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.fillStyle = '#ffd66b'; c.font = '800 40px ' + VFONT; c.fillText(RIFT ? 'RIFT TIER ' + RIFT.tier : (ACT_NAMES[G.act] || ''), 44, 78);
+  c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.fillStyle = '#ffd66b'; c.font = '800 40px ' + VFONT; c.fillText(RIFT ? 'RIFT TIER ' + RIFT.tier : TW.on ? 'HOME TOWN' : (ACT_NAMES[G.act] || ''), 44, 78);
   const cap = RP.level >= RPG_TUNING.levelCap; c.textAlign = 'right'; c.fillStyle = '#ffe27a'; c.font = '900 46px ' + VFONT; c.fillText('LV ' + RP.level + (cap ? ' MAX' : ''), W - 44, 78);
   // hp bar (+ shield sliver)
   const hf = clamp(RT.hp / RT.max, 0, 1); rrect(c, 40, 100, W - 80, 86, 24); c.fillStyle = 'rgba(255,255,255,.1)'; c.fill();
@@ -3507,10 +3507,10 @@ function vrDrawWrist() {
   c.textAlign = 'right'; c.fillStyle = '#fff4d8'; c.font = '900 58px ' + VFONT; const gw = c.measureText(rfmt(RP.gold)).width; c.fillText(rfmt(RP.gold), W - 44, 324); rvCoin(c, W - 44 - gw - 34, 304, 28);
   // buff chips
   let bx = 44; const chip = (t, col) => { c.font = '800 30px ' + VFONT; const w = c.measureText(t).width + 30; if (bx + w > W - 40) return; rrect(c, bx, 346, w, 46, 23); c.fillStyle = col; c.fill(); c.fillStyle = '#10202e'; c.textAlign = 'left'; c.fillText(t, bx + 15, 380); bx += w + 10; };
-  if (RT.chill > 0.05) chip('CHILLED', '#9cf3ff'); if (RT.goldStack) chip('GOLD RUSH x' + RT.goldStack, '#ffd24a'); if (RT.surgeT > 0) chip('STAR SURGE', '#ffe27a'); if (RT.S.fx.comboFiend && RT.combo > 1) chip('COMBO x' + Math.min(5, RT.combo), '#ff9a7a'); if (RT.shield > 0.5) chip('SHIELD', '#9fd0ff'); if (P.big) chip('SUPER', '#ff8f7a');
+  if (RT.chill > 0.05) chip('CHILLED', '#9cf3ff'); if (RT.goldStack) chip('GOLD RUSH x' + RT.goldStack, '#ffd24a'); if (RT.surgeT > 0) chip('STAR SURGE', '#ffe27a'); if (RT.S.fx.comboFiend && RT.combo > 1) chip('COMBO x' + Math.min(5, RT.combo), '#ff9a7a'); if (RT.shield > 0.5) chip('SHIELD', '#9fd0ff'); if (P.big) chip('SUPER', '#ff8f7a'); fdVrChips(chip);
   if (RIFT) { c.textAlign = 'left'; c.fillStyle = '#ffb15e'; c.font = '800 30px ' + VFONT; c.fillText(RIFT.mods.map(m => RPG_RIFT_MODS[m].name.toUpperCase()).join('  \u00b7  '), 44, 436); }
   // shards
-  const n = ACT_SHARDS[G.act] || 0; if (!RIFT) for (let i = 0; i < n; i++) { const x = 70 + i * (n > 4 ? 84 : 98), y = 440, on = i < G.shards; c.save(); c.translate(x, y); c.rotate(PI / 4); rrect(c, -24, -24, 48, 48, 6); c.fillStyle = on ? '#ffc54a' : 'rgba(255,255,255,.12)'; c.fill(); c.lineWidth = 4; c.strokeStyle = on ? '#fff2b8' : 'rgba(255,230,160,.5)'; c.stroke(); c.restore(); }
+  const n = ACT_SHARDS[G.act] || 0; if (!RIFT && !TW.on) for (let i = 0; i < n; i++) { const x = 70 + i * (n > 4 ? 84 : 98), y = 440, on = i < G.shards; c.save(); c.translate(x, y); c.rotate(PI / 4); rrect(c, -24, -24, 48, 48, 6); c.fillStyle = on ? '#ffc54a' : 'rgba(255,255,255,.12)'; c.fill(); c.lineWidth = 4; c.strokeStyle = on ? '#fff2b8' : 'rgba(255,230,160,.5)'; c.stroke(); c.restore(); }
   c.textAlign = 'left'; c.fillStyle = '#9fb4c8'; c.font = '700 30px ' + VFONT; c.fillText('TIME', 44, 520); c.fillText('SCORE', 470, 520);
   c.fillStyle = '#fff4d8'; c.font = '900 72px ' + VFONT; c.fillText(fmtTime(G.t), 44, 590); c.fillText(String(G.score), 470, 590);
   if (RIFT) { const left = Math.max(0, RIFT.limit - RIFT.t), pr = RIFT.phase === 'fight' ? RIFT.prog / RIFT.need : 1; c.fillStyle = left < 30 ? '#ff8f7a' : '#53e0d0'; c.font = '900 56px ' + VFONT; c.fillText(fmtTime(left), 44, 676); rrect(c, 260, 640, W - 300, 36, 18); c.fillStyle = 'rgba(255,255,255,.12)'; c.fill(); if (pr > 0.01) { rrect(c, 260, 640, Math.max(36, (W - 300) * clamp(pr, 0, 1)), 36, 18); c.fillStyle = RIFT.phase === 'fight' ? '#53e0d0' : '#ffb15e'; c.fill(); } c.fillStyle = '#cfe0ee'; c.font = '700 32px ' + VFONT; c.fillText(RIFT.phase === 'fight' ? Math.floor(pr * 100) + '% to the guardian' : RIFT.phase === 'guardian' ? 'GUARDIAN' : 'CLEARED', 260, 722); }
@@ -3661,7 +3661,7 @@ function vrPlaceTable() { // put the diorama in front of the viewer, below eye l
 }
 function vrCycleSize() { vrCfg.size = (vrCfg.size + 1) % VRT.scales.length; VR.S = VRT.scales[vrCfg.size]; VR.fade = 1; vrSaveCfg(); vrHaptic(2, 0.3, 30); toast('Table size ' + ['SMALL', 'MEDIUM', 'LARGE'][vrCfg.size]); sfx('click'); UI.dirtyMain = true; }
 function vrActions(rdt) {
-  const L = XI[0], R = XI[1], play = G.state === 'play', rpm = G.state === 'inv' || G.state === 'perk' || G.state === 'cls';
+  const L = XI[0], R = XI[1], play = G.state === 'play', rpm = G.state === 'inv' || G.state === 'perk' || G.state === 'cls' || G.state === 'sta';
   if (play !== VR.wasPlay || rpm !== VR.wasRp) { VR.wasPlay = play; VR.wasRp = rpm; vrReleaseAll(); L.sup = L.m; R.sup = R.m; RV.rep.dir = 0; RV.yHold = 0; RV.yFr = 0; VR.yDone = false; } // buttons held across a state change must be released before they count again
   for (let h = 0; h < 2; h++) { const X = XI[h]; X.sup &= X.m; X.e = X.m & ~X.sup; X.rise = X.e & ~X.pe; X.pe = X.e; }
   if (rpm) { vrRpgActions(rdt, L, R); return; } // inventory / perk pick: sticks = cursor, A confirm, B back, X salvage, Y lock, grips = tabs (the world is paused)
@@ -3684,9 +3684,9 @@ function vrActions(rdt) {
   if (vrCfg.snap) { if (VR.snapArmed) { if (Math.abs(rx) > VRT.snapOn) { VR.yaw -= Math.sign(rx) * VRT.snapDeg * PI / 180; VR.snapArmed = false; VR.turns++; vrHaptic(1, 0.12, 12); } } else if (Math.abs(rx) < VRT.snapOff) VR.snapArmed = true; }
   else { const m = Math.abs(rx); if (m > VRT.stickDead) VR.yaw -= Math.sign(rx) * (m - VRT.stickDead) / (1 - VRT.stickDead) * VRT.smoothDegPerSec * PI / 180 * rdt; VR.snapArmed = true; }
 }
-function vrUiMode() { return G.state === 'menu' ? 'start' : G.state === 'pause' ? 'pause' : G.state === 'dead' ? (G.won || (RIFT && RIFT.won) ? 'win' : 'lose') : G.state === 'inv' ? 'inv' : G.state === 'perk' ? 'perk' : G.state === 'cls' ? 'cls' : 'none'; }
+function vrUiMode() { return G.state === 'menu' ? 'start' : G.state === 'pause' ? 'pause' : G.state === 'dead' ? (G.won || (RIFT && RIFT.won) ? 'win' : 'lose') : G.state === 'inv' ? 'inv' : G.state === 'perk' ? 'perk' : G.state === 'cls' ? 'cls' : G.state === 'sta' ? 'sta' : 'none'; }
 function vrUiOpen(mode) {
-  UI.mode = mode; UI.hot[0] = UI.hot[1] = -1; UI.hotKey = -1; const on = mode !== 'none', rpm = mode === 'inv' || mode === 'perk' || mode === 'cls'; UI.main.mesh.visible = on && !rpm; UI.how.mesh.visible = on && (mode === 'start' || mode === 'pause'); UI.rp.mesh.visible = rpm; RV.hotId[0] = RV.hotId[1] = ''; RV.rep.dir = 0; if (!on) return;
+  UI.mode = mode; UI.hot[0] = UI.hot[1] = -1; UI.hotKey = -1; const on = mode !== 'none', rpm = mode === 'inv' || mode === 'perk' || mode === 'cls' || mode === 'sta'; UI.main.mesh.visible = on && !rpm; UI.how.mesh.visible = on && (mode === 'start' || mode === 'pause'); UI.rp.mesh.visible = rpm; RV.hotId[0] = RV.hotId[1] = ''; RV.rep.dir = 0; if (!on) return;
   if (rpm) { // the big RPG panel sits where you are looking, level with the horizon so the table below stays visible; it never follows the head afterwards
     const hx = VR.hpx, hz = VR.hpz, gx = VR.gx, gz = VR.gz, pit = clamp(Math.asin(clamp(VR.fy, -1, 1)), -0.2, 0.08), y = Math.max(0.7, VR.hpy + VR.floorY + Math.sin(pit) * 1.15) - VR.floorY, hd = Math.cos(pit) * 1.15;
     vrPlacePanel(UI.rp, hx + gx * hd, y, hz + gz * hd, hx, hz); RV.dirty = true; RV.pkPage = 0; vrDrawRp(); toastPollForce(); return;
@@ -3712,6 +3712,7 @@ function vrUiClick(id) {
     case 'exit': vrExit(); break;
     case 'inv': openInv(); break;
     case 'cls': openChars(); break;
+    case 'town': if (TW.on) suiOpen('portal'); else townEnter(); break;
     case 'diff': { const d = $('rpgMenu').querySelector('[data-diff="' + ((RP.diff + 1) % (RP.diffUnlocked + 1)) + '"]'); if (d) d.click(); UI.dirtyMain = true; break; }
     case 'rtm': case 'rtp': { const d = $('rpgMenu').querySelector('[data-rt="' + (id === 'rtp' ? 1 : -1) + '"]'); if (d) d.click(); UI.dirtyMain = true; break; }
     case 'rift': { const d = $('rpgMenu').querySelector('[data-go="rift"]'); if (d && G.state === 'menu') d.click(); else if (G.state === 'dead') { if (RIFT) rpgRiftRestart(false, false); else rpgStartRift(RP.riftTier, RP.riftSeed || null); } break; }
@@ -3720,7 +3721,7 @@ function vrUiClick(id) {
 }
 function vrUiFrame(rdt) {
   const mode = vrUiMode(); if (mode !== UI.mode) vrUiOpen(mode);
-  const open = UI.mode !== 'none', rpm = UI.mode === 'inv' || UI.mode === 'perk' || UI.mode === 'cls';
+  const open = UI.mode !== 'none', rpm = UI.mode === 'inv' || UI.mode === 'perk' || UI.mode === 'cls' || UI.mode === 'sta';
   if (open) {
     let hotKey = 0; const pan = rpm ? UI.rp : UI.main, list = rpm ? RV.btns : UI.btns;
     for (let h = 0; h < 2; h++) {
@@ -5157,7 +5158,7 @@ function townFlags(S, ctx) { // derived + stored flags
   if (S.stats.cooked > 0) f.cooked = 1; if (S.stats.crafted > 0) f.crafted = 1; if (S.stats.quests > 0) f.quested = 1; if ((S.renown | 0) >= 10) f.renown10 = 1; return f;
 }
 const TOWN_NPCS = {
-  mayor: { id: 'mayor', name: 'Mayor Pennywick', role: 'hall', col: '#ffd66b', dlg: [
+  mayor: { id: 'mayor', name: 'Mayor Pennywick', role: 'hall', col: '#ffd66b', then: 'hall', dlg: [
     { id: 'm_first', req: [], not: ['talked_m_first'], once: 1, lines: ['Welcome home! This hamlet was a pile of loose blocks until you started bringing things back.', 'Spend gold and materials on upgrades at the Town Hall: every building grows with it.'] },
     { id: 'm_hall3', req: ['hall3'], not: [], lines: ['A proper town now. I never thought I would see the clock tower finished.'] },
     { id: 'm_hall2', req: ['hall2'], not: ['hall3'], lines: ['Village status! Bring me essence and ore and we can go further.'] },
@@ -6246,7 +6247,7 @@ function rpgHud() {
   const cap = RP.level >= RPG_TUNING.levelCap, xpn = cap ? 1 : rpgXpNext(RP.level); rpgSty($('rpgHPfill'), 'width', (sat(RT.hp / RT.max, 0, 1) * 100).toFixed(1) + '%', 'hpw'); rpgSet($('rpgHPtxt'), Math.ceil(RT.hp) + ' / ' + RT.max + (RT.shield > 0.5 ? '  +' + Math.round(RT.shield) : ''), 'hpt'); rpgSty($('rpgHPshield'), 'width', (sat(RT.shield / RT.max, 0, 1) * 100).toFixed(1) + '%', 'shw');
   rpgSty($('rpgXPfill'), 'width', (cap ? 100 : sat(RP.xp / xpn, 0, 1) * 100).toFixed(1) + '%', 'xpw'); rpgSet($('rpgLv'), 'LV ' + RP.level + (cap ? ' MAX' : ''), 'lv');
   const rw = $('rpgRW'), n = Math.ceil(RT.rwMax); if (HC.rwn !== n) { HC.rwn = n; rw.innerHTML = '<span>REWIND</span>' + '<i><b></b></i>'.repeat(n); HC.rwf = null; HC.pips = rw.querySelectorAll('i b'); } const pips = HC.pips, fk = pips.length + ':' + Math.floor(RT.rw * 10); if (HC.rwf !== fk) { HC.rwf = fk; pips.forEach((b, i) => b.style.transform = 'scaleX(' + sat(RT.rw - i, 0, 1).toFixed(2) + ')'); }
-  const buf = []; if (RT.chill > 0.05) buf.push('CHILLED'); if (RT.goldStack) buf.push('GOLD RUSH x' + RT.goldStack); if (RT.surgeT > 0) buf.push('STAR SURGE'); if (RT.S.fx.comboFiend && RT.combo > 1) buf.push('COMBO x' + Math.min(5, RT.combo)); if (RT.shield > 0.5) buf.push('SHIELD'); if (P.big) buf.push('SUPER'); rpgSet($('rpgBuff'), buf.join('  ·  '), 'buf');
+  const buf = []; if (RT.chill > 0.05) buf.push('CHILLED'); if (RT.goldStack) buf.push('GOLD RUSH x' + RT.goldStack); if (RT.surgeT > 0) buf.push('STAR SURGE'); if (RT.S.fx.comboFiend && RT.combo > 1) buf.push('COMBO x' + Math.min(5, RT.combo)); if (RT.shield > 0.5) buf.push('SHIELD'); if (P.big) buf.push('SUPER'); fdBuffPills(buf); rpgSet($('rpgBuff'), buf.join('  ·  '), 'buf');
   rpgSty($('rpgChill'), 'opacity', RT.chill > 0.02 ? Math.min(1, RT.chill * 2.4).toFixed(2) : '0', 'chl');
   const rf = $('rpgRift'); if (RIFT) { rf.classList.add('on'); const left = Math.max(0, RIFT.limit - RIFT.t); rpgSet($('rpgRiftT'), fmtTime(left), 'rt'); $('rpgRiftT').classList.toggle('low', left < 30);
     rpgSet($('rpgRiftS'), 'SHATTER RIFT · TIER ' + RIFT.tier + ' · SEED ' + hexSeed(RIFT.seed), 'rs'); const pr = RIFT.phase === 'fight' ? RIFT.prog / RIFT.need : 1; rpgSty($('rpgRiftBar'), 'width', (sat(pr, 0, 1) * 100).toFixed(1) + '%', 'rb');
@@ -6255,7 +6256,7 @@ function rpgHud() {
   const bo = $('rpgBoss'); const g = rpgBossRef(); if (g) { bo.classList.add('on'); rpgSet($('rpgBossN'), g.rpg.name.toUpperCase(), 'bn'); rpgSty($('rpgBossBar'), 'width', (sat(g.rpg.hp / g.rpg.maxhp, 0, 1) * 100).toFixed(1) + '%', 'bb'); } else bo.classList.remove('on');
 }
 function rpgUiTick(rdt) {
-  uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || RUI.open || PK.open || G.state === 'dead'; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide || VR.presenting) return; // VR: the wrist / strip panels and the 3D plates replace these DOM overlays
+  uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || RUI.open || PK.open || SUI.open || G.state === 'dead'; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide || VR.presenting) return; // VR: the wrist / strip panels and the 3D plates replace these DOM overlays
   if (HC.php !== P.hp) { HC.php = P.hp; updateHUD(); } rpgHud(); rpgPlatesTick();
 }
 function rpgRunSummary() {
@@ -6265,16 +6266,16 @@ function rpgRunSummary() {
 }
 function rpgDeadExtras() {
   let sum = $('rpgRunSum'); if (!sum) { sum = document.createElement('div'); sum.id = 'rpgRunSum'; $('deadS').after(sum); const b = document.createElement('div'); b.id = 'rpgDeadBtns'; $('cta2').after(b); const h = document.createElement('div'); h.id = 'rpgDeadHint'; b.after(h);
-    b.addEventListener('click', e => { const a = e.target.dataset && e.target.dataset.a; e.stopPropagation(); if (a === 'inv') openInv(); else if (a === 'menu') toMenu(); else if (a === 'seed') rpgRiftRestart(false, false); else if (a === 'rift') { rpgStartRift(RP.riftTier, RP.riftSeed || null); } }); }
-  sum.innerHTML = rpgRunSummary(); const b = $('rpgDeadBtns'); b.innerHTML = '<button data-a="inv">INVENTORY (Y)</button>' + (RIFT ? '<button data-a="seed">NEW SEED</button>' : G.won && RP.riftUnlocked ? '<button data-a="rift">SHATTER RIFT</button>' : '') + (RIFT || G.won ? '<button data-a="menu">MENU (B)</button>' : '');
+    b.addEventListener('click', e => { const a = e.target.dataset && e.target.dataset.a; e.stopPropagation(); if (a === 'inv') openInv(); else if (a === 'menu') toMenu(); else if (a === 'seed') rpgRiftRestart(false, false); else if (a === 'rift') { rpgStartRift(RP.riftTier, RP.riftSeed || null); } else if (a === 'town') townEnter(); }); }
+  sum.innerHTML = rpgRunSummary(); const b = $('rpgDeadBtns'); b.innerHTML = '<button data-a="inv">INVENTORY (Y)</button><button data-a="town">HOME TOWN (LB)</button>' + (RIFT ? '<button data-a="seed">NEW SEED</button>' : G.won && RP.riftUnlocked ? '<button data-a="rift">SHATTER RIFT</button>' : '') + (RIFT || G.won ? '<button data-a="menu">MENU (B)</button>' : '');
   $('rpgDeadHint').textContent = (RP.pending ? 'PERK READY: press Y, then A on the PERKS tab  ·  ' : '') + (RIFT ? 'A: ' + (RIFT.won ? 'next tier' : 'retry same seed') + '  ·  Y: inventory  ·  B: menu' : G.won ? 'A: play again  ·  Y: inventory  ·  B: menu' : 'A: retry  ·  Y: inventory');
 }
 function rpgRenderMenu() {
   const m = $('rpgMenu'); if (!m) return; const D = RPG_TUNING.difficulty, ul = RP.riftUnlocked, mx = Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1);
-  m.innerHTML = `<span class="lbl">DIFFICULTY</span>${D.map((d, i) => `<button data-diff="${i}" class="${RP.diff === i ? 'on' : ''}"${i > RP.diffUnlocked ? ' disabled title="finish the finale on the previous difficulty"' : ''}>${d.name}</button>`).join('')}<span class="lbl">RIFT</span>${ul ? `<button data-rt="-1">-</button><b>TIER ${RP.riftTier}</b><button data-rt="1">+</button><button class="go" data-go="rift">SHATTER RIFT</button>` : '<span style="opacity:.55">unlocks after the finale</span>'}<button data-go="cls">CHARACTER</button><button data-go="inv">INVENTORY</button>
-  <div id="rpgMenuSub">${classDef(RP.cls).name.toUpperCase()} &middot; LEVEL ${RP.level}${RP.level >= RPG_TUNING.levelCap ? '' : ' · ' + rfmt(RP.xp) + ' / ' + rfmt(rpgXpNext(RP.level)) + ' XP'} · ${Object.keys(RP.codex).length}/${RPG_LEGENDARIES.length} LEGENDARIES · ${rfmt(RP.gold)} GOLD · BEST RIFT ${RP.bestRift ? 'T' + RP.bestRift : '-'}${RP.pending ? ' · <b style="color:#ffe27a">PERK READY (Y)</b>' : ''}<br>PAD: &larr; &rarr; difficulty &nbsp; &uarr; &darr; rift tier &nbsp; X rift &nbsp; Y inventory &nbsp; B character &nbsp; | &nbsp; KEYS: I / Tab inventory &nbsp; F hide commons</div>`;
+  m.innerHTML = `<span class="lbl">DIFFICULTY</span>${D.map((d, i) => `<button data-diff="${i}" class="${RP.diff === i ? 'on' : ''}"${i > RP.diffUnlocked ? ' disabled title="finish the finale on the previous difficulty"' : ''}>${d.name}</button>`).join('')}<span class="lbl">RIFT</span>${ul ? `<button data-rt="-1">-</button><b>TIER ${RP.riftTier}</b><button data-rt="1">+</button><button class="go" data-go="rift">SHATTER RIFT</button>` : '<span style="opacity:.55">unlocks after the finale</span>'}<button data-go="cls">CHARACTER</button><button data-go="inv">INVENTORY</button><button data-go="town">HOME TOWN</button>
+  <div id="rpgMenuSub">${classDef(RP.cls).name.toUpperCase()} &middot; LEVEL ${RP.level}${RP.level >= RPG_TUNING.levelCap ? '' : ' · ' + rfmt(RP.xp) + ' / ' + rfmt(rpgXpNext(RP.level)) + ' XP'} · ${Object.keys(RP.codex).length}/${RPG_LEGENDARIES.length} LEGENDARIES · ${rfmt(RP.gold)} GOLD · BEST RIFT ${RP.bestRift ? 'T' + RP.bestRift : '-'}${RP.pending ? ' · <b style="color:#ffe27a">PERK READY (Y)</b>' : ''}<br>PAD: &larr; &rarr; difficulty &nbsp; &uarr; &darr; rift tier &nbsp; X rift &nbsp; Y inventory &nbsp; B character &nbsp; LB home town &nbsp; | &nbsp; KEYS: I / Tab inventory &nbsp; F hide commons</div>`;
 }
-$('rpgMenu').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); if (b.dataset.diff != null) { RP.diff = +b.dataset.diff; RT.dirty = true; rsfx('ui'); rpgRenderMenu(); } else if (b.dataset.rt) { RP.riftTier = sat(RP.riftTier + +b.dataset.rt, 1, Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1)); RP.riftSeed = 0; RT.dirty = true; rsfx('ui'); rpgRenderMenu(); } else if (b.dataset.go === 'rift') rpgStartRift(RP.riftTier, RP.riftSeed || null); else if (b.dataset.go === 'inv') openInv(); else if (b.dataset.go === 'cls') openChars(); });
+$('rpgMenu').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); if (b.dataset.diff != null) { RP.diff = +b.dataset.diff; RT.dirty = true; rsfx('ui'); rpgRenderMenu(); } else if (b.dataset.rt) { RP.riftTier = sat(RP.riftTier + +b.dataset.rt, 1, Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1)); RP.riftSeed = 0; RT.dirty = true; rsfx('ui'); rpgRenderMenu(); } else if (b.dataset.go === 'rift') rpgStartRift(RP.riftTier, RP.riftSeed || null); else if (b.dataset.go === 'inv') openInv(); else if (b.dataset.go === 'cls') openChars(); else if (b.dataset.go === 'town') townEnter(); });
 function menuKey(k) {
   if (k === 'arrowleft' || k === 'a') { RP.diff = sat(RP.diff - 1, 0, RP.diffUnlocked); rsfx('ui'); rpgRenderMenu(); } else if (k === 'arrowright' || k === 'd') { RP.diff = sat(RP.diff + 1, 0, RP.diffUnlocked); rsfx('ui'); rpgRenderMenu(); }
   else if ((k === 'arrowup' || k === 'w') && RP.riftUnlocked) { RP.riftTier = sat(RP.riftTier + 1, 1, Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1)); RP.riftSeed = 0; rsfx('ui'); rpgRenderMenu(); } else if ((k === 'arrowdown' || k === 's') && RP.riftUnlocked) { RP.riftTier = sat(RP.riftTier - 1, 1, 99); RP.riftSeed = 0; rsfx('ui'); rpgRenderMenu(); }
@@ -6768,7 +6769,7 @@ function vrRpgRestore() { // leaving VR: everything the diorama limits hid comes
 // ---- per-frame glue (called from vrPre / vrRenderPrep) -----------------------------------------------------------------------------------------------------------------------
 function vrRpgPre(rdt) {
   vrHapTick(); vrRpgCull(rdt); vrRpgPlates(rdt);
-  const open = UI.mode === 'inv' || UI.mode === 'perk'; RV.open = open;
+  const open = UI.mode === 'inv' || UI.mode === 'perk' || UI.mode === 'sta'; RV.open = open;
   if (open) { const armed = !!RUI.armed && RT.real - RUI.armed.t < 2.6; if (armed !== RV.armedOn) { RV.armedOn = armed; RV.dirty = true; } }
 }
 function vrRpgRenderPrep() {
@@ -8084,7 +8085,680 @@ gemBoot();
 window.__game.gems = true;
 // </gem-game>
 
-const FD = { kill: null };
+// <food-game> ===================================================================================================================
+// SHATTERWORLD food + materials + the home-town save, part 2a: integration. The pure logic (food-core / craft-core / town-core) is wired into the running game here, additively: the existing functions are
+// re-bound from the outside (spawnLoot, rpgPickupLoot, rpgDrops, rpgOnKilled, invSalvage, invBulk, rpgStatState, rpgSaveNow, rpgFrame, rpgSpawnAct, rpgStartRift, rpgRiftEnd, collectShard, rpgKeyDown).
+//  * ingredient / material loot (monsters, crates, chests, shards) is a new loot kind that rides the existing loot physics + magnet; gatherable herb / ore nodes are 3 InstancedMeshes (3 draw calls however many)
+//  * cooked dishes and potions are timed buffs that feed rpgComputeStats through the class-mods channel, so every cap and the character sheet already apply; heal-over-time is a per-frame tick
+//  * the town + satchel live in ONE versioned state object saved under swn_town (and as the additive key `town` of the shelf save); old swn_rpg saves load untouched
+// ==============================================================================================================================
+const FD = { kill: null, n: ((Math.random() * 1e9) >>> 0), lastSrv: -99, err: 0, nodes: [], nodeT: 0, spk: 0, pill: '', hotAcc: 0, log: [] };
+const TOWN_KEY = 'swn_town';
+let TOWN = townDefault(((RP.seed >>> 0) ^ 0x70771) >>> 0);
+function townLoad() {
+  let raw = null; try { const v = localStorage.getItem(TOWN_KEY); if (v) raw = JSON.parse(v); } catch (e) { }
+  if (!raw) try { const g = (JSON.parse(localStorage.getItem('ib_saves') || '{}') || {})['shatterworld-next']; if (g && g.town) raw = g.town; } catch (e) { }
+  TOWN = raw ? townClean(raw, rpgCleanItem) : townDefault(((RP.seed >>> 0) ^ 0x70771) >>> 0); return !!raw;
+}
+function townTouch() { RT.dirty = true; }
+function townSaveNow(light) {
+  const snap = townSnapshot(TOWN); try { localStorage.setItem(TOWN_KEY, JSON.stringify(snap)); } catch (e) { }
+  if (light && RT.real - FD.lastSrv < 20) return; FD.lastSrv = RT.real; try { if (window.__save) window.__save({ town: snap, townTier: townTier(TOWN, 'hall'), renown: TOWN.renown | 0 }); } catch (e) { }
+}
+{ const _s = rpgSaveNow; rpgSaveNow = function (light) { _s(light); try { townSaveNow(light); } catch (e) { console.error('town save', e); } }; }
+{ const r0 = window.__rpg.reset; window.__rpg.reset = function () { r0(); try { localStorage.removeItem(TOWN_KEY); } catch (e) { } TOWN = townDefault(((RP.seed >>> 0) ^ 0x70771) >>> 0); rpgRecalc(); if (typeof townAfterReset === 'function') townAfterReset(); }; }
+townLoad();
+const LEDGER = { get gold() { return RP.gold; }, set gold(v) { RP.gold = v; RT.dirty = true; }, get dust() { return RP.dust; }, set dust(v) { RP.dust = v; RT.dirty = true; }, get sat() { return TOWN.sat; } };
+const townCap = () => TOWN_STACK[townTier(TOWN, 'warehouse')] || 99;
+const fdKindOf = id => MATS[id] ? 'mat' : 'ing';
+const fdDef = id => INGS[id] || MATS[id];
+// ---- quests: one funnel for every kind of progress -----------------------------------------------------------------------------------------------------------------------------------------------------------------
+function townQuest(ev, info) {
+  let done; try { done = questEvent(TOWN, ev, info); } catch (e) { return []; } if (!done.length) return done; RT.dirty = true;
+  for (const q of done) { rpgLogLine('Goal complete: ' + questText(q), '#8fd0ff'); } rsfx('pick1'); toast('GOAL COMPLETE - claim it at the Notice Board'); return done;
+}
+// ---- recipe discovery -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function fdDiscover(quiet) {
+  const ctx = { tiers: townTiers(TOWN), seen: TOWN.seen, known: TOWN.known, level: RP.level }, fresh = foodDiscoverNow(ctx);
+  for (const id of fresh) { TOWN.known[id] = 1; if (!quiet) { rpgLogLine('New recipe: ' + FOOD_RECIPES[id].name, '#ffb15e'); rsfx('pick2'); } } if (fresh.length) RT.dirty = true; return fresh;
+}
+function fdSee(id) { if (!TOWN.seen[id]) { TOWN.seen[id] = 1; RT.dirty = true; return true; } return false; }
+// ---- the satchel -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function fdGive(kind, id, n, silent) { // -> what actually fit; the overflow is sold to the market stall's cart (never lost silently)
+  const d = kind === 'dish' || kind === 'pot' ? null : fdDef(id); const put = satAdd(TOWN.sat, kind, id, n, townCap()), over = n - put;
+  if (over > 0 && d) { const g = Math.max(1, Math.round(d.sell * over * 0.5)); RP.gold += g; RUN.gold += g; if (!silent) rpgLogLine(d.name + ' stack is full: sold ' + over + ' for ' + g + ' gold', '#9fb4c8'); }
+  RT.dirty = true; if (d && fdSee(id) && !silent) fdDiscover(); return put;
+}
+function fdSellValue(kind, id) { const d = fdDef(id); return d ? d.sell : 12; }
+// ---- stats: dishes / potions + town perks ride the class-mods channel ------------------------------------------------------------------------------------------------------------------------------------------
+{ const _ss = rpgStatState; rpgStatState = function () { const s = _ss(); const fm = foodMods(TOWN.buffs), tm = townMods(TOWN); let any = false; for (const _k in fm) { any = true; break; } if (!any) for (const _k in tm) { any = true; break; } if (!any) return s; const c = Object.assign({}, s.cmods || {}); for (const k in fm) c[k] = (c[k] || 0) + fm[k]; for (const k in tm) c[k] = (c[k] || 0) + tm[k]; s.cmods = c; return s; }; }
+const fdKitchenTier = () => townTier(TOWN, 'kitchen');
+function fdBuffTime(t) { t = Math.max(0, Math.ceil(t)); return ((t / 60) | 0) + ':' + String(t % 60).padStart(2, '0'); }
+function fdUse(kind, key, quiet) { // eat / drink one stack item
+  if (!(kind === 'dish' || kind === 'pot') || satCount(TOWN.sat, kind, key) < 1) return { ok: false, why: 'none left' }; const [rid, q] = key.split(':'), r = FOOD_RECIPES[rid]; if (!r) return { ok: false, why: 'unknown' };
+  if (G.state !== 'play' && G.state !== 'sta' && G.state !== 'inv') return { ok: false, why: 'not now' };
+  const b = foodMakeBuff(rid, q | 0, fdKitchenTier()); if (!b) return { ok: false, why: 'bad item' }; satTake(TOWN.sat, kind, key, 1);
+  if (b.heal > 0) { const v = RT.max * b.heal; RT.hp = Math.min(RT.max, RT.hp + v); rpgMirror(); if (!quiet) { floatText(P.x, P.y + 1.9, P.z, '+' + Math.round(v), 'heal'); sparkBurst(P.x, P.y + 1, P.z, 12, 0x8af7a0, 4); } }
+  TOWN.buffs = foodApplyBuff(TOWN.buffs, b); rpgRecalc(); RT.dirty = true; rsfx(kind === 'pot' ? 'heal' : 'pick1'); rpgLogLine((kind === 'pot' ? 'Drank ' : 'Ate ') + b.name + '  (' + fdBuffTime(b.t) + ')', b.col);
+  if (!quiet && G.state === 'play') { sparkBurst(P.x, P.y + 1.2, P.z, 14, new THREE.Color(b.col).getHex(), 5); fxRing(P.x, P.y, P.z, 0.4, 2.2, 0.6, new THREE.Color(b.col).getHex(), 0.9); } return { ok: true, buff: b };
+}
+function fdQuickPotion() { // H / LB + Y: the best healing potion first, else any potion, else a meal that isn't active
+  const keys = Object.keys(TOWN.sat.pot); if (!keys.length) { toast('No potions. Brew some at the Apothecary.'); rsfx('deny'); return false; }
+  keys.sort((a, b) => ((FOOD_RECIPES[b.split(':')[0]].out.heal || 0) - (FOOD_RECIPES[a.split(':')[0]].out.heal || 0)) || (b.split(':')[1] - a.split(':')[1])); const r = RT.hp < RT.max * 0.7 ? fdUse('pot', keys[0]) : fdUse('pot', keys[keys.length - 1]); if (!r.ok) { toast(r.why); rsfx('deny'); } return r.ok;
+}
+function fdBuffPills(buf) { for (const b of TOWN.buffs) buf.push(b.name + ' ' + fdBuffTime(b.t)); }
+function fdVrChips(chip) { for (const b of TOWN.buffs) chip(b.name.split(' ').slice(-2).join(' ') + ' ' + fdBuffTime(b.t), b.col); }
+// per-frame: buffs run down in play time only; heal-over-time
+{ const _f = rpgFrame; rpgFrame = function (rdt, sdt) { _f(rdt, sdt); try { fdFrame(rdt, sdt); } catch (err) { if (!FD.err) { FD.err = 1; console.error('food frame', err); } } }; }
+function fdFrame(rdt, sdt) {
+  if (G.state !== 'play') { if (G.state === 'menu') FD.nodeT = 0; return; }
+  if (TOWN.buffs.length && !P.dead) {
+    const n0 = TOWN.buffs.length, hot = foodHot(TOWN.buffs); foodTick(TOWN.buffs, sdt); if (hot > 0 && RT.hp < RT.max && RT.hp > 0) { RT.hp = Math.min(RT.max, RT.hp + hot * RT.max * sdt); FD.hotAcc += sdt; if (FD.hotAcc > 0.5) { FD.hotAcc = 0; rpgMirror(); } }
+    if (TOWN.buffs.length !== n0) { rpgRecalc(); RT.dirty = true; rpgLogLine('A food effect wore off', '#9fb4c8'); }
+  }
+  fdNodesFrame(rdt);
+}
+// ---- icons (procedural canvas, cached): ingredients, materials, dishes, potions -------------------------------------------------------------------------------------------------------------------------
+const FD_ICONS = new Map();
+function fdIcon(kind, id, s = 64) {
+  const key = kind + ':' + id + ':' + s; let c = FD_ICONS.get(key); if (c) return c; c = document.createElement('canvas'); c.width = c.height = s; const k = c.getContext('2d'); k.translate(s / 2, s / 2); k.scale(s / 64, s / 64);
+  let glyph = 'bowl', col = '#ffd8a0';
+  if (kind === 'dish' || kind === 'pot') { const r = FOOD_RECIPES[id.split(':')[0]]; if (r) { glyph = r.glyph; col = FOOD_FX[r.out.fx[0]].col; } } else { const d = fdDef(id); if (d) { glyph = d.glyph; col = d.col; } }
+  k.lineWidth = 3; k.lineJoin = k.lineCap = 'round'; const dk = 'rgba(10,20,30,.55)', fill = col, ell = (x, y, rx, ry, a) => { k.beginPath(); k.ellipse(x, y, rx, ry, a || 0, 0, TAU); k.fill(); k.strokeStyle = dk; k.stroke(); };
+  k.fillStyle = fill; k.strokeStyle = dk;
+  switch (glyph) {
+    case 'berry': ell(-7, 4, 11, 11); ell(9, 6, 9, 9); k.fillStyle = '#4ac070'; ell(0, -11, 7, 4, 0.5); break;
+    case 'melon': ell(0, 2, 20, 17); k.strokeStyle = 'rgba(255,255,255,.5)'; for (const x of [-9, 0, 9]) { k.beginPath(); k.moveTo(x, -14); k.quadraticCurveTo(x * 1.4, 2, x, 18); k.stroke(); } break;
+    case 'root': k.beginPath(); k.moveTo(-9, -12); k.lineTo(9, -12); k.lineTo(0, 24); k.closePath(); k.fill(); k.strokeStyle = dk; k.stroke(); k.fillStyle = '#4ac070'; ell(-4, -17, 3, 7, -0.3); ell(4, -17, 3, 7, 0.3); break;
+    case 'grain': case 'corn': for (const x of [-9, 0, 9]) { k.fillStyle = fill; ell(x, 0, 5, 16, x * 0.02); } k.fillStyle = '#e8c860'; ell(0, 18, 14, 3); break;
+    case 'leaf': case 'mint': k.beginPath(); k.moveTo(0, 22); k.quadraticCurveTo(-24, 0, 0, -22); k.quadraticCurveTo(24, 0, 0, 22); k.fill(); k.strokeStyle = dk; k.stroke(); k.strokeStyle = 'rgba(255,255,255,.55)'; k.beginPath(); k.moveTo(0, 22); k.lineTo(0, -14); k.stroke(); break;
+    case 'cap': k.beginPath(); k.arc(0, 2, 20, PI, 0); k.closePath(); k.fill(); k.strokeStyle = dk; k.stroke(); k.fillStyle = '#f4ecd8'; k.fillRect(-6, 3, 12, 17); k.strokeRect(-6, 3, 12, 17); k.fillStyle = 'rgba(255,255,255,.6)'; for (const [x, y] of [[-8, -4], [5, -9], [10, -1]]) { k.beginPath(); k.arc(x, y, 2.8, 0, TAU); k.fill(); } break;
+    case 'pepper': k.beginPath(); k.moveTo(-8, -12); k.quadraticCurveTo(14, -10, 8, 8); k.quadraticCurveTo(0, 24, -12, 22); k.quadraticCurveTo(-4, 6, -8, -12); k.fill(); k.strokeStyle = dk; k.stroke(); k.fillStyle = '#4ac070'; ell(-7, -14, 5, 3); break;
+    case 'bean': case 'pod': ell(0, 0, 22, 8, 0.5); k.fillStyle = 'rgba(255,255,255,.7)'; for (const x of [-10, 0, 10]) { k.beginPath(); k.arc(x, -x * 0.5, 3, 0, TAU); k.fill(); } break;
+    case 'drop': case 'flask': k.beginPath(); k.moveTo(-6, -20); k.lineTo(6, -20); k.lineTo(6, -8); k.quadraticCurveTo(24, 6, 16, 18); k.quadraticCurveTo(0, 28, -16, 18); k.quadraticCurveTo(-24, 6, -6, -8); k.closePath(); k.fill(); k.strokeStyle = dk; k.stroke(); k.fillStyle = 'rgba(255,255,255,.55)'; ell(-8, 8, 3, 6, 0.4); k.fillStyle = '#c8a070'; k.fillRect(-7, -25, 14, 6); break;
+    case 'honey': k.fillStyle = '#c88a20'; k.fillRect(-14, -8, 28, 28); k.fillStyle = fill; k.fillRect(-14, -8, 28, 18); k.strokeRect(-14, -8, 28, 28); k.fillStyle = '#8a5a20'; k.fillRect(-16, -14, 32, 7); break;
+    case 'salt': case 'powder': k.beginPath(); k.moveTo(-18, 18); k.lineTo(-8, -8); k.lineTo(2, 18); k.closePath(); k.fill(); k.strokeStyle = dk; k.stroke(); k.beginPath(); k.moveTo(0, 18); k.lineTo(10, -14); k.lineTo(20, 18); k.closePath(); k.fill(); k.stroke(); break;
+    case 'haunch': case 'chop': case 'leg': ell(-2, 0, 17, 13, -0.4); k.fillStyle = '#f4ecd8'; ell(14, -10, 4, 9, -0.6); k.fillStyle = 'rgba(255,255,255,.35)'; ell(-6, -3, 6, 4, -0.4); break;
+    case 'gland': ell(0, 0, 14, 18); k.fillStyle = 'rgba(255,255,255,.5)'; ell(-4, -6, 4, 6, 0.3); break;
+    case 'roe': for (const [x, y] of [[-9, 6], [4, 8], [0, -6], [11, -3], [-7, -9]]) { k.fillStyle = fill; ell(x, y, 6.5, 6.5); } break;
+    case 'claw': k.beginPath(); k.moveTo(-14, 18); k.quadraticCurveTo(-22, -6, 4, -18); k.quadraticCurveTo(-2, -4, 6, 2); k.quadraticCurveTo(20, 6, 14, 18); k.closePath(); k.fill(); k.strokeStyle = dk; k.stroke(); break;
+    case 'bulb': ell(0, 6, 15, 14); k.fillStyle = '#4ac070'; for (const a of [-0.6, 0, 0.6]) ell(a * 14, -14, 3, 9, a); break;
+    case 'egg': ell(0, 0, 14, 19); k.fillStyle = 'rgba(255,255,255,.6)'; ell(-5, -6, 3, 5, 0.4); break;
+    case 'scrap': k.beginPath(); k.moveTo(-18, 8); k.lineTo(-8, -14); k.lineTo(10, -8); k.lineTo(18, 10); k.lineTo(-4, 18); k.closePath(); k.fill(); k.strokeStyle = dk; k.stroke(); k.fillStyle = 'rgba(255,255,255,.5)'; k.fillRect(-4, -2, 8, 3); break;
+    case 'ore': case 'crystal': k.beginPath(); k.moveTo(0, -22); k.lineTo(14, -4); k.lineTo(9, 20); k.lineTo(-9, 20); k.lineTo(-14, -4); k.closePath(); k.fill(); k.strokeStyle = dk; k.stroke(); k.fillStyle = 'rgba(255,255,255,.45)'; k.beginPath(); k.moveTo(0, -22); k.lineTo(-14, -4); k.lineTo(-2, 0); k.closePath(); k.fill(); break;
+    case 'hide': k.beginPath(); k.moveTo(-18, -12); k.quadraticCurveTo(0, -20, 18, -12); k.lineTo(12, 18); k.quadraticCurveTo(0, 12, -12, 18); k.closePath(); k.fill(); k.strokeStyle = dk; k.stroke(); break;
+    case 'silk': k.lineWidth = 4; k.strokeStyle = fill; for (const y of [-12, -4, 4, 12]) { k.beginPath(); k.moveTo(-18, y); k.quadraticCurveTo(0, y - 8, 18, y); k.stroke(); } break;
+    case 'timber': k.fillStyle = '#c8924a'; k.fillRect(-20, -12, 40, 9); k.fillRect(-20, 0, 40, 9); k.fillRect(-14, 12, 28, 8); k.fillStyle = 'rgba(0,0,0,.25)'; for (const y of [-12, 0, 12]) k.fillRect(-20, y + 3, 40, 2); break;
+    case 'essence': k.beginPath(); k.moveTo(0, -22); k.quadraticCurveTo(14, -4, 0, 20); k.quadraticCurveTo(-14, -4, 0, -22); k.fill(); k.strokeStyle = dk; k.stroke(); k.fillStyle = 'rgba(255,255,255,.6)'; ell(-3, -2, 2.5, 6, 0.2); break;
+    case 'bone': k.fillStyle = fill; k.beginPath(); k.arc(-14, -8, 6, 0, TAU); k.arc(-14, 2, 6, 0, TAU); k.arc(14, -8, 6, 0, TAU); k.arc(14, 2, 6, 0, TAU); k.fill(); k.fillRect(-14, -8, 28, 10); break;
+    case 'ash': for (const [x, y, r] of [[-8, 6, 9], [8, 8, 7], [0, -6, 8]]) { ell(x, y, r, r * 0.8); } break;
+    // dishes
+    case 'salad': case 'stew': case 'bowl': case 'pie': case 'roast': case 'loaf': case 'skewer': case 'feast': case 'cake': {
+      k.fillStyle = '#e8e0d0'; k.beginPath(); k.moveTo(-22, -2); k.lineTo(22, -2); k.quadraticCurveTo(20, 22, 0, 22); k.quadraticCurveTo(-20, 22, -22, -2); k.fill(); k.strokeStyle = dk; k.stroke();
+      k.fillStyle = fill; if (glyph === 'loaf') { k.beginPath(); k.ellipse(0, -8, 17, 11, 0, PI, 0); k.fill(); k.stroke(); } else if (glyph === 'pie') { ell(0, -2, 19, 9); k.fillStyle = 'rgba(255,255,255,.4)'; ell(0, -2, 10, 4); } else if (glyph === 'cake') { k.fillRect(-14, -16, 28, 14); k.fillStyle = '#fff4f0'; k.fillRect(-14, -16, 28, 5); k.fillStyle = '#ffd45a'; k.beginPath(); k.arc(0, -20, 3, 0, TAU); k.fill(); }
+      else if (glyph === 'skewer') { k.lineWidth = 3; k.strokeStyle = '#a8743a'; k.beginPath(); k.moveTo(-18, 6); k.lineTo(18, -16); k.stroke(); for (const t of [0.25, 0.5, 0.75]) { k.fillStyle = fill; ell(-18 + 36 * t, 6 - 22 * t, 6, 6); } }
+      else { for (const [x, y, r] of glyph === 'feast' ? [[-12, -8, 7], [0, -12, 8], [12, -8, 7], [-5, -4, 6], [6, -4, 6]] : glyph === 'roast' ? [[-8, -6, 9], [8, -8, 8]] : [[-9, -6, 7], [2, -9, 8], [11, -5, 6]]) { k.fillStyle = fill; ell(x, y, r, r * 0.8); } }
+      if (glyph === 'stew' || glyph === 'feast') { k.strokeStyle = 'rgba(255,255,255,.65)'; k.lineWidth = 2; for (const x of [-8, 0, 8]) { k.beginPath(); k.moveTo(x, -16); k.quadraticCurveTo(x + 4, -22, x, -27); k.stroke(); } } break; }
+    default: ell(0, 0, 16, 16);
+  }
+  FD_ICONS.set(key, c); return c;
+}
+// ---- loot: ingredient / material pickups ride the existing loot physics ---------------------------------------------------------------------------------------------------------------------------------
+const FD_GEO = { sph: new THREE.SphereGeometry(0.2, 10, 8), cone: new THREE.ConeGeometry(0.17, 0.4, 8), box: new THREE.BoxGeometry(0.3, 0.3, 0.3), oct: new THREE.OctahedronGeometry(0.24, 0) }, FD_MATS = {};
+const FD_SHAPE = { berry: 'sph', melon: 'sph', bulb: 'sph', egg: 'sph', roe: 'sph', pod: 'sph', drop: 'sph', honey: 'sph', corn: 'sph', bean: 'sph', root: 'cone', pepper: 'cone', leg: 'cone', chop: 'cone', haunch: 'cone', gland: 'cone', grain: 'box', salt: 'box', powder: 'box', scrap: 'box', timber: 'box', bone: 'box', ash: 'box' };
+function fdLootMesh(id) { const d = fdDef(id), m = FD_MATS[id] || (FD_MATS[id] = new THREE.MeshStandardMaterial({ color: d.col, emissive: d.col, emissiveIntensity: 0.55, roughness: 0.4, metalness: 0.1 })); const mesh = new THREE.Mesh(FD_GEO[FD_SHAPE[d.glyph] || 'oct'], m); mesh.scale.setScalar(d.kind === 'mat' ? 1.15 : 1); mesh.castShadow = false; return mesh; }
+{ const _sl = spawnLoot; spawnLoot = function (kind, x, y, z, payload) {
+  if (kind !== 'ing' && kind !== 'mat') return _sl(kind, x, y, z, payload);
+  const L = _sl('dust', x, y, z, 0); L.g.remove(L.gem); L.kind = kind; L.id = payload.id; L.n = payload.n | 0 || 1; L.gem = fdLootMesh(payload.id); L.g.add(L.gem); L.val = L.n; return L; }; }
+function fdPickupFood(L, force) {
+  const d = fdDef(L.id), put = fdGive(L.kind, L.id, L.n, true); rpgFree(L); RT.dirty = true; rsfx('pick0');
+  floatText(L.x, L.y + 0.6, L.z, '+' + L.n + ' ' + d.name, 'xp'); sparkBurst(L.x, L.y, L.z, 4, new THREE.Color(d.col).getHex(), 3); rpgLogLine('+' + L.n + ' ' + d.name, d.col);
+  if (put < L.n) { const g = Math.max(1, Math.round(d.sell * (L.n - put) * 0.5)); RP.gold += g; floatText(L.x, L.y + 1.0, L.z, 'full: +' + g + 'g', 'gold'); } if (fdSee(L.id)) fdDiscover(); return true;
+}
+{ const _pl = rpgPickupLoot; rpgPickupLoot = function (L, force) {
+  if (L.kind === 'ing' || L.kind === 'mat') return fdPickupFood(L, force);
+  const gold = L.kind === 'gold' ? Math.round(L.val) : 0, it = L.kind === 'item' ? L.item : null, ok = _pl(L, force);
+  if (ok) { if (gold) townQuest('gold', { n: gold }); else if (it) townQuest('loot', { rarity: it.rarity }); } return ok; }; }
+{ const _rd = rpgDrops; rpgDrops = function (srcKey, x, y, z, mlvl, extra) {
+  _rd(srcKey, x, y, z, mlvl, extra);
+  try { const e = FD.kill, r = rpgRng(rpgHashSeed(TOWN.seed ^ 0xF00D, (FD.n++) >>> 0)); for (const d of foodRollDrops(r, srcKey, e ? e.type : null, e && e.rpg ? e.rpg.tier : 'normal', RT.S ? RT.S.magicFind : 0)) spawnLoot(fdKindOf(d.id), x, y, z, { id: d.id, n: d.n }); } catch (err) { if (!FD.err) { FD.err = 1; console.error('food drops', err); } } }; }
+{ const _ok = rpgOnKilled; rpgOnKilled = function (e, ak, sx, sz) {
+  FD.kill = e; try { _ok(e, ak, sx, sz); } finally { FD.kill = null; }
+  if (e.rpg && !e.rpg.minion) { townQuest('kill', { type: e.type, tier: e.rpg.tier }); if (e.rpg.actGuardian || e.rpg.guardian) townQuest('boss', {}); } }; }
+// ---- salvage also yields materials ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function fdSalvageGive(it) { const m = foodSalvageMats(it), parts = []; for (const id in m) { const put = fdGive('mat', id, m[id], true); if (put) parts.push(put + ' ' + MATS[id].name); } if (parts.length) rpgLogLine('Salvage: ' + parts.join(', '), '#9fb4c8'); }
+{ const _is = invSalvage; invSalvage = function (i) { const it = RP.bag[i], ok = _is(i); if (ok && it) fdSalvageGive(it); return ok; };
+  const _ib = invBulk; invBulk = function (maxR) { const before = RP.bag.slice(); _ib(maxR); for (let i = 0; i < BAG_N; i++) if (before[i] && !RP.bag[i]) fdSalvageGive(before[i]); }; }
+// ---- gatherable herbs / ore: 3 InstancedMeshes (herb fruit, herb leaves, ore) ----------------------------------------------------------------------------------------------------------------------
+const FN = { built: false, herb: null, leaf: null, ore: null, cap: 48, dummy: new THREE.Object3D(), col: new THREE.Color() };
+function fdBuildNodes() {
+  if (FN.built) return; FN.built = true; const m4 = new THREE.Matrix4(), mk = (g, x, y, z, sx, sy, sz, ry) => { const c = g.clone(); m4.compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry || 0, 0)), new THREE.Vector3(sx, sy, sz)); c.applyMatrix4(m4); return c; };
+  const sp = new THREE.SphereGeometry(1, 10, 8), ocm = new THREE.OctahedronGeometry(1, 0);
+  const fruit = mergeGeometries([mk(sp, 0, 0.46, 0, 0.17, 0.17, 0.17), mk(sp, 0.13, 0.36, 0.05, 0.12, 0.12, 0.12), mk(sp, -0.11, 0.33, -0.07, 0.1, 0.1, 0.1)], false);
+  const leaf = mergeGeometries([0, 1, 2, 3].map(i => mk(sp, Math.cos(i * 1.57) * 0.17, 0.12, Math.sin(i * 1.57) * 0.17, 0.2, 0.05, 0.1, -i * 1.57)).concat([mk(new THREE.CylinderGeometry(1, 1, 1, 6), 0, 0.22, 0, 0.025, 0.44, 0.025)]), false);
+  const ore = mergeGeometries([mk(ocm, 0, 0.3, 0, 0.22, 0.34, 0.22), mk(ocm, 0.2, 0.15, 0.08, 0.13, 0.2, 0.13), mk(ocm, -0.17, 0.12, -0.1, 0.12, 0.17, 0.12)], false);
+  const mat = () => new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x181818 });
+  FN.herb = new THREE.InstancedMesh(fruit, mat(), FN.cap); FN.leaf = new THREE.InstancedMesh(leaf, new THREE.MeshLambertMaterial({ color: 0x4ec46a, emissive: 0x0a2010 }), FN.cap); FN.ore = new THREE.InstancedMesh(ore, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x2a3a5a, emissiveIntensity: 0.9, roughness: 0.3, metalness: 0.4 }), FN.cap);
+  for (const x of [FN.herb, FN.leaf, FN.ore]) { x.frustumCulled = false; x.count = 0; x.visible = false; scene.add(x); } FN.herb.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(FN.cap * 3), 3); FN.ore.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(FN.cap * 3), 3);
+}
+function fdClearNodes() { FD.nodes.length = 0; if (FN.built) { FN.herb.count = FN.leaf.count = FN.ore.count = 0; FN.herb.visible = FN.leaf.visible = FN.ore.visible = false; } }
+function fdAddNode(kind, x, y, z, id, n) { if (FD.nodes.length >= FN.cap * 2) return null; fdBuildNodes(); const q = { kind, x, y, z, id, n, on: true, ph: Math.random() * 6, t: 0, near: 0 }; FD.nodes.push(q); return q; }
+function fdNodesFrame(rdt) {
+  if (!FN.built || !FD.nodes.length) return; const t = U.time.value, d = FN.dummy; let nh = 0, no = 0; FD.spk -= rdt; const spark = FD.spk <= 0; if (spark) FD.spk = 0.4;
+  for (const q of FD.nodes) {
+    let prog = 1, bedB = null; if (q.bed != null) { bedB = TOWN.garden[q.bed]; if (!bedB) continue; q.id = bedB.plant; prog = Math.min(1, bedB.t / suiGrowTime(bedB.plant)); } else if (!q.on) { if (q.t > 0) { q.t -= rdt; if (q.t <= 0) q.on = true; } continue; }
+    const ripe = prog >= 1, dx = P.x - q.x, dz = P.z - q.z, dh = Math.hypot(dx, dz), near = dh < 3.2 && Math.abs(P.y - q.y) < 2.5; q.near += ((near ? 1 : 0) - q.near) * Math.min(1, rdt * 10);
+    if (ripe && dh < 1.15 && Math.abs(P.y + 0.6 - q.y) < 2.2 && !P.dead && (q.bed == null || G.state === 'play')) { fdGather(q); continue; }
+    const k = (1 + 0.07 * Math.sin(t * 2.2 + q.ph) + 0.25 * q.near) * (0.35 + 0.65 * prog); d.position.set(q.x, q.y, q.z); d.rotation.set(0, q.ph + t * 0.25, Math.sin(t * 1.5 + q.ph) * 0.05); d.scale.setScalar(k); d.updateMatrix();
+    if (q.kind === 'herb') { FN.leaf.setMatrixAt(nh, d.matrix); if (ripe) FN.herb.setMatrixAt(nh, d.matrix); else { d.scale.setScalar(0.0001); d.updateMatrix(); FN.herb.setMatrixAt(nh, d.matrix); } FN.col.set(fdDef(q.id).col); FN.herb.setColorAt(nh, FN.col); nh++; } else { FN.ore.setMatrixAt(no, d.matrix); FN.col.set('#9fd0ff'); FN.ore.setColorAt(no, FN.col); no++; }
+    if (spark && dh < 15 && Math.random() < 0.5) puff(q.x + (Math.random() - 0.5) * 0.4, q.y + 0.55, q.z + (Math.random() - 0.5) * 0.4, 1, 0.5, new THREE.Color(q.kind === 'ore' ? '#9fd0ff' : fdDef(q.id).col).getHex(), 0.4, 0.9, 1.0);
+  }
+  FN.herb.count = FN.leaf.count = nh; FN.ore.count = no; FN.herb.visible = FN.leaf.visible = nh > 0; FN.ore.visible = no > 0; if (nh) { FN.herb.instanceMatrix.needsUpdate = FN.leaf.instanceMatrix.needsUpdate = true; FN.herb.instanceColor.needsUpdate = true; } if (no) { FN.ore.instanceMatrix.needsUpdate = true; FN.ore.instanceColor.needsUpdate = true; }
+}
+function fdGather(q) {
+  if (!q.on) return false; q.on = false; q.t = q.regrow || 0; const kind = fdKindOf(q.id), d = fdDef(q.id), put = fdGive(kind, q.id, q.n, true); RT.dirty = true; rsfx('pick1'); const col = new THREE.Color(q.kind === 'ore' ? '#9fd0ff' : d.col).getHex();
+  floatText(q.x, q.y + 1.1, q.z, '+' + q.n + ' ' + d.name, 'xp'); sparkBurst(q.x, q.y + 0.5, q.z, 10, col, 4); fxRing(q.x, q.y, q.z, 0.2, 1.3, 0.4, col, 0.8); puff(q.x, q.y + 0.4, q.z, 5, 0.8, col, 1.6, 0.6, 0.7); rpgLogLine('Gathered ' + q.n + ' ' + d.name, d.col);
+  if (put < q.n) { const g = Math.max(1, Math.round(d.sell * (q.n - put) * 0.5)); RP.gold += g; } if (fdSee(q.id)) fdDiscover(); townQuest('gather', { n: q.n }); TOWN.stats.gathered += q.n; if (G.state === 'play' && VR.presenting) vrHaptic(2, 0.25, 40); return true;
+}
+function fdSpawnNodes(rng, anchors, nHerb, nOre, act) {
+  const used = ENEMIES.filter(e => e.alive).map(e => [e.x, e.y, e.z]); for (const q of FD.nodes) used.push([q.x, q.y, q.z]);
+  for (let i = 0; i < nHerb + nOre; i++) { const s = rpgSpot(rng, anchors, used, { space: 5, minHero: 5 }); if (!s) continue; used.push(s); const kind = i < nHerb ? 'herb' : 'ore', g = gatherRoll(rng, kind, act); fdAddNode(kind, s[0], s[1], s[2], g.id, g.n); }
+}
+{ const _sa = rpgSpawnAct; rpgSpawnAct = function () {
+  _sa(); try { fdClearNodes(); const act = G.act, rng = rpgRng(rpgHashSeed(RP.seed ^ 0x6A7E, act * 811 + 5)), anchors = []; for (const c of COINS) if (c.alive && !c.pop) anchors.push([c.x, c.y - 1, c.z]); rpgScatter(rng, anchors, act === 1 ? 140 : 200); if (!anchors.length) return; fdSpawnNodes(rng, anchors, act === 1 ? 16 : 11, act === 1 ? 5 : 5, act); } catch (err) { console.error('food nodes', err); } }; }
+{ const _sr = rpgStartRift; rpgStartRift = function (tier, seed) { _sr(tier, seed); try { fdClearNodes(); if (!RIFT || !LV) return; const rng = rpgRng(rpgHashSeed(RIFT.seed ^ 0x6A7E, 3)), anchors = []; rpgScatter(rng, anchors, 120); fdSpawnNodes(rng, anchors, 5, 3, 3); } catch (err) { console.error('rift nodes', err); } }; }
+{ const _ce = clearEntities; clearEntities = function () { fdClearNodes(); _ce(); }; }
+// ---- quests from shards / rifts ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+{ const _cs = collectShard; collectShard = function (s) { const had = s.got; _cs(s); if (!had && s.got) { townQuest('shard', {}); if (!RIFT) { const put = []; for (const r of foodRollDrops(rpgRng(rpgHashSeed(TOWN.seed ^ 0x5A8D, FD.n++)), 'shard', null, 'normal', 0)) put.push(fdGive(fdKindOf(r.id), r.id, r.n, true) + ' ' + fdDef(r.id).name); if (put.length) rpgLogLine('Shard bloom: ' + put.join(', '), '#ffe27a'); } } }; }
+{ const _re = rpgRiftEnd; rpgRiftEnd = function (win, why) { const was = RIFT && RIFT.done, fams = RIFT ? RIFT.fams : null; _re(win, why); if (win && !was && fams) townQuest('rift', { fams }); }; }
+// ---- keys: H = quick potion, B = the pack ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+{ const _k = rpgKeyDown; rpgKeyDown = function (k) { if (!PK.open && !RUI.open && !CSU.open && G.state === 'play') { if (k === 'h') { fdQuickPotion(); return; } if (k === 'b' && typeof suiOpen === 'function') { suiOpen('pack'); return; } } _k(k); }; }
+// ---- test / debug API -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+window.__food = {
+  state() { return { sat: JSON.parse(JSON.stringify(TOWN.sat)), buffs: JSON.parse(JSON.stringify(TOWN.buffs)), known: Object.keys(TOWN.known), seen: Object.keys(TOWN.seen), hot: foodHot(TOWN.buffs), mods: foodMods(TOWN.buffs), cap: townCap() }; },
+  give(kind, id, n = 1) { return fdGive(kind, id, n, true); }, take(kind, id, n = 1) { return satTake(TOWN.sat, kind, id, n); }, count(kind, id) { return satCount(TOWN.sat, kind, id); }, use(kind, key) { const r = fdUse(kind, key, true); return r.ok ? { ok: true, buff: r.buff } : r; }, quickPotion() { return fdQuickPotion(); },
+  nodes() { return FD.nodes.map(q => ({ kind: q.kind, id: q.id, n: q.n, on: q.on, x: q.x, y: q.y, z: q.z })); }, spawnNode(kind, id, n, dist = 3) { const x = P.x + Math.sin(P.yaw) * dist, z = P.z + Math.cos(P.yaw) * dist, y = floorAt(x, z, P.y + 3); if (!(y > -1e8)) return null; return !!fdAddNode(kind, x, y, z, id, n); }, nodeDraw() { return FN.built ? { herb: FN.herb.count, ore: FN.ore.count, vis: FN.herb.visible || FN.ore.visible } : null; },
+  loot() { return LOOT.filter(L => L.kind === 'ing' || L.kind === 'mat').map(L => ({ kind: L.kind, id: L.id, n: L.n, landed: L.landed })); }, drop(kind, id, n = 1, dist = 2) { return !!spawnLoot(kind, P.x + Math.sin(P.yaw) * dist, P.y, P.z + Math.cos(P.yaw) * dist, { id, n }); },
+  recipes() { const ctx = { tiers: townTiers(TOWN), seen: TOWN.seen, known: TOWN.known, level: RP.level }; return FOOD_RECIPE_IDS.filter(id => foodRecipeKnown(FOOD_RECIPES[id], ctx)); }, discover() { return fdDiscover(true); },
+  stats() { return { max: RT.max, regen: RT.S.regenHp, dmg: RT.S.dmgMul, run: RT.S.runSpd, fx: Object.assign({}, RT.S.fx) }; }, tick(sec) { foodTick(TOWN.buffs, sec); rpgRecalc(); }, icon: (k, i) => fdIcon(k, i).toDataURL(),
+  core: { foodResolve, foodCook, foodMakeBuff, foodApplyBuff, foodRollDrops, foodSalvageMats, FOOD_RECIPES, INGS, MATS },
+};
+{ const d0 = window.__dbg; window.__dbg = () => { const d = d0(); d.food = { buffs: TOWN.buffs.length, sat: satTotal(TOWN.sat), nodes: FD.nodes.filter(q => q.on).length, loot: LOOT.filter(L => L.kind === 'ing' || L.kind === 'mat').length }; return d; }; }
+rpgRecalc();
+// </food-game>
+
+// <sui-model> ===================================================================================================================
+// SHATTERWORLD station UI, part 1 of 2: ONE view-model for every town screen (kitchen, apothecary, smithy, gem workshop, market, warehouse, notice board, town hall, garden, pack, gate, dialogue).
+// suiModel() turns the game state into { title, sub, tabs, rows, info, acts, foot }; the SAME model is drawn into the flat DOM overlay (#sta) and into the big VR panel, and every action (A / X / Y) goes through
+// suiDo(), so mouse, touch, keyboard, Xbox / PlayStation pad, phone pad and the VR laser can only ever differ in how they point at it.
+// Actions are atomic (nothing is taken unless the whole job is affordable and fits) and every one of them reports through SUI.msg.
+// ==============================================================================================================================
+const SUI = { open: false, kind: '', tab: 0, row: 0, from: 'play', npc: null, dlgI: 0, aff: 0, imb: 0, seed: null, msg: '', msgOk: true, msgT: 0, hid: [], stale: null, M: null, dirty: true, icons: [], rep: { k: '', t: 0 }, acts: 0, first: 0, quest: 0 };
+const SUI_NAME = { cook: 'KITCHEN', alchemy: 'APOTHECARY', forge: 'SMITHY', gembench: 'GEM WORKSHOP', market: 'MARKET', stash: 'WAREHOUSE', board: 'NOTICE BOARD', hall: 'TOWN HALL', garden: 'GARDEN', pack: 'PACK', portal: 'THE GATE', dlg: 'TALK' };
+const SUI_ROLE = { cook: 'kitchen', alchemy: 'apothecary', forge: 'smithy', gembench: 'gems', market: 'market', stash: 'warehouse', board: 'board', hall: 'hall', garden: 'garden' };
+const SUI_COL = { cook: '#ffb15e', alchemy: '#8af7a6', forge: '#9fb4c8', gembench: '#c8b0ff', market: '#ff8a7a', stash: '#d8b080', board: '#8fd0ff', hall: '#ffd66b', garden: '#9af0a0', pack: '#ffe27a', portal: '#53e0d0', dlg: '#ffe27a' };
+const suiMsg = (t, ok = true) => { SUI.msg = t; SUI.msgOk = ok; SUI.msgT = 4; SUI.dirty = true; rsfx(ok ? 'pick1' : 'deny'); };
+const suiTierName = t => ['Not built', 'Tier I', 'Tier II', 'Tier III'][t | 0] || 'Tier ' + t;
+const suiCostLines = (cost) => { const c = costNorm(cost), out = []; if (c.gold) out.push({ t: 'cost', a: 'Gold', b: c.gold + ' (' + (RP.gold | 0) + ')', ok: RP.gold >= c.gold }); if (c.dust) out.push({ t: 'cost', a: 'Shards', b: c.dust + ' (' + (RP.dust | 0) + ')', ok: RP.dust >= c.dust }); for (const id in c.mats) out.push({ t: 'cost', a: MATS[id].name, b: c.mats[id] + ' (' + satCount(TOWN.sat, 'mat', id) + ')', ok: satCount(TOWN.sat, 'mat', id) >= c.mats[id], ic: ['mat', id] }); for (const id in c.ing) out.push({ t: 'cost', a: INGS[id].name, b: c.ing[id] + ' (' + satCount(TOWN.sat, 'ing', id) + ')', ok: satCount(TOWN.sat, 'ing', id) >= c.ing[id], ic: ['ing', id] }); return out; };
+function suiBase() { return { title: SUI_NAME[SUI.kind] || '', sub: '', col: SUI_COL[SUI.kind] || '#ffe27a', tabs: [], tab: SUI.tab, rows: [], row: 0, info: [], acts: [], foot: [], empty: '', npc: null }; }
+const suiAct = (id, label, o) => Object.assign({ id, label, primary: id === 'A', off: false, why: '' }, o || {});
+const suiRarCol = it => RPG_RARITY_COL[RPG_RARITIES.indexOf(it.rarity)] || '#fff';
+// ---- gear access ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiGear() { const out = []; RPG_EQUIP.forEach((k, i) => { if (RP.equipped[k]) out.push({ it: RP.equipped[k], where: 'eq', slot: k, idx: i }); }); RP.bag.forEach((it, i) => { if (it) out.push({ it, where: 'bag', idx: i }); }); return out; }
+function suiSetGear(ref, it) { if (ref.where === 'eq') { RP.equipped[ref.slot] = it; rpgRecalc(); } else RP.bag[ref.idx] = it; RT.dirty = true; if (typeof gemTouch === 'function') gemTouch(); }
+function suiItemInfo(it, M, o) { // item header + affix lines (selectable when o.pick)
+  const ri = RPG_RARITIES.indexOf(it.rarity), im = rpgImplicit(it); M.info.push({ t: 'h', a: rpgItemName(it), col: RPG_RARITY_COL[ri] }); M.info.push({ t: 'p', a: RPG_RARITY_NAME[ri] + ' ' + RPG_SLOT_LABEL[it.slot] + '  ·  item level ' + it.ilvl + (it.locked ? '  ·  LOCKED' : '') });
+  M.info.push({ t: 'kv', a: RPG_STATS[im.stat].label + ' (base)', b: rpgFmtStat(im.stat, im.value) });
+  it.affixes.forEach((a, i) => { const d = RPG_AFFIX_BY_ID[a.id], T = d.tiers[a.tier]; M.info.push({ t: 'aff', a: rpgFmtStat(d.stat, a.value) + ' ' + RPG_STATS[d.stat].label, b: 'T' + (a.tier + 1) + '  ' + rpgFmtStat(d.stat, T.lo, false) + '-' + rpgFmtStat(d.stat, T.hi, false), id: o && o.pick ? 'aff:' + i : '', sel: !!(o && o.pick) && SUI.aff === i, tier: a.tier }); });
+  if (it.legendary) M.info.push({ t: 'leg', a: RPG_LEG_BY_ID[it.legendary].name, b: RPG_LEG_BY_ID[it.legendary].text });
+}
+function suiItemRow(ref, i) { const it = ref.it; return { id: 'row:' + i, name: rpgItemName(it), sub: RPG_SLOT_LABEL[it.slot] + '  ·  ilvl ' + it.ilvl, right: ref.where === 'eq' ? 'WORN' : '', col: suiRarCol(it), ic: () => rpgIconBase(it), rar: RPG_RARITIES.indexOf(it.rarity), st: 'ok' }; }
+function suiLockMsg(M, role, need, what) { M.empty = what + ' needs ' + TOWN_ROLES[role].name + ' ' + suiTierName(need).toLowerCase(); M.info.push({ t: 'h', a: 'LOCKED', col: '#ff8f7a' }); M.info.push({ t: 'p', a: M.empty + '. Upgrade it at the Town Hall.' }); return M; }
+// ---- the build-it prompt: a station that has not been built yet ------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiBuildPrompt(M, role) {
+  const u = townUpgradeInfo(TOWN, role); M.info.push({ t: 'h', a: TOWN_ROLES[role].name.toUpperCase() + ' IS NOT BUILT YET', col: '#ffb15e' }); M.info.push({ t: 'p', a: TOWN_ROLES[role].text }); if (u.cost) { M.info.push({ t: 'p', a: 'Build it now:' }); for (const l of suiCostLines(u.cost)) M.info.push(l); }
+  M.acts.push(suiAct('A', 'BUILD', { off: !u.ok || !costCan(LEDGER, u.cost || {}), why: u.why || 'cannot afford' })); M.empty = 'Not built yet'; M.build = role; return M;
+}
+// ---- cook pot + alchemy table ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const suiRecipeCtx = () => ({ tiers: townTiers(TOWN), seen: TOWN.seen, known: TOWN.known, level: RP.level });
+function suiCookList() { const st = SUI.kind, ctx = suiRecipeCtx(), tier = townTier(TOWN, SUI_ROLE[st]), out = []; for (const id of FOOD_RECIPE_IDS) { const r = FOOD_RECIPES[id]; if (r.station !== st) continue; const known = foodRecipeKnown(r, ctx); out.push({ r, known, lock: !known || r.tier > Math.max(1, tier) }); } return out; }
+function suiFxLines(rec, q, M) {
+  const e = foodDescribeFx(rec, q, fdKitchenTier()); const seen = {}; rec.out.fx.forEach(id => { const f = FOOD_FX[id]; if (seen[id]) return; seen[id] = 1; M.info.push({ t: 'kv', a: f.name, b: f.text, col: f.col }); });
+  const parts = []; for (const k in e.mods) parts.push(rpgFmtStat(k, e.mods[k]) + ' ' + RPG_STATS[k].label); if (e.hot) parts.push('heals ' + (e.hot * 100).toFixed(1) + '% max health / s'); if (e.heal) parts.push('instantly heals ' + Math.round(e.heal * 100) + '%'); if (parts.length) M.info.push({ t: 'p', a: parts.join('  ·  ') }); M.info.push({ t: 'kv', a: 'Lasts', b: fdBuffTime(e.dur) }); return e;
+}
+function suiM_cook() {
+  const st = SUI.kind, isCook = st === 'cook', role = SUI_ROLE[st], tier = townTier(TOWN, role), M = suiBase(); M.tabs = isCook ? ['COOK', 'EAT', 'PANTRY'] : ['BREW', 'DRINK', 'PANTRY']; M.sub = suiTierName(tier); M.npc = isCook ? 'cook' : 'brewer';
+  if (tier < 1) { M.tabs = []; return suiBuildPrompt(M, role); }
+  if (SUI.tab === 0) {
+    const list = suiCookList(); M.rows = list.map((o, i) => ({ id: 'row:' + i, name: o.known ? o.r.name : '? ? ?', sub: o.known ? (o.r.out.type === 'mat' ? 'Reagent' : o.r.out.fx.map(f => FOOD_FX[f].name).join(' + ')) : 'Undiscovered', right: o.known && o.r.tier > Math.max(1, tier) ? 'TIER ' + o.r.tier : '', ic: () => fdIcon(o.r.out.type === 'mat' ? 'mat' : o.r.out.type === 'potion' ? 'pot' : 'dish', o.r.out.type === 'mat' ? o.r.out.id : o.r.id + ':1'), st: o.lock ? 'lock' : foodResolve(o.r, foodStock(TOWN.sat)).ok ? 'ok' : 'no', col: o.lock ? '#7d93a6' : '#fff2d0' }));
+    const o = list[clamp(SUI.row, 0, list.length - 1)]; if (!o) { M.empty = 'No recipes'; return M; } const r = o.r;
+    if (!o.known || o.lock) { M.info.push({ t: 'h', a: o.known ? r.name : 'UNDISCOVERED RECIPE', col: '#7d93a6' }); const u = r.unlock || {}; M.info.push({ t: 'p', a: !o.known && u.type === 'seen' ? 'Find ' + (INGS[u.id] ? INGS[u.id].name : u.id) + ' out in the world to learn it.' : 'Needs ' + TOWN_ROLES[role].name + ' ' + suiTierName(r.tier).toLowerCase() + '.' }); M.acts.push(suiAct('A', isCook ? 'COOK' : 'BREW', { off: true, why: 'locked' })); return M; }
+    M.info.push({ t: 'h', a: r.name.toUpperCase(), col: r.out.type === 'potion' ? '#8af7a6' : '#ffe1b0', ic: [r.out.type === 'mat' ? 'mat' : r.out.type === 'potion' ? 'pot' : 'dish', r.out.type === 'mat' ? r.out.id : r.id + ':1'] }); M.info.push({ t: 'p', a: r.desc });
+    const res = foodResolve(r, foodStock(TOWN.sat)); M.info.push({ t: 'sp' });
+    r.ing.forEach((q, i) => { const got = res.picks.filter(p => p.req === i), have = got.reduce((a, p) => a + p.n, 0), nm = q.id ? fdDef(q.id).name : 'any ' + FOOD_TAG_LABEL[q.tag].toLowerCase(), used = got.map(p => fdDef(p.id).name + (p.n > 1 ? ' x' + p.n : '')).join(', '); M.info.push({ t: 'cost', a: q.n + ' x ' + nm, b: have >= q.n ? used : have + ' / ' + q.n, ok: have >= q.n, ic: got[0] ? [fdKindOf(got[0].id), got[0].id] : null }); });
+    if (r.out.type === 'mat') { M.info.push({ t: 'sp' }); M.info.push({ t: 'kv', a: 'Makes', b: r.out.n + ' x ' + MATS[r.out.id].name }); }
+    else { const q = foodQuality(res.tier); M.info.push({ t: 'sp' }); M.info.push({ t: 'kv', a: 'Quality', b: FOOD_Q[q].name + (res.ok ? '' : ' (so far)'), col: ['#cfe0ee', '#9fd8ff', '#ffe27a'][q] }); suiFxLines(r, q, M); }
+    const lf = Object.keys(r.left); if (lf.length) M.info.push({ t: 'p', a: 'Leftovers: ' + lf.map(k => r.left[k] + ' ' + MATS[k].name).join(', '), dim: 1 });
+    M.acts.push(suiAct('A', isCook ? 'COOK' : 'BREW', { off: !res.ok, why: 'missing ingredients' })); if (r.out.type !== 'mat') M.acts.push(suiAct('X', isCook ? 'COOK + EAT' : 'BREW + DRINK', { off: !res.ok, why: 'missing ingredients' }));
+    M.foot = [['A', isCook ? 'cook' : 'brew'], ['X', isCook ? 'cook + eat' : 'brew + drink'], ['B', 'close']]; return M;
+  }
+  if (SUI.tab === 1) {
+    const kind = isCook ? 'dish' : 'pot', keys = Object.keys(TOWN.sat[kind]).sort(); M.rows = keys.map((k, i) => { const [rid, q] = k.split(':'), r = FOOD_RECIPES[rid]; return { id: 'row:' + i, name: (kind === 'dish' ? FOOD_Q[q | 0].name + ' ' : '') + r.name, sub: r.out.fx.map(f => FOOD_FX[f].name).join(' + '), right: 'x' + TOWN.sat[kind][k], ic: () => fdIcon(kind, k), st: 'ok', col: FOOD_FX[r.out.fx[0]].col }; });
+    if (!keys.length) { M.empty = isCook ? 'No dishes yet. Cook something!' : 'No potions yet. Brew something!'; }
+    else { const k = keys[clamp(SUI.row, 0, keys.length - 1)], [rid, q] = k.split(':'), r = FOOD_RECIPES[rid]; M.info.push({ t: 'h', a: ((kind === 'dish' ? FOOD_Q[q | 0].name + ' ' : '') + r.name).toUpperCase(), col: FOOD_FX[r.out.fx[0]].col, ic: [kind, k] }); M.info.push({ t: 'p', a: r.desc }); suiFxLines(r, q | 0, M); M.acts.push(suiAct('A', isCook ? 'EAT' : 'DRINK')); M.foot = [['A', isCook ? 'eat' : 'drink'], ['B', 'close']]; }
+    suiBuffLines(M); return M;
+  }
+  return suiM_pantry(M);
+}
+function suiBuffLines(M) { if (!TOWN.buffs.length) return; M.info.push({ t: 'sp' }); M.info.push({ t: 'h', a: 'ACTIVE EFFECTS', col: '#9fd8ff', small: 1 }); for (const b of TOWN.buffs) M.info.push({ t: 'kv', a: b.name, b: fdBuffTime(b.t), col: b.col }); }
+function suiM_pantry(M) {
+  const ids = Object.keys(TOWN.sat.ing).sort().map(id => ['ing', id]).concat(Object.keys(TOWN.sat.mat).sort().map(id => ['mat', id])); M.rows = ids.map(([k, id], i) => { const d = fdDef(id); return { id: 'row:' + i, name: d.name, sub: k === 'ing' ? d.tags.map(t => FOOD_TAG_LABEL[t]).join(' · ') : 'Material', right: 'x' + TOWN.sat[k][id], ic: () => fdIcon(k, id), st: 'ok', col: d.col }; });
+  if (!ids.length) { M.empty = 'The satchel is empty. Defeat monsters, open crates and gather herbs.'; return M; } const [k, id] = ids[clamp(SUI.row, 0, ids.length - 1)], d = fdDef(id); M.info.push({ t: 'h', a: d.name.toUpperCase(), col: d.col, ic: [k, id] }); M.info.push({ t: 'p', a: d.desc }); if (k === 'ing') M.info.push({ t: 'kv', a: 'Counts as', b: d.tags.map(t => FOOD_TAG_LABEL[t]).join(', ') }); M.info.push({ t: 'kv', a: 'Quality tier', b: ['Plain', 'Fine', 'Rare'][d.tier] }); M.info.push({ t: 'kv', a: 'Market price', b: Math.max(1, Math.round(d.sell * 0.7)) + ' gold each' }); M.info.push({ t: 'kv', a: 'Stack', b: TOWN.sat[k][id] + ' / ' + townCap() }); M.foot = [['LB RB', 'tabs'], ['B', 'close']]; return M;
+}
+function suiDoCook(id) {
+  const st = SUI.kind, isCook = st === 'cook', role = SUI_ROLE[st], tier = townTier(TOWN, role); if (SUI.tab === 1) { if (id !== 'A') return; const kind = isCook ? 'dish' : 'pot', keys = Object.keys(TOWN.sat[kind]).sort(), k = keys[clamp(SUI.row, 0, keys.length - 1)]; if (!k) return; const r = fdUse(kind, k); if (r.ok) suiMsg((kind === 'pot' ? 'Drank ' : 'Ate ') + r.buff.name); else suiMsg(r.why, false); return; }
+  if (SUI.tab !== 0) return; const list = suiCookList(), o = list[clamp(SUI.row, 0, list.length - 1)]; if (!o || o.lock) return suiMsg('Locked recipe', false); const r = o.r, res = foodResolve(r, foodStock(TOWN.sat)); if (!res.ok) return suiMsg('Missing ingredients', false);
+  const out = foodCook(TOWN.sat, r, res.picks, fdKitchenTier()); if (!out.ok) return suiMsg(out.why === 'satchel full' ? 'The satchel stack is full' : 'Could not cook: ' + out.why, false);
+  RT.dirty = true; if (r.out.type === 'mat') TOWN.stats.brewed++; else if (isCook) TOWN.stats.cooked++; else TOWN.stats.brewed++; townQuest(isCook ? 'cook' : 'brew', {}); for (const k in out.used) fdSee(k); fdDiscover();
+  const nm = r.out.type === 'mat' ? r.out.n + ' ' + MATS[r.out.id].name : (r.out.type === 'dish' ? FOOD_Q[out.q].name + ' ' : '') + r.name; let m = (isCook ? 'Cooked ' : 'Brewed ') + nm; const lf = Object.keys(out.left); if (lf.length) m += '  (+' + lf.map(k => out.left[k] + ' ' + MATS[k].name).join(', ') + ')'; if (id === 'X' && r.out.type !== 'mat') { const u = fdUse(r.out.type === 'dish' ? 'dish' : 'pot', out.out.id); if (u.ok) m += '  - ' + (isCook ? 'eaten' : 'drunk'); } suiMsg(m); if (tier) fxRing(P.x, P.y, P.z, 0.3, 2, 0.5, 0xffb15e, 0.7);
+}
+// ---- smithy -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const SUI_FORGE_TABS = ['CRAFT', 'UPGRADE', 'REFORGE', 'IMBUE', 'RAISE'], SUI_FORGE_TIER = { CRAFT: 1, UPGRADE: 2, REFORGE: 3, IMBUE: 3, RAISE: 2 }, SUI_FORGE_SLOTS = ['cap', 'gloves', 'boots', 'body', 'charm'];
+const suiAff = () => classAffixWeights(classDef(RP.cls));
+function suiForgeCraftList(tier) { const rm = craftGearRarityMax(tier), out = []; if (rm < 1) return out; for (let ri = 1; ri <= rm; ri++) for (const s of SUI_FORGE_SLOTS) out.push({ slot: s, ri }); return out; }
+function suiM_forge() {
+  const M = suiBase(), tier = townTier(TOWN, 'smithy'); M.tabs = SUI_FORGE_TABS; M.sub = suiTierName(tier); M.npc = 'smith'; if (tier < 1) { M.tabs = []; return suiBuildPrompt(M, 'smithy'); }
+  const tn = SUI_FORGE_TABS[SUI.tab], need = SUI_FORGE_TIER[tn]; if (tier < need) return suiLockMsg(M, 'smithy', need, tn);
+  if (tn === 'CRAFT') {
+    const list = suiForgeCraftList(tier), ilvl = craftGearIlvl(RP.level, tier); M.rows = list.map((o, i) => { const cost = craftGearCost(o.slot, o.ri, ilvl), sl = o.slot === 'charm' ? 'charm' : o.slot; return { id: 'row:' + i, name: RPG_RARITY_NAME[o.ri] + ' ' + RPG_SLOT_LABEL[sl === 'charm' ? 'charm' : sl], sub: 'item level ' + ilvl, right: cost.gold + 'g', col: RPG_RARITY_COL[o.ri], rar: o.ri, ic: () => rpgIconBase({ slot: sl, rarity: RPG_RARITIES[o.ri], seed: 1, ilvl: 1, affixes: [] }), st: costCan(LEDGER, cost) ? 'ok' : 'no' }; });
+    const o = list[clamp(SUI.row, 0, list.length - 1)]; if (!o) return M; const cost = craftGearCost(o.slot, o.ri, ilvl);
+    M.info.push({ t: 'h', a: ('CRAFT A ' + RPG_RARITY_NAME[o.ri] + ' ' + RPG_SLOT_LABEL[o.slot]).toUpperCase(), col: RPG_RARITY_COL[o.ri] }); M.info.push({ t: 'p', a: 'Forges a new ' + RPG_RARITY_NAME[o.ri].toLowerCase() + ' piece at item level ' + ilvl + ' with random affixes, weighted toward ' + classDef(RP.cls).name + '. Legendary gear can only be found.' }); M.info.push({ t: 'sp' }); for (const l of suiCostLines(cost)) M.info.push(l); M.info.push({ t: 'p', a: 'The smith can craft up to ' + RPG_RARITY_NAME[craftGearRarityMax(tier)] + (tier < 2 ? ' (upgrade the Smithy for Rare)' : ''), dim: 1 });
+    M.acts.push(suiAct('A', 'CRAFT', { off: !costCan(LEDGER, cost) || rpgBagFree() < 0, why: rpgBagFree() < 0 ? 'bag full' : 'cannot afford' })); M.foot = [['A', 'craft'], ['LB RB', 'tabs'], ['B', 'close']]; return M;
+  }
+  const gear = suiGear().filter(g => tn !== 'UPGRADE' || g.it.affixes.length); M.rows = gear.map((g, i) => suiItemRow(g, i)); if (!gear.length) { M.empty = 'No gear to work on'; return M; }
+  const g = gear[clamp(SUI.row, 0, gear.length - 1)], it = g.it; SUI.aff = clamp(SUI.aff, 0, Math.max(0, it.affixes.length - 1)); suiItemInfo(it, M, { pick: tn === 'UPGRADE' || tn === 'IMBUE' }); M.info.push({ t: 'sp' });
+  if (tn === 'UPGRADE') { const chk = craftUpgradeCheck(it, SUI.aff), cost = craftUpgradeCost(it, SUI.aff); if (chk.ok) { const a = it.affixes[SUI.aff], d = RPG_AFFIX_BY_ID[a.id], T = d.tiers[chk.tier]; M.info.push({ t: 'kv', a: 'Raise to', b: 'T' + (chk.tier + 1) + '  ' + rpgFmtStat(d.stat, T.lo, false) + '-' + rpgFmtStat(d.stat, T.hi, false), col: '#9cf7ab' }); for (const l of suiCostLines(cost)) M.info.push(l); } else M.info.push({ t: 'p', a: 'Cannot raise this affix: ' + chk.why, dim: 1 }); M.acts.push(suiAct('A', 'UPGRADE AFFIX', { off: !chk.ok || !costCan(LEDGER, cost), why: chk.ok ? 'cannot afford' : chk.why })); M.foot = [['A', 'upgrade'], ['X', 'next affix'], ['B', 'close']]; M.acts.push(suiAct('X', 'NEXT AFFIX', { off: it.affixes.length < 2 })); }
+  else if (tn === 'REFORGE') { const cost = craftReforgeCost(it); M.info.push({ t: 'p', a: 'Rerolls every affix. Slot, rarity, item level, legendary power and sockets stay.' }); for (const l of suiCostLines(cost)) M.info.push(l); M.acts.push(suiAct('A', 'REFORGE', { off: !costCan(LEDGER, cost), why: 'cannot afford' })); M.foot = [['A', 'reforge'], ['B', 'close']]; }
+  else if (tn === 'IMBUE') { const ch = craftImbueChoices(it, SUI.aff), cost = craftImbueCost(it); SUI.imb = ch.length ? SUI.imb % ch.length : 0; if (ch.length) { const d = RPG_AFFIX_BY_ID[ch[SUI.imb]], tiers = rpgTiersFor(d, it.ilvl), T = d.tiers[tiers[tiers.length - 1]]; M.info.push({ t: 'imb', a: 'Replace with: ' + RPG_STATS[d.stat].label, b: 'T' + (tiers[tiers.length - 1] + 1) + '  ' + rpgFmtStat(d.stat, T.lo, false) + '-' + rpgFmtStat(d.stat, T.hi, false) + '   (' + (SUI.imb + 1) + '/' + ch.length + ')', id: 'imb' }); for (const l of suiCostLines(cost)) M.info.push(l); } else M.info.push({ t: 'p', a: 'No other affix can replace this one.', dim: 1 });
+    M.acts.push(suiAct('A', 'IMBUE', { off: !ch.length || !costCan(LEDGER, cost), why: ch.length ? 'cannot afford' : 'nothing to imbue' })); M.acts.push(suiAct('X', 'NEXT AFFIX', { off: it.affixes.length < 2 })); M.acts.push(suiAct('Y', 'NEXT CHOICE', { off: ch.length < 2 })); M.foot = [['A', 'imbue'], ['X', 'affix'], ['Y', 'choice'], ['B', 'close']]; }
+  else { const cost = craftBumpCost(it); M.info.push({ t: 'p', a: 'Raises the item level by ' + CRAFT_TUNING.ilvlBump + ' so higher affix tiers can be reached.' }); for (const l of suiCostLines(cost)) M.info.push(l); M.acts.push(suiAct('A', 'RAISE ITEM LEVEL', { off: (it.ilvl | 0) >= 99 || !costCan(LEDGER, cost), why: it.ilvl >= 99 ? 'max level' : 'cannot afford' })); M.foot = [['A', 'raise'], ['B', 'close']]; }
+  return M;
+}
+function suiDoForge(id) {
+  const tier = townTier(TOWN, 'smithy'), tn = SUI_FORGE_TABS[SUI.tab];
+  if (tn === 'CRAFT') { if (id !== 'A') return; const list = suiForgeCraftList(tier), o = list[clamp(SUI.row, 0, list.length - 1)]; if (!o) return; const ilvl = craftGearIlvl(RP.level, tier), cost = craftGearCost(o.slot, o.ri, ilvl), bi = rpgBagFree(); if (bi < 0) return suiMsg('Bag is full', false); if (!costPay(LEDGER, cost)) return suiMsg('Not enough materials or gold', false); const it = craftGear(dseed(), o.slot, o.ri, ilvl, suiAff()); RP.bag[bi] = it; TOWN.stats.crafted++; townQuest('craft', {}); RT.dirty = true; return suiMsg('Forged ' + rpgItemName(it)); }
+  const gear = suiGear().filter(g => tn !== 'UPGRADE' || g.it.affixes.length), g = gear[clamp(SUI.row, 0, gear.length - 1)]; if (!g) return; const it = g.it;
+  if (id === 'X' && (tn === 'UPGRADE' || tn === 'IMBUE')) { if (it.affixes.length) SUI.aff = (SUI.aff + 1) % it.affixes.length; SUI.dirty = true; rsfx('ui'); return; }
+  if (id === 'Y' && tn === 'IMBUE') { SUI.imb++; SUI.dirty = true; rsfx('ui'); return; }
+  if (id !== 'A') return; let cost, out = null, what = '';
+  if (tn === 'UPGRADE') { cost = craftUpgradeCost(it, SUI.aff); if (!craftUpgradeCheck(it, SUI.aff).ok) return suiMsg('This affix cannot be raised', false); if (!costPay(LEDGER, cost)) return suiMsg('Not enough materials or gold', false); out = craftUpgradeAffix(it, SUI.aff); what = 'Upgraded an affix on '; }
+  else if (tn === 'REFORGE') { cost = craftReforgeCost(it); if (!costPay(LEDGER, cost)) return suiMsg('Not enough materials or gold', false); out = craftReforge(it, dseed(), suiAff()); what = 'Reforged '; }
+  else if (tn === 'IMBUE') { const ch = craftImbueChoices(it, SUI.aff); if (!ch.length) return suiMsg('Nothing to imbue', false); cost = craftImbueCost(it); if (!costPay(LEDGER, cost)) return suiMsg('Not enough materials or gold', false); out = craftImbue(it, SUI.aff, ch[SUI.imb % ch.length], dseed()); what = 'Imbued '; }
+  else { cost = craftBumpCost(it); if ((it.ilvl | 0) >= 99) return suiMsg('Already at the maximum item level', false); if (!costPay(LEDGER, cost)) return suiMsg('Not enough materials or gold', false); out = craftBump(it); what = 'Raised item level of '; }
+  if (!out) return suiMsg('That did not work', false); out.locked = it.locked || undefined; if (!out.locked) delete out.locked; if (it.gems && !out.gems) out.gems = it.gems; suiSetGear(g, out); TOWN.stats.crafted++; townQuest('craft', {}); RSFX_FORGE(); suiMsg(what + rpgItemName(out));
+}
+const RSFX_FORGE = () => { rsfx('reroll'); sparkBurst(P.x, P.y + 1, P.z, 10, 0xffc860, 4); };
+// ---- gem workshop ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const SUI_GEM_TABS = ['SOCKET', 'UNSOCKET', 'CRAFT', 'POLISH'], SUI_GEM_TIER = { SOCKET: 1, UNSOCKET: 1, CRAFT: 1, POLISH: 1 };
+function suiGemInfo(g, M) { const d = GEM_BY_ID[g.id], col = GEM_COLORS[d.color].css; M.info.push({ t: 'h', a: d.name.toUpperCase(), col, gem: g.id }); M.info.push({ t: 'p', a: (d.kind === 'skill' ? 'Skill gem' : 'Support gem') + '  ·  ' + GEM_COLORS[d.color].name + '  ·  tier ' + (d.tier + 1) + '  ·  level ' + g.lv }); M.info.push({ t: 'p', a: d.text }); if (g.lv < GEM_TUNING.maxLevel) M.info.push({ t: 'kv', a: 'Experience', b: Math.floor(g.xp) + ' / ' + gemXpNext(g.lv) }); }
+function suiSocketedList() { const out = []; for (const row of GEM_ROWS) { const it = gemRowItem(row); if (!it || !it.gems) continue; it.gems.forEach((g, i) => { if (g) out.push({ g, row, i }); }); } return out; }
+function suiGemCraftList(bt) { return GEM_DEFS.map(d => ({ d, ok: craftGemCraftable(d.id, bt) })).sort((a, b) => (a.d.kind === b.d.kind ? 0 : a.d.kind === 'skill' ? -1 : 1) || a.d.tier - b.d.tier); }
+function suiM_gem() {
+  const M = suiBase(), tier = townTier(TOWN, 'gems'); M.tabs = SUI_GEM_TABS; M.sub = suiTierName(tier); M.npc = 'gemwright'; if (tier < 1) { M.tabs = []; return suiBuildPrompt(M, 'gems'); } const tn = SUI_GEM_TABS[SUI.tab];
+  if (tn === 'SOCKET' || tn === 'POLISH') {
+    const bag = RP.gems.map((g, i) => g ? { g, i } : null).filter(Boolean); M.rows = bag.map((o, i) => ({ id: 'row:' + i, name: GEM_BY_ID[o.g.id].name, sub: 'Lv ' + o.g.lv + '  ·  ' + GEM_COLORS[GEM_BY_ID[o.g.id].color].name, right: o.g.lk ? 'LOCKED' : '', ic: () => gemIconBase(o.g.id), st: 'ok', col: GEM_COLORS[GEM_BY_ID[o.g.id].color].css })); if (!bag.length) { M.empty = 'The gem bag is empty'; return M; }
+    const o = bag[clamp(SUI.row, 0, bag.length - 1)]; suiGemInfo(o.g, M); M.info.push({ t: 'sp' });
+    if (tn === 'SOCKET') { M.info.push({ t: 'p', a: 'Puts the gem into the best free socket on your gear or core. A gem in a socket of its own colour counts as one level higher.' }); M.acts.push(suiAct('A', 'SOCKET')); M.foot = [['A', 'socket'], ['LB RB', 'tabs'], ['B', 'close']]; }
+    else { const cost = craftPolishCost(o.g), can = o.g.lv < CRAFT_TUNING.polishMax; M.info.push({ t: 'p', a: 'Polishing grants ' + Math.round(CRAFT_TUNING.polishXp * 100) + '% of the experience for the next level.' }); for (const l of suiCostLines(cost)) M.info.push(l); M.acts.push(suiAct('A', 'POLISH', { off: !can || !costCan(LEDGER, cost), why: can ? 'cannot afford' : 'max level' })); M.foot = [['A', 'polish'], ['B', 'close']]; }
+    return M;
+  }
+  if (tn === 'UNSOCKET') { const L = suiSocketedList(); M.rows = L.map((o, i) => ({ id: 'row:' + i, name: GEM_BY_ID[o.g.id].name, sub: GEM_ROW_LABEL[o.row] + '  ·  socket ' + (o.i + 1) + '  ·  Lv ' + o.g.lv, ic: () => gemIconBase(o.g.id), st: 'ok', col: GEM_COLORS[GEM_BY_ID[o.g.id].color].css })); if (!L.length) { M.empty = 'No gems are socketed'; return M; } const o = L[clamp(SUI.row, 0, L.length - 1)]; suiGemInfo(o.g, M); M.info.push({ t: 'sp' }); M.info.push({ t: 'p', a: 'Takes the gem out and returns it to the gem bag.' }); M.acts.push(suiAct('A', 'UNSOCKET', { off: gemBagFree() < 0, why: 'gem bag full' })); M.foot = [['A', 'unsocket'], ['B', 'close']]; return M; }
+  const L = suiGemCraftList(tier); M.rows = L.map((o, i) => ({ id: 'row:' + i, name: o.d.name, sub: (o.d.kind === 'skill' ? 'Skill' : 'Support') + '  ·  ' + GEM_COLORS[o.d.color].name + (o.ok ? '' : '  ·  bench tier ' + CRAFT_TUNING.gemTierAt[o.d.tier] + '+'), right: o.ok ? '' : 'LOCKED', ic: () => gemIconBase(o.d.id), st: o.ok ? (costCan(LEDGER, craftGemCost(o.d.id)) ? 'ok' : 'no') : 'lock', col: GEM_COLORS[o.d.color].css }));
+  const o = L[clamp(SUI.row, 0, L.length - 1)], d = o.d; M.info.push({ t: 'h', a: d.name.toUpperCase(), col: GEM_COLORS[d.color].css, gem: d.id }); M.info.push({ t: 'p', a: (d.kind === 'skill' ? 'Skill gem' : 'Support gem') + '  ·  ' + GEM_COLORS[d.color].name + '  ·  tier ' + (d.tier + 1) }); M.info.push({ t: 'p', a: d.text }); M.info.push({ t: 'sp' }); const cost = craftGemCost(d.id); for (const l of suiCostLines(cost)) M.info.push(l); M.info.push({ t: 'kv', a: 'Crafted level', b: String(CRAFT_TUNING.gemSkillLv[Math.min(3, tier)]) });
+  M.acts.push(suiAct('A', 'CRAFT GEM', { off: !o.ok || !costCan(LEDGER, cost) || gemBagFree() < 0, why: !o.ok ? 'needs a higher bench tier' : gemBagFree() < 0 ? 'gem bag full' : 'cannot afford' })); M.foot = [['A', 'craft'], ['LB RB', 'tabs'], ['B', 'close']]; return M;
+}
+function suiDoGem(id) {
+  const tier = townTier(TOWN, 'gems'), tn = SUI_GEM_TABS[SUI.tab]; if (id !== 'A') return;
+  if (tn === 'SOCKET') { const bag = RP.gems.map((g, i) => g ? { g, i } : null).filter(Boolean), o = bag[clamp(SUI.row, 0, bag.length - 1)]; if (!o) return; if (gemOpAuto(o.i)) suiMsg('Socketed ' + GEM_BY_ID[o.g.id].name); else suiMsg('No free socket for ' + GEM_BY_ID[o.g.id].name, false); return; }
+  if (tn === 'UNSOCKET') { const L = suiSocketedList(), o = L[clamp(SUI.row, 0, L.length - 1)]; if (!o) return; if (gemOpUnsocket(o.row, o.i)) suiMsg('Unsocketed ' + GEM_BY_ID[o.g.id].name); else suiMsg('Gem bag is full', false); return; }
+  if (tn === 'POLISH') { const bag = RP.gems.map((g, i) => g ? { g, i } : null).filter(Boolean), o = bag[clamp(SUI.row, 0, bag.length - 1)]; if (!o) return; const cost = craftPolishCost(o.g); if (o.g.lv >= CRAFT_TUNING.polishMax) return suiMsg('Already at the maximum level', false); if (!costPay(LEDGER, cost)) return suiMsg('Not enough shards or gold', false); const out = craftPolish(o.g); out.lk = o.g.lk; if (!out.lk) delete out.lk; RP.gems[o.i] = out; gemTouch(); TOWN.stats.crafted++; townQuest('craft', {}); RSFX_FORGE(); suiMsg('Polished ' + GEM_BY_ID[out.id].name + (out.lv > o.g.lv ? ' to level ' + out.lv : '')); return; }
+  const L = suiGemCraftList(tier), o = L[clamp(SUI.row, 0, L.length - 1)]; if (!o || !o.ok) return suiMsg('Needs a higher bench tier', false); const f = gemBagFree(); if (f < 0) return suiMsg('Gem bag is full', false); const cost = craftGemCost(o.d.id); if (!costPay(LEDGER, cost)) return suiMsg('Not enough materials, shards or gold', false); const g = craftGemMake(o.d.id, dseed(), tier); RP.gems[f] = g; gemTouch(); TOWN.stats.crafted++; townQuest('craft', {}); RSFX_FORGE(); suiMsg('Crafted ' + GEM_BY_ID[g.id].name + ' (level ' + g.lv + ')');
+}
+// ---- market ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const SUI_MKT_TABS = ['BUY', 'SELL', 'BASICS'];
+const suiDay = () => questDayIdx(Date.now());
+const suiIlvl = () => rpgItemLevel({ plvl: RP.level, act: 2, diff: 0, rift: 0 });
+function suiStock() { return vendorStock(TOWN, RP.level, suiIlvl(), suiDay()); }
+function suiOfferRow(o, i) {
+  const sold = !!TOWN.vend.sold[o.key], price = o.price; let r = { id: 'row:' + i, right: sold ? 'SOLD' : price + 'g', st: sold ? 'lock' : RP.gold >= price ? 'ok' : 'no' };
+  if (o.kind === 'item') { const it = rpgGenItem(o.seed, { ilvl: o.ilvl, rarity: o.rarity }); return Object.assign(r, { name: rpgItemName(it), sub: RPG_SLOT_LABEL[it.slot] + '  ·  ilvl ' + it.ilvl, col: suiRarCol(it), ic: () => rpgIconBase(it), rar: RPG_RARITIES.indexOf(it.rarity), it }); }
+  if (o.kind === 'gem') return Object.assign(r, { name: GEM_BY_ID[o.gem.id].name, sub: 'Gem  ·  Lv ' + o.gem.lv, col: GEM_COLORS[GEM_BY_ID[o.gem.id].color].css, ic: () => gemIconBase(o.gem.id) });
+  if (o.kind === 'pot') return Object.assign(r, { name: FOOD_RECIPES[o.recipe].out.name, sub: 'Potion  ·  Tasty', col: '#8af7a6', ic: () => fdIcon('pot', o.recipe + ':' + o.q) });
+  const d = fdDef(o.id); return Object.assign(r, { name: o.n + ' x ' + d.name, sub: o.kind === 'mat' ? 'Material' : 'Ingredient', col: d.col, ic: () => fdIcon(o.kind, o.id) });
+}
+function suiSellList() { // everything the vendor will buy
+  const out = []; RP.bag.forEach((it, i) => { if (it && !it.locked) out.push({ kind: 'item', i, it }); }); RP.gems.forEach((g, i) => { if (g && !g.lk) out.push({ kind: 'gem', i, g }); });
+  for (const k of ['dish', 'pot']) for (const key of Object.keys(TOWN.sat[k]).sort()) out.push({ kind: k, key, n: TOWN.sat[k][key] }); for (const k of ['ing', 'mat']) for (const id of Object.keys(TOWN.sat[k]).sort()) out.push({ kind: k, id, n: TOWN.sat[k][id] }); return out;
+}
+function suiSellPrice(o) { return o.kind === 'item' ? vendorSellPrice(TOWN, { kind: 'item', item: o.it }) : o.kind === 'gem' ? vendorSellPrice(TOWN, { kind: 'gem', gem: o.g }) : vendorSellPrice(TOWN, { kind: o.kind, id: o.id, key: o.key, n: 1 }); }
+function suiM_market() {
+  const M = suiBase(), tier = Math.max(1, townTier(TOWN, 'market')); M.tabs = SUI_MKT_TABS; M.sub = suiTierName(tier) + '  ·  sells at ' + Math.round(townSellMul(TOWN) * 100) + '%'; M.npc = 'vendor';
+  if (SUI.tab === 0) {
+    const stock = suiStock(); M.rows = stock.map((o, i) => suiOfferRow(o, i)); const o = stock[clamp(SUI.row, 0, stock.length - 1)], r = M.rows[clamp(SUI.row, 0, stock.length - 1)]; if (!o) { M.empty = 'Nothing for sale'; return M; }
+    if (o.kind === 'item') suiItemInfo(r.it, M); else if (o.kind === 'gem') suiGemInfo(o.gem, M); else if (o.kind === 'pot') { const rec = FOOD_RECIPES[o.recipe]; M.info.push({ t: 'h', a: rec.out.name.toUpperCase(), col: '#8af7a6', ic: ['pot', o.recipe + ':' + o.q] }); M.info.push({ t: 'p', a: rec.desc }); suiFxLines(rec, o.q, M); } else { const d = fdDef(o.id); M.info.push({ t: 'h', a: (o.n + ' x ' + d.name).toUpperCase(), col: d.col, ic: [o.kind, o.id] }); M.info.push({ t: 'p', a: d.desc }); }
+    M.info.push({ t: 'sp' }); M.info.push({ t: 'cost', a: 'Price', b: o.price + ' gold (' + (RP.gold | 0) + ')', ok: RP.gold >= o.price }); const sold = !!TOWN.vend.sold[o.key]; M.acts.push(suiAct('A', 'BUY', { off: sold || RP.gold < o.price, why: sold ? 'sold' : 'cannot afford' })); const rc = 40 + 25 * (TOWN.vend.n | 0); M.acts.push(suiAct('X', 'NEW STOCK ' + rc + 'g', { off: RP.gold < rc || (TOWN.vend.n | 0) >= 20, why: 'cannot afford' })); M.foot = [['A', 'buy'], ['X', 'new stock'], ['LB RB', 'tabs'], ['B', 'close']]; return M;
+  }
+  if (SUI.tab === 1) {
+    const L = suiSellList(); M.rows = L.map((o, i) => { const pr = suiSellPrice(o); let base; if (o.kind === 'item') base = { name: rpgItemName(o.it), sub: RPG_SLOT_LABEL[o.it.slot] + '  ·  ilvl ' + o.it.ilvl, col: suiRarCol(o.it), ic: () => rpgIconBase(o.it) }; else if (o.kind === 'gem') base = { name: GEM_BY_ID[o.g.id].name, sub: 'Gem  ·  Lv ' + o.g.lv, col: GEM_COLORS[GEM_BY_ID[o.g.id].color].css, ic: () => gemIconBase(o.g.id) }; else if (o.kind === 'dish' || o.kind === 'pot') { const [rid, q] = o.key.split(':'); base = { name: (o.kind === 'dish' ? FOOD_Q[q | 0].name + ' ' : '') + FOOD_RECIPES[rid].name, sub: o.kind === 'dish' ? 'Dish  ·  x' + o.n : 'Potion  ·  x' + o.n, col: '#ffe1b0', ic: () => fdIcon(o.kind, o.key) }; } else { const d = fdDef(o.id); base = { name: d.name, sub: (o.kind === 'mat' ? 'Material' : 'Ingredient') + '  ·  x' + o.n, col: d.col, ic: () => fdIcon(o.kind, o.id) }; } return Object.assign({ id: 'row:' + i, right: pr + 'g', st: 'ok' }, base); });
+    const o = L[clamp(SUI.row, 0, L.length - 1)]; if (!o) { M.empty = 'Nothing to sell'; return M; } const r = M.rows[clamp(SUI.row, 0, L.length - 1)]; if (o.kind === 'item') suiItemInfo(o.it, M); else if (o.kind === 'gem') suiGemInfo(o.g, M); else M.info.push({ t: 'h', a: r.name.toUpperCase(), col: r.col, ic: [o.kind, o.id || o.key] });
+    M.info.push({ t: 'sp' }); M.info.push({ t: 'kv', a: 'The vendor pays', b: suiSellPrice(o) + ' gold' + (o.n > 1 ? ' each' : ''), col: '#ffe27a' }); const commons = RP.bag.filter(it => it && !it.locked && it.rarity === 'common').length; M.acts.push(suiAct('A', 'SELL ONE')); if (o.n > 1) M.acts.push(suiAct('X', 'SELL ALL ' + o.n)); M.acts.push(suiAct('Y', 'SELL COMMONS (' + commons + ')', { off: !commons })); M.foot = [['A', 'sell'], ['X', 'sell all'], ['Y', 'commons'], ['B', 'close']]; return M;
+  }
+  const B = vendorBasics(TOWN); M.rows = B.map((o, i) => { const d = fdDef(o.id); return { id: 'row:' + i, name: d.name, sub: d.tags.map(t => FOOD_TAG_LABEL[t]).join(' · '), right: o.price + 'g', ic: () => fdIcon('ing', o.id), st: RP.gold >= o.price ? 'ok' : 'no', col: d.col }; }); const o = B[clamp(SUI.row, 0, B.length - 1)], d = fdDef(o.id);
+  M.info.push({ t: 'h', a: d.name.toUpperCase(), col: d.col, ic: ['ing', o.id] }); M.info.push({ t: 'p', a: d.desc }); M.info.push({ t: 'kv', a: 'Counts as', b: d.tags.map(t => FOOD_TAG_LABEL[t]).join(', ') }); M.info.push({ t: 'kv', a: 'In the satchel', b: satCount(TOWN.sat, 'ing', o.id) + ' / ' + townCap() }); M.info.push({ t: 'sp' }); M.info.push({ t: 'cost', a: 'Price', b: o.price + ' gold (' + (RP.gold | 0) + ')', ok: RP.gold >= o.price }); M.acts.push(suiAct('A', 'BUY ONE', { off: RP.gold < o.price, why: 'cannot afford' })); M.acts.push(suiAct('X', 'BUY FIVE', { off: RP.gold < o.price * 5 })); M.foot = [['A', 'buy 1'], ['X', 'buy 5'], ['LB RB', 'tabs'], ['B', 'close']]; return M;
+}
+function suiDoMarket(id) {
+  if (SUI.tab === 0) {
+    const stock = suiStock(), o = stock[clamp(SUI.row, 0, stock.length - 1)]; if (!o) return;
+    if (id === 'X') { const rc = 40 + 25 * (TOWN.vend.n | 0); if ((TOWN.vend.n | 0) >= 20) return suiMsg('Maple has nothing new today', false); if (RP.gold < rc) return suiMsg('Not enough gold', false); RP.gold -= rc; TOWN.vend.n++; RT.dirty = true; SUI.row = 0; return suiMsg('The crates were shuffled: new stock'); } if (id !== 'A') return;
+    if (TOWN.vend.sold[o.key]) return suiMsg('Already sold', false); if (RP.gold < o.price) return suiMsg('Not enough gold', false);
+    if (o.kind === 'item') { const bi = rpgBagFree(); if (bi < 0) return suiMsg('Bag is full', false); RP.gold -= o.price; RP.bag[bi] = rpgGenItem(o.seed, { ilvl: o.ilvl, rarity: o.rarity }); }
+    else if (o.kind === 'gem') { const f = gemBagFree(); if (f < 0) return suiMsg('Gem bag is full', false); RP.gold -= o.price; RP.gems[f] = Object.assign({}, o.gem); gemTouch(); }
+    else if (o.kind === 'pot') { if (satAdd(TOWN.sat, 'pot', o.recipe + ':' + o.q, 1, townCap()) < 1) return suiMsg('The potion stack is full', false); RP.gold -= o.price; }
+    else { const put = satAdd(TOWN.sat, o.kind, o.id, o.n, townCap()); if (put < 1) return suiMsg('The stack is full', false); RP.gold -= Math.round(o.price * put / o.n); fdSee(o.id); fdDiscover(); }
+    TOWN.vend.sold[o.key] = 1; RT.dirty = true; return suiMsg('Bought ' + suiOfferRow(o, 0).name);
+  }
+  if (SUI.tab === 1) {
+    const L = suiSellList(); if (id === 'Y') { let n = 0, g = 0; RP.bag.forEach((it, i) => { if (it && !it.locked && it.rarity === 'common') { g += vendorSellPrice(TOWN, { kind: 'item', item: it }); RP.bag[i] = null; n++; } }); if (!n) return suiMsg('No unlocked commons to sell', false); RP.gold += g; RUN.gold += g; RT.dirty = true; return suiMsg('Sold ' + n + ' common items for ' + g + ' gold'); }
+    const o = L[clamp(SUI.row, 0, L.length - 1)]; if (!o) return; let g = 0, what = ''; const all = id === 'X' && o.n > 1;
+    if (o.kind === 'item') { g = suiSellPrice(o); RP.bag[o.i] = null; what = rpgItemName(o.it); } else if (o.kind === 'gem') { g = suiSellPrice(o); RP.gems[o.i] = null; gemTouch(); what = GEM_BY_ID[o.g.id].name; } else { const n = all ? o.n : 1; if (!satTake(TOWN.sat, o.kind, o.id || o.key, n)) return suiMsg('Not enough', false); g = suiSellPrice(o) * n; what = n + ' x ' + (o.kind === 'dish' || o.kind === 'pot' ? FOOD_RECIPES[o.key.split(':')[0]].name : fdDef(o.id).name); }
+    RP.gold += g; RUN.gold += g; RT.dirty = true; return suiMsg('Sold ' + what + ' for ' + g + ' gold');
+  }
+  const B = vendorBasics(TOWN), o = B[clamp(SUI.row, 0, B.length - 1)], n = id === 'X' ? 5 : 1; if (id !== 'A' && id !== 'X') return; if (RP.gold < o.price * n) return suiMsg('Not enough gold', false); const put = satAdd(TOWN.sat, 'ing', o.id, n, townCap()); if (put < 1) return suiMsg('The stack is full', false); RP.gold -= o.price * put; RT.dirty = true; fdSee(o.id); fdDiscover(); suiMsg('Bought ' + put + ' ' + fdDef(o.id).name);
+}
+// ---- warehouse --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiM_stash() {
+  const M = suiBase(), cap = townStashCap(TOWN), used = TOWN.stash.slice(0, cap).filter(Boolean).length; M.tabs = ['STORE', 'TAKE']; M.sub = used + ' / ' + cap + ' shelves'; M.npc = 'keeper';
+  if (SUI.tab === 0) { const bag = RP.bag.map((it, i) => it ? { it, i } : null).filter(Boolean); M.rows = bag.map((o, i) => suiItemRow({ it: o.it, where: 'bag' }, i)); if (!bag.length) { M.empty = 'The bag is empty'; return M; } const o = bag[clamp(SUI.row, 0, bag.length - 1)]; suiItemInfo(o.it, M); M.acts.push(suiAct('A', 'STORE', { off: townStashFree(TOWN) < 0, why: 'warehouse full' })); M.foot = [['A', 'store'], ['LB RB', 'tabs'], ['B', 'close']]; return M; }
+  const st = TOWN.stash.map((it, i) => it && i < cap ? { it, i } : null).filter(Boolean); M.rows = st.map((o, i) => suiItemRow({ it: o.it, where: 'stash' }, i)); if (!st.length) { M.empty = 'The warehouse is empty'; return M; } const o = st[clamp(SUI.row, 0, st.length - 1)]; suiItemInfo(o.it, M); M.acts.push(suiAct('A', 'TAKE', { off: rpgBagFree() < 0, why: 'bag full' })); M.foot = [['A', 'take'], ['LB RB', 'tabs'], ['B', 'close']]; return M;
+}
+function suiDoStash(id) {
+  if (id !== 'A') return; const cap = townStashCap(TOWN);
+  if (SUI.tab === 0) { const bag = RP.bag.map((it, i) => it ? { it, i } : null).filter(Boolean), o = bag[clamp(SUI.row, 0, bag.length - 1)]; if (!o) return; const f = townStashFree(TOWN); if (f < 0) return suiMsg('The warehouse is full', false); TOWN.stash[f] = o.it; RP.bag[o.i] = null; RT.dirty = true; return suiMsg('Stored ' + rpgItemName(o.it)); }
+  const st = TOWN.stash.map((it, i) => it && i < cap ? { it, i } : null).filter(Boolean), o = st[clamp(SUI.row, 0, st.length - 1)]; if (!o) return; const bi = rpgBagFree(); if (bi < 0) return suiMsg('Your bag is full', false); RP.bag[bi] = o.it; TOWN.stash[o.i] = null; RT.dirty = true; suiMsg('Took ' + rpgItemName(o.it));
+}
+// ---- notice board: goals, bounties, rift contracts ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiQuests() { return SUI.tab === 0 ? TOWN.q.daily : TOWN.q.weekly; }
+const suiRewardText = q => q.gold + ' gold · ' + q.xp + ' xp · ' + Object.keys(q.mats).map(k => q.mats[k] + ' ' + MATS[k].name).join(', ');
+function suiRiftSeedFor(tier, fam, seed0) { let s = ((seed0 >>> 0) || 1) & 0xFFFFFF; for (let i = 0; i < 400; i++) { if (!fam || mobRiftFamilies(s, tier).includes(fam)) return s | 1; s = (s + 7919) & 0xFFFFFF; } return s | 1; }
+function suiM_board() {
+  const M = suiBase(), bt = Math.max(1, townTier(TOWN, 'board')); M.tabs = ['DAILY', 'WEEKLY', 'RIFTS']; M.sub = suiTierName(bt) + '  ·  renown ' + (TOWN.renown | 0); questRefresh(TOWN, Date.now(), RP.level, RP.riftUnlocked, RP.bestRift);
+  if (SUI.tab < 2) {
+    const L = suiQuests(); M.rows = L.map((q, i) => ({ id: 'row:' + i, name: questText(q), sub: q.claimed ? 'Claimed' : q.p >= q.n ? 'Complete - claim your reward' : q.p + ' / ' + q.n, right: q.claimed ? 'DONE' : q.p >= q.n ? 'CLAIM' : Math.floor(q.p / q.n * 100) + '%', st: q.claimed ? 'lock' : q.p >= q.n ? 'ok' : 'no', col: q.claimed ? '#7d93a6' : q.p >= q.n ? '#9cf7ab' : '#fff2d0', glyph: 'scroll' }));
+    const q = L[clamp(SUI.row, 0, L.length - 1)]; if (!q) { M.empty = 'No goals right now'; return M; } M.info.push({ t: 'h', a: questText(q).toUpperCase(), col: '#9fd8ff' }); M.info.push({ t: 'kv', a: 'Progress', b: q.p + ' / ' + q.n, col: q.p >= q.n ? '#9cf7ab' : '#fff' }); M.info.push({ t: 'sp' }); M.info.push({ t: 'p', a: 'Reward' }); M.info.push({ t: 'kv', a: 'Gold', b: String(q.gold) }); M.info.push({ t: 'kv', a: 'Experience', b: String(q.xp) }); for (const k in q.mats) M.info.push({ t: 'kv', a: MATS[k].name, b: String(q.mats[k]), ic: ['mat', k] });
+    const hunt = (q.id === 'kill_fam' || q.id === 'rift_fam') && q.fam; if (hunt) M.info.push({ t: 'p', a: (MOB_FAMILIES[q.fam].name + ': ' + MOB_FAMILIES[q.fam].text), dim: 1 });
+    M.acts.push(suiAct('A', q.claimed ? 'CLAIMED' : 'CLAIM', { off: q.claimed || q.p < q.n, why: q.claimed ? 'already claimed' : 'not finished' })); if (hunt) M.acts.push(suiAct('X', 'HUNT IN A RIFT', { off: !RP.riftUnlocked, why: 'Rifts unlock after the finale' })); M.foot = [['A', 'claim'], ['X', 'hunt'], ['LB RB', 'tabs'], ['B', 'close']]; return M;
+  }
+  const mx = Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1); if (!RP.riftUnlocked) { M.empty = 'Rifts unlock after the Act III finale'; M.info.push({ t: 'h', a: 'SHATTER RIFTS ARE LOCKED', col: '#ff8f7a' }); M.info.push({ t: 'p', a: 'Restore the world (clear the Act III finale) to take rift contracts here.' }); return M; }
+  const tiers = []; for (let t = 1; t <= mx; t++) tiers.push(t); const seed = RP.riftSeed || (RP.riftSeed = (dseed() & 0xFFFFFF) | 1); M.rows = tiers.map((t, i) => { const fams = mobRiftFamilies(seed, t); return { id: 'row:' + i, name: 'Shatter Rift  ·  Tier ' + t, sub: fams.map(f => MOB_FAMILIES[f].name).join(' + ') + (t === RP.bestRift + 1 ? '  ·  new' : ''), right: 'T' + t, st: 'ok', col: '#9fd8ff', glyph: 'rift' }; });
+  const t = tiers[clamp(SUI.row, 0, tiers.length - 1)], sp = rpgRiftSpec(t, seed), fams = mobRiftFamilies(seed, t); M.info.push({ t: 'h', a: 'SHATTER RIFT  ·  TIER ' + t, col: '#9fd8ff' }); M.info.push({ t: 'kv', a: 'Seed', b: hexSeed(seed) }); M.info.push({ t: 'kv', a: 'Monster level', b: sp.mlvl + '-' + (sp.mlvl + 2) }); M.info.push({ t: 'kv', a: 'Kills for the guardian', b: String(sp.need) }); M.info.push({ t: 'kv', a: 'Time limit', b: fmtTime(sp.limit) }); M.info.push({ t: 'sp' }); for (const m of sp.mods) M.info.push({ t: 'kv', a: RPG_RIFT_MODS[m].name, b: RPG_RIFT_MODS[m].text, col: '#ffb15e' }); for (const f of fams) M.info.push({ t: 'kv', a: MOB_FAMILIES[f].name, b: MOB_FAMILIES[f].text, col: '#8fd0ff' });
+  M.acts.push(suiAct('A', 'ENTER THE RIFT')); M.acts.push(suiAct('X', 'NEW SEED')); M.foot = [['A', 'enter'], ['X', 'new seed'], ['LB RB', 'tabs'], ['B', 'close']]; return M;
+}
+function suiDoBoard(id) {
+  if (SUI.tab < 2) {
+    const L = suiQuests(), q = L[clamp(SUI.row, 0, L.length - 1)]; if (!q) return;
+    if (id === 'A') { const r = questClaim(TOWN, q); if (!r) return suiMsg('Not finished yet', false); RP.gold += r.gold; RUN.gold += r.gold; rpgGainXp(r.xp, 'goal'); const parts = []; for (const k in r.mats) parts.push(fdGive('mat', k, r.mats[k], true) + ' ' + MATS[k].name); RT.dirty = true; rsfx('pick3'); sparkBurst(P.x, P.y + 1, P.z, 18, 0x8fd0ff, 6); return suiMsg('Reward: ' + r.gold + ' gold, ' + r.xp + ' xp' + (parts.length ? ', ' + parts.join(', ') : '')); }
+    if (id === 'X' && (q.id === 'kill_fam' || q.id === 'rift_fam') && q.fam) { if (!RP.riftUnlocked) return suiMsg('Rifts unlock after the finale', false); const t = Math.max(1, Math.min(Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1), q.tier || 1)); return townLeave('rift', { tier: t, seed: suiRiftSeedFor(t, q.fam, q.seed || RP.riftSeed) }); } return;
+  }
+  if (!RP.riftUnlocked) return; const mx = Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1), t = clamp(SUI.row + 1, 1, mx);
+  if (id === 'X') { RP.riftSeed = (dseed() & 0xFFFFFF) | 1; RT.dirty = true; SUI.dirty = true; return rsfx('ui'); } if (id === 'A') townLeave('rift', { tier: t, seed: RP.riftSeed || null });
+}
+// ---- town hall: upgrades ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiM_hall() {
+  const M = suiBase(); M.tabs = ['BUILDINGS', 'TOWN']; M.sub = TOWN_ROLES.hall.name + ' ' + suiTierName(townTier(TOWN, 'hall')); M.npc = 'mayor';
+  if (SUI.tab === 1) { M.rows = []; M.info.push({ t: 'h', a: 'YOUR HOME TOWN', col: '#ffd66b' }); M.info.push({ t: 'kv', a: 'Renown', b: String(TOWN.renown | 0) }); M.info.push({ t: 'kv', a: 'Visits', b: String(TOWN.visits | 0) }); M.info.push({ t: 'kv', a: 'Goals completed', b: String(TOWN.stats.quests) }); M.info.push({ t: 'kv', a: 'Dishes cooked', b: String(TOWN.stats.cooked) }); M.info.push({ t: 'kv', a: 'Potions + reagents brewed', b: String(TOWN.stats.brewed) }); M.info.push({ t: 'kv', a: 'Items forged + improved', b: String(TOWN.stats.crafted) }); M.info.push({ t: 'kv', a: 'Herbs + ores gathered', b: String(TOWN.stats.gathered) }); M.info.push({ t: 'kv', a: 'Buildings upgraded', b: String(TOWN.stats.upgrades) }); M.info.push({ t: 'sp' }); const m = townMods(TOWN), parts = []; for (const k in m) parts.push(rpgFmtStat(k, m[k]) + ' ' + RPG_STATS[k].label); M.info.push({ t: 'h', a: 'TOWN PERKS', col: '#9cf7ab', small: 1 }); M.info.push({ t: 'p', a: parts.length ? parts.join('  ·  ') : 'None yet. Upgrade the Hall, Smithy, Gem Workshop and Apothecary to tier 3 for passive bonuses.' }); M.info.push({ t: 'p', a: 'Stash: ' + townStashCap(TOWN) + ' shelves  ·  Beds: ' + TOWN_BEDS[townTier(TOWN, 'garden')] + '  ·  Market offers: ' + TOWN_VENDOR_SLOTS[Math.max(1, townTier(TOWN, 'market'))] + '  ·  Stacks: ' + townCap(), dim: 1 }); M.foot = [['LB RB', 'tabs'], ['B', 'close']]; return M; }
+  const roles = TOWN_ROLE_IDS; M.rows = roles.map((r, i) => { const u = townUpgradeInfo(TOWN, r), t = townTier(TOWN, r); return { id: 'row:' + i, name: TOWN_ROLES[r].name, sub: t ? suiTierName(t) : 'Not built', right: u.maxed ? 'MAX' : u.ok && costCan(LEDGER, u.cost) ? 'UPGRADE' : u.ok ? 'tier ' + u.to : '', st: u.maxed ? 'lock' : u.ok && costCan(LEDGER, u.cost) ? 'ok' : 'no', col: TOWN_ROLES[r].col, glyph: r }; });
+  const role = roles[clamp(SUI.row, 0, roles.length - 1)], u = townUpgradeInfo(TOWN, role), t = townTier(TOWN, role); M.info.push({ t: 'h', a: TOWN_ROLES[role].name.toUpperCase() + '  ·  ' + suiTierName(t).toUpperCase(), col: TOWN_ROLES[role].col }); M.info.push({ t: 'p', a: TOWN_ROLES[role].text });
+  if (u.maxed) M.info.push({ t: 'p', a: 'Fully upgraded.', dim: 1 }); else { M.info.push({ t: 'sp' }); M.info.push({ t: 'kv', a: 'Next', b: suiTierName(u.to), col: '#ffe27a' }); M.info.push({ t: 'p', a: u.text }); if (u.perk) { const parts = []; for (const k in u.perk) parts.push(rpgFmtStat(k, u.perk[k]) + ' ' + RPG_STATS[k].label); M.info.push({ t: 'kv', a: 'Passive', b: parts.join(', '), col: '#9cf7ab' }); } for (const l of suiCostLines(u.cost)) M.info.push(l); if (role !== 'hall' && u.hall > townTier(TOWN, 'hall')) M.info.push({ t: 'cost', a: 'Town Hall tier', b: u.hall + ' (' + townTier(TOWN, 'hall') + ')', ok: false }); }
+  M.acts.push(suiAct('A', t ? 'UPGRADE' : 'BUILD', { off: !u.ok || !costCan(LEDGER, u.cost || {}), why: u.maxed ? 'maxed' : !u.ok ? u.why : 'cannot afford' })); M.foot = [['A', 'upgrade'], ['LB RB', 'tabs'], ['B', 'close']]; return M;
+}
+function suiDoHall(id) { if (id !== 'A' || SUI.tab !== 0) return; const role = TOWN_ROLE_IDS[clamp(SUI.row, 0, TOWN_ROLE_IDS.length - 1)]; suiUpgrade(role); }
+function suiUpgrade(role) { const r = townDoUpgrade(TOWN, role, LEDGER); if (!r.ok) return suiMsg(r.why === 'cannot afford' ? 'Cannot afford it: ' + costLack(LEDGER, townUpgradeInfo(TOWN, role).cost).map(l => (l.k === 'mat' ? MATS[l.id].name : l.k === 'ing' ? INGS[l.id].name : l.k)).join(', ') : r.why, false); TOWN.stats.upgrades++; RT.dirty = true; rsfx('pick3'); fdDiscover(); if (typeof townOnUpgrade === 'function') townOnUpgrade(role, r.from, r.to); rpgRecalc(); suiMsg(TOWN_ROLES[role].name + ' is now ' + suiTierName(r.to) + ': ' + r.text); }
+// ---- garden ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const GROW_S = [150, 240, 420];
+const suiGrowTime = id => GROW_S[Math.min(2, fdDef(id).tier)] * [1, 1, 0.75, 0.55][townTier(TOWN, 'garden')];
+function suiPlantable() { const gt = townTier(TOWN, 'garden'), out = []; for (const id of Object.keys(TOWN.sat.ing).sort()) { const d = INGS[id]; if (!d.tags.some(t => ['fruit', 'veg', 'grain', 'herb', 'mushroom', 'spice'].includes(t)) || d.tags.some(t => ['meat', 'egg', 'fish'].includes(t))) continue; if (d.tier <= gt - 1 || (d.tier === 0 && gt >= 1)) out.push(id); } return out; }
+function suiM_garden() {
+  const M = suiBase(), gt = townTier(TOWN, 'garden'); M.sub = suiTierName(gt); M.tabs = []; if (gt < 1) return suiBuildPrompt(M, 'garden'); const n = TOWN_BEDS[gt], pl = suiPlantable(); if (!pl.includes(SUI.seed)) SUI.seed = pl[0] || null;
+  M.rows = []; for (let i = 0; i < n; i++) { const b = TOWN.garden[i], t = b ? b.t / suiGrowTime(b.plant) : 0; M.rows.push({ id: 'row:' + i, name: 'Bed ' + (i + 1), sub: !b ? 'Empty' : t >= 1 ? 'Ripe: ' + b.n + ' x ' + INGS[b.plant].name : INGS[b.plant].name + ' ' + Math.floor(t * 100) + '%', right: !b ? '' : t >= 1 ? 'RIPE' : fdBuffTime(suiGrowTime(b.plant) - b.t), st: !b ? 'no' : t >= 1 ? 'ok' : 'lock', col: b ? INGS[b.plant].col : '#8a9aa8', ic: b ? () => fdIcon('ing', b.plant) : null }); }
+  const i = clamp(SUI.row, 0, n - 1), b = TOWN.garden[i]; M.info.push({ t: 'h', a: 'GARDEN BED ' + (i + 1), col: '#9af0a0' });
+  if (b) { const t = b.t / suiGrowTime(b.plant); M.info.push({ t: 'kv', a: 'Growing', b: INGS[b.plant].name, col: INGS[b.plant].col, ic: ['ing', b.plant] }); M.info.push({ t: 'kv', a: 'Yield', b: b.n + ' x' }); M.info.push({ t: 'kv', a: 'Ripe in', b: t >= 1 ? 'now' : fdBuffTime(suiGrowTime(b.plant) - b.t) }); M.acts.push(suiAct('A', 'HARVEST', { off: t < 1, why: 'not ripe yet' })); }
+  else { M.info.push({ t: 'p', a: 'An empty bed. Plant any herb, fruit, vegetable, grain or mushroom from your satchel: it grows while you play and yields more than you put in.' }); M.info.push({ t: 'kv', a: 'Seed', b: SUI.seed ? INGS[SUI.seed].name + ' (' + satCount(TOWN.sat, 'ing', SUI.seed) + ')' : 'nothing to plant', col: SUI.seed ? INGS[SUI.seed].col : '#7d93a6', ic: SUI.seed ? ['ing', SUI.seed] : null }); if (SUI.seed) M.info.push({ t: 'kv', a: 'Grows in', b: fdBuffTime(suiGrowTime(SUI.seed)) }); M.acts.push(suiAct('A', 'PLANT', { off: !SUI.seed, why: 'no seed' })); M.acts.push(suiAct('X', 'NEXT SEED', { off: pl.length < 2 })); }
+  const ripe = TOWN.garden.slice(0, n).filter(q => q && q.t >= suiGrowTime(q.plant)).length; M.acts.push(suiAct('Y', 'HARVEST ALL (' + ripe + ')', { off: !ripe })); M.foot = [['A', b ? 'harvest' : 'plant'], ['X', 'seed'], ['Y', 'all'], ['B', 'close']]; return M;
+}
+function suiHarvest(i) { const b = TOWN.garden[i]; if (!b || b.t < suiGrowTime(b.plant)) return 0; const put = fdGive('ing', b.plant, b.n, true); TOWN.garden[i] = null; TOWN.stats.gathered += b.n; townQuest('gather', { n: b.n }); RT.dirty = true; if (typeof townBedChanged === 'function') townBedChanged(i); return put; }
+function suiDoGarden(id) {
+  const gt = townTier(TOWN, 'garden'), n = TOWN_BEDS[gt], i = clamp(SUI.row, 0, n - 1), pl = suiPlantable();
+  if (id === 'Y') { let tot = 0; for (let k = 0; k < n; k++) tot += suiHarvest(k) || 0; if (!tot) return suiMsg('Nothing is ripe yet', false); return suiMsg('Harvested ' + tot + ' ingredients'); }
+  if (id === 'X') { if (pl.length) SUI.seed = pl[(pl.indexOf(SUI.seed) + 1) % pl.length]; SUI.dirty = true; return rsfx('ui'); } if (id !== 'A') return; const b = TOWN.garden[i];
+  if (b) { const put = suiHarvest(i); if (!put) return suiMsg('Not ripe yet', false); return suiMsg('Harvested ' + put + ' ' + INGS[b.plant].name); }
+  if (!SUI.seed || !satTake(TOWN.sat, 'ing', SUI.seed, 1)) return suiMsg('Nothing to plant', false); TOWN.garden[i] = { plant: SUI.seed, t: 0, n: 2 + (gt >= 3 ? 1 : 0) + (INGS[SUI.seed].tier >= 1 ? 0 : 1) }; RT.dirty = true; if (typeof townBedChanged === 'function') townBedChanged(i); suiMsg('Planted ' + INGS[SUI.seed].name);
+}
+// ---- the pack (available anywhere) -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiM_pack() {
+  const M = suiBase(); M.tabs = ['DISHES', 'POTIONS', 'PANTRY', 'EFFECTS']; M.sub = satTotal(TOWN.sat) + ' items'; M.col = '#ffe27a';
+  if (SUI.tab === 0 || SUI.tab === 1) { const kind = SUI.tab === 0 ? 'dish' : 'pot', keys = Object.keys(TOWN.sat[kind]).sort(); M.rows = keys.map((k, i) => { const [rid, q] = k.split(':'), r = FOOD_RECIPES[rid]; return { id: 'row:' + i, name: (kind === 'dish' ? FOOD_Q[q | 0].name + ' ' : '') + r.name, sub: r.out.fx.map(f => FOOD_FX[f].name).join(' + '), right: 'x' + TOWN.sat[kind][k], ic: () => fdIcon(kind, k), st: 'ok', col: FOOD_FX[r.out.fx[0]].col }; }); if (!keys.length) { M.empty = kind === 'dish' ? 'No dishes. Cook at the Kitchen in your home town.' : 'No potions. Brew at the Apothecary or buy at the Market.'; suiBuffLines(M); return M; } const k = keys[clamp(SUI.row, 0, keys.length - 1)], [rid, q] = k.split(':'), r = FOOD_RECIPES[rid]; M.info.push({ t: 'h', a: ((kind === 'dish' ? FOOD_Q[q | 0].name + ' ' : '') + r.name).toUpperCase(), col: FOOD_FX[r.out.fx[0]].col, ic: [kind, k] }); M.info.push({ t: 'p', a: r.desc }); suiFxLines(r, q | 0, M); M.acts.push(suiAct('A', kind === 'dish' ? 'EAT' : 'DRINK')); suiBuffLines(M); M.foot = [['A', 'use'], ['LB RB', 'tabs'], ['B', 'close']]; return M; }
+  if (SUI.tab === 2) return suiM_pantry(M);
+  M.rows = TOWN.buffs.map((b, i) => ({ id: 'row:' + i, name: b.name, sub: fdBuffTime(b.t) + ' left', right: fdBuffTime(b.t), st: 'ok', col: b.col, ic: () => fdIcon(b.slot === 'pot' ? 'pot' : 'dish', b.src + ':' + b.q) })); if (!TOWN.buffs.length) { M.empty = 'No active food effects. H drinks a potion in the field.'; return M; }
+  const b = TOWN.buffs[clamp(SUI.row, 0, TOWN.buffs.length - 1)]; M.info.push({ t: 'h', a: b.name.toUpperCase(), col: b.col }); for (const k in b.mods) M.info.push({ t: 'kv', a: RPG_STATS[k].label, b: rpgFmtStat(k, b.mods[k]) }); if (b.hot) M.info.push({ t: 'kv', a: 'Healing', b: (b.hot * 100).toFixed(1) + '% max health / s' }); M.info.push({ t: 'kv', a: 'Time left', b: fdBuffTime(b.t) }); return M;
+}
+function suiDoPack(id) { if (id !== 'A' || SUI.tab > 1) return; const kind = SUI.tab === 0 ? 'dish' : 'pot', keys = Object.keys(TOWN.sat[kind]).sort(), k = keys[clamp(SUI.row, 0, keys.length - 1)]; if (!k) return; const r = fdUse(kind, k); if (r.ok) suiMsg((kind === 'pot' ? 'Drank ' : 'Ate ') + r.buff.name); else suiMsg(r.why, false); }
+// ---- the gate: where to go next ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiPortalList() {
+  const out = []; if (typeof TW !== 'undefined' && TW.ret && TW.ret.run) out.push({ id: 'cont', name: 'Continue the adventure', sub: 'Resume Act ' + TW.ret.act + ' from your last checkpoint', glyph: 'gate' }); out.push({ id: 'new', name: 'Start a new campaign', sub: 'Difficulty: ' + RPG_TUNING.difficulty[RP.diff].name, glyph: 'gate' });
+  if (RP.riftUnlocked) out.push({ id: 'rift', name: 'Shatter Rift  ·  tier ' + RP.riftTier, sub: mobRiftFamilies(RP.riftSeed || 1, RP.riftTier).map(f => MOB_FAMILIES[f].name).join(' + '), glyph: 'rift' }); out.push({ id: 'menu', name: 'Main menu', sub: 'Leave the town', glyph: 'gate' }); return out;
+}
+function suiM_portal() { const M = suiBase(); M.tabs = []; M.sub = 'Where to?'; const L = suiPortalList(); M.rows = L.map((o, i) => ({ id: 'row:' + i, name: o.name, sub: o.sub, st: 'ok', col: '#fff2d0', glyph: o.glyph })); const o = L[clamp(SUI.row, 0, L.length - 1)]; M.info.push({ t: 'h', a: o.name.toUpperCase(), col: '#53e0d0' }); M.info.push({ t: 'p', a: o.sub }); if (o.id === 'cont') M.info.push({ t: 'p', a: 'Progress since your last Sun Shard checkpoint is not kept while you visit the town.', dim: 1 }); M.acts.push(suiAct('A', 'GO')); M.foot = [['A', 'go'], ['B', 'stay']]; return M; }
+function suiDoPortal(id) { if (id !== 'A') return; const L = suiPortalList(), o = L[clamp(SUI.row, 0, L.length - 1)]; if (!o) return; townLeave(o.id === 'cont' ? 'campaign' : o.id === 'new' ? 'new' : o.id === 'rift' ? 'rift' : 'menu', o.id === 'rift' ? { tier: RP.riftTier, seed: RP.riftSeed || null } : null); }
+// ---- dialogue ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiTownFlags() { return townFlags(TOWN, { riftOpen: RP.riftUnlocked, level: RP.level, act1: G.act === 1, won: G.won || RP.diffUnlocked > 0 }); }
+function suiM_dlg() {
+  const npc = TOWN_NPCS[SUI.npc], M = suiBase(); M.title = npc ? npc.name.toUpperCase() : 'VILLAGER'; M.col = npc ? npc.col : '#ffe27a'; M.tabs = []; M.sub = npc && npc.role ? TOWN_ROLES[npc.role].name : 'Villager'; if (!npc) return M;
+  const fl = suiTownFlags(), node = dlgPick(npc, fl), i = clamp(SUI.dlgI, 0, node.lines.length - 1), last = i >= node.lines.length - 1; M.dlg = { who: npc.name, line: node.lines[i], i, n: node.lines.length, col: npc.col }; M.info.push({ t: 'say', a: node.lines[i], col: npc.col }); if (node.lines.length > 1) M.info.push({ t: 'p', a: (i + 1) + ' / ' + node.lines.length, dim: 1 });
+  M.acts.push(suiAct('A', last ? (npc.then ? 'OPEN ' + (SUI_NAME[npc.then] || '') : 'GOODBYE') : 'NEXT')); if (!last && npc.then) M.acts.push(suiAct('X', 'SKIP: ' + SUI_NAME[npc.then])); M.foot = [['A', last ? 'continue' : 'next'], ['B', 'close']]; return M;
+}
+function suiDoDlg(id) {
+  const npc = TOWN_NPCS[SUI.npc]; if (!npc) return suiClose(); const fl = suiTownFlags(), node = dlgPick(npc, fl), last = SUI.dlgI >= node.lines.length - 1;
+  if (id === 'A' && !last) { SUI.dlgI++; SUI.dirty = true; return rsfx('ui'); } if (id === 'A' || (id === 'X' && npc.then)) { const sp = dlgSpeak(TOWN, npc, fl, node.lines.length - 1); RT.dirty = true; if (npc.then) { const k = npc.then; suiClose(true); suiOpen(k, { keepFrom: true }); } else suiClose(); }
+}
+// ---- dispatcher ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiModel() {
+  switch (SUI.kind) { case 'cook': case 'alchemy': return suiM_cook(); case 'forge': return suiM_forge(); case 'gembench': return suiM_gem(); case 'market': return suiM_market(); case 'stash': return suiM_stash(); case 'board': return suiM_board(); case 'hall': return suiM_hall(); case 'garden': return suiM_garden(); case 'pack': return suiM_pack(); case 'portal': return suiM_portal(); case 'dlg': return suiM_dlg(); }
+  return suiBase();
+}
+function suiDo(id) {
+  if (!SUI.open) return; const M = SUI.M || suiModel(); if (M.build && id === 'A') { suiUpgrade(M.build); SUI.dirty = true; return; } const a = M.acts.find(x => x.id === id); if (a && a.off) { suiMsg(a.why || 'Not available', false); return; } if (!a && id !== 'A') return; SUI.acts++;
+  try { switch (SUI.kind) { case 'cook': case 'alchemy': suiDoCook(id); break; case 'forge': suiDoForge(id); break; case 'gembench': suiDoGem(id); break; case 'market': suiDoMarket(id); break; case 'stash': suiDoStash(id); break; case 'board': suiDoBoard(id); break; case 'hall': suiDoHall(id); break; case 'garden': suiDoGarden(id); break; case 'pack': suiDoPack(id); break; case 'portal': suiDoPortal(id); break; case 'dlg': suiDoDlg(id); break; } } catch (err) { console.error('station action', err); suiMsg('Something went wrong', false); }
+  SUI.dirty = true; RT.dirty = true;
+}
+// </sui-model>
+
+// <sui-ui> ======================================================================================================================
+// SHATTERWORLD station UI, part 2 of 2: the flat DOM overlay (#sta), the world-space VR panel, and all input routing (keyboard, mouse, touch, Xbox / PlayStation pad, phone pad, Touch controllers + laser).
+// Both renderers draw the one view-model from sui-model.js. State is G.state === 'sta' (the world is paused, exactly like the inventory).
+// Keys (the same ones the inventory uses, so every pad already works): arrows / stick = move,  LB RB (Q / Shift) = tabs,  A (Space) = primary,  X (J) = second,  Y (E) = third,  B (Z / Esc) = close.
+// ==============================================================================================================================
+(() => {
+  const st = document.createElement('style'); st.textContent = `
+  #sta { background:radial-gradient(ellipse at 50% 40%, rgba(12,26,40,.82), rgba(4,8,14,.95)); font-size:var(--fs); z-index:11; }
+  #sta.hidden { display:none !important; }
+  .stWrap { width:min(1200px,98vw); height:min(690px,96vh); display:flex; flex-direction:column; gap:clamp(5px,1.2vh,12px); text-align:left; }
+  #stTitle { font-weight:900; letter-spacing:.2em; font-size:1.25em; white-space:nowrap; text-shadow:0 0 18px currentColor; display:flex; flex-direction:column; line-height:1.1; }
+  #stTitle small { font-size:.52em; letter-spacing:.16em; color:#a9bccb; font-weight:700; text-shadow:none; }
+  #stTabs { display:flex; gap:6px; flex:1; flex-wrap:wrap; }
+  #stTabs button { font:inherit; font-weight:800; letter-spacing:.14em; font-size:.84em; cursor:pointer; color:#cfe0ec; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.22); border-radius:999px; padding:.4em 1.05em; min-height:34px; }
+  #stTabs button.on { color:#2a1400; background:linear-gradient(180deg,#fff2b0,#ffc54a 55%,#ff9c2b); border-color:#ffe9a8; box-shadow:0 0 14px rgba(255,190,80,.5); }
+  .stBody { flex:1; min-height:0; display:flex; gap:clamp(6px,1.4vh,14px); }
+  .stList { flex:0 0 38%; min-width:0; overflow:hidden auto; display:flex; flex-direction:column; gap:5px; }
+  .stInfo { flex:1; min-width:0; overflow:hidden auto; display:flex; flex-direction:column; gap:.15em; }
+  .stRow { display:flex; align-items:center; gap:.7em; padding:.35em .6em; border-radius:12px; background:rgba(255,255,255,.05); border:2px solid transparent; cursor:pointer; min-height:52px; flex:none; }
+  .stRow.focus { border-color:#fff2b0; box-shadow:0 0 16px rgba(255,214,107,.7); background:rgba(255,255,255,.1); }
+  .stRow.lock { opacity:.55; } .stRow.no .stR { color:#ff9a8a; } .stRow.ok .stR { color:#9cf7ab; }
+  .stRow .stIc, .stCost .stIc, .stH .stIc { width:40px; height:40px; flex:none; border-radius:9px; background:rgba(255,255,255,.07); }
+  .stRow .stT { flex:1; min-width:0; display:flex; flex-direction:column; line-height:1.2; } .stRow .stT b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.98em; letter-spacing:.02em; } .stRow .stT small { color:#a9bccb; font-weight:600; font-size:.74em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing:.06em; }
+  .stRow .stR { font-weight:900; font-size:.8em; letter-spacing:.06em; white-space:nowrap; } .stRow .stG { width:40px; height:40px; flex:none; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; color:#0b1722; }
+  .stH { font-weight:900; font-size:1.2em; letter-spacing:.06em; display:flex; align-items:center; gap:.6em; line-height:1.15; margin:.05em 0 .2em; } .stH.small { font-size:.8em; letter-spacing:.24em; }
+  .stP { margin:.1em 0; color:#cfe0ec; font-weight:600; line-height:1.4; font-size:.92em; } .stP.dim { color:#8195a6; font-size:.82em; }
+  .stSay { margin:.4em 0; padding:.7em .9em; border-radius:14px; background:rgba(255,255,255,.07); border-left:4px solid currentColor; font-size:1.2em; font-weight:700; line-height:1.45; color:#fff4d8; }
+  .stSp { height:.45em; flex:none; }
+  .stCost { display:flex; align-items:center; gap:.6em; padding:.12em 0; font-weight:700; font-size:.9em; } .stCost span { flex:1; } .stCost b { font-weight:800; } .stCost.ok b { color:#9cf7ab; } .stCost.no b { color:#ff9a8a; } .stCost i { font-style:normal; font-weight:900; width:1.2em; text-align:center; } .stCost.ok i { color:#9cf7ab; } .stCost.no i { color:#ff8f7a; }
+  .stInfo .tipRow { justify-content:space-between; } .stInfo .tipRow span:first-child { color:#a9bccb; font-weight:700; } .stInfo .tipRow .rg { color:#e8f2fa; font-weight:700; margin-left:1em; text-align:right; white-space:normal; }
+  .stInfo .tipRow.aff { cursor:pointer; gap:.6em; justify-content:flex-start; border-radius:8px; padding:.2em .3em; } .stInfo .tipRow.aff span:first-child { color:#fff; } .stInfo .tipRow.aff .rg { margin-left:auto; color:#7c8e9d; }
+  .stLeg { margin:.4em 0; padding:.45em .7em; border-radius:10px; background:linear-gradient(180deg,rgba(255,138,42,.2),rgba(255,138,42,.06)); border:1px solid rgba(255,138,42,.55); color:#ffd2a6; font-weight:700; line-height:1.35; font-size:.86em; } .stLeg b { color:var(--r3); letter-spacing:.14em; display:block; font-size:.9em; }
+  .stActs { margin-top:auto; padding-top:.6em; display:flex; flex-wrap:wrap; gap:8px; } .stActs button { font:inherit; font-weight:800; font-size:.86em; letter-spacing:.1em; cursor:pointer; color:#eaf6ff; background:rgba(255,255,255,.09); border:1.5px solid rgba(255,255,255,.28); border-radius:999px; padding:.5em 1.2em; min-height:42px; } .stActs button.go { color:#2a1400; background:linear-gradient(180deg,#fff2b0,#ffc54a 55%,#ff9c2b); border-color:#ffe9a8; } .stActs button:disabled, .stActs button.off { opacity:.4; }
+  #stMsg { min-height:1.6em; text-align:center; font-weight:800; letter-spacing:.06em; font-size:.92em; color:#9cf7ab; } #stMsg.bad { color:#ff9a8a; } #stEmpty { margin:auto; text-align:center; color:#8195a6; letter-spacing:.12em; font-weight:700; line-height:1.8; padding:1em; }
+  @media (max-width:760px) { .stBody { flex-direction:column; } .stList { flex:0 0 36%; } .stWrap { height:98vh; } #stTitle { font-size:1em; } #stTabs button { padding:.35em .7em; font-size:.76em; } .stRow { min-height:46px; } }
+  @media (max-height:520px) { .stWrap { height:98vh; } .stRow { min-height:40px; padding:.2em .5em; } .stRow .stIc { width:30px; height:30px; } #stTabs button { min-height:28px; padding:.2em .8em; } .stP { font-size:.82em; } .invFoot { display:none; } }`;
+  document.head.appendChild(st);
+  document.body.insertAdjacentHTML('beforeend', '<div id="sta" class="ovl hidden"><div class="invWrap stWrap"><div class="invHead"><div id="stTitle"></div><div id="stTabs"></div><div class="invRes" id="stRes"></div><button class="chip" id="stClose" data-id="close" style="min-height:34px;min-width:42px">X</button></div><div class="invBody stBody"><div class="pnl stList" id="stList"></div><div class="pnl stInfo" id="stInfo"></div></div><div id="stMsg"></div><div class="invFoot" id="stFoot"></div></div></div>');
+})();
+const stEl = { title: $('stTitle'), tabs: $('stTabs'), res: $('stRes'), list: $('stList'), info: $('stInfo'), msg: $('stMsg'), foot: $('stFoot'), root: $('sta') };
+const SUI_KK = { A: 'a', B: 'b', X: 'x', Y: 'y', 'LB RB': 't' };
+function suiIconOf(spec) { // spec = [kind, id] | gem id string | function -> canvas
+  if (!spec) return null; if (typeof spec === 'function') return spec(); if (Array.isArray(spec)) return fdIcon(spec[0], spec[1]); return null;
+}
+function suiGlyphHTML(name, col) { const ch = { scroll: '!', rift: '*', gate: '>', hall: 'H', market: '$', kitchen: 'K', smithy: 'S', gems: 'G', apothecary: 'A', warehouse: 'W', garden: 'g', board: 'N' }[name] || '?'; return `<div class="stG" style="background:${col}">${ch}</div>`; }
+function suiRender() {
+  if (!SUI.open) return; const M = SUI.M = suiModel(); SUI.dirty = false; SUI.icons.length = 0; const nrows = M.rows.length; SUI.row = nrows ? clamp(SUI.row, 0, nrows - 1) : 0;
+  const ic = (spec, extra) => { const c = suiIconOf(spec); if (!c) return ''; SUI.icons.push(c); return `<canvas class="stIc${extra ? ' ' + extra : ''}" width="48" height="48" data-ic="${SUI.icons.length - 1}"></canvas>`; };
+  stEl.title.style.color = M.col; stEl.title.innerHTML = esc(M.title) + (M.sub ? `<small>${esc(M.sub)}</small>` : '');
+  stEl.tabs.innerHTML = M.tabs.map((t, i) => `<button data-id="tab:${i}" class="${i === SUI.tab ? 'on' : ''}">${esc(t)}</button>`).join('');
+  stEl.res.innerHTML = `<span class="lv">${esc(classDef(RP.cls).name.toUpperCase())} ${RP.level}</span><span class="gold"><i></i>${rfmt(RP.gold)}</span><span class="dust"><i></i>${rfmt(RP.dust)}</span>`;
+  const keepScroll = stEl.list.scrollTop, keepInfo = stEl.info.scrollTop;
+  stEl.list.style.display = M.dlg ? 'none' : '';
+  stEl.list.innerHTML = nrows ? M.rows.map((r, i) => `<div class="stRow ${r.st || ''}${i === SUI.row ? ' focus' : ''}" data-id="row:${i}">${r.ic ? ic(r.ic) : r.glyph ? suiGlyphHTML(r.glyph, r.col || '#fff') : ''}<div class="stT"><b style="color:${r.col || '#fff'}">${esc(r.name)}</b><small>${esc(r.sub || '')}</small></div>${r.right ? `<span class="stR">${esc(r.right)}</span>` : ''}</div>`).join('') : `<div id="stEmpty">${esc(M.empty || '')}</div>`;
+  let h = ''; for (const l of M.info) {
+    if (l.t === 'h') h += `<div class="stH${l.small ? ' small' : ''}" style="color:${l.col || '#fff'}">${l.ic ? ic(l.ic) : l.gem ? ic(() => gemIconBase(l.gem)) : ''}<span>${esc(l.a)}</span></div>`;
+    else if (l.t === 'p') h += `<p class="stP${l.dim ? ' dim' : ''}">${esc(l.a)}</p>`;
+    else if (l.t === 'say') h += `<div class="stSay" style="color:${l.col || '#ffe27a'}"><span style="color:#fff4d8">${esc(l.a)}</span></div>`;
+    else if (l.t === 'kv') h += `<div class="tipRow"><span>${esc(l.a)}</span><span class="rg"${l.col ? ` style="color:${l.col}"` : ''}>${esc(l.b)}</span></div>`;
+    else if (l.t === 'cost') h += `<div class="stCost ${l.ok ? 'ok' : 'no'}">${l.ic ? ic(l.ic) : ''}<span>${esc(l.a)}</span><b>${esc(l.b)}</b><i>${l.ok ? '&#10003;' : '&#10007;'}</i></div>`;
+    else if (l.t === 'aff') h += `<div class="tipRow aff${l.sel ? ' sel' : ''}" ${l.id ? `data-id="${l.id}"` : ''}><span class="tb t${l.tier}" style="font-size:.66em;font-weight:900;padding:0 .45em;border-radius:4px;color:#0b1722;flex:none">T${l.tier + 1}</span><span>${esc(l.a)}</span><span class="rg">${esc(l.b.replace(/^T\d+\s*/, ''))}</span></div>`;
+    else if (l.t === 'imb') h += `<div class="tipRow aff sel" data-id="imb"><span style="color:#ffe27a">${esc(l.a)}</span><span class="rg">${esc(l.b)}</span></div>`;
+    else if (l.t === 'leg') h += `<div class="stLeg"><b>LEGENDARY POWER: ${esc(l.a)}</b>${esc(l.b)}</div>`;
+    else if (l.t === 'sp') h += '<div class="stSp"></div>';
+  }
+  if (!M.info.length && M.empty && nrows) h += `<p class="stP dim">${esc(M.empty)}</p>`;
+  h += `<div class="stActs">${M.acts.map(a => `<button data-id="act:${a.id}" class="${a.primary ? 'go' : ''}${a.off ? ' off' : ''}">${esc(a.label)}</button>`).join('')}</div>`; stEl.info.innerHTML = h;
+  stEl.msg.className = SUI.msgT > 0 && !SUI.msgOk ? 'bad' : ''; stEl.msg.textContent = SUI.msgT > 0 ? SUI.msg : '';
+  stEl.foot.innerHTML = (M.foot.length ? M.foot : [['B', 'close']]).map(([k, t]) => `<span><i class="kk ${SUI_KK[k] || 't'}">${esc(k)}</i>${esc(t)}</span>`).join('');
+  for (const cv of stEl.root.querySelectorAll('canvas[data-ic]')) { const src = SUI.icons[+cv.dataset.ic]; if (src) { const g = cv.getContext('2d'); g.clearRect(0, 0, 48, 48); g.drawImage(src, 0, 0, 48, 48); } }
+  stEl.list.scrollTop = keepScroll; stEl.info.scrollTop = keepInfo; const f = stEl.list.querySelector('.stRow.focus'); if (f) { const t = f.offsetTop, b = t + f.offsetHeight; if (t < stEl.list.scrollTop) stEl.list.scrollTop = t - 6; else if (b > stEl.list.scrollTop + stEl.list.clientHeight) stEl.list.scrollTop = b - stEl.list.clientHeight + 6; }
+}
+// ---- open / close ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiOpen(kind, o = {}) {
+  if (SUI.open) return false; const stt = G.state; if (!(stt === 'play' || stt === 'pause' || stt === 'menu' || stt === 'dead')) return false; if (RUI.open || PK.open || CSU.open) return false; if (stt === 'play' && (G.trans || G.finale || P.dead)) { toast('Not now'); return false; }
+  SUI.from = stt; SUI.open = true; G.state = 'sta'; SUI.kind = kind; SUI.tab = o.tab | 0; SUI.row = o.row | 0; SUI.aff = 0; SUI.imb = 0; SUI.npc = o.npc || null; SUI.dlgI = 0; SUI.msg = ''; SUI.msgT = 0; SUI.t = 0; SUI.acts = 0; SUI.stale = new Set(keys); mouseFire = mousePlace = padFireDown = padPlaceDown = false; SUI.hid = [];
+  for (const id of ['menu', 'dead', 'pause']) { const el = $(id); if (el && !el.classList.contains('hidden')) { el.classList.add('hidden'); SUI.hid.push(id); } }
+  document.exitPointerLock && document.exitPointerLock(); if (!VR.presenting) stEl.root.classList.remove('hidden'); SUI.M = null; SUI.dirty = true; if (!VR.presenting) suiRender(); else RV.dirty = true; rsfx('uiopen'); return true;
+}
+function suiSwitch(kind, o = {}) { SUI.kind = kind; SUI.tab = o.tab | 0; SUI.row = 0; SUI.aff = 0; SUI.imb = 0; SUI.dlgI = 0; SUI.msg = ''; SUI.msgT = 0; SUI.npc = o.npc !== undefined ? o.npc : SUI.npc; SUI.M = null; SUI.dirty = true; if (!VR.presenting) suiRender(); else RV.dirty = true; rsfx('ui'); }
+function suiClose() {
+  if (!SUI.open) return; SUI.open = false; stEl.root.classList.add('hidden'); const from = SUI.from; for (const id of SUI.hid) if (!(id === 'pause' && (from === 'play' || from === 'pause'))) $(id).classList.remove('hidden'); SUI.hid = [];
+  if (from === 'play' || from === 'pause') { G.state = 'play'; $('pause').classList.add('hidden'); requestLock(); } else G.state = from; if (from === 'menu') rpgRenderMenu(); if (typeof rpgSwallow === 'function') rpgSwallow();
+  RT.dirty = true; rpgFlush(true); rsfx('uiclose'); if (typeof townOnClose === 'function') townOnClose();
+}
+// ---- input -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function suiMoveRow(d) { const M = SUI.M || suiModel(), n = M.rows.length; if (!n) return; const r = clamp(SUI.row + d, 0, n - 1); if (r !== SUI.row) { SUI.row = r; SUI.aff = 0; SUI.imb = 0; SUI.dirty = true; rsfx('ui'); } }
+function suiMoveTab(d) { const M = SUI.M || suiModel(), n = M.tabs.length; if (n < 2) return; SUI.tab = (SUI.tab + d + n) % n; SUI.row = 0; SUI.aff = 0; SUI.imb = 0; SUI.dirty = true; rsfx('ui'); }
+function suiKey(k) {
+  if (!SUI.open) return; const m = UI_MAP[k];
+  if (k === 'arrowup' || k === 'w') suiMoveRow(-1); else if (k === 'arrowdown' || k === 's') suiMoveRow(1); else if (k === 'arrowleft' || k === 'a' || k === 'q') suiMoveTab(-1); else if (k === 'arrowright' || k === 'd' || k === 'shift') suiMoveTab(1);
+  else if (k === ' ' || k === 'enter') suiDo('A'); else if (k === 'j') suiDo('X'); else if (k === 'e') suiDo(SUI.kind === 'dlg' ? 'A' : 'Y'); else if (k === 'z' || k === 'escape' || k === 'b' || k === 'i' || k === 'tab') suiClose();
+  else if (k === 'pageup') suiMoveRow(-5); else if (k === 'pagedown') suiMoveRow(5);
+}
+function suiClick(id) {
+  if (!SUI.open) return; rsfx('ui');
+  if (id === 'close') { suiClose(); return; } if (id.startsWith('tab:')) { const t = +id.slice(4); if (t !== SUI.tab) { SUI.tab = t; SUI.row = 0; SUI.aff = 0; SUI.imb = 0; SUI.dirty = true; } return; }
+  if (id.startsWith('row:')) { const r = +id.slice(4); if (r !== SUI.row) { SUI.row = r; SUI.aff = 0; SUI.imb = 0; SUI.dirty = true; } return; }
+  if (id.startsWith('act:')) { suiDo(id.slice(4)); return; } if (id.startsWith('aff:')) { SUI.aff = +id.slice(4); SUI.dirty = true; return; } if (id === 'imb') { SUI.imb++; SUI.dirty = true; return; }
+  if (id === 'pg:-1') { suiMoveRow(-5); return; } if (id === 'pg:1') { suiMoveRow(5); return; }
+}
+stEl.root.addEventListener('click', e => { if (!SUI.open) return; const el = e.target.closest('[data-id]'); if (!el) return; e.stopPropagation(); if (el.disabled) return; suiClick(el.dataset.id); if (SUI.dirty) suiRender(); });
+stEl.root.addEventListener('mousedown', e => e.stopPropagation()); stEl.root.addEventListener('pointerdown', e => e.stopPropagation());
+stEl.root.addEventListener('mouseover', e => { if (!SUI.open || e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return; const el = e.target.closest('.stRow'); if (!el) return; const r = +el.dataset.id.slice(4); if (r !== SUI.row) { SUI.row = r; SUI.aff = 0; SUI.imb = 0; SUI.dirty = true; suiRender(); } });
+stEl.root.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+// pad / keyboard repeat for held directions, the message timer, and a slow refresh for timers (garden, effects)
+function suiTick(rdt) {
+  if (!SUI.open) { SUI.rep.k = ''; return; } SUI.t += rdt; if (SUI.msgT > 0) { SUI.msgT -= rdt; if (SUI.msgT <= 0) { SUI.msgT = 0; SUI.dirty = true; } }
+  let hk = ''; for (const k of ['arrowup', 'w', 'arrowdown', 's', 'arrowleft', 'a', 'arrowright', 'd']) { if (SUI.stale && SUI.stale.has(k)) { if (!keys.has(k)) SUI.stale.delete(k); continue; } if (keys.has(k)) { hk = k; break; } }
+  if (!hk) SUI.rep.k = ''; else if (hk !== SUI.rep.k) { SUI.rep.k = hk; SUI.rep.t = 0.38; } else { SUI.rep.t -= rdt; if (SUI.rep.t <= 0) { SUI.rep.t = 0.11; suiKey(hk); } }
+  if (SUI.t > 1 && (SUI.kind === 'garden' || SUI.kind === 'pack' || SUI.kind === 'board')) { SUI.t = 0; SUI.dirty = true; }
+  if (SUI.dirty) { if (VR.presenting) { SUI.M = suiModel(); SUI.dirty = false; RV.dirty = true; } else suiRender(); }
+}
+{ const _f = rpgFrame; rpgFrame = function (rdt, sdt) { _f(rdt, sdt); if (SUI.open) { try { suiTick(rdt); } catch (err) { if (!SUI.err) { SUI.err = 1; console.error('sui', err); } } } }; }
+{ const _k = rpgKeyDown; rpgKeyDown = function (k) { if (SUI.open) { suiKey(k); return; } _k(k); }; }
+{ const _u = uiKey; uiKey = function (k) { if (SUI.open) { suiKey(k); return; } _u(k); }; }
+// the rpg overlay hides while a station is open; nothing else to do for the DOM (it is a full-screen overlay)
+// ---- VR: one big world-space panel, laser + sticks ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const SVR = { rowH: 84, rows: 10, y0: 226, off: 0 };
+function suiVrWrap(c, text, x, y, w, size, col, weight, lh, maxLines) { c.font = (weight || 600) + ' ' + size + 'px ' + VFONT; wrapLines(c, text, w, _wl); c.fillStyle = col; c.textAlign = 'left'; let n = 0; for (let i = 0; i < _wl.length && i < (maxLines || 6); i++) { c.fillText(_wl[i], x, y + i * lh); n++; } return n; }
+function suiDrawVr() {
+  const p = UI.rp, c = p.ctx, W = p.pw, H = p.ph; c.clearRect(0, 0, W, H); RV.btns.length = 0; c.textBaseline = 'alphabetic'; const M = SUI.M || (SUI.M = suiModel()); SUI.dirty = false; const nrows = M.rows.length; SUI.row = nrows ? clamp(SUI.row, 0, nrows - 1) : 0;
+  rrect(c, 8, 8, W - 16, H - 16, 50); const gr = c.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(12,28,46,.96)'); gr.addColorStop(1, 'rgba(6,14,24,.96)'); c.fillStyle = gr; c.fill(); c.lineWidth = 7; c.strokeStyle = M.col; c.stroke();
+  rvTxt(c, M.title, 52, 84, 58, M.col, 900, 'left', 500);
+  for (let i = 0; i < M.tabs.length; i++) rvBtn(c, 'tab:' + i, 560 + i * 196, 24, 188, 80, M.tabs[i], { on: i === SUI.tab, fs: 34, r: 22 });
+  rvCoin(c, 1556, 64, 22); rvTxt(c, rfmt(RP.gold), 1590, 80, 42, '#fff4d8', 900); rvDiamond(c, 1744, 62, 22, '#53e0d0'); rvTxt(c, rfmt(RP.dust), 1778, 80, 42, '#c8fff6', 900); rvBtn(c, 'close', 1884, 24, 124, 80, 'X', { fs: 48, r: 22 });
+  const showList = !M.dlg, lx = 40, lw = 770, ix = showList ? 830 : 40, iw = showList ? 1178 : 1968;
+  if (showList) {
+    rvPanelBg(c, lx, 130, lw, 1010, 26); rvTxt(c, M.sub || ' ', lx + 26, 184, 38, '#9fd8ff', 800, 'left', lw - 52);
+    if (!nrows) rvTxt(c, M.empty || '', lx + lw / 2, 560, 38, '#8195a6', 700, 'center', lw - 60);
+    const first = clamp(SUI.row - 4, 0, Math.max(0, nrows - SVR.rows)); SVR.off = first;
+    if (first > 0) rvBtn(c, 'pg:-1', lx + lw - 96, 140, 80, 48, '^', { fs: 34, r: 14, dim: true }); if (first + SVR.rows < nrows) rvBtn(c, 'pg:1', lx + lw - 96, 1086, 80, 48, 'v', { fs: 30, r: 14, dim: true });
+    for (let k = 0; k < SVR.rows && first + k < nrows; k++) {
+      const i = first + k, r = M.rows[i], y = SVR.y0 + k * SVR.rowH, foc = i === SUI.row, hot = rvHot(r.id); RV.btns.push({ id: r.id, x: lx + 12, y, w: lw - 24, h: SVR.rowH - 8 });
+      rrect(c, lx + 12, y, lw - 24, SVR.rowH - 8, 18); c.fillStyle = foc ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.05)'; c.fill(); c.lineWidth = foc ? 7 : hot ? 4 : 2; c.strokeStyle = foc ? '#fff2b0' : hot ? 'rgba(160,220,255,.9)' : 'rgba(255,255,255,.14)'; c.stroke();
+      const icn = r.ic ? suiIconOf(r.ic) : null; if (icn) c.drawImage(icn, lx + 24, y + 7, 62, 62); else if (r.glyph) { c.beginPath(); c.arc(lx + 55, y + 38, 28, 0, TAU); c.fillStyle = r.col || '#fff'; c.fill(); }
+      c.globalAlpha = r.st === 'lock' ? 0.55 : 1; rvTxt(c, r.name, lx + 102, y + 36, 38, r.col || '#fff', 800, 'left', lw - 102 - (r.right ? 190 : 40)); rvTxt(c, r.sub || '', lx + 102, y + 66, 28, '#a9bccb', 600, 'left', lw - 102 - (r.right ? 190 : 40)); if (r.right) rvTxt(c, r.right, lx + lw - 30, y + 48, 32, r.st === 'ok' ? '#9cf7ab' : r.st === 'no' ? '#ff9a8a' : '#c8d6e2', 900, 'right', 170); c.globalAlpha = 1;
+    }
+  }
+  rvPanelBg(c, ix, 130, iw, 1010, 26); let y = 196; const tx = ix + 30, tw = iw - 60;
+  for (const l of M.info) {
+    if (y > 1000) break;
+    if (l.t === 'h') { const icn = l.ic ? suiIconOf(l.ic) : l.gem ? gemIconBase(l.gem) : null, o = icn ? 74 : 0; if (icn) c.drawImage(icn, tx, y - 46, 62, 62); rvTxt(c, l.a, tx + o, y, l.small ? 34 : 50, l.col || '#fff', 900, 'left', tw - o); y += l.small ? 46 : 62; }
+    else if (l.t === 'p') { const n = suiVrWrap(c, l.a, tx, y, tw, l.dim ? 32 : 36, l.dim ? '#8195a6' : '#cfe0ec', 600, 42, 5); y += n * 42 + 8; }
+    else if (l.t === 'say') { rrect(c, tx - 10, y - 50, tw + 20, 0 + 4, 4); const n = suiVrWrap(c, l.a, tx + 6, y, tw - 20, 52, '#fff4d8', 700, 66, 6); c.fillStyle = l.col || '#ffe27a'; c.fillRect(tx - 14, y - 46, 8, n * 66 + 6); y += n * 66 + 24; }
+    else if (l.t === 'kv') { rvTxt(c, l.a, tx, y, 36, '#a9bccb', 700, 'left', tw * 0.5); rvTxt(c, l.b, tx + tw, y, 36, l.col || '#ffffff', 800, 'right', tw * 0.55); y += 48; }
+    else if (l.t === 'cost') { const icn = l.ic ? suiIconOf(l.ic) : null; if (icn) c.drawImage(icn, tx, y - 34, 44, 44); rvTxt(c, l.a, tx + (icn ? 56 : 0), y, 36, '#dfe9f2', 700, 'left', tw * 0.55); rvTxt(c, l.b, tx + tw - 56, y, 36, l.ok ? '#9cf7ab' : '#ff9a8a', 800, 'right', tw * 0.5); rvTxt(c, l.ok ? 'OK' : 'NO', tx + tw, y, 30, l.ok ? '#9cf7ab' : '#ff8f7a', 900, 'right'); y += 50; }
+    else if (l.t === 'aff' || l.t === 'imb') { const id = l.id; if (id) RV.btns.push({ id, x: tx - 10, y: y - 40, w: tw + 20, h: 54 }); const hot = id && rvHot(id); if (l.sel || hot) { rrect(c, tx - 10, y - 40, tw + 20, 54, 12); c.fillStyle = l.sel ? 'rgba(255,226,122,.26)' : 'rgba(160,220,255,.2)'; c.fill(); } if (l.t === 'aff') { rrect(c, tx, y - 34, 62, 42, 10); c.fillStyle = ['#46607a', '#3a8a8a', '#3d8f5a', '#a8842a', '#c8602a'][l.tier] || '#46607a'; c.fill(); rvTxt(c, 'T' + (l.tier + 1), tx + 31, y - 3, 32, '#fff', 900, 'center'); rvTxt(c, l.a, tx + 78, y, 36, '#fff', 700, 'left', tw - 330); rvTxt(c, l.b.replace(/^T\d+\s*/, ''), tx + tw, y, 30, '#7d93a6', 600, 'right', 250); } else { rvTxt(c, l.a, tx, y, 36, '#ffe27a', 800, 'left', tw * 0.6); rvTxt(c, l.b, tx + tw, y, 30, '#c8d6e2', 700, 'right', tw * 0.5); } y += 56; }
+    else if (l.t === 'leg') { rvTxt(c, 'LEGENDARY: ' + l.a, tx, y, 34, '#ffb15e', 900, 'left', tw); y += 40; const n = suiVrWrap(c, l.b, tx, y, tw, 32, '#ffe9c8', 600, 40, 3); y += n * 40 + 10; }
+    else if (l.t === 'sp') y += 18;
+  }
+  if (!M.info.length && nrows && M.empty) rvTxt(c, M.empty, tx, y, 36, '#8195a6', 600, 'left', tw);
+  const na = M.acts.length, aw = na ? Math.min(380, (tw - (na - 1) * 16) / na) : 0; for (let i = 0; i < na; i++) { const a = M.acts[i]; rvBtn(c, 'act:' + a.id, tx + i * (aw + 16), 1050, aw, 76, a.label, { primary: a.primary && !a.off, dim: a.off, fs: a.label.length > 14 ? 30 : 38, r: 38 }); }
+  const foot = (M.foot.length ? M.foot : [['B', 'close']]).map(([k, t]) => k + ' ' + t).join('    ') + '    STICK select    GRIPS tabs    TRIGGER click'; rvTxt(c, foot, W / 2, 1196, 36, '#9fd8ff', 700, 'center', W - 80);
+  if (SUI.msgT > 0) rvTxt(c, SUI.msg, W / 2, 1248, 42, SUI.msgOk ? '#9cf7ab' : '#ff9a8a', 800, 'center', W - 80);
+  p.tex.needsUpdate = true; RV.dirty = false;
+}
+function suiVrHover(id) { if (id.startsWith('row:')) { const r = +id.slice(4); if (r !== SUI.row) { SUI.row = r; SUI.aff = 0; SUI.imb = 0; SUI.M = null; SUI.dirty = true; RV.dirty = true; } } }
+function suiVrClick(id) { suiClick(id); SUI.M = null; SUI.dirty = true; RV.dirty = true; }
+function suiVrActions(rdt, L, R) {
+  let ax = R.has ? R.ax : 0, ay = R.has ? R.ay : 0, hh = 1; if (L.has && Math.hypot(L.ax, L.ay) > Math.hypot(ax, ay)) { ax = L.ax; ay = L.ay; hh = 0; }
+  const rep = RV.rep, on = rep.dir ? 0.3 : 0.62; let d = 0; if (Math.abs(ax) > Math.abs(ay)) { if (ax < -on) d = 1; else if (ax > on) d = 2; } else { if (ay < -on) d = 3; else if (ay > on) d = 4; }
+  const step = dd => { vrHaptic(hh, 0.1, 8); suiKey(dd === 1 ? 'arrowleft' : dd === 2 ? 'arrowright' : dd === 3 ? 'arrowup' : 'arrowdown'); SUI.M = null; RV.dirty = true; };
+  if (!d) rep.dir = 0; else if (d !== rep.dir) { rep.dir = d; rep.t = 0.36; step(d); } else { rep.t -= rdt; if (rep.t <= 0) { rep.t = 0.11; step(d); } }
+  if (R.rise & 4) suiKey(' '); if (R.rise & 8) suiKey('z'); if (L.rise & 4) suiKey('j'); if (L.rise & 8) suiKey('e'); if (L.rise & 2) suiKey('q'); if (R.rise & 2) suiKey('shift'); if (SUI.open) { SUI.M = null; SUI.dirty = true; }
+}
+{ const _h = vrRpgHover; vrRpgHover = function (id) { if (UI.mode === 'sta') { suiVrHover(id); return; } _h(id); }; const _c = vrRpgClick; vrRpgClick = function (id) { if (UI.mode === 'sta') { sfx('click'); suiVrClick(id); return; } _c(id); }; const _a = vrRpgActions; vrRpgActions = function (rdt, L, R) { if (SUI.open) { suiVrActions(rdt, L, R); return; } _a(rdt, L, R); }; const _d = vrDrawRp; vrDrawRp = function () { if (UI.mode === 'sta') { suiDrawVr(); return; } _d(); }; }
+// ---- test API ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+window.__sta = {
+  open(kind, o) { return suiOpen(kind, o || {}); }, close() { suiClose(); }, state() { return { open: SUI.open, kind: SUI.kind, tab: SUI.tab, row: SUI.row, from: SUI.from, msg: SUI.msg, ok: SUI.msgOk, acts: SUI.acts, gstate: G.state }; },
+  model() { const M = suiModel(); return { title: M.title, sub: M.sub, tabs: M.tabs, rows: M.rows.map(r => ({ name: r.name, sub: r.sub, right: r.right, st: r.st })), info: M.info.map(l => ({ t: l.t, a: l.a, b: l.b, ok: l.ok })), acts: M.acts.map(a => ({ id: a.id, label: a.label, off: a.off })), foot: M.foot, empty: M.empty, build: M.build || null, dlg: M.dlg || null }; },
+  key(k) { suiKey(k); if (!VR.presenting) { if (SUI.dirty) suiRender(); } else { SUI.M = null; RV.dirty = true; } }, click(id) { suiClick(id); if (!VR.presenting) { if (SUI.dirty) suiRender(); } else { SUI.M = null; RV.dirty = true; } }, do(id) { suiDo(id); if (!VR.presenting && SUI.dirty) suiRender(); },
+  select(tab, row) { if (tab != null) SUI.tab = tab; if (row != null) SUI.row = row; SUI.M = null; SUI.dirty = true; if (!VR.presenting) suiRender(); else RV.dirty = true; }, ids() { return [...stEl.root.querySelectorAll('[data-id]')].map(e => e.dataset.id); }, vrBtns() { return RV.btns.map(b => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h })); },
+  drawVr() { suiDrawVr(); },
+};
+// </sui-ui>
+
 // <mob-models> ==================================================================================================================
 // SHATTERWORLD mob variety, part 2a: procedural models. Every mob is built with the SAME part() / outline-hull builder as the original walker / hero (parametrised by shape + palette),
 // so it carries userData.vrp / vro and is merged into one vertex-coloured mesh (+ one outline mesh) while presenting in VR. The small swarm types (Scuttler, Fusebug) are baked into
@@ -8452,6 +9126,296 @@ window.__mobs = {
 function mobInfo(e) { const m = e.mob; return { type: e.type, st: m.st, atk: m.atk, x: e.x, y: e.y, z: e.z, fy: e.fy, hover: m.hover, hidden: m.hidden, alert: m.alert, phase: m.phase, vuln: m.vuln, hp: e.rpg ? e.rpg.hp : 0, maxhp: e.rpg ? e.rpg.maxhp : 0, tier: e.rpg ? e.rpg.tier : '', name: e.rpg ? e.rpg.name : '', shield: m.shieldT, dead: m.dead, pack: m.pack, stunT: m.stunT, visible: e.mesh.visible, bodyVisible: e.body.visible, idx: ENEMIES.indexOf(e) }; }
 { const d0 = window.__dbg; window.__dbg = () => { const d = d0(); d.mobs = { n: ENEMIES.filter(e => e.mob && e.alive && e.state !== 'dead').length, tells: TELLS.length, proj: MPJ.filter(p => p.on).length, boss: MOBX.boss ? MOBX.boss.type : null }; return d; }; }
 // </mob-game>
+
+// <town-world> ==================================================================================================================
+// SHATTERWORLD home town, part 2a: the VOXEL TOWN. townLayout(seed) (town-core, deterministic) says where the plaza, roads, wards, lots, buildings, stalls, board, garden beds, trees, lamps and the gate are; this block turns it
+// into a block world with the same VB builder the three acts use (so it gets the same cube shader, AO, bloom glow and shatter blend). Every building has a role silhouette and grows visibly with its tier
+// (chimneys, clock tower, crystals, greenhouses, extra stalls ...). Window and lamp cubes are tracked so they light up at dusk. Hard budget: < ~9k visible cubes (one InstancedMesh, one draw call).
+// ==============================================================================================================================
+const TWP = {}; // palette ids for the town VB
+function twPalette(vb) {
+  const A = (k, r, g, b, gl) => { TWP[k] = vb.addPal(r, g, b, gl || 0); };
+  A('g1', 0.45, 0.76, 0.36); A('g2', 0.38, 0.70, 0.32); A('g3', 0.52, 0.82, 0.40); A('dirt', 0.56, 0.40, 0.28); A('dirt2', 0.46, 0.32, 0.22); A('stone', 0.62, 0.62, 0.66); A('stone2', 0.52, 0.52, 0.58); A('rock', 0.44, 0.42, 0.46); A('rock2', 0.36, 0.34, 0.40);
+  A('road1', 0.82, 0.74, 0.60); A('road2', 0.74, 0.66, 0.54); A('plaza1', 0.96, 0.89, 0.74); A('plaza2', 0.87, 0.79, 0.65); A('wood', 0.56, 0.38, 0.24); A('wood2', 0.42, 0.28, 0.18); A('wood3', 0.72, 0.52, 0.32);
+  A('win', 1.0, 0.86, 0.46, 0.123); A('lamp', 1.0, 0.92, 0.56, 0.234); A('water', 0.45, 0.85, 1.0, 0.25); A('hedge', 0.24, 0.56, 0.28); A('hedge2', 0.30, 0.64, 0.32); A('leaf1', 0.30, 0.66, 0.32); A('leaf2', 0.40, 0.76, 0.36); A('pine', 0.18, 0.46, 0.30); A('pine2', 0.24, 0.54, 0.34);
+  A('blos1', 1.0, 0.70, 0.84); A('blos2', 1.0, 0.84, 0.92); A('flow1', 1.0, 0.50, 0.60); A('flow2', 1.0, 0.90, 0.40); A('flow3', 0.95, 0.95, 1.0); A('flow4', 0.70, 0.60, 1.0); A('soil', 0.34, 0.22, 0.14); A('soil2', 0.44, 0.29, 0.18); A('door', 0.36, 0.22, 0.14);
+  A('gold', 1.0, 0.82, 0.30, 0.55); A('crystal', 0.78, 0.50, 1.0, 0.9); A('forge', 1.0, 0.50, 0.15, 1.0); A('portal', 0.33, 0.88, 0.82, 1.1); A('white', 0.98, 0.97, 0.96); A('brick', 0.72, 0.38, 0.32); A('brick2', 0.60, 0.30, 0.26); A('glass', 0.62, 0.94, 0.96, 0.35); A('paper', 0.98, 0.94, 0.82);
+  A('cloth1', 0.92, 0.30, 0.30); A('cloth2', 0.98, 0.96, 0.90); A('cloth3', 0.30, 0.55, 0.92); A('cloth4', 1.0, 0.76, 0.24); A('flask', 0.5, 1.0, 0.65, 0.7); A('ember', 1.0, 0.35, 0.1, 0.7); A('coal', 0.16, 0.14, 0.16); A('iron', 0.34, 0.36, 0.42);
+  const R = { hall: [[0.99, 0.91, 0.64], [0.80, 0.26, 0.24]], kitchen: [[1.0, 0.77, 0.55], [0.86, 0.40, 0.20]], smithy: [[0.66, 0.70, 0.78], [0.30, 0.34, 0.46]], gems: [[0.80, 0.68, 0.97], [0.50, 0.32, 0.80]], apothecary: [[0.62, 0.90, 0.70], [0.22, 0.58, 0.40]], warehouse: [[0.84, 0.66, 0.46], [0.54, 0.34, 0.22]],
+    h0: [[0.96, 0.83, 0.77], [0.80, 0.34, 0.30]], h1: [[0.79, 0.89, 0.96], [0.30, 0.46, 0.70]], h2: [[0.97, 0.95, 0.79], [0.86, 0.58, 0.24]], h3: [[0.87, 0.79, 0.93], [0.50, 0.34, 0.60]] };
+  for (const k in R) { A('w_' + k, ...R[k][0]); A('r_' + k, ...R[k][1]); }
+  return TWP;
+}
+// ---- building frame: local coordinates (u along the facade, v from the front wall inwards) ---------------------------------------------------------------------------------------------------------------------------
+function bFrame(b) { const ev = b.face === 0 || b.face === 2, W = ev ? b.z1 - b.z0 : b.x1 - b.x0, D = ev ? b.x1 - b.x0 : b.z1 - b.z0; const at = (u, v) => b.face === 0 ? [b.x1 - 1 - v, b.z0 + u] : b.face === 2 ? [b.x0 + v, b.z0 + u] : b.face === 1 ? [b.x0 + u, b.z1 - 1 - v] : [b.x0 + u, b.z0 + v]; return { W, D, at, ev }; }
+function twBox(vb, F, u0, u1, v0, v1, y0, y1, p) { for (let u = u0; u < u1; u++) for (let v = v0; v < v1; v++) { const [x, z] = F.at(u, v); for (let y = y0; y < y1; y++) vb.set(x, y, z, p); } }
+function twSet(vb, F, u, v, y, p) { const [x, z] = F.at(u, v); vb.set(x, y, z, p); }
+function twRoof(vb, b, y, pal, trim, gable, F) { // stepped hip roof (or a gable along the facade), 1 cell overhang, solid
+  let a = b.x0 - 1, bb = b.z0 - 1, c = b.x1 + 1, d = b.z1 + 1, yy = y, first = true; const alongX = (b.x1 - b.x0) >= (b.z1 - b.z0);
+  while (a < c && bb < d && yy < y + 8) { for (let x = a; x < c; x++) for (let z = bb; z < d; z++) { const edge = x === a || x === c - 1 || z === bb || z === d - 1; vb.set(x, yy, z, first && edge ? trim : pal); } if (gable) { if (alongX) { bb++; d--; } else { a++; c--; } } else { a++; bb++; c--; d--; } yy++; first = false; }
+  return yy;
+}
+function twShell(vb, b, o) { // walls + foundation + door + windows + corner posts + roof. Returns the frame.
+  const F = bFrame(b), W = F.W, D = F.D, H = o.h, wall = TWP['w_' + o.pal], roof = TWP['r_' + o.pal];
+  twBox(vb, F, 0, W, 0, D, 0, 1, TWP.stone2); twBox(vb, F, 0, W, 0, D, 1, H, wall);
+  for (const [u, v] of [[0, 0], [W - 1, 0], [0, D - 1], [W - 1, D - 1]]) twBox(vb, F, u, u + 1, v, v + 1, 1, H, TWP.wood2);
+  twBox(vb, F, 0, W, 0, D, H - 1, H, TWP.wood); // eave beam
+  const du = (W >> 1); twBox(vb, F, du, du + 1, 0, 1, 1, 3, TWP.door); twBox(vb, F, du - 1, du, 0, 1, 1, 4, TWP.wood3); twBox(vb, F, du + 1, du + 2, 0, 1, 1, 4, TWP.wood3); twBox(vb, F, du - 1, du + 2, 0, 1, 3, 4, TWP.wood3); // door + frame
+  for (let u = 2; u < W - 2; u += 3) { if (Math.abs(u - du) <= 1) continue; for (let y = 2; y < Math.min(H - 1, 4); y++) { twSet(vb, F, u, 0, y, TWP.win); if (y === 2) twSet(vb, F, u, D - 1, y, TWP.win); } }
+  for (let v = 2; v < D - 2; v += 3) for (const u of [0, W - 1]) twSet(vb, F, u, v, 2, TWP.win);
+  const top = twRoof(vb, b, H, roof, TWP.wood2, !!o.gable); F.top = top; F.H = H; F.wall = wall; F.roof = roof; return F;
+}
+function twChimney(vb, F, u, v, h, o) { for (let y = F.H; y < F.H + h; y++) twSet(vb, F, u, v, y, y % 3 === 0 ? TWP.brick2 : TWP.brick); twSet(vb, F, u, v, F.H + h, TWP.coal); return F.at(u, v).concat([F.H + h + 1]); }
+function twSite(vb, b) { // an unbuilt plot: foundation corners, scaffold poles, a stack of timber
+  const F = bFrame(b); twBox(vb, F, 0, F.W, 0, F.D, 0, 1, TWP.dirt2); for (const [u, v] of [[0, 0], [F.W - 1, 0], [0, F.D - 1], [F.W - 1, F.D - 1]]) twBox(vb, F, u, u + 1, v, v + 1, 1, 4, TWP.wood2); twBox(vb, F, 0, F.W, 0, 1, 3, 4, TWP.wood); twBox(vb, F, 1, 3, 2, 4, 1, 3, TWP.wood3); twSet(vb, F, F.W - 2, 2, 1, TWP.paper); twSet(vb, F, F.W >> 1, 0, 1, TWP.gold); return F;
+}
+// ---- the roles, tier by tier ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function twBuilding(vb, b, tier, out) { // out.chimneys = [[x,y,z,kind]] smoke / spark emitters
+  const role = b.role, T = tier | 0;
+  if (role === 'home') { const F = twShell(vb, b, { h: 4, pal: 'h' + (b.style | 0), gable: (b.style & 1) === 1 }); twChimney(vb, F, 1, 1, 2); out.chimneys.push(twChimney(vb, F, 1, F.D - 2, 2).concat(['home'])); twBox(vb, F, 1, 2, 0, 1, 1, 2, TWP.flow1); return F; }
+  if (T < 1 && (role === 'gems' || role === 'apothecary')) { twSite(vb, b); return null; }
+  if (role === 'hall') {
+    const F = twShell(vb, b, { h: 6, pal: 'hall' }), cx = F.W >> 1, cy = F.D >> 1; twBox(vb, F, cx - 1, cx + 2, cy - 1, cy + 2, F.top, F.top + 2, TWP.w_hall); twBox(vb, F, cx, cx + 1, cy, cy + 1, F.top + 2, F.top + 5, TWP.gold); twSet(vb, F, cx, cy, F.top + 5, TWP.lamp);
+    for (const [u, y] of [[cx - 1, F.top + 1], [cx + 1, F.top + 1]]) twSet(vb, F, u, cy - 1, y, TWP.win);
+    for (let u = 1; u < F.W - 1; u += 2) twSet(vb, F, u, -1 + 0, 0, TWP.stone); // steps row
+    if (T >= 2) for (const u of [0, F.W - 1]) { twBox(vb, F, u, u + 1, 0, 1, F.top, F.top + 4, TWP.stone); twBox(vb, F, u, u + 1, 0, 1, F.top + 4, F.top + 5, TWP.cloth1); twSet(vb, F, u, 0, F.top + 5, TWP.gold); }
+    if (T >= 3) { twBox(vb, F, cx - 1, cx + 2, cy - 1, cy + 2, F.top + 2, F.top + 6, TWP.w_hall); for (const [u, v] of [[cx, cy - 1], [cx - 1, cy], [cx + 1, cy], [cx, cy + 1]]) twSet(vb, F, u, v, F.top + 4, TWP.lamp); twBox(vb, F, cx - 1, cx + 2, cy - 1, cy + 2, F.top + 6, F.top + 7, TWP.gold); twBox(vb, F, cx, cx + 1, cy, cy + 1, F.top + 7, F.top + 10, TWP.gold); twSet(vb, F, cx, cy, F.top + 10, TWP.lamp); twBox(vb, F, 0, F.W, 0, 1, 1, 2, TWP.cloth1); }
+    return F; }
+  if (role === 'kitchen') {
+    const F = twShell(vb, b, { h: 5, pal: 'kitchen' }); out.chimneys.push(twChimney(vb, F, F.W - 2, F.D - 2, 3).concat(['smoke']));
+    twBox(vb, F, 1, F.W - 1, -1 + 0, 0, 0, 0, TWP.wood); // placeholder (no-op)
+    twBox(vb, F, 1, 3, 0, 1, 1, 2, TWP.wood2); twSet(vb, F, 1, 0, 2, TWP.ember); // barrel + a glowing pot
+    if (T >= 2) { out.chimneys.push(twChimney(vb, F, 1, F.D - 2, 4).concat(['smoke'])); for (let u = 1; u < F.W - 1; u++) twSet(vb, F, u, -1, 3, u % 2 ? TWP.cloth1 : TWP.cloth2); for (const u of [1, F.W - 2]) twBox(vb, F, u, u + 1, -1, 0, 0, 3, TWP.wood2); }
+    if (T >= 3) { for (const u of [2, F.W - 3]) twSet(vb, F, u, -1, 2, TWP.lamp); twBox(vb, F, F.W - 4, F.W - 1, 1, 2, F.top, F.top + 1, TWP.wood3); for (let u = 1; u < F.W - 1; u += 2) twSet(vb, F, u, 0, 4, TWP.leaf2); }
+    return F; }
+  if (role === 'smithy') {
+    const F = twShell(vb, b, { h: 5, pal: 'smithy' }); out.chimneys.push(twChimney(vb, F, F.W - 2, F.D - 2, 4).concat(['spark'])); twBox(vb, F, 0, 3, -1, 0, 0, 1, TWP.iron); twSet(vb, F, 1, -1, 1, TWP.iron); twSet(vb, F, 1, -1, 2, TWP.iron); twBox(vb, F, F.W - 3, F.W - 1, -1, 0, 0, 1, TWP.coal); twSet(vb, F, F.W - 2, -1, 0, TWP.forge); // anvil + forge pit
+    if (T >= 2) { twBox(vb, F, 0, F.W, -2, -1, 4, 5, TWP.r_smithy); for (const u of [0, F.W - 1]) twBox(vb, F, u, u + 1, -2, -1, 0, 4, TWP.wood2); twSet(vb, F, F.W - 2, -1, 1, TWP.forge); twSet(vb, F, F.W - 2, -1, 2, TWP.ember); }
+    if (T >= 3) { out.chimneys.push(twChimney(vb, F, 1, F.D - 2, 5).concat(['spark'])); twBox(vb, F, 1, 2, 1, 2, F.top, F.top + 2, TWP.iron); twSet(vb, F, 1, 1, F.top + 2, TWP.forge); twBox(vb, F, 3, 5, -3, -2, 0, 1, TWP.stone); }
+    return F; }
+  if (role === 'gems') {
+    const F = twShell(vb, b, { h: 5, pal: 'gems' }), cx = F.W >> 1, cy = F.D >> 1; const spire = (u, v, h) => { for (let y = 0; y < h; y++) twSet(vb, F, u, v, F.top + y, TWP.crystal); twSet(vb, F, u, v, F.top + h, TWP.white); };
+    spire(cx, cy, T >= 1 ? 3 : 2); if (T >= 2) { spire(cx - 2, cy, 2); spire(cx + 2, cy, 2); spire(cx, cy - 2, 2); } if (T >= 3) { spire(cx - 1, cy + 1, 4); spire(cx + 1, cy + 1, 4); for (let k = 0; k < 4; k++) twSet(vb, F, cx - 1 + (k & 1) * 2, cy + (k >> 1) * 0, F.top + 6, TWP.crystal); twSet(vb, F, cx, cy, F.top + 8, TWP.crystal); twSet(vb, F, cx, cy, F.top + 9, TWP.white); }
+    for (let u = 1; u < F.W - 1; u += 2) twSet(vb, F, u, -1, 0, u % 4 === 1 ? TWP.crystal : TWP.flow4); return F; }
+  if (role === 'apothecary') {
+    const F = twShell(vb, b, { h: 5, pal: 'apothecary', gable: true }); for (const u of [2, F.W - 3]) twSet(vb, F, u, 0, 3, TWP.flask); twBox(vb, F, F.W - 2, F.W - 1, 1, 2, 1, 3, TWP.hedge); twSet(vb, F, 1, -1, 1, TWP.leaf2); twSet(vb, F, 1, -1, 0, TWP.wood2);
+    if (T >= 2) { twBox(vb, F, F.W, F.W + 3, 1, F.D - 1, 0, 1, TWP.stone2); for (let v = 1; v < F.D - 1; v++) for (let u = F.W; u < F.W + 3; u++) for (let y = 1; y < 4; y++) if (u === F.W + 2 || v === 1 || v === F.D - 2 || y === 3) twSet(vb, F, u, v, y, TWP.glass); twSet(vb, F, F.W + 1, F.D >> 1, 1, TWP.leaf2); twSet(vb, F, F.W + 1, F.D >> 1, 2, TWP.flask); }
+    if (T >= 3) { twBox(vb, F, -3, 0, 1, F.D - 1, 0, 1, TWP.stone2); for (let v = 1; v < F.D - 1; v++) for (let u = -3; u < 0; u++) for (let y = 1; y < 4; y++) if (u === -3 || v === 1 || v === F.D - 2 || y === 3) twSet(vb, F, u, v, y, TWP.glass); twSet(vb, F, -2, F.D >> 1, 1, TWP.flow2); twSet(vb, F, -2, F.D >> 1, 2, TWP.flask); twBox(vb, F, F.W >> 1, (F.W >> 1) + 1, 0, 1, F.top, F.top + 3, TWP.flask); }
+    return F; }
+  if (role === 'warehouse') {
+    const F = twShell(vb, b, { h: 5, pal: 'warehouse', gable: true }); twBox(vb, F, 1, 3, -1, 0, 0, 2, TWP.wood3); twBox(vb, F, 1, 2, -1, 0, 2, 3, TWP.wood2); twBox(vb, F, F.W - 3, F.W - 1, -1, 0, 0, 1, TWP.wood3);
+    if (T >= 2) { twBox(vb, F, F.W, F.W + 3, 2, F.D - 2, 0, 3, TWP.w_warehouse); twBox(vb, F, F.W, F.W + 3, 2, F.D - 2, 3, 4, TWP.r_warehouse); twBox(vb, F, 4, 6, -1, 0, 0, 2, TWP.wood3); }
+    if (T >= 3) { twBox(vb, F, -3, 0, 2, F.D - 2, 0, 3, TWP.w_warehouse); twBox(vb, F, -3, 0, 2, F.D - 2, 3, 4, TWP.r_warehouse); twBox(vb, F, F.W >> 1, (F.W >> 1) + 1, 0, 1, F.top, F.top + 3, TWP.wood2); twBox(vb, F, (F.W >> 1) - 1, (F.W >> 1) + 2, 0, 1, F.top + 3, F.top + 4, TWP.wood2); twSet(vb, F, F.W >> 1, 0, F.top + 4, TWP.lamp); }
+    return F; }
+  return null;
+}
+function twGarden(vb, L, tier, out) {
+  const g = L.garden; if (!g) return; const F = bFrame(g), n = TOWN_BEDS[tier | 0]; for (let u = 0; u < F.W; u++) for (let v = 0; v < F.D; v++) { const [x, z] = F.at(u, v); vb.set(x, -1, z, (x + z) & 1 ? TWP.soil2 : TWP.soil); }
+  for (let u = 0; u < F.W; u++) for (let v = 0; v < F.D; v++) { const edge = u === 0 || v === 0 || u === F.W - 1 || v === F.D - 1; if (!edge) continue; const gap = v === 0 && Math.abs(u - (F.W >> 1)) <= 1; if (gap) continue; const [x, z] = F.at(u, v); if ((u + v) % 2 === 0 || u === 0 || u === F.W - 1) vb.set(x, 0, z, TWP.wood2); else vb.set(x, 0, z, TWP.wood3); }
+  for (let i = 0; i < L.beds.length; i++) { const b = L.beds[i], on = i < n; for (let k = 0; k < 2; k++) { vb.set(b.x + k, 0, b.z, on ? TWP.soil : TWP.soil2); if (on) { vb.set(b.x + k, -1, b.z, TWP.soil); } } if (!on) vb.set(b.x, 0, b.z, TWP.dirt2); }
+  const sx = g.x0, sz = g.z0; if (tier >= 3) for (const [u, v] of [[F.W >> 1, 0]]) { const [x, z] = F.at(u - 1, v), [x2, z2] = F.at(u + 1, v); for (let y = 0; y < 4; y++) { vb.set(x, y, z, TWP.wood2); vb.set(x2, y, z2, TWP.wood2); } for (let q = -1; q <= 1; q++) { const [xx, zz] = F.at(u + q, v); vb.set(xx, 4, zz, TWP.leaf2); } }
+  void sx; void sz;
+}
+function twStall(vb, s, k, tier) { // 3 wide, 2 deep counter + striped awning
+  const F = bFrame({ x0: s.x - 1, x1: s.x + 2, z0: s.z - 1, z1: s.z + 2, face: s.face }), cols = [['cloth1', 'cloth2'], ['cloth3', 'cloth2'], ['cloth4', 'cloth2'], ['cloth1', 'cloth4']][k % 4];
+  twBox(vb, F, 0, 3, 0, 1, 0, 1, TWP.wood3); for (const [u, v] of [[0, 0], [2, 0], [0, 2], [2, 2]]) twBox(vb, F, u, u + 1, v, v + 1, 0, 4, TWP.wood2);
+  for (let u = 0; u < 3; u++) for (let v = -1; v < 3; v++) twSet(vb, F, u, v, 3, TWP[cols[(u + v + 1000) % 2]]); for (let u = 0; u < 3; u++) twSet(vb, F, u, 0, 1, [TWP.flow1, TWP.flow2, TWP.leaf2][(u + k) % 3]);
+  twBox(vb, F, 0, 3, 2, 3, 0, 2, TWP.wood); if (tier >= 3) { twSet(vb, F, 1, -1, 2, TWP.lamp); twSet(vb, F, 1, 3, 2, TWP.lamp); }
+}
+function twBoard(vb, B, tier) {
+  const F = bFrame({ x0: B.x - 1, x1: B.x + 2, z0: B.z - 1, z1: B.z + 1, face: B.face }); twBox(vb, F, 0, 1, 0, 1, 0, 4, TWP.wood2); twBox(vb, F, 2, 3, 0, 1, 0, 4, TWP.wood2); twBox(vb, F, 0, 3, 0, 1, 1, 3, TWP.wood3); twBox(vb, F, 0, 3, 0, 2, 3, 4, tier >= 2 ? TWP.r_hall : TWP.wood2);
+  for (const [u, y, p] of [[0, 2, 'paper'], [1, 1, 'paper'], [1, 2, 'cloth4'], [2, 2, 'paper'], [2, 1, 'cloth3']]) twSet(vb, F, u, 0, y, TWP[p]); if (tier >= 3) { twSet(vb, F, 1, -1, 3, TWP.lamp); twSet(vb, F, 1, 0, 4, TWP.gold); }
+}
+function twTree(vb, t) {
+  const x = t.x, z = t.z, h = t.h; if (t.kind === 0) { for (let y = 0; y < h - 1; y++) vb.set(x, y, z, TWP.wood2); vb.ell(x, h, z, 2.4, 1.9, 2.4, 0, (xx, yy, zz) => (xx * 7 + zz * 3 + yy) % 5 ? TWP.leaf1 : TWP.leaf2); }
+  else if (t.kind === 1) { for (let y = 0; y < h - 1; y++) vb.set(x, y, z, TWP.wood2); for (let k = 0; k < 4; k++) { const r = [2.5, 2.1, 1.5, 0.8][k]; vb.cyl(x, z, 2 + k * 2 - 1 + (h > 5 ? 1 : 0), 2 + k * 2 + 1 + (h > 5 ? 1 : 0), r, 0, (xx, yy, zz) => (xx + zz) % 3 ? TWP.pine : TWP.pine2); } }
+  else { for (let y = 0; y < h - 1; y++) vb.set(x, y, z, TWP.wood2); vb.ell(x, h, z, 2.6, 2.0, 2.6, 0, (xx, yy, zz) => (xx + zz * 3 + yy) % 4 ? TWP.blos1 : TWP.blos2); }
+}
+function twPlaceFountain(vb) { // octagonal basin, water, central pillar
+  for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) { const d = Math.hypot(x + 0.5, z + 0.5); if (d > 3.7) continue; if (d > 2.7) { vb.set(x, 0, z, TWP.stone); vb.set(x, 1, z, d > 3.2 ? TWP.stone2 : TWP.stone); } else vb.set(x, 0, z, TWP.water); }
+  for (let y = 0; y < 3; y++) { vb.set(0, y, 0, TWP.stone2); vb.set(-1, y, -1, y < 2 ? TWP.stone2 : 0); } vb.set(0, 3, 0, TWP.gold); vb.set(-1, 0, 0, TWP.stone2); vb.set(0, 0, -1, TWP.stone2); vb.set(-1, 0, -1, TWP.stone2); for (let y = 1; y < 3; y++) { vb.set(-1, y, 0, TWP.stone2); vb.set(0, y, -1, TWP.stone2); vb.set(-1, y, -1, TWP.stone2); } vb.set(-1, 3, -1, TWP.water); vb.set(0, 3, -1, TWP.water); vb.set(-1, 3, 0, TWP.water);
+}
+function twPortalPad(vb, L) { // a rune pad at the gate end of the main road + two pillars with a glowing keystone
+  const p = L.portal, ca = Math.cos(p.ang), sa = Math.sin(p.ang); for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) { const d = Math.hypot(x, z), X = p.x + x, Z = p.z + z; if (d > 3.2 || L.cells[L.idx(X, Z)] === TC.OUT || L.cells[L.idx(X, Z)] === TC.WALL) continue; vb.set(X, -1, Z, d > 2.4 ? TWP.portal : d > 1.4 ? TWP.stone2 : ((Math.round(d * 2) & 1) ? TWP.portal : TWP.plaza1)); }
+  for (const s of [-1, 1]) { const X = Math.round(p.x - sa * s * 4), Z = Math.round(p.z + ca * s * 4); for (let y = 0; y < 5; y++) vb.set(X, y, Z, y === 4 ? TWP.gold : TWP.stone2); vb.set(X, 5, Z, TWP.lamp); vb.set(X, 0, Z, TWP.stone); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (vb.get(X + dx, 0, Z + dz) === 0 && vb.get(X + dx, -1, Z + dz)) vb.set(X + dx, 0, Z + dz, TWP.stone); }
+}
+// ---- the whole town ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function twBuildAll(O, TS, seed) { // TS = TOWN-like { bld: {role: tier} } -> level
+  const L = townLayout(seed), lv = mkLevel(2, O), vb = lv.vb; lv.cellGroup = new Map(); twPalette(vb); lv.layout = L; lv.chimneys = []; lv.pal = { WT: TWP.water };
+  const N = L.N, H = L.H, idx = L.idx, cells = L.cells; const de = new Int16Array(N * N).fill(99), q = []; for (let z = -H; z < N - H; z++) for (let x = -H; x < N - H; x++) if (cells[idx(x, z)] === TC.OUT) { de[idx(x, z)] = 0; q.push([x, z]); }
+  for (let i = 0; i < q.length; i++) { const [x, z] = q[i], d = de[idx(x, z)]; for (const [dx, dz] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { const nx = x + dx, nz = z + dz; if (nx < -H || nz < -H || nx >= N - H || nz >= N - H) continue; if (de[idx(nx, nz)] > d + 1) { de[idx(nx, nz)] = d + 1; q.push([nx, nz]); } } }
+  for (let z = -H; z < N - H; z++) for (let x = -H; x < N - H; x++) {
+    const c = cells[idx(x, z)]; if (c === TC.OUT) continue; const n = hash2(x * 3 + 1, z * 5 + 2), n2 = hash2(x * 7 + 11, z * 3 + 5), d = de[idx(x, z)];
+    let top = TWP.g1; if (c === TC.GROUND || c === TC.WALL) top = n < 0.34 ? TWP.g2 : n < 0.8 ? TWP.g1 : TWP.g3; else if (c === TC.ROAD || c === TC.GATE) top = ((x + z) & 1) ? TWP.road1 : (n2 < 0.3 ? TWP.road1 : TWP.road2); else if (c === TC.PLAZA) { const r = Math.hypot(x, z); top = (((x >> 1) + (z >> 1)) & 1) ? TWP.plaza1 : TWP.plaza2; if (r > L.plazaR - 1.3) top = TWP.road2; } else if (c === TC.BLDG) top = TWP.stone2; else if (c === TC.GARDEN) top = TWP.soil;
+    vb.set(x, -1, z, top); vb.set(x, -2, z, c === TC.ROAD || c === TC.PLAZA ? TWP.dirt2 : TWP.dirt); const depth = Math.max(1, Math.min(9, Math.round(d * 0.62))); for (let k = 0; k < depth; k++) vb.set(x, -3 - k, z, hash2(x + k * 31, z + k * 17) < 0.3 ? TWP.rock2 : TWP.rock);
+    if (c === TC.GROUND && n2 > 0.955) vb.set(x, 0, z, [TWP.flow1, TWP.flow2, TWP.flow3, TWP.flow4][((n * 40) | 0) & 3]); else if (c === TC.GROUND && n2 < 0.012) vb.set(x, 0, z, TWP.stone);
+    if (c === TC.WALL) { vb.set(x, 0, z, ((x + z) & 3) === 0 ? TWP.hedge2 : TWP.hedge); if (n2 > 0.45) vb.set(x, 1, z, n < 0.15 ? TWP.flow1 : TWP.hedge); else if (n < 0.1) vb.set(x, 1, z, TWP.flow2); }
+  }
+  for (const k of ['kitchen', 'hall', 'smithy', 'gems', 'apothecary', 'warehouse']) void k;
+  for (const b of L.buildings) { if (b.role === 'garden') continue; const tier = b.role === 'home' ? 1 : townTier(TS, b.role); twBuilding(vb, b, tier, lv); }
+  twGarden(vb, L, townTier(TS, 'garden'), lv); twPlaceFountain(vb); twPortalPad(vb, L);
+  const ns = Math.min(4, 1 + townTier(TS, 'market')); L.stalls.slice(0, ns).forEach((s, i) => twStall(vb, s, i, townTier(TS, 'market'))); twBoard(vb, L.board, townTier(TS, 'board'));
+  for (const t of L.trees) twTree(vb, t); for (const l of L.lamps) { for (let y = 0; y < 3; y++) vb.set(l.x, y, l.z, TWP.wood2); vb.set(l.x, 3, l.z, TWP.lamp); vb.set(l.x + 1, 3, l.z, 0); }
+  const g = L.gate; for (const s of [-1, 1]) { const px = Math.round(g.x - Math.sin(L.gateAng) * s * 3), pz = Math.round(g.z + Math.cos(L.gateAng) * s * 3); if (L.inb(px, pz) && cells[idx(px, pz)] !== TC.OUT) { for (let y = 0; y < 4; y++) vb.set(px, y, pz, y === 3 ? TWP.gold : TWP.stone2); vb.set(px, 4, pz, TWP.lamp); } }
+  lv.start = { x: L.spawn.x + 0.5, y: 0, z: L.spawn.z + 0.5 }; lv.deathY = -40; lv.name = 'HOME TOWN'; lv.arenaR = L.R; return lv;
+}
+// </town-world>
+
+// <town-game> ===================================================================================================================
+// SHATTERWORLD home town, part 2b: the town as a PLACE. Enter from the main menu, the pause menu, the dead / win screens or the VR panels; the hero spawns at the plaza, walks between the buildings,
+// presses E at a door / stall / board / gate / garden (Press E prompts, same as every other interaction) and a station screen opens (sui-model / sui-ui). Villagers walk the roads, chimneys smoke, the fountain sprays,
+// windows and lamps light up at dusk, and an upgrade makes the new building FLY together out of cubes (the engine's own rebuild animation). Leaving: the gate = campaign / new run / Shatter Rift / menu.
+// Everything saved lives in TOWN (food-game). The campaign checkpoint (G.ck) is untouched while you visit; "continue" is retry().
+// ==============================================================================================================================
+Object.assign(PAL, {
+  4: { zen: 0x2d6fd6, mid: 0x8cc4f0, hor: 0xffe0b0, gnd: 0xdce8fa, sun: 0xffd9a0, sunI: 3.0, hemiS: 0x9cc4ff, hemiG: 0x9a8a6a, hemiI: 0.58, fog: 0xeee4d0, fogD: 0.0021, cloud: 0.55, cloudLit: 0xfff4de, cloudSh: 0x9ab0d8, stars: 0, exp: 1.0, env: 0.55, sunDir: [-0.6, 0.5, 0.45] },
+  5: { zen: 0x3a2a8a, mid: 0xd07aa8, hor: 0xff9a5a, gnd: 0x9a6a94, sun: 0xff9a60, sunI: 2.3, hemiS: 0xc090e0, hemiG: 0x804050, hemiI: 0.52, fog: 0xd09a8c, fogD: 0.003, cloud: 0.5, cloudLit: 0xffc0a0, cloudSh: 0x7a5a9a, stars: 0.35, exp: 1.0, env: 0.5, sunDir: [-0.82, 0.14, 0.3] },
+  6: { zen: 0x050a22, mid: 0x142a5e, hor: 0x3a4a9a, gnd: 0x141c48, sun: 0x9fb8ff, sunI: 1.0, hemiS: 0x4a6ac8, hemiG: 0x1a2040, hemiI: 0.62, fog: 0x1c2658, fogD: 0.0038, cloud: 0.2, cloudLit: 0x8aa0e0, cloudSh: 0x2a3060, stars: 1, exp: 1.12, env: 0.5, sunDir: [0.4, 0.5, -0.5] },
+});
+const TW = { on: false, lv: null, O: { x: 0, y: 24, z: 0 }, L: null, pts: [], npcs: [], walkers: [], grp: null, ret: null, near: null, t: 0, cubeAt: null, win: [], lamps: [], night: -1, envNight: -9, lastGlow: -9, ek: 0, pending: null, spawn: null, bedFx: [], fx: { smoke: 0, spark: 0, fount: 0, portal: 0, ring: 0 }, lastBlink: 0, upN: 0, err: 0, built: 0 };
+const TW_KEY = { day: 4, dusk: 5, night: 6 };
+const TW_FDIR = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+const wp = (x, z) => ({ x: TW.O.x + x + 0.5, z: TW.O.z + z + 0.5 });
+(() => { const st = document.createElement('style'); st.textContent = 'body.town #shards, body.town #shardDist { display:none !important; } body.town #hudR b#timeN { visibility:hidden; } #pauseTownBtn { font:inherit;letter-spacing:.2em;font-size:12px;color:#2a1400;background:linear-gradient(180deg,#9af0e0,#53e0d0 55%,#2aa89a);border:0;border-radius:999px;padding:.4em 1.4em;cursor:pointer;font-weight:800; }'; document.head.appendChild(st); })();
+// ---- town clock + atmosphere -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function twAtmos(force) {
+  const c = townClock(TOWN.clock); setAtmosphere(TW_KEY[c.a], TW_KEY[c.b], c.f); applyAtmosphere(); TW.night = c.night;
+  if (force || Math.abs(c.night - TW.envNight) > 0.22) { TW.envNight = c.night; updateEnv(); }
+  if (Math.abs(c.night - TW.lastGlow) > 0.03 || force) { TW.lastGlow = c.night; twApplyGlow(c.night); }
+}
+function twCollectGlow() { TW.win.length = 0; TW.lamps.length = 0; const wv = TW.lv.vb.palFx[TWP.win], lv = TW.lv.vb.palFx[TWP.lamp]; for (let k = 0; k < cubeHi; k++) { const st = C.st[k]; if (st === ST.FREE || C.tgl[k] <= 0) continue; if (Math.abs(C.tgl[k] - wv) < 2e-3) TW.win.push(k); else if (Math.abs(C.tgl[k] - lv) < 2e-3) TW.lamps.push(k); } TW.lastGlow = -9; }
+function twApplyGlow(n) { const w = 0.12 + 1.25 * n, l = 0.234 + 1.5 * n; for (const k of TW.win) { if (C.st[k] === ST.FREE) continue; C.tgl[k] = w; if (C.st[k] === ST.SET) { C.glow[k] = w; writeCube(k); } } for (const k of TW.lamps) { if (C.st[k] === ST.FREE) continue; C.tgl[k] = l; if (C.st[k] === ST.SET) { C.glow[k] = l; writeCube(k); } } cubesDirty = true; }
+// ---- NPCs / villagers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const TW_PAL = { mayor: [0xe8b830, 0x2a4a8a, 0xfff0c0], vendor: [0xe84a4a, 0xf2c040, 0xffffff], cook: [0xf4f0e8, 0xe88a3a, 0xffffff], smith: [0x6a7080, 0x4a4f5a, 0xb04a2a], gemwright: [0x8a5acf, 0x5a3a9a, 0xd8c0ff], brewer: [0x3fa86a, 0x2a6a4a, 0x9af0b0], keeper: [0x8a6a42, 0x5a4a32, 0xe8d8b0] };
+const TW_WALK = [[0xe8754a, 0x3a5aa0, 0xfff0d8], [0x4a9ad8, 0x6a4a8a, 0xe8f0ff], [0xd8c84a, 0x2f7a5a, 0xfff8e0], [0xb04a8a, 0x3a3a5a, 0xffe8f4], [0x6ac86a, 0x8a5a3a, 0xf4ffe8]];
+function twMakeNpc(id, x, z, face, pal, walker) {
+  const rig = buildPlumber({ cap: pal[0], overall: pal[1], shirt: pal[2], scale: walker ? 0.88 : 0.94 }); rig.root.traverse(m => { if (m.isMesh) m.frustumCulled = false; }); rig.root.position.set(x, TW.O.y, z); const d = TW_FDIR[face | 0]; rig.root.rotation.y = Math.atan2(d[0], d[1]); TW.grp.add(rig.root); if (VR.merge) vrMergeApply(rig.root, true);
+  const n = { id, rig, x, z, y: TW.O.y, face, yaw: rig.root.rotation.y, t: Math.random() * 6, wave: 0, walker: !!walker, ph: Math.random() * 6, path: null, wpi: 0, pause: 0, spd: 1.0 + Math.random() * 0.4, look: 0 }; return n;
+}
+function twBuildPeople() {
+  const L = TW.L, S = L.stand; TW.npcs.length = 0; TW.walkers.length = 0; TW.pts.length = 0;
+  for (const id in TOWN_NPCS) { const npc = TOWN_NPCS[id]; if (!npc.role || id === 'walker') continue; const role = npc.role; let s = S[role]; if (!s) continue; if (role === 'market') { const d = TW_FDIR[s.face]; s = { x: s.x + 0.5, z: s.z + 0.5, face: s.face }; } else if (townTier(TOWN, role) < 1 && (role === 'gems' || role === 'apothecary')) continue; const p = wp(s.x - 0.5, s.z - 0.5); const n = twMakeNpc(id, role === 'market' ? TW.O.x + s.x : TW.O.x + s.x, role === 'market' ? TW.O.z + s.z : TW.O.z + s.z, s.face, TW_PAL[id] || TW_WALK[0], false); void p; TW.npcs.push(n); const d = TW_FDIR[s.face]; TW.pts.push({ id: role, npc: id, x: n.x + (role === 'market' ? d[0] * 1.6 : 0), z: n.z + (role === 'market' ? d[1] * 1.6 : 0), r: role === 'market' ? 2.4 : 3.0, label: 'talk to ' + npc.name, open: npc.then || 'dlg', n }); }
+  const bp = wp(L.board.x, L.board.z), bd = TW_FDIR[L.board.face]; TW.pts.push({ id: 'board', x: bp.x + bd[0] * 1.8, z: bp.z + bd[1] * 1.8, r: 2.8, label: 'read the notice board', open: 'board' });
+  const pp = wp(L.portal.x - 0.5, L.portal.z - 0.5); TW.pts.push({ id: 'portal', x: pp.x, z: pp.z, r: 3.4, label: 'step through the gate', open: 'portal' });
+  if (L.garden) { const g = L.garden, gc = wp((g.x0 + g.x1) / 2 - 0.5, (g.z0 + g.z1) / 2 - 0.5); TW.pts.push({ id: 'garden', x: gc.x, z: gc.z, r: Math.max(g.x1 - g.x0, g.z1 - g.z0) * 0.62, label: 'tend the garden', open: 'garden' }); }
+  const rg = rpgRng(rpgHashSeed(TOWN.seed, 0xA11CE)), nw = Math.min(5, 3 + townTier(TOWN, 'hall')); for (let i = 0; i < nw; i++) { const path = L.paths[i % L.paths.length]; let w0 = path[(rg() * path.length) | 0]; for (let k = 0; k < path.length && Math.hypot(w0.x - L.spawn.x, w0.z - L.spawn.z) < 8; k++) w0 = path[(path.indexOf(w0) + 1) % path.length]; const q = wp(w0.x - 0.5, w0.z - 0.5), n = twMakeNpc('walker', q.x, q.z, 0, TW_WALK[i % TW_WALK.length], true); n.path = path; n.wpi = (rg() * path.length) | 0; n.spd = 1.0 + rg() * 0.5; TW.walkers.push(n); }
+}
+function twAnimNpc(n, dt, hx, hz) {
+  const r = n.rig, dx = hx - n.x, dz = hz - n.z, d = Math.hypot(dx, dz); n.t += dt; const want = Math.atan2(dx, dz);
+  if (!n.walker) { const near = d < 6.5; n.look += ((near ? 1 : 0) - n.look) * Math.min(1, dt * 4); n.wave += ((d < 4.5 ? 1 : 0) - n.wave) * Math.min(1, dt * 5); let ay = Math.atan2(Math.sin(want - n.yaw), Math.cos(want - n.yaw)); ay = clamp(ay, -1.0, 1.0); const wv = n.wave * (Math.sin(n.t * 7) * 0.45 - 2.3);
+    poseTo(r, { hy: ay * n.look * 0.8, hx: -0.04 * n.look, ra: wv, la: Math.sin(n.t * 1.4) * 0.06, lx: 0, rx: 0, bob: Math.abs(Math.sin(n.t * 1.6)) * 0.02 }, dt, 8); n.rig.root.rotation.y = n.yaw + clamp(ay * n.look * 0.35, -0.5, 0.5); }
+  applyPose(r, dt);
+}
+function twWalkers(dt, hx, hz) {
+  for (const n of TW.walkers) {
+    if (n.pause > 0) { n.pause -= dt; poseTo(n.rig, { lx: 0, rx: 0, la: 0, ra: 0, bob: 0 }, dt, 8); applyPose(n.rig, dt); continue; }
+    const p = n.path[n.wpi % n.path.length], tx = TW.O.x + p.x + 0.5, tz = TW.O.z + p.z + 0.5, dx = tx - n.x, dz = tz - n.z, d = Math.hypot(dx, dz);
+    if (d < 0.5) { n.wpi++; if (Math.random() < 0.3) n.pause = 1.5 + Math.random() * 3; continue; }
+    const sp = n.spd * (1 - 0.6 * Math.max(0, 1 - Math.hypot(hx - n.x, hz - n.z) / 2.4)), st = Math.min(d, sp * dt); n.x += dx / d * st; n.z += dz / d * st; n.yaw += Math.atan2(Math.sin(Math.atan2(dx, dz) - n.yaw), Math.cos(Math.atan2(dx, dz) - n.yaw)) * Math.min(1, dt * 7); n.rig.root.rotation.y = n.yaw; n.rig.root.position.set(n.x, TW.O.y, n.z);
+    n.ph += sp * dt * 3.4; const s = Math.sin(n.ph); poseTo(n.rig, { lx: s * 0.75, rx: -s * 0.75, la: -s * 0.6, ra: s * 0.6, bob: Math.abs(s) * 0.05, hy: 0 }, dt, 14); applyPose(n.rig, dt);
+  }
+}
+// ---- interaction -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function twNearest() {
+  let best = null, bd = 1e9; for (const p of TW.pts) { const d = Math.hypot(P.x - p.x, P.z - p.z); if (d < p.r && d < bd) { bd = d; best = p; } }
+  if (!best) for (const n of TW.walkers) { const d = Math.hypot(P.x - n.x, P.z - n.z); if (d < 2.0 && d < bd) { bd = d; best = { id: 'walker', npc: 'walker', open: 'dlg', label: 'chat with a villager', x: n.x, z: n.z, r: 2, n }; } } return best;
+}
+function townInteract() {
+  const p = TW.near; if (!p || G.state !== 'play') return false; const n = p.n; if (n && p.npc) { SUI.npc = p.npc; return suiOpen('dlg', { npc: p.npc }); } return suiOpen(p.open, {});
+}
+{ const _un = updateNPC; updateNPC = function (dt, t) { _un(dt, t); if (TW.on && G.state === 'play') { TW.near = twNearest(); if (TW.near && !PROMPT) PROMPT = 'Press E: ' + TW.near.label; } }; }
+{ const _k = rpgKeyDown; rpgKeyDown = function (k) {
+  if (!SUI.open && !RUI.open && !PK.open && !CSU.open) {
+    if (TW.on && G.state === 'play' && k === 'e' && TW.near) { townInteract(); return; }
+    if (G.state === 'menu' && (k === 'q' || k === 't')) { townEnter(); return; }
+    if (G.state === 'pause' && (k === 'q' || k === 't')) { if (TW.on) suiOpen('portal'); else townEnter(); return; }
+    if (G.state === 'dead' && (k === 'q' || k === 't')) { townEnter(); return; }
+  } _k(k); }; }
+// ---- enter / leave ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function townEnter(o = {}) {
+  if (TW.on) return false; if (SUI.open || RUI.open || PK.open || CSU.open) return false; const st = G.state; if (G.trans || G.finale || SH.on) { toast('Not now'); return false; } if (!(st === 'menu' || st === 'pause' || st === 'dead' || st === 'play')) return false;
+  TW.ret = { from: st, run: !!(G.started && !RIFT && G.ck && !G.won && st !== 'menu' && G.ck.act !== 4), act: G.ck ? G.ck.act : 1, ck: G.ck, wasRift: !!RIFT };
+  if (!G.started) G.started = true; audioInit(); for (const id of ['menu', 'dead', 'pause']) $(id).classList.add('hidden'); $('hud').classList.remove('hidden');
+  rpgVacuum(); RT_TIMERS.length = 0; for (const p of PROJ) { p.on = false; p.m.visible = false; } RIFT = null; clearEntities(); RT.pend = null; mobClearFx(); fdClearNodes();
+  freeAllCubes(); HOMEG.clear(); DISCS.length = 0; SH = { on: false }; G.trans = null; G.finale = null; WV.R1 = -1; WV.R2 = -1; syncWave(); setAct1Visible(false); WC.hf = false; GF = 1; CAM.roll = 0; for (const b of BOXES) b.on = false; CS.ground = false; CS.grav = 5; CS.drag = 0.5; CS.floorY = -90;
+  TW.grp = new THREE.Group(); scene.add(TW.grp); TW.L = null; TW.cubeAt = null; document.body.classList.add('town'); TOWN.visits = (TOWN.visits | 0) + 1;
+  const lv = twBuildAll(TW.O, TOWN, TOWN.seed); TW.lv = lv; TW.L = lv.layout; LV = lv; instantBuild(lv); G.act = 2; G.shards = 0; G.shardsTotal = 0; G.ck = TW.ret.ck; G.won = TW.ret.run ? G.won : false; G.t = 0; G.slow = 1; G.cine = 0; CAM.cine = 0;
+  twIndexCubes(); twCollectGlow(); TW.on = true; TW.t = 0; twBuildPeople(); twGardenNodes();
+  const sp = lv.layout.spawn, pos = wp(sp.x - 0.5, sp.z - 0.5); G.state = 'play'; resetHero({ x: pos.x, y: TW.O.y, z: pos.z }); P.yaw = Math.atan2(-pos.x, -pos.z); CAM.yaw = P.yaw; CAM.pitch = 0.3; TW.spawn = { x: pos.x, y: TW.O.y, z: pos.z, yaw: P.yaw };
+  twAtmos(true); updateHUD(); rpgRecalc(); rpgHealFull(); G.flash = 0.5; rsfx('uiopen'); sparkBurst(P.x, P.y + 1, P.z, 24, 0xffe27a, 7); fxRing(P.x, P.y, P.z, 0.5, 8, 1.0, 0xffe27a, 1); rpgBanner('HOME TOWN', (TOWN_ROLES.hall.name + ' · ' + suiTierName(townTier(TOWN, 'hall')).toUpperCase())); questRefresh(TOWN, Date.now(), RP.level, RP.riftUnlocked, RP.bestRift);
+  fdDiscover(true); requestLock(); RT.dirty = true; rpgSaveNow(); TW.built++; return true;
+}
+function townTeardown() {
+  if (!TW.on) return; TW.on = false; document.body.classList.remove('town'); if (TW.grp) { TW.grp.traverse(o => { if (o.isMesh && o.material && o.material.dispose && !o.material.userData.shared) o.material.dispose(); }); scene.remove(TW.grp); } TW.grp = null; TW.npcs.length = 0; TW.walkers.length = 0; TW.pts.length = 0; TW.near = null; TW.win.length = 0; TW.lamps.length = 0; TW.cubeAt = null; TW.pending = null; fdClearNodes(); PROMPT = '';
+}
+function townLeave(dest, o) {
+  if (!TW.on) return false; if (SUI.open) suiClose(); const ret = TW.ret || {}; townTeardown(); rpgSaveNow();
+  if (dest === 'rift') { rpgStartRift(o && o.tier ? o.tier : RP.riftTier, o && o.seed ? o.seed : null); return true; }
+  if (dest === 'menu') { toMenu(); return true; }
+  if (dest === 'campaign' && ret.run) { G.ck = ret.ck; retry(); return true; }
+  startRun(); $('menu').classList.add('hidden'); $('dead').classList.add('hidden'); G.state = 'play'; G.started = true; requestLock(); updateHUD(); return true;
+}
+function townRespawn() { const s = TW.spawn; if (!s) return; resetHero({ x: s.x, y: s.y, z: s.z }); P.yaw = s.yaw; CAM.yaw = s.yaw; toast('Back at the plaza'); rsfx('deny'); }
+{ const _kh = killHero; killHero = function (reason) { if (TW.on) { townRespawn(); return; } _kh(reason); }; }
+{ const _uh = updateHUD; updateHUD = function () { _uh(); if (TW.on) { $('actName').textContent = 'HOME TOWN'; $('shards').innerHTML = ''; $('shardDist').textContent = ''; } }; }
+{ const _rc = clearEntities; clearEntities = function () { if (TW.on) { TW.on = false; document.body.classList.remove('town'); if (TW.grp) { scene.remove(TW.grp); TW.grp = null; } TW.npcs.length = 0; TW.walkers.length = 0; TW.pts.length = 0; TW.near = null; } _rc(); }; }
+// ---- cubes: index for upgrades; the rebuild animation --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function twIndexCubes() { const O = TW.O, m = new Map(); for (let k = 0; k < cubeHi; k++) { const st = C.st[k]; if (st !== ST.SET && st !== ST.POP) continue; m.set(levelCellKey(Math.floor(C.tx[k] - O.x), Math.floor(C.ty[k] - O.y), Math.floor(C.tz[k] - O.z)), k); } TW.cubeAt = m; }
+function townRebuild(role) { // build the town again with the new tiers; the difference flies in / out as cubes
+  const O = TW.O, old = TW.lv, nl = twBuildAll(O, TOWN, TOWN.seed), vbN = nl.vb, surf = vbN.surface(), cube = TW.cubeAt, keep = new Set(); let added = 0, removed = 0, recol = 0; const t0 = TW.t;
+  const b = TW.L.buildings.find(q => q.role === role), cx = b ? (b.x0 + b.x1) / 2 : 0, cz = b ? (b.z0 + b.z1) / 2 : 0;
+  for (let i = 0; i < surf.n; i++) {
+    const x = surf.x[i], y = surf.y[i], z = surf.z[i], p = surf.p[i], key = levelCellKey(x, y, z); keep.add(key); const k0 = cube.get(key);
+    if (k0 !== undefined) { const col = jit(vbN.pal[p], x, y, z, 0.06); if (Math.abs(C.tr[k0] - col[0]) + Math.abs(C.tg[k0] - col[1]) + Math.abs(C.tb[k0] - col[2]) > 0.01 || Math.abs(C.tgl[k0] - vbN.palFx[p]) > 0.4) { C.r[k0] = C.tr[k0] = col[0]; C.g[k0] = C.tg[k0] = col[1]; C.b[k0] = C.tb[k0] = col[2]; C.tgl[k0] = C.glow[k0] = vbN.palFx[p]; C.st[k0] = ST.POP; C.age[k0] = -Math.random() * 0.5; recol++; } setCubeAO(k0, surf.a[i], surf.b[i]); continue; }
+    const k = allocCube(); if (k < 0) continue; const col = jit(vbN.pal[p], x, y, z, 0.06), fx = O.x + x + 0.5, fy = O.y + y + 0.5, fz = O.z + z + 0.5, a = Math.random() * TAU, rr = 3 + Math.random() * 7;
+    setCubeTransform(k, fx + Math.cos(a) * rr, fy + 9 + Math.random() * 9, fz + Math.sin(a) * rr, 1, col[0], col[1], col[2]); C.tx[k] = fx; C.ty[k] = fy; C.tz[k] = fz; C.tr[k] = col[0]; C.tg[k] = col[1]; C.tb[k] = col[2]; C.tgl[k] = vbN.palFx[p]; C.glow[k] = 1.2; C.owner[k] = -1; C.grp[k] = -1; C.vx[k] = C.vy[k] = C.vz[k] = 0;
+    setCubeAO(k, surf.a[i], surf.b[i]); C.st[k] = ST.REST; C.age[k] = 0; C.delay[k] = 0.05 + Math.max(0, y) * 0.07 + Math.hypot(x - cx, z - cz) * 0.012 + Math.random() * 0.25; C.vox[k] = 0.6; cube.set(key, k); added++;
+  }
+  for (const [key, k] of cube) if (!keep.has(key)) { C.st[k] = ST.DIE; C.age[k] = -Math.random() * 0.3; C.ts[k] = 1; cube.delete(key); removed++; }
+  old.vb.g.set(vbN.g); VG.data.set(vbN.g); old.surf = surf; old.n = surf.n; old.chimneys = nl.chimneys; cubesDirty = true; TW.cubeAt = cube; twCollectGlow();
+  return { added, removed, recol, cubes: cubeLive };
+}
+function townOnUpgrade(role, from, to) { TW.pending = { role, from, to }; }
+function townOnClose() {
+  if (TW.on && TW.pending) { const p = TW.pending; TW.pending = null; try { const r = townRebuild(p.role), b = TW.L.buildings.find(q => q.role === p.role), c = b ? wp((b.x0 + b.x1) / 2 - 0.5, (b.z0 + b.z1) / 2 - 0.5) : { x: P.x, z: P.z };
+    G.flash = Math.max(G.flash, 0.3); camShake(0.4); fxRing(c.x, TW.O.y, c.z, 1, 14, 1.4, 0xffe27a, 1); fxRing(c.x, TW.O.y, c.z, 0.5, 9, 1.0, 0xffffff, 0.8); sparkBurst(c.x, TW.O.y + 2, c.z, 40, 0xffe27a, 9); rsfx('pick3'); rpgBanner(TOWN_ROLES[p.role].name.toUpperCase(), 'UPGRADED TO ' + suiTierName(p.to).toUpperCase(), true); TW.upN = r.added; if (TW.sh && TW.sh.on) TW.sh.on = false; fxBeacon(c.x, TW.O.y, c.z); if (p.role === 'hall' || p.role === 'garden' || p.role === 'warehouse' || p.role === 'gems' || p.role === 'apothecary') { twBuildPeople(); twGardenNodes(); } } catch (err) { console.error('town rebuild', err); } }
+  twGardenNodes();
+}
+function fxBeacon(x, y, z) { for (let i = 0; i < 6; i++) setTimeout(() => { if (TW.on) { sparkBurst(x + (Math.random() - 0.5) * 3, y + 1 + i * 1.4, z + (Math.random() - 0.5) * 3, 6, 0xffe27a, 4); } }, i * 110); }
+// ---- garden beds as nodes (instanced herb / leaf meshes from food-game) -----------------------------------------------------------------------------------------------------------------------------------------------------------
+function twGardenNodes() { FD.nodes.length = 0; if (!TW.on) return; const L = TW.L, n = TOWN_BEDS[townTier(TOWN, 'garden')]; for (let i = 0; i < Math.min(n, L.beds.length); i++) { const b = L.beds[i], q = wp(b.x + 0.5, b.z), nd = fdAddNode('herb', q.x, TW.O.y + 1, q.z, 'sunberry', 1); if (nd) { nd.bed = i; nd.on = true; } } }
+function townBedChanged(i) { /* the node reads TOWN.garden every frame */ }
+// ---- per frame ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function townFrame(rdt, sdt) {
+  if (G.state === 'play' || G.state === 'sta') { for (const b of TOWN.garden) if (b) b.t += (G.state === 'play' ? sdt : 0); }
+  if (!TW.on) return; TW.t += rdt; if (G.state === 'play' || G.state === 'sta') { TOWN.clock += rdt; if (TW.t - TW.lastBlink > 0.2) { TW.lastBlink = TW.t; twAtmos(false); } }
+  const hx = P.x, hz = P.z; for (const n of TW.npcs) twAnimNpc(n, rdt, hx, hz); twWalkers(rdt, hx, hz); if (VR.presenting && G.state === 'play') { /* the diorama culls nothing here: the town is ~30 meshes */ }
+  const O = TW.O, f = TW.fx; f.fount -= rdt; if (f.fount <= 0) { f.fount = 0.12; puff(O.x, O.y + 3.3, O.z, 1, 0.3, 0xbfeaff, 0.9, 3.4, 1.0); } f.smoke -= rdt; f.spark -= rdt;
+  if (f.smoke <= 0) { f.smoke = 0.35; for (const c of TW.lv.chimneys) { if (c[4] === 'smoke' || c[4] === 'home') { if (c[4] === 'home' && Math.random() < 0.6) continue; puff(O.x + c[0] + 0.5, O.y + c[2], O.z + c[1] + 0.5, 1, 0.9, 0xdedee6, 0.4, 1.5, 2.2); } } }
+  if (f.spark <= 0) { f.spark = 1.1; for (const c of TW.lv.chimneys) if (c[4] === 'spark') { sparkBurst(O.x + c[0] + 0.5, O.y + c[2] + 0.4, O.z + c[1] + 0.5, 3, 0xffa040, 3); } }
+  f.portal -= rdt; if (f.portal <= 0) { f.portal = 0.08; const p = TW.pts.find(q => q.id === 'portal'); if (p) { const a = Math.random() * TAU, r = 1.6 + Math.random() * 1.2; puff(p.x + Math.cos(a) * r, O.y + 0.2, p.z + Math.sin(a) * r, 1, 0.35, 0x53e0d0, 0.2, 2.4, 1.6); } } f.ring -= rdt; if (f.ring <= 0) { f.ring = 2.6; const p = TW.pts.find(q => q.id === 'portal'); if (p) fxRing(p.x, O.y, p.z, 0.6, 3.4, 1.6, 0x53e0d0, 0.8); }
+  if (TW.near && !TW.near.n && TW.near.id !== 'walker' && TW.near.id) { /* (rings under the targeted station are drawn by the prompt only) */ }
+}
+{ const _f = rpgFrame; rpgFrame = function (rdt, sdt) { _f(rdt, sdt); try { townFrame(rdt, sdt); } catch (err) { if (!TW.err) { TW.err = 1; console.error('town frame', err); } } }; }
+// the garden node reads the bed's growth every frame: patch the food-game node loop through a small adapter
+{ const _g = fdGather; fdGather = function (q) { if (q.bed != null) { const b = TOWN.garden[q.bed]; if (!b || b.t < suiGrowTime(b.plant)) return false; const put = suiHarvest(q.bed); rsfx('pick1'); sparkBurst(q.x, q.y + 0.6, q.z, 10, new THREE.Color(INGS[b.plant].col).getHex(), 4); floatText(q.x, q.y + 1.2, q.z, '+' + b.n + ' ' + INGS[b.plant].name, 'xp'); fdSee(b.plant); return !!put; } return _g(q); }; }
+// ---- the menus: HOME TOWN buttons in the DOM (main menu, pause, dead / win) and in the VR panels (patched in edits) ---------------------------------------------------------------------------------------------------------
+(() => {
+  const pb = document.createElement('button'); pb.id = 'pauseTownBtn'; pb.textContent = 'HOME TOWN'; $('pauseBtns').appendChild(pb); pb.addEventListener('mousedown', e => e.stopPropagation()); pb.addEventListener('click', e => { e.stopPropagation(); if (TW.on) { $('pause').classList.add('hidden'); G.state = 'pause'; suiOpen('portal'); } else townEnter(); });
+  const upd = () => { pb.textContent = TW.on ? 'THE GATE' : 'HOME TOWN'; }; setInterval(upd, 400);
+})();
+// ---- debug / test API ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+window.__town = {
+  enter() { return townEnter(); }, leave(d, o) { return townLeave(d, o); }, on: () => TW.on, state() { return { on: TW.on, bld: Object.assign({}, TOWN.bld), seed: TOWN.seed, clock: TOWN.clock, visits: TOWN.visits, renown: TOWN.renown, q: { daily: TOWN.q.daily.length, weekly: TOWN.q.weekly.length }, garden: TOWN.garden.map(b => b ? { plant: b.plant, t: b.t, n: b.n } : null), stats: Object.assign({}, TOWN.stats), flags: Object.keys(TOWN.flags), stash: TOWN.stash.filter(Boolean).length, vend: Object.assign({}, TOWN.vend), near: TW.near ? TW.near.id : null, cubes: cubeLive, pending: TW.pending ? TW.pending.role : null, ret: TW.ret ? { from: TW.ret.from, run: TW.ret.run } : null }; },
+  layout() { return TW.L ? { hash: townLayoutHash(TW.L), buildings: TW.L.buildings.map(b => ({ role: b.role, x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, face: b.face })), spawn: TW.L.spawn, portal: TW.L.portal, stalls: TW.L.stalls.length, beds: TW.L.beds.length, lamps: TW.L.lamps.length, trees: TW.L.trees.length } : null; },
+  points() { return TW.pts.map(p => ({ id: p.id, x: p.x, z: p.z, r: p.r, label: p.label })); }, walkers() { return TW.walkers.map(n => ({ x: n.x, z: n.z, wpi: n.wpi })); }, npcs() { return TW.npcs.map(n => ({ id: n.id, x: n.x, z: n.z })); },
+  goto(id, dist = 0) { const p = TW.pts.find(q => q.id === id); if (!p) return false; setHeroPos(p.x, TW.O.y, p.z); P.vx = P.vz = 0; return true; }, interact() { return townInteract(); }, near: () => (TW.near ? TW.near.id : null),
+  setClock(t) { TOWN.clock = t; twAtmos(true); }, glowCount() { return { win: TW.win.length, lamps: TW.lamps.length }; }, nightNow: () => TW.night, grant(g = 5000, m = 40) { RP.gold += g; RP.dust += 500; for (const id of MAT_IDS) satAdd(TOWN.sat, 'mat', id, m, 999); for (const id of ING_IDS) satAdd(TOWN.sat, 'ing', id, 10, 999); RT.dirty = true; }, upgrade(role) { const r = townDoUpgrade(TOWN, role, LEDGER); if (r.ok) { TOWN.stats.upgrades++; townOnUpgrade(role, r.from, r.to); if (!SUI.open) townOnClose(); rpgRecalc(); } return r; },
+  rebuild(role) { return townRebuild(role || 'hall'); }, respawn() { townRespawn(); }, cubeAt: () => (TW.cubeAt ? TW.cubeAt.size : 0), core: { townLayout, townLayoutHash, twBuildAll },
+};
+{ const d0 = window.__dbg; window.__dbg = () => { const d = d0(); d.town = { on: TW.on, near: TW.near ? TW.near.id : null, cubes: cubeLive, sta: SUI.open ? SUI.kind : null }; return d; }; }
+function townAfterReset() { if (TW.on) townTeardown(); }
+// </town-game>
 
 
 // ============================================================================
