@@ -2949,7 +2949,7 @@ function perfMonitor(real) { // auto-downgrade: avg frame time over 3 s > 26 ms,
   if (slowFrames >= 2) { worse(); return; }
   if (perfT >= TUNING.autoDowngradeWindow) { const avg = frameMs.reduce((a, b) => a + b, 0) / frameMs.length; frameMs.length = 0; perfT = 0; if (avg > TUNING.autoDowngradeMs && real < 2) worse(); }
 }
-function loop(now) { requestAnimationFrame(loop); if (window.__paused) { lastT = now; return; } const real = (now - lastT) / 1000, rdt = Math.min(0.1, real); lastT = now; if (rdt <= 0) return; frame(rdt, true); perfMonitor(real); }
+function loop(now) { requestAnimationFrame(loop); if (window.__paused) { lastT = now; return; } const real = (now - lastT) / 1000, rdt = Math.min(0.25, real); lastT = now; if (rdt <= 0) return; frame(rdt, true); perfMonitor(real); }
 function onQualityChanged() { U.lite.value = Q.lite; onGrassQuality(); onTreeQuality(); updateHUD(); }
 
 // ---- debug / test hooks ---------------------------------------------------------------------------------------------------------------
