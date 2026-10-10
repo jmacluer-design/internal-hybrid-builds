@@ -1387,7 +1387,7 @@ function stepHero(dt) {
   // camera-relative wish direction
   const fx = Math.sin(CAM.yaw), fz = Math.cos(CAM.yaw), rx = -fz, rz = fx;
   let wx = fx * INP.iz + rx * INP.ix, wz = fz * INP.iz + rz * INP.ix; const wl = Math.hypot(wx, wz); if (wl > 1e-4) { wx /= wl; wz /= wl; } else { wx = wz = 0; }
-  const locked = P.frozen > 0 || P.hurtT > 0 || P.victory > 0 || P.talk > 0 || G.cine > 0 && G.cineLock;
+  const locked = P.frozen > 0 || P.hurtT > 0 || P.victory > 0 || G.cine > 0 && G.cineLock;
   if (P.hurtT > 0) P.hurtT -= dt;
   if (locked) { wx = wz = 0; }
   const want = wl > 1e-4 && !locked;
