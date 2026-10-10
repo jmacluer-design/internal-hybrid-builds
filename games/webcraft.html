@@ -188,6 +188,7 @@
       <div class="k"><kbd>R / Q</kbd><span>unstick: respawn on nearest roof</span></div>
       <div class="k"><kbd>ESC</kbd><span>pause</span></div>
     </div>
+    <p class="padline"><b>CONTROLLER (Xbox / PlayStation):</b> left stick move · right stick look · A jump · <b>RT hold = swing</b> · LT zip · B dive · X yank · Y = E (zip) · RB / L3 sprint · LB / R3 respawn · D-pad = arrows · Start = confirm / back to menu.</p>
     <p class="padline"><b>PHONE PAD:</b> left stick = WASD · right stick = look · JUMP = Space · fire (hold) = swing · place = zip · Z = dive · J = yank · shift = sprint · menu = back here.</p>
     <div class="row">
       <button class="cta" id="cta" type="button">BUILDING CITY...</button>
@@ -245,7 +246,7 @@ const TUNING = {
             boostK: 0.17, boostMax: 9, jumpPop: 7.5,   // release slingshot: boost = speed*K*sin(2*theta)
             groundHop: 8.5, wrapMax: 4 },
   assist: { azDeg: [-48, -36, -24, -12, 0, 12, 24, 36, 48], elDeg: [-14, 2, 14, 26, 38, 50, 62, 74],
-            minDist: 14, idealDist: 46, simT: 2.4, simDt: 0.05 },
+            minDist: 18, idealDist: 46, simT: 2.4, simDt: 0.05 },
   zip:    { speed: 56, accel: 170, start: 22, arrive: 2.6, vaultUp: 11, vaultFwd: 6.5, maxT: 2.1, ledgeMax: 16, range: 78 },
   dive:   { grav: 62, terminal: 86, steer: 1.7, pullT: 0.42, pullRate: 7, pullPitch: 0.42, keep: 0.93 },
   wall:   { speed: 13, boostFromSpeed: 0.9, decay: 8.5, minUp: 1.6, lateral: 7, jumpUp: 12.5, jumpOut: 10.5, cooldown: 0.22, slide: 3.5, slideT: 0.6 },
@@ -1038,9 +1039,9 @@ function moveBody(dx, dy, dz, step){
 // ============================================================================
 const P = {
   state: 'air', grounded: false, groundedT: 0, airT: 0, coyote: 0, jumpBuf: 0, noSnap: 0,
-  heading: 0, wallNx: 0, wallNz: 0, wallT: 0, wallCool: 0, wallV: 0, slideT: 0,
+  heading: 0, wallNx: 0, wallNz: 0, wallT: 0, wallCool: 0, wallBlockT: 0, wallBlockI: -1, wallI: -1, wallV: 0, slideT: 0,
   rollT: 0, stunT: 0, pullT: 0, pdx: 0, pdy: 0, pdz: 0,
-  sw: { on: false, pending: false, delay: 0, ax: 0, ay: 0, az: 0, nx: 0, ny: 1, nz: 0, L: 20, t: 0, wraps: 0, kind: 'direct', whiff: 0, shoot: 0, retract: 0, sx: 0, sy: 0, sz: 0, boost: 0 },
+  sw: { on: false, pending: false, delay: 0, ax: 0, ay: 0, az: 0, nx: 0, ny: 1, nz: 0, L: 20, t: 0, wraps: 0, blockT: 0, kind: 'direct', whiff: 0, shoot: 0, retract: 0, sx: 0, sy: 0, sz: 0, boost: 0 },
   zip: { on: false, tx: 0, ty: 0, tz: 0, t: 0, speed: 0, ledge: false, nx: 0, nz: 0, ax: 0, ay: 0, az: 0, shoot: 0 },
   chain: 0, bestChain: 0, sinceTouch: 9, nearCd: 0, fireLatch: false, fireTry: 0, landT: 0, lastImpact: 0,
   px: 0, py: 0, pz: 0, speed: 0, hSpeed: 0, wallRuns: 0, footT: 0, runPhase: 0, invuln: 0,
@@ -1067,14 +1068,14 @@ function readInputs(){
 // ============================================================================
 //  anchor finding: direct camera-ray hit, else simulate candidate swings and pick the best (attach-point assist)
 // ============================================================================
-const _ad = [0, 0, 1];
+const _ad = [0, 0, 1], _rh3 = { x: 0, y: 0, z: 0, nx: 0, ny: 0, nz: 0, t: 0, id: 0 };
 function aimDir(out){ const cp = Math.cos(cam.pitch); out[0] = -Math.sin(cam.yaw) * cp; out[1] = Math.sin(cam.pitch); out[2] = -Math.cos(cam.yaw) * cp; return out; }
 const ANCH = { ok: false, kind: 'none', x: 0, y: 0, z: 0, nx: 0, ny: 0, nz: 0, dist: 0, score: 0 };
 
-function simSwing(ax, ay, az, aimx, aimz){
+function simSwing(ax, ay, az, aimx, aimz, anx, any_, anz){
   let px = pos[0], py = pos[1], pz = pos[2], vx = vel[0], vy = vel[1], vz = vel[2];
   const L = Math.max(WEB.minRope, Math.hypot(px - ax, py - ay, pz - az)), dt = ASSIST.simDt, N = Math.round(ASSIST.simT / dt);
-  let minY = py, hitT = 99, scr = 0, relBest = -1e9, relT = 0, passed = false;
+  let minY = py, hitT = 99, scr = 0, relBest = -1e9, relT = 0, passed = false, losBad = 0, stClear = 999;
   const x0 = px, z0 = pz, y0 = py;
   for (let i = 1; i <= N; i++) {
     vy -= G * dt;
@@ -1083,8 +1084,10 @@ function simSwing(ax, ay, az, aimx, aimz){
     if (d > L) { const k = L / d; px = ax + dx * k; py = ay + dy * k; pz = az + dz * k; const nx = dx / d, ny = dy / d, nz = dz / d; const vr = vx * nx + vy * ny + vz * nz; if (vr > 0) { vx -= nx * vr; vy -= ny * vr; vz -= nz * vr; } }
     if (py < minY) minY = py;
     const ix = Math.floor(px), iy = Math.floor(py), iz = Math.floor(pz);
+    if (ix >= 0 && iz >= 0 && ix < DX && iz < DZ && hm[ix + DX * iz] < 6) { const c = py - HH - 1; if (c < stClear) stClear = c; }
     if (solidC(ix, iy, iz) || solidC(ix, Math.floor(py - 0.8), iz) || solidC(ix, Math.floor(py + 0.7), iz)) { hitT = i * dt; break; }
     if (solidC(Math.floor(px + 1.4), iy, iz) || solidC(Math.floor(px - 1.4), iy, iz) || solidC(ix, iy, Math.floor(pz + 1.4)) || solidC(ix, iy, Math.floor(pz - 1.4))) scr++;
+    if ((i & 3) === 0) { const ex = ax + anx * 0.1, ey = ay + any_ * 0.1, ez = az + anz * 0.1, lx = ex - px, ly = ey - py, lz = ez - pz, ld = Math.hypot(lx, ly, lz); if (ld > 2 && raycast(px, py, pz, lx / ld, ly / ld, lz / ld, ld - 0.5, _rh3)) losBad++; }
     if (py < ay - L * 0.55) passed = true;
     if (passed && vy > 1 && i * dt > 0.25) {                        // a human would release somewhere on the upswing: score the best such moment
       const sp = Math.hypot(vx, vy, vz), prog = (px - x0) * aimx + (pz - z0) * aimz;
@@ -1095,9 +1098,10 @@ function simSwing(ax, ay, az, aimx, aimz){
   let sc;
   if (relBest > -1e8) sc = relBest; else sc = 0.5 * Math.min(Math.hypot(vx, vy, vz), 40) + 0.3 * clamp((px - x0) * aimx + (pz - z0) * aimz, -30, 60) - 12;
   if (hitT < 99 && hitT < relT + 0.1) sc -= 95 - 30 * Math.min(hitT, 1.5);
-  sc -= scr * 1.6;
+  sc -= scr * 1.6; if (losBad >= 3) sc -= 18 + losBad * 6;
   const clear = minY - HH;
-  if (clear < 6) sc -= 75 + (6 - clear) * 5; else if (clear < 13) sc -= (13 - clear) * 2.2;
+  if (clear < 4) sc -= 60; else if (clear < 10) sc -= (10 - clear) * 3;
+  if (stClear < 8) sc -= 55 + (8 - stClear) * 4; else if (stClear < 20) sc -= (20 - stClear) * 3.2;
   if (L < 16) sc -= (16 - L) * 1.5;
   return sc;
 }
@@ -1110,12 +1114,12 @@ function findSwingAnchor(out){
   if (raycast(cx, cy, cz, _ad[0], _ad[1], _ad[2], WEB.range + cam.dist + 2, _rh2)) {
     const hx = cx + _ad[0] * _rh2.t, hy = cy + _ad[1] * _rh2.t, hz = cz + _ad[2] * _rh2.t;
     let dx = hx - pos[0], dy = hy - chest, dz = hz - pos[2], dp = Math.hypot(dx, dy, dz);
-    if (dp <= WEB.range + 6 && dp >= 7 && hy > pos[1] - 5 && _rh2.y >= 3) {
+    if (dp <= WEB.range + 6 && dp >= 20 && hy > pos[1] - 5 && _rh2.y >= 3) {
       out.x = hx; out.y = hy; out.z = hz; out.nx = _rh2.nx; out.ny = _rh2.ny; out.nz = _rh2.nz; out.kind = 'direct'; out.ok = true;
       dx /= dp; dy /= dp; dz /= dp;
       if (raycast(pos[0], chest, pos[2], dx, dy, dz, dp - 0.3, _rh2) && _rh2.t < dp - 0.9) {       // something between the hands and the aim point: grab that instead
         out.x = pos[0] + dx * _rh2.t; out.y = chest + dy * _rh2.t; out.z = pos[2] + dz * _rh2.t; out.nx = _rh2.nx; out.ny = _rh2.ny; out.nz = _rh2.nz;
-        if (_rh2.t < 5 || out.y < pos[1] - 5) out.ok = false;
+        if (_rh2.t < 14 || out.y < pos[1] - 5) out.ok = false;
       }
       if (out.ok) { out.dist = Math.hypot(out.x - pos[0], out.y - pos[1], out.z - pos[2]); return true; }
     }
@@ -1136,7 +1140,7 @@ function assistSwing(out){
     if (!raycast(pos[0], chest, pos[2], dx, dy, dz, WEB.range, _rh2)) continue;
     if (_rh2.t < ASSIST.minDist) continue;
     const hx = pos[0] + dx * _rh2.t, hy = chest + dy * _rh2.t, hz = pos[2] + dz * _rh2.t;
-    let sc = simSwing(hx, hy, hz, aimx, aimz);
+    let sc = simSwing(hx, hy, hz, aimx, aimz, _rh2.nx, _rh2.ny, _rh2.nz);
     sc -= Math.abs(_rh2.t - ASSIST.idealDist) * 0.3;
     sc += (dx * _ad[0] + dy * _ad[1] + dz * _ad[2]) * 14;
     const colTop = hm[clamp(_rh2.x, 0, DX - 1) + DX * clamp(_rh2.z, 0, DZ - 1)];
@@ -1199,7 +1203,7 @@ function tryFire(){
   return true;
 }
 function activateWeb(){
-  const S = P.sw; S.pending = false; S.on = true; S.t = 0; S.wraps = 0; S.boost = 0;
+  const S = P.sw; S.pending = false; S.on = true; S.t = 0; S.wraps = 0; S.blockT = 0; S.boost = 0; P.wallBlockT = 0;
   S.L = Math.max(WEB.minRope, Math.hypot(pos[0] - S.ax, pos[1] - S.ay, pos[2] - S.az));
   if (P.state === 'wall' || P.state === 'dive') P.state = 'air';
   P.pullT = 0; P.fireLatch = true;
@@ -1355,18 +1359,12 @@ function swingStep(dt){
     const v2 = vel[0] * nx + vel[1] * ny + vel[2] * nz;
     if (v2 > 0) { vel[0] -= nx * v2; vel[1] -= ny * v2; vel[2] -= nz * v2; }
   }
-  // line-of-sight: wrap around corners instead of tunnelling through towers
-  if (((S.t * 120) | 0) % 3 === 0) {
-    const ex = S.ax + S.nx * 0.06, ey = S.ay + S.ny * 0.06, ez = S.az + S.nz * 0.06;
+  // line-of-sight: the rope may clip a corner for a moment (forgiving, no short low re-pivots); if it stays blocked the web snaps
+  if (((S.t * 120) | 0) % 4 === 0) {
+    const ex = S.ax + S.nx * 0.1, ey = S.ay + S.ny * 0.1, ez = S.az + S.nz * 0.1;
     const lx = ex - pos[0], ly = ey - pos[1], lz = ez - pos[2], ld = Math.hypot(lx, ly, lz);
-    if (ld > 1.5 && raycast(pos[0], pos[1], pos[2], lx / ld, ly / ld, lz / ld, ld - 0.4, _rh2)) {
-      if (S.wraps >= WEB.wrapMax) { releaseWeb('forced'); return; }
-      S.ax = pos[0] + lx / ld * _rh2.t + _rh2.nx * 0.08; S.ay = pos[1] + ly / ld * _rh2.t + _rh2.ny * 0.08; S.az = pos[2] + lz / ld * _rh2.t + _rh2.nz * 0.08;
-      S.nx = _rh2.nx; S.ny = _rh2.ny; S.nz = _rh2.nz; S.wraps++;
-      S.L = Math.max(WEB.minRope - 2, Math.hypot(pos[0] - S.ax, pos[1] - S.ay, pos[2] - S.az));
-      if (S.L < 6) { releaseWeb('forced'); return; }
-      fx.burst(S.ax, S.ay, S.az, 4, 3, 1, 1, 1, 0.4, 0.2, 0);
-    }
+    if (ld > 2 && raycast(pos[0], pos[1], pos[2], lx / ld, ly / ld, lz / ld, ld - 0.5, _rh2)) { S.blockT += 4 * dt; if (S.blockT > 0.7) { releaseWeb('forced'); popup('WEB SNAPPED', '#ff3d4e'); return; } }
+    else S.blockT = Math.max(0, S.blockT - 8 * dt);
   }
 }
 function diveStep(dt){
@@ -1416,16 +1414,18 @@ function findWall(){
   return best;
 }
 function startWall(i){
-  const [dx, dz] = WALLDIRS[i];
+  if (P.wallBlockT > 0 && P.wallBlockI === i) return false;
+  const [dx, dz] = WALLDIRS[i]; P.wallI = i;
   const into = Math.max(0, vel[0] * dx + vel[2] * dz), hv = Math.hypot(vel[0], vel[2]);
   P.state = 'wall'; P.wallNx = -dx; P.wallNz = -dz; P.wallT = 0; P.slideT = 0; P.grounded = false;
   P.wallV = clamp(Math.max(WALL.speed, into * WALL.boostFromSpeed + Math.max(0, vel[1]) * 0.6 + hv * 0.15), WALL.speed, 23);
   vel[0] = dx * 2; vel[2] = dz * 2; vel[1] = P.wallV; P.pullT = 0; P.wallRuns++;
   sfx.wallStart(); fx.burst(pos[0] + dx * 0.4, pos[1], pos[2] + dz * 0.4, 8, 3, 0.9, 0.9, 0.95, 0.5, 0.35, 2);
+  return true;
 }
 function wallStep(dt){
   const S = P.sw, nx = P.wallNx, nz = P.wallNz; P.wallT += dt;
-  if (!IN.w) { P.state = 'air'; vel[0] = nx * 2.5; vel[2] = nz * 2.5; P.wallCool = 0.12; return; }
+  if (!IN.w) { P.state = 'air'; vel[0] = nx * 2.5; vel[2] = nz * 2.5; P.wallCool = 0.12; P.wallBlockT = 1.3; P.wallBlockI = P.wallI; return; }
   if (P.jumpBuf > 0) {                                    // wall-jump: away from the wall, biased by where you look
     const fx0 = -Math.sin(cam.yaw), fz0 = -Math.cos(cam.yaw), fd = fx0 * nx + fz0 * nz;
     let jx = nx * 1.0, jz = nz * 1.0;
@@ -1438,13 +1438,13 @@ function wallStep(dt){
   const still = wallProbe(-nx, -nz) >= 2;
   if (!still) {
     if (vel[1] > 1.5) { vel[0] = -nx * 5.8; vel[2] = -nz * 5.8; vel[1] = 9.5; P.state = 'air'; P.wallCool = 0.3; sfx.vault(); popup('MANTLE', '#47a4ff'); }
-    else { P.state = 'air'; vel[0] = nx * 2; vel[2] = nz * 2; P.wallCool = 0.15; }
+    else { P.state = 'air'; vel[0] = nx * 2; vel[2] = nz * 2; P.wallCool = 0.15; P.wallBlockT = 1.3; P.wallBlockI = P.wallI; }
     return;
   }
   P.wallV -= WALL.decay * dt;
   let vy;
   if (P.wallV > WALL.minUp) vy = P.wallV;
-  else { P.slideT += dt; vy = -WALL.slide * smooth(0, 0.2, P.slideT); if (P.slideT > WALL.slideT) { P.state = 'air'; vel[0] = nx * 2.5; vel[2] = nz * 2.5; P.wallCool = 0.1; return; } }
+  else { P.slideT += dt; vy = -WALL.slide * smooth(0, 0.2, P.slideT); if (P.slideT > WALL.slideT) { P.state = 'air'; vel[0] = nx * 2.5; vel[2] = nz * 2.5; P.wallCool = 0.1; P.wallBlockT = 1.6; P.wallBlockI = P.wallI; return; } }
   // along-wall steer
   const tx = -nz, tz = nx, lat = IN.wishx * tx + IN.wishz * tz, cur = vel[0] * tx + vel[2] * tz;
   const tgt = lat * WALL.lateral, nv = cur + (tgt - cur) * damp(8, dt);
@@ -1515,7 +1515,7 @@ function physicsTick(dt){
   readInputs();
   const S = P.sw;
   P.jumpBuf = Math.max(0, P.jumpBuf - dt); P.coyote = Math.max(0, P.coyote - dt); P.wallCool = Math.max(0, P.wallCool - dt); P.noSnap = Math.max(0, P.noSnap - dt);
-  P.stunT = Math.max(0, P.stunT - dt); P.landT = Math.max(0, P.landT - dt); P.invuln = Math.max(0, P.invuln - dt);
+  P.wallBlockT = Math.max(0, P.wallBlockT - dt); P.stunT = Math.max(0, P.stunT - dt); P.landT = Math.max(0, P.landT - dt); P.invuln = Math.max(0, P.invuln - dt);
   if (IN.jumpP) P.jumpBuf = RUN.buffer;
   if (INP.fireTapT > 0) INP.fireTapT -= dt;
   if (IN.resetP) { manualRespawn(); return; }
@@ -1538,7 +1538,7 @@ function physicsTick(dt){
       else if (IN.dive && S.on && P.airT > 0.12) { releaseWeb('forced'); P.state = 'dive'; sfx.dive(); }
       if (S.on && P.jumpBuf > 0) { releaseWeb('jump'); P.jumpBuf = 0; sfx.jump(); }
       if (P.state === 'air') {
-        if (P.wallCool <= 0 && !S.on && IN.w) { const wi = findWall(); if (wi >= 0) { startWall(wi); break; } }
+        if (P.wallCool <= 0 && !S.on && IN.w) { const wi = findWall(); if (wi >= 0 && startWall(wi)) break; }
         airStep(dt);
       } else diveStep(dt);
     }
@@ -1562,7 +1562,7 @@ function physicsTick(dt){
     if (contact[1] < 0) { P.grounded = true; }
     P.airT += dt * 0.5;
   } else P.airT += dt;
-  if (P.grounded) { P.groundedT += dt; P.sinceTouch = 0; if (P.groundedT > 0.25 && !S.on && P.chain) P.chain = 0; } else P.groundedT = 0;
+  if (P.grounded) { P.groundedT += dt; P.sinceTouch = 0; P.wallBlockT = 0; if (P.groundedT > 0.25 && !S.on && P.chain) P.chain = 0; } else P.groundedT = 0;
   if (P.state === 'wall') P.sinceTouch = 0;
   if (contact[0] || contact[2]) P.sinceTouch = 0;
   P.sinceTouch += dt;
@@ -2416,7 +2416,7 @@ window.__game.setVel = (x, y, z) => { vel[0] = x; vel[1] = y; vel[2] = z; };
 window.__game.collect = () => { collectBeacon(); };
 window.__game.end = r => endRun(r || 'time');
 window.__game.setLook = (yaw, pitch) => { cam.yaw = yaw; cam.pitch = pitch; };
-window.__game.city = () => ({ start: city.start, spots: city.spots.length, buildings: city.buildings.length, lamps: city.lamps.length });
+window.__game.city = () => ({ start: city.start, spots: city.spots.length, buildings: city.buildings.length, lamps: city.lamps.length, lotsX: city.lotsX, lotsZ: city.lotsZ });
 window.__game.solid = (x, y, z) => getV(x | 0, y | 0, z | 0);
 window.__game.raycast = (ox, oy, oz, dx, dy, dz, m) => { const h = raycast(ox, oy, oz, dx, dy, dz, m || 100, {}); return h ? true : false; };
 window.__game.hm = (x, z) => hm[(x | 0) + DX * (z | 0)];

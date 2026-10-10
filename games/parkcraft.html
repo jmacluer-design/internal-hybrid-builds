@@ -232,7 +232,10 @@ window.__game = { id: 'parkcraft' };
 const TUNING = {
   DT: 1 / 120,            // fixed physics step
   G: 24,                  // ballistic gravity (snappy game gravity)
-  SLOPE_G: 0.5,           // fraction of G felt along slopes while rolling (lets pushers climb ramps)
+  SLOPE_G: 0.5,           // fraction of G felt along gentle slopes while rolling (lets pushers climb ramps)
+  SLOPE_G_STEEP: 0.9,     // ...rising to this on steep transitions (60deg+) so quarter-pipes give real air
+  LAUNCH_MIN_SPEED: 1.6,  // below this you roll over crests instead of launching
+  FALL_LINE: 1.0,         // sideways-gravity strength (board drifts down the fall line when traversing a slope)
   // --- rolling ---
   PUSH_ACCEL: 9.5,        // m/s^2 during a push stroke (fades to 0 at PUSH_MAX)
   PUSH_TIME: 0.40,        // length of one push stroke
@@ -258,7 +261,7 @@ const TUNING = {
   COYOTE: 0.12,           // late-ollie window after rolling off an edge
   BUFFER: 0.12,           // early-ollie buffer before landing
   CHARGE_TIME: 0.55,      // hold Space this long for a full-power pop
-  OLLIE_MIN: 5.0, OLLIE_MAX: 8.0, OLLIE_SPEED_K: 0.09,   // pop velocity = min..max (charge) + K*speed
+  OLLIE_MIN: 4.6, OLLIE_MAX: 7.4, OLLIE_SPEED_K: 0.09,   // pop velocity = min..max (charge) + K*speed
   // --- air ---
   SPIN_RATE: 7.6, SPIN_ACC: 46, SPIN_DAMP: 5, SPIN_ASSIST: 7,
   FLIP_TIME: 0.46, SHOVE_TIME: 0.40,
@@ -267,7 +270,7 @@ const TUNING = {
   FLIP_SLOPPY_DEG: 28, FLIP_BAIL_DEG: 55,
   VN_SLOPPY: 13, VN_BAIL: 21, SLOPPY_KEEP: 0.7, PERFECT_BOOST: 1.04, MIN_TRICK_AIR: 0.28,
   // --- manual (balance meter -1..1, fail at |b|>=1) ---
-  MANUAL_MIN_SPEED: 1.3, MANUAL_UNSTABLE: 5.0, MANUAL_CTRL: 9.0, MANUAL_DAMP: 1.6, MANUAL_GROW: 0.12, MANUAL_DECEL: 0.35,
+  MANUAL_MIN_SPEED: 1.3, MANUAL_UNSTABLE: 4.2, MANUAL_CTRL: 9.0, MANUAL_DAMP: 1.6, MANUAL_GROW: 0.12, MANUAL_DECEL: 0.35,
   // --- grind ---
   GRIND_SNAP_H: 0.5, GRIND_SNAP_V: 0.42, GRIND_BELOW: 0.25, GRIND_ANGLE_DEG: 48, GRIND_MIN_SPEED: 2.6,
   GRIND_MAX_UP: 5.0, GRIND_COOLDOWN: 0.22, GRIND_UNSTABLE: 3.0, GRIND_CTRL: 7.5, GRIND_DAMP: 1.4, GRIND_GROW: 0.10,
@@ -275,7 +278,7 @@ const TUNING = {
   // --- bail / session / score ---
   BAIL_TIME: 1.2, SESSION: 120, COMBO_BANK: 1.4, MULT_MAX: 12, REPEAT_MUL: 0.35,
   // --- camera ---
-  CAM_DIST: 4.9, CAM_HEIGHT: 2.2, CAM_FOV_MIN: 62, CAM_FOV_MAX: 80, CAM_YAW_RATE: 4.2,
+  CAM_DIST: 4.3, CAM_HEIGHT: 1.95, CAM_FOV_MIN: 60, CAM_FOV_MAX: 78, CAM_YAW_RATE: 4.2,
   FLY_SPEED: 9, FLY_BOOST: 3,
 };
 const T = TUNING;
@@ -409,7 +412,7 @@ const pieceList = [];
 let pieceSeq = 1;
 
 function arcParams(H, deg) { const th = deg * PI / 180, R = H / (1 - Math.cos(th)); return { R, L: R * Math.sin(th), H }; }
-const ARC_QP = arcParams(2, 75), ARC_SPINE = arcParams(1.0, 45);
+const ARC_QP = arcParams(1.6, 78), ARC_SPINE = arcParams(1.0, 45);
 
 // W = footprint width (local u), D = footprint depth (local v, the ride/slope direction), H = bounding height
 const TYPES = [
@@ -417,8 +420,8 @@ const TYPES = [
   { id: 'ledge', name: 'Ledge', W: 1, D: 4, H: 0.5, shape: 'box', solid: true, key: '2' },
   { id: 'wedge', name: 'Wedge / kicker', W: 3, D: 3, H: 1, shape: 'wedge', solid: true, key: '3' },
   { id: 'stairs', name: 'Stairs', W: 3, D: 4, H: 1, shape: 'stairs', steps: 4, solid: true, key: '4' },
-  { id: 'qp', name: 'Quarter-pipe', W: 3, D: 3, H: 2, shape: 'qp', solid: true, key: '5' },
-  { id: 'hp', name: 'Half-pipe', W: 3, D: 8, H: 2, shape: 'hp', solid: true, key: '6' },
+  { id: 'qp', name: 'Quarter-pipe', W: 3, D: 4, H: 1.6, shape: 'qp', solid: true, key: '5' },
+  { id: 'hp', name: 'Half-pipe', W: 3, D: 8, H: 1.6, shape: 'hp', solid: true, key: '6' },
   { id: 'rail', name: 'Rail', W: 1, D: 4, H: 0.8, shape: 'rail', solid: false, key: '7' },
   { id: 'srail', name: 'Stair rail', W: 1, D: 4, H: 1.9, shape: 'srail', solid: false, key: '8' },
   { id: 'spine', name: 'Spine', W: 3, D: 5, H: 1, shape: 'spine', solid: true, key: '9' },
@@ -905,7 +908,7 @@ function buildStarter() {
   P('stairs', -2, -7, 0, 0);
   P('srail', 1, -7, 0, 0);
   P('ledge', -2, -2, 1, 1);
-  P('rail', 5, -6, 0, 0);
+  P('rail', 5, -6, 0, 0); P('rail', 5, -10, 0, 0);
   // two quarter-pipes (x2 wide) facing each other with an 11 block flat between
   for (const z of [-4, -1]) { P('qp', -24, z, 0, 3); P('qp', -10, z, 0, 1); }
   // manual pad: 3 wide x 8 long ledge slab
@@ -969,7 +972,7 @@ const skyGroup = new THREE.Group(); scene.add(skyGroup);
   const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
   m.renderOrder = -10; skyGroup.add(m);
   const sd = new THREE.Vector3(SUN_DIR.x, 0.16, SUN_DIR.z).normalize();
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(34, 40), new THREE.MeshBasicMaterial({ color: 0xffe3a8, fog: false, depthWrite: false }));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(24, 40), new THREE.MeshBasicMaterial({ color: 0xffd9a0, fog: false, depthWrite: false }));
   disc.position.copy(sd).multiplyScalar(420); disc.lookAt(0, 0, 0); disc.renderOrder = -9; skyGroup.add(disc);
   const glow = new THREE.Mesh(new THREE.CircleGeometry(95, 40), new THREE.MeshBasicMaterial({ color: 0xff8a6a, fog: false, depthWrite: false, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending }));
   glow.position.copy(sd).multiplyScalar(418); glow.lookAt(0, 0, 0); glow.renderOrder = -9; skyGroup.add(glow);
@@ -1068,12 +1071,12 @@ const coneGeo = new THREE.ConeGeometry(0.21, 0.6, 10); coneGeo.translate(0, 0.3,
 const coneMesh = new THREE.InstancedMesh(coneGeo, new THREE.MeshLambertMaterial({ color: 0xff7a1f }), cones.length); coneMesh.castShadow = true; scene.add(coneMesh);
 const coneBase = new THREE.InstancedMesh(new THREE.BoxGeometry(0.46, 0.04, 0.46), new THREE.MeshLambertMaterial({ color: 0xff7a1f }), cones.length); scene.add(coneBase);
 const coneBand = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.115, 0.14, 0.1, 10), new THREE.MeshLambertMaterial({ color: 0xf4f4ff }), cones.length); scene.add(coneBand);
-const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1), _qb = new THREE.Quaternion();
+const _v3 = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1), _qb = new THREE.Quaternion();
 function writeCones() {
   for (let i = 0; i < cones.length; i++) {
     const c = cones[i]; _q.setFromEuler(_e.set(c.rx, 0, c.rz)); _p.set(c.x, c.y, c.z); _m4.compose(_p, _q, _s); coneMesh.setMatrixAt(i, _m4);
-    _p.set(c.x, c.y + 0.02, c.z); _m4.compose(_p, _q, _s); coneBase.setMatrixAt(i, _m4);
-    _p.set(c.x, c.y + 0.3, c.z); _m4.compose(_p, _q, _s); coneBand.setMatrixAt(i, _m4);
+    _p.set(0, 0.02, 0).applyQuaternion(_q).add(_v3.set(c.x, c.y, c.z)); _m4.compose(_p, _q, _s); coneBase.setMatrixAt(i, _m4);
+    _p.set(0, 0.3, 0).applyQuaternion(_q).add(_v3.set(c.x, c.y, c.z)); _m4.compose(_p, _q, _s); coneBand.setMatrixAt(i, _m4);
   }
   coneMesh.instanceMatrix.needsUpdate = coneBase.instanceMatrix.needsUpdate = coneBand.instanceMatrix.needsUpdate = true;
 }
@@ -1085,7 +1088,7 @@ function stepCones(dt) {
       const dx = c.x - sk.x, dz = c.z - sk.z;
       if (Math.abs(dx) < 0.55 && Math.abs(dz) < 0.55 && sk.y < 0.8 + groundAt(c.x, c.z, 99).h && sk.mode !== 'bail') {
         const sp = Math.max(2, Math.abs(sk.spd)), hx = Math.sin(sk.yaw), hz = Math.cos(sk.yaw), l = Math.hypot(dx, dz) + 0.01;
-        c.state = 1; c.t = 0; c.vx = hx * sp * 0.7 + dx / l * 1.5; c.vz = hz * sp * 0.7 + dz / l * 1.5; c.vy = 3 + sp * 0.3; c.ax = -c.vz * 0.7; c.az = c.vx * 0.7; sk.spd *= 0.97; SFX.cone(); addScoreNote('Cone', 0); dirty = true;
+        c.state = 1; c.t = 0; c.vx = hx * sp * 0.7 + dx / l * 1.5; c.vz = hz * sp * 0.7 + dz / l * 1.5; c.vy = 3 + sp * 0.3; c.ax = -c.vz * 0.7; c.az = c.vx * 0.7; sk.spd *= 0.97; SFX.cone(); dirty = true;
       }
     } else if (c.state === 1) {
       c.t += dt; c.vy -= T.G * dt; c.x += c.vx * dt; c.z += c.vz * dt; c.y += c.vy * dt; c.rx += c.ax * dt * 1.2; c.rz += c.az * dt * 1.2;
@@ -1316,7 +1319,7 @@ function startBail(why) {
 function sparksAt(x, y, z, n, r, g, b) { for (let i = 0; i < n; i++) spark(x, y, z, (Math.random() - .5) * 4, Math.random() * 3 + 1, (Math.random() - .5) * 4, 0.35 + Math.random() * 0.3, r, g, b); }
 
 function startManual() {
-  sk.man = true; sk.manBal = (Math.random() < .5 ? -1 : 1) * (0.12 + Math.random() * 0.1); sk.manV = 0; sk.manT = 0; sk.manSeed = Math.random() * 10;
+  sk.man = true; sk.manBal = (Math.random() < .5 ? -1 : 1) * (0.08 + Math.random() * 0.08); sk.manV = 0; sk.manT = 0; sk.manSeed = Math.random() * 10;
   addTrick('Manual', 70); SFX.grab();
 }
 function endManual(bail) {
@@ -1353,8 +1356,8 @@ function groundStep(dt) {
   const turn = (T.TURN_STAND + (T.TURN_ROLL - T.TURN_STAND) * clamp(aspd / 2.5, 0, 1)) * (1 - T.TURN_SPEED_FALL * clamp(aspd / 18, 0, 1)) * (sk.man ? 0.65 : 1);
   sk.yaw = wrapPI(sk.yaw + sk.steer * turn * dt);
   sk.spd *= 1 - T.CARVE_BLEED * Math.abs(sk.steer) * dt;
-  // steep slopes (>50deg) slowly rotate the board down the fall line
-  if (sk.ny < 0.6 && aspd < 3.5) { const want = Math.atan2(sk.nx, sk.nz); const rel = wrapPI(want - sk.yaw); sk.yaw = wrapPI(sk.yaw + rel * clamp((0.6 - sk.ny) * 6 * dt, 0, 1)); }
+  // traversing a slope: sideways gravity pulls the heading down the fall line (no wall-riding at constant height)
+  if (sk.ny < 0.995) { const lat = (sk.nx * Math.cos(sk.yaw) - sk.nz * Math.sin(sk.yaw)) * T.G * T.SLOPE_G * T.FALL_LINE; sk.yaw = wrapPI(sk.yaw + clamp(lat / Math.max(aspd, 2.5), -4, 4) * dt * (sk.spd < 0 ? -1 : 1)); }
   // --- tangent along the surface
   computeTangent(); const tx = sk.tx, ty = sk.ty, tz = sk.tz;
   // --- manual
@@ -1386,7 +1389,7 @@ function groundStep(dt) {
   sk.braking = wantBrake && aspd > 0.15 ? 1 : 0;
   if (sk.braking) { sk.spd -= sgn(sk.spd) * Math.min(aspd, T.BRAKE * dt); if (aspd > 2 && Math.random() < 0.3) sparksAt(sk.x - tx * 0.6, sk.y + 0.05, sk.z - tz * 0.6, 1, 1, 0.8, 0.4); }
   // --- gravity along slope + resistance
-  sk.spd += -T.G * T.SLOPE_G * ty * dt;
+  sk.spd += -T.G * (T.SLOPE_G + (T.SLOPE_G_STEEP - T.SLOPE_G) * clamp((0.94 - sk.ny) / 0.44, 0, 1)) * ty * dt;
   let res = T.ROLL_RES + T.DRAG * aspd; if (sk.ny < 0.985) res *= T.SLOPE_RES_MUL; if (aspd > T.SOFT_CAP) res += 0.08 * (aspd - T.SOFT_CAP) * (aspd - T.SOFT_CAP);
   sk.spd -= sgn(sk.spd) * Math.min(aspd, res * dt);
   sk.spd = clamp(sk.spd, -T.MAX_SPEED, T.MAX_SPEED);
@@ -1411,7 +1414,7 @@ function groundStep(dt) {
   const g = groundAt(nx, nz, ny + T.STEP_UP), delta = g.h - ny, s = Math.abs(step);
   let launch = false;
   if (delta < -T.STEP_UP) launch = true;
-  else if (delta < -0.004 && aspd >= 2.2) { if (-delta > s * Math.tan(T.STICK_DEG * PI / 180) + 0.5 * T.G * dt * dt + 0.003) launch = true; }
+  else if (delta < -0.004 && aspd >= T.LAUNCH_MIN_SPEED) { if (-delta > s * Math.tan(T.STICK_DEG * PI / 180) + 0.5 * T.G * dt * dt + 0.003) launch = true; }
   if (launch) {
     sk.x = nx; sk.y = ny; sk.z = nz; sk.vx = tx * sk.spd; sk.vy = ty * sk.spd; sk.vz = tz * sk.spd;
     leaveGround(); return;
@@ -1757,7 +1760,7 @@ function updatePoseWorld(dt) {
     const cTar = Math.max(sk.charge * 0.95, sk.landDip * 0.7, grind ? 0.5 : 0, air ? 0.22 + 0.6 * sk.grab : 0);
     sk.vCrouch += (cTar - sk.vCrouch) * k(16); sk.vLean += ((ground ? sk.steer * 0.22 * clamp(Math.abs(sk.spd) / 8, 0, 1.3) : 0) - sk.vLean) * k(10);
     sk.vSpread += ((ground ? (sk.man ? 0.35 : 0) : air ? 0.55 : 0.5) - sk.vSpread) * k(10);
-    sk.vTwist += (clamp(-sk.spinV * 0.05, -0.45, 0.45) - sk.vTwist) * k(10);
+    sk.vTwist += (0.7 + clamp(-sk.spinV * 0.05, -0.45, 0.45) - sk.vTwist) * k(10);
     sk.vLift += ((air ? 0.18 * sk.grab : 0) - sk.vLift) * k(14);
   }
   const P = POSE; P.crouch = sk.vCrouch; P.lx = sk.vLean; P.lz = ground ? (sk.pushT > 0 ? 0.14 : 0.03) : air ? -0.04 : 0.02; P.push = ground && sk.pushT > 0 ? 1 - sk.pushT / T.PUSH_TIME : -1;
@@ -1806,7 +1809,7 @@ function updateHUD(dt) {
   setText(H.vScore, 'score', fmt(S.score)); setText(H.vBestCombo, 'bc', fmt(S.bestCombo)); setText(H.vBest, 'bs', fmt(Math.max(S.best, S.score))); setText(H.vTricks, 'tr', String(S.tricks));
   if (mode === 'ride') {
     H.combo.classList.toggle('off', !(combo.active && combo.pts > 0));
-    setHTML(H.comboPts, 'cp', fmt(combo.pts * combo.mult) + '<i>' + fmt(combo.pts) + ' x' + combo.mult + '</i>');
+    setHTML(H.comboPts, 'cp', fmt(combo.pts * combo.mult) + '<i>x' + combo.mult + '</i>');
     setText(H.comboNames, 'cn', combo.order.slice(-5).join(' + '));
     const bar = H.bankBar.firstElementChild; const w = combo.active && sk.mode === 'ground' && !sk.man ? clamp(combo.bankT / T.COMBO_BANK, 0, 1) * 100 : 0; if (hc.bw !== (w | 0)) { hc.bw = w | 0; bar.style.width = w + '%'; }
     const sp = sk.mode === 'ground' ? Math.abs(sk.spd) : Math.hypot(sk.vx, sk.vz);
@@ -2019,9 +2022,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { key
 /* =====================================================================
    MAIN LOOP  (fixed 120 Hz sim, driven by both a timer and rAF so slow frames never eat input)
    ===================================================================== */
-let lastNow = performance.now(), acc = 0, attractT = 0, frameN = 0;
+let lastNow = performance.now(), acc = 0, attractT = 0, frameN = 0, dbgFreeze = false;
 function simStep(dt) {
   simTime += dt; readInput();
+  if (dbgFreeze) { lookDX = lookDY = 0; return; }
   if (state === 'play' && !paused) {
     if (I.ePress) toggleMode();
     if (mode === 'ride') rideStep(dt); else buildStep(dt);
@@ -2089,7 +2093,7 @@ function frame() { advance(performance.now()); renderFrame(); requestAnimationFr
    DEBUG / TEST HOOKS
    ===================================================================== */
 window.__dbg = () => ({
-  state, mode, paused, locked: lockOn, mute: muted, freeride,
+  state, mode, paused, locked: lockOn, mute: muted, freeride, fire: I.fire, place: I.place, btn: { l: btn.l, r: btn.r },
   pos: [sk.x, sk.y, sk.z], vel: sk.mode === 'ground' ? [sk.tx * sk.spd, sk.ty * sk.spd, sk.tz * sk.spd] : [sk.vx, sk.vy, sk.vz], speed: sk.mode === 'ground' ? Math.abs(sk.spd) : Math.hypot(sk.vx, sk.vz), spd: sk.spd,
   yaw: sk.yaw, sk: sk.mode, airT: sk.airT, charge: sk.charge, pushing: sk.pushT > 0, braking: !!sk.braking, steer: sk.steer,
   manual: sk.man, manBal: sk.manBal, manT: sk.manT, grind: sk.mode === 'grind' ? { name: sk.grName, bal: sk.grBal, t: sk.grTime, kind: sk.grKind, spd: sk.grSpd } : null,
@@ -2104,6 +2108,7 @@ window.__dbg = () => ({
 Object.assign(window.__game, {
   teleport(x, z, yaw, spd, y) { placeSkater(x, y === undefined ? 0 : y, z, yaw || 0); sk.spd = spd || 0; cam.init = false; },
   spawn() { respawnAtSpawn(); },
+  launch(x, y, z, vx, vy, vz, yaw) { placeSkater(x, y, z, yaw || 0); sk.y = y; sk.vx = vx; sk.vy = vy; sk.vz = vz; leaveGround(); sk.grindCd = 0; },
   pieces() { return pieceList.length; },
   segs() { return gsegs.map(s => ({ a: [s.ax, s.ay, s.az], b: [s.bx, s.by, s.bz], k: s.kind })); },
   ground(x, z, y) { const g = groundAt(x, z, y === undefined ? 99 : y); return { h: g.h, n: [g.nx, g.ny, g.nz] }; },
@@ -2114,6 +2119,7 @@ Object.assign(window.__game, {
   setTime(t) { S.time = t; },
   addScore(n) { S.score += n; },
   flush() { flushWorld(); },
+  freeze(b) { dbgFreeze = !!b; },
 });
 
 /* =====================================================================
