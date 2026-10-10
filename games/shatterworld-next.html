@@ -7115,7 +7115,7 @@ GV.api = {
     const m = GV.bar.mesh; m.updateWorldMatrix(true, false); const x = ((GV_BAR.x0 + i * GV_BAR.pitch + GV_BAR.cell / 2) / GV_BAR.pw - 0.5) * GV_BAR.w, y = (0.5 - (GV_BAR.y0 + GV_BAR.cell / 2) / GV_BAR.ph) * GV_BAR.h;
     _gvP.set(x, y, 0).applyMatrix4(m.matrixWorld); _gvQ.set(x, y, 1).applyMatrix4(m.matrixWorld); rig.worldToLocal(_gvP); rig.worldToLocal(_gvQ); _gvQ.sub(_gvP).normalize(); return { pos: [_gvP.x, _gvP.y, _gvP.z], n: [_gvQ.x, _gvQ.y, _gvQ.z] };
   },
-  state: gvDbg, figs() { return GV.figs ? GV.figs.map(h => ({ x: h.position.x, y: h.position.y, rot: h.userData.g.rotation.y, scale: h.scale.x, parts: h.userData.g.children.length })) : []; },
+  barPng() { return GV.bar.cv.toDataURL('image/png'); }, state: gvDbg, figs() { return GV.figs ? GV.figs.map(h => ({ x: h.position.x, y: h.position.y, rot: h.userData.g.rotation.y, scale: h.scale.x, parts: h.userData.g.children.length })) : []; },
   rpCard(i) { const r = gvCardRect(i); return { x: r.x, y: r.y, w: r.w, h: r.h }; },
 };
 const _vrDrawRp = vrDrawRp; vrDrawRp = function () { if (UI.mode === 'cls') { gvDrawCls(); return; } _vrDrawRp(); };
