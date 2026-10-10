@@ -74,7 +74,7 @@ local function configure(ped, kind)
 		SetPedSuffersCriticalHits(ped, false)
 		SetPedRagdollBlockingFlags(ped, 1)
 	end
-	if Pool.request_anim_set(k.clipset, 1500) then SetPedMovementClipset(ped, k.clipset, 1.0) end
+	if Pool.request_anim_set(k.clipset, 1500) and DoesEntityExist(ped) then SetPedMovementClipset(ped, k.clipset, 1.0) end -- (streaming yields: the ped may be gone by now)
 	if k.rate ~= 1.0 then SetPedMoveRateOverride(ped, k.rate) end
 	for i = 1, #DAMAGE_PACKS do ApplyPedDamagePack(ped, DAMAGE_PACKS[i], 0.0, 9.0) end
 	TaskWanderStandard(ped, 10.0, 10)
@@ -111,6 +111,7 @@ local function spawn_one(g, kind)
 	local ped, why = Pool.create_ped("zombie", models, x, y, z, math.random() * 360.0, g.id)
 	if not ped then return false, why end
 	configure(ped, kind)
+	if not ctx.running or not DoesEntityExist(ped) then return false, "stopped" end
 	g.peds[ped] = { ped = ped, kind = kind, state = "wander", born = GetGameTimer(), last_attack = 0, last_task = 0, scream_t = 0 }
 	g.alive = g.alive + 1
 	Z.stats.spawned = Z.stats.spawned + 1
@@ -382,20 +383,8 @@ function Z.clear()
 end
 
 function Z.start_threads()
-	CreateThread(function()
-		while ctx.running do
-			Wait(250)
-			Z.spawn_step()
-			Z.sweep_dead()
-		end
-	end)
-	CreateThread(function()
-		while ctx.running do
-			Wait(cfg.ai_ms)
-			Z.think()
-			Z.report()
-		end
-	end)
+	ctx.loop("zombies.spawn", 250, function() Z.spawn_step(); Z.sweep_dead() end)
+	ctx.loop("zombies.think", cfg.ai_ms, function() Z.think(); Z.report() end)
 end
 
 ctx.on_reset("zombies", Z.clear)

@@ -90,10 +90,12 @@ end
 
 -- kind: "zombie" | "raider" | "colonist" | "trader"; tag: owner id (horde id, raid id, colonist id)
 function Pool.create_ped(kind, models, x, y, z, heading, tag)
+	if not ctx.running then return nil, "stopped" end
 	local ok, why = Pool.can_create_ped()
 	if not ok then return nil, why end
 	local hash = Pool.pick_model(models)
 	if not hash then return nil, "model" end
+	if not ctx.running then return nil, "stopped" end -- the resource stopped while the model was streaming: never create anything after the cleanup ran
 	local ped = CreatePed(4, hash, x, y, z, heading or 0.0, false, false) -- isNetwork = false: the owner's client owns the ped
 	SetModelAsNoLongerNeeded(hash)
 	if not ped or ped == 0 or not DoesEntityExist(ped) then return nil, "create" end
@@ -119,6 +121,7 @@ function Pool.create_object(models, x, y, z, ground)
 	if Pool.n_objects >= cfg.max_objects then Pool.stats.refused_cap = Pool.stats.refused_cap + 1; return nil, "cap" end
 	local hash = Pool.pick_model(models)
 	if not hash then return nil, "model" end
+	if not ctx.running then return nil, "stopped" end
 	local obj = CreateObjectNoOffset(hash, x, y, z, false, false, false)
 	SetModelAsNoLongerNeeded(hash)
 	if not obj or obj == 0 or not DoesEntityExist(obj) then return nil, "create" end

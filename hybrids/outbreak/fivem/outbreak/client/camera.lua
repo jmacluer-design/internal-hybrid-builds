@@ -224,12 +224,7 @@ function Cam.frame()
 end
 
 function Cam.start_threads()
-	CreateThread(function()
-		while ctx.running do
-			Wait(0)
-			if Cam.active then Cam.frame() end
-		end
-	end)
+	ctx.loop("camera.frame", 0, function() if Cam.active then Cam.frame() end end)
 end
 
 ctx.on_cleanup("camera", Cam.leave)

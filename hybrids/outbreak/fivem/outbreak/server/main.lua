@@ -94,8 +94,10 @@ CreateThread(function()
 	local last = GetGameTimer()
 	while running do
 		Wait(cfg.tick_ms)
+		if not running then break end -- stopped while sleeping: the stop handler has already saved
 		local now = GetGameTimer()
-		host:advance(now - last)
+		local ok, err = pcall(host.advance, host, now - last)
+		if not ok then log("error", "advance failed: " .. tostring(err)) end -- one bad tick must not stop the colony clock for good
 		last = now
 	end
 end)

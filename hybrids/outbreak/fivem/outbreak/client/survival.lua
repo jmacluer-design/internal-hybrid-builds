@@ -82,12 +82,7 @@ end
 ctx.on_cleanup("survival", S.cleanup)
 
 function S.start_threads()
-	CreateThread(function()
-		while ctx.running do
-			Wait(200)
-			S.step()
-		end
-	end)
+	ctx.loop("survival", 200, S.step)
 end
 
 return S

@@ -105,18 +105,8 @@ function W.apply_clock()
 end
 
 function W.start_threads()
-	CreateThread(function()
-		while ctx.running do
-			Wait(0)
-			if ctx.owner then W.frame() end
-		end
-	end)
-	CreateThread(function()
-		while ctx.running do
-			Wait(250)
-			if ctx.owner and W.clock.at > 0 then W.apply_clock() end
-		end
-	end)
+	ctx.loop("world.frame", 0, function() if ctx.owner then W.frame() end end)
+	ctx.loop("world.clock", 250, function() if ctx.owner and W.clock.at > 0 then W.apply_clock() end end)
 end
 
 function W.cleanup()

@@ -69,6 +69,25 @@ end
 
 function ctx.queued() return #outq end
 
+-- a worker thread: Wait(ms) then fn(), until the resource stops. The running check is repeated AFTER the Wait so a stop that happens while the thread sleeps
+-- never runs one more iteration (which would re-apply a clock override or touch a deleted ped after the cleanup). An error inside fn is caught, counted and
+-- logged (the first one and every 100th), and the thread carries on: one bad frame must not stop the zombie AI for the rest of the session.
+function ctx.loop(name, wait, fn)
+	CreateThread(function()
+		local fails = 0
+		while ctx.running do
+			Wait(wait)
+			if not ctx.running then break end
+			local ok, err = pcall(fn)
+			if not ok then
+				ctx.stats.errors = ctx.stats.errors + 1
+				fails = fails + 1
+				if fails == 1 or fails % 100 == 0 then ctx.log("error", name .. " failed (" .. fails .. "x): " .. tostring(err)) end
+			end
+		end
+	end)
+end
+
 -- cleanup registry: every module registers a function; onResourceStop runs them all (LIFO)
 local cleanups = {}
 function ctx.on_cleanup(name, fn) cleanups[#cleanups + 1] = { name = name, fn = fn } end

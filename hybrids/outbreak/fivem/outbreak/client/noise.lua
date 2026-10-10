@@ -72,18 +72,8 @@ function N.poll_slow()
 end
 
 function N.start_threads()
-	CreateThread(function()
-		while ctx.running do
-			Wait(0)
-			N.poll_frame()
-		end
-	end)
-	CreateThread(function()
-		while ctx.running do
-			Wait(200)
-			N.poll_slow()
-		end
-	end)
+	ctx.loop("noise.frame", 0, N.poll_frame)
+	ctx.loop("noise.slow", 200, N.poll_slow)
 end
 
 return N

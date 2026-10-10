@@ -81,7 +81,7 @@ return function(Mock)
 			check_loaded(model, "CreatePed")
 			if m.refuse_create_ped then return 0 end
 			m.created.peds = m.created.peds + 1
-			local e = m:new_entity("ped", { x = x, y = y, z = z, heading = heading, model = m.models[model].name, mine = true, net = is_net, weapons = {}, maxhealth = 200 })
+			local e = m:new_entity("ped", { x = x, y = y, z = z, z0 = z, heading = heading, model = m.models[model].name, mine = true, net = is_net, weapons = {}, maxhealth = 200 })
 			return e.handle
 		end
 		N.CreateObjectNoOffset = function(model, x, y, z, is_net, script_host, dynamic)

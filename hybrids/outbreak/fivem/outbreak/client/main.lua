@@ -45,19 +45,11 @@ local function start(msg)
 		M.started = true
 		Zombies.start_threads(); Raiders.start_threads(); Colonists.start_threads(); Noise.start_threads(); Camera.start_threads()
 		Build.start_threads(Camera); World.start_threads(); Survival.start_threads()
-		CreateThread(function() -- IN event flush (one network message per tick, never per event)
-			while ctx.running do
-				Wait(250)
-				ctx.flush()
-			end
-		end)
-		CreateThread(function() -- compass heading for the HUD
-			while ctx.running do
-				Wait(100)
-				local yaw
-				if ctx.colony_mode then yaw = Camera.yaw else yaw = GetGameplayCamRot(2).z end
-				Nui.send("compass", { heading = (-yaw) % 360.0 })
-			end
+		ctx.loop("flush", 250, ctx.flush) -- IN event flush (one network message per tick, never per event)
+		ctx.loop("compass", 100, function() -- compass heading for the HUD
+			local yaw
+			if ctx.colony_mode then yaw = Camera.yaw else yaw = GetGameplayCamRot(2).z end
+			Nui.send("compass", { heading = (-yaw) % 360.0 })
 		end)
 	end
 end
@@ -66,7 +58,7 @@ end
 local function on_hello(msg) if type(msg) == "table" then start(msg) end end
 
 local function on_events(msg)
-	if type(msg) ~= "table" or type(msg.events) ~= "table" then return end
+	if not ctx.running or type(msg) ~= "table" or type(msg.events) ~= "table" then return end
 	ctx.stats.events_in = ctx.stats.events_in + #msg.events
 	if msg.reset then ctx.reset_all() end
 	for i = 1, #msg.events do ctx.dispatch(msg.events[i]) end

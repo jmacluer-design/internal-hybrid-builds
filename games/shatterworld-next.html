@@ -4199,7 +4199,8 @@ const GEM_SUPPORTS = [
   gemSupport('added_time', 'Added Time', 'B', 2, ['any'], 'Adds Time damage and slows what it hits.', (R, L) => { R.more *= 1.15 + 0.01 * (L - 1); R.slow += 0.3 + 0.006 * (L - 1); R.costMul *= 1.2; R.addElem('time'); }, { elem: 'time' }),
   gemSupport('thrifty', 'Thrifty', 'R', 0, ['any'], 'Costs much less Spark. Slightly less damage.', (R, L) => { R.costMul *= 0.7 - 0.004 * (L - 1); R.more *= 0.9 + 0.003 * (L - 1); }),
 ];
-const GEM_DEFS = GEM_SKILLS.concat(GEM_SUPPORTS), GEM_BY_ID = {}; GEM_DEFS.forEach(d => GEM_BY_ID[d.id] = d);
+const GEM_DEFS = GEM_SKILLS.concat(GEM_SUPPORTS);
+const GEM_BY_ID = {}; GEM_DEFS.forEach(d => { GEM_BY_ID[d.id] = d; });
 const gemIsSkill = id => !!GEM_BY_ID[id] && GEM_BY_ID[id].kind === 'skill';
 const gemIsSupport = id => !!GEM_BY_ID[id] && GEM_BY_ID[id].kind === 'support';
 
@@ -4222,7 +4223,7 @@ function gemTable(id) { const d = GEM_BY_ID[id], out = []; for (let L = 1; L <= 
 // sk = {id, lv}, sups = [{id, lv, col?}], ctx = { aff: {elem, lv, dmg}|null, skillCol: socket colour of the skill gem, supCols: [socket colours] }
 function gemSupportOk(sup, skill) { const d = GEM_BY_ID[sup.id], s = GEM_BY_ID[skill.id]; if (!d || !s || d.kind !== 'support' || s.kind !== 'skill') return false; return d.req.includes('any') || d.req.some(t => s.tags.includes(t)); }
 function gemEffLevel(g, socketCol, aff) { const d = GEM_BY_ID[g.id]; let L = g.lv | 0 || 1; if (socketCol && socketCol === d.color) L += GEM_TUNING.colorBonus; if (aff && gemHasElem(d, aff.elem)) L += aff.lv | 0; return Math.max(1, Math.min(GEM_TUNING.maxLevel + 4, L)); }
-function gemHasElem(d, elem) { return !!elem && (d.elem === elem || d.tags.includes(elem)); }
+function gemHasElem(d, elem) { return !!elem && (d.elem === elem || (!!d.tags && d.tags.includes(elem))); }
 function gemBaseR(sk, ctx) {
   const d = GEM_BY_ID[sk.id], aff = ctx.aff || null, L = gemEffLevel(sk, ctx.skillCol, aff);
   return { id: d.id, name: d.name, elem: d.elem, color: d.color, tags: d.tags.slice(), lvl: L, rawLvl: sk.lv | 0 || 1, dmgMult: d.dmg * (1 + d.dmgLv * (L - 1)), more: 1, cost0: d.cost * (1 + d.costLv * (L - 1)), costMul: 1, cd0: d.cd, wind0: d.wind, area: 1 + d.areaLv * (L - 1),

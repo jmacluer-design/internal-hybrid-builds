@@ -165,25 +165,17 @@ function B.commit(chain)
 end
 
 function B.start_threads(camera)
-	CreateThread(function()
-		while ctx.running do
-			Wait(0)
-			if ctx.placing and camera.active then
-				local gx, gy, gz = camera.ground_at(camera.mouse.x, camera.mouse.y)
-				B.update_ghost(gx, gy, gz)
-			end
-			-- powered lamps light the base (artificial light: the blackout dims the world, the base keeps its own light)
-			if ctx.power_on ~= false then
-				for _, at in pairs(B.lamps) do DrawLightWithRange(at.x, at.y, at.z + 2.6, 255, 228, 176, 16.0, 1.4) end
-			end
+	ctx.loop("build.frame", 0, function()
+		if ctx.placing and camera.active then
+			local gx, gy, gz = camera.ground_at(camera.mouse.x, camera.mouse.y)
+			B.update_ghost(gx, gy, gz)
+		end
+		-- powered lamps light the base (artificial light: the blackout dims the world, the base keeps its own light)
+		if ctx.power_on ~= false then
+			for _, at in pairs(B.lamps) do DrawLightWithRange(at.x, at.y, at.z + 2.6, 255, 228, 176, 16.0, 1.4) end
 		end
 	end)
-	CreateThread(function()
-		while ctx.running do
-			Wait(150)
-			B.step()
-		end
-	end)
+	ctx.loop("build.step", 150, B.step)
 end
 
 ctx.on_reset("build", B.clear)

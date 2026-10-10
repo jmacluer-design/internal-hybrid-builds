@@ -157,13 +157,7 @@ function Rd.clear()
 end
 
 function Rd.start_threads()
-	CreateThread(function()
-		while ctx.running do
-			Wait(300)
-			Rd.spawn_step()
-			Rd.think()
-		end
-	end)
+	ctx.loop("raiders", 300, function() Rd.spawn_step(); Rd.think() end)
 end
 
 ctx.on_reset("raiders", Rd.clear)

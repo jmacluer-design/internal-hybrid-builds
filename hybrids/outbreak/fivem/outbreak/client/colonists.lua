@@ -341,12 +341,7 @@ function C.clear()
 end
 
 function C.start_threads()
-	CreateThread(function()
-		while ctx.running do
-			Wait(500)
-			C.update()
-		end
-	end)
+	ctx.loop("colonists.update", 500, C.update)
 end
 
 ctx.on_reset("colonists", C.clear)
