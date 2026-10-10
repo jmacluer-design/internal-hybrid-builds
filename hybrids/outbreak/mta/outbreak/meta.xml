@@ -99,62 +99,7 @@
 	<file src="ui/phone-icon-512.png"/>
 	<file src="ui/phone-manifest.json"/>
 
-	<!-- server-only files (download="false"): read by the server with fileOpen, never sent to a client -->
-	<file src="server/buildings.lua" download="false"/>
-	<file src="server/colonists.lua" download="false"/>
-	<file src="server/commands.lua" download="false"/>
-	<file src="server/ctx.lua" download="false"/>
-	<file src="server/ground.lua" download="false"/>
-	<file src="server/inject.lua" download="false"/>
-	<file src="server/net.lua" download="false"/>
-	<file src="server/peds.lua" download="false"/>
-	<file src="server/phone.lua" download="false"/>
-	<file src="server/props.lua" download="false"/>
-	<file src="server/raiders.lua" download="false"/>
-	<file src="server/store.lua" download="false"/>
-	<file src="server/world.lua" download="false"/>
-	<file src="server/zombies.lua" download="false"/>
-	<file src="shared/host.lua" download="false"/>
-	<file src="shared/selftest.lua" download="false"/>
-	<file src="shared/selftest_data.lua" download="false"/>
-	<file src="shared/survival.lua" download="false"/>
-	<file src="shared/view.lua" download="false"/>
-	<file src="sim/ai_policy.lua" download="false"/>
-	<file src="sim/blueprints.lua" download="false"/>
-	<file src="sim/bootstrap.lua" download="false"/>
-	<file src="sim/clock.lua" download="false"/>
-	<file src="sim/colonist.lua" download="false"/>
-	<file src="sim/combat_abstract.lua" download="false"/>
-	<file src="sim/director.lua" download="false"/>
-	<file src="sim/expedition.lua" download="false"/>
-	<file src="sim/factions.lua" download="false"/>
-	<file src="sim/grid.lua" download="false"/>
-	<file src="sim/handlers.lua" download="false"/>
-	<file src="sim/horde.lua" download="false"/>
-	<file src="sim/items.lua" download="false"/>
-	<file src="sim/jobs.lua" download="false"/>
-	<file src="sim/loot.lua" download="false"/>
-	<file src="sim/mood.lua" download="false"/>
-	<file src="sim/needs.lua" download="false"/>
-	<file src="sim/rng.lua" download="false"/>
-	<file src="sim/runner.lua" download="false"/>
-	<file src="sim/save.lua" download="false"/>
-	<file src="sim/siege.lua" download="false"/>
-	<file src="sim/skills.lua" download="false"/>
-	<file src="sim/stockpile.lua" download="false"/>
-	<file src="sim/traits.lua" download="false"/>
-	<file src="sim/util.lua" download="false"/>
-	<file src="sim/world.lua" download="false"/>
-	<file src="data/blueprints.lua" download="false"/>
-	<file src="data/districts.lua" download="false"/>
-	<file src="data/events.lua" download="false"/>
-	<file src="data/factions.lua" download="false"/>
-	<file src="data/items.lua" download="false"/>
-	<file src="data/loot.lua" download="false"/>
-	<file src="data/names.lua" download="false"/>
-	<file src="data/recipes.lua" download="false"/>
-	<file src="data/thoughts.lua" download="false"/>
-	<file src="data/traits.lua" download="false"/>
-	<file src="data/tuning.lua" download="false"/>
-	<file src="save/README.txt" download="false"/>
+	<!-- NOT listed on purpose: the server-only files (server/*.lua except main.lua, shared/ modules the client does not require, sim/, data/, save/). The server reads them with fileOpen from the
+	     resource folder (verified on the real 1.6 server: an unlisted file opens fine), and MTA's HTTP server hands every LISTED <file>, even a download="false" one, to anyone who can reach the HTTP
+	     port WITHOUT a login. Unlisted, the sim and the server code answer 404 over HTTP (tools/phone_e2e.sh asserts it). -->
 </meta>

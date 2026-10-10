@@ -65,17 +65,9 @@ for _, f in ipairs(list("ui")) do
 	if f ~= "ui/phone.html" then add('\t<file src="' .. f .. '"/>') end -- (served as the <html> item above, behind the login)
 end
 add('')
-add('\t<!-- server-only files (download="false"): read by the server with fileOpen, never sent to a client -->')
-for _, f in ipairs(list("server", "-name '*.lua'")) do
-	if f ~= "server/main.lua" then add('\t<file src="' .. f .. '" download="false"/>') end
-end
-for _, f in ipairs(list("shared", "-name '*.lua'")) do
-	local name = f:match("^shared/(.+)%.lua$")
-	if not CLIENT_SHARED[name] then add('\t<file src="' .. f .. '" download="false"/>') end
-end
-for _, f in ipairs(list("sim", "-name '*.lua'")) do add('\t<file src="' .. f .. '" download="false"/>') end
-for _, f in ipairs(list("data", "-name '*.lua'")) do add('\t<file src="' .. f .. '" download="false"/>') end
-add('\t<file src="save/README.txt" download="false"/>')
+add('\t<!-- NOT listed on purpose: the server-only files (server/*.lua except main.lua, shared/ modules the client does not require, sim/, data/, save/). The server reads them with fileOpen from the')
+add('\t     resource folder (verified on the real 1.6 server: an unlisted file opens fine), and MTA\'s HTTP server hands every LISTED <file>, even a download="false" one, to anyone who can reach the HTTP')
+add('\t     port WITHOUT a login. Unlisted, the sim and the server code answer 404 over HTTP (tools/phone_e2e.sh asserts it). -->')
 add('</meta>')
 local text = table.concat(lines, "\n") .. "\n"
 
