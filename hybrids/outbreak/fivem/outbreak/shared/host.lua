@@ -397,6 +397,9 @@ function Host:ui_action(name, data)
 	if name == "request_state" then
 		self:push_state(); self:send(P.NET.hud, self:hud_payload())
 		return true
+	elseif name == "request_summary" then
+		self:send(P.NET.ui, { name = "summary", data = V.summary(w) })
+		return true
 	elseif name == "screens" then
 		self.ui_open = data.colony == true
 		if self.ui_open then self.next.state = 0 end

@@ -88,6 +88,7 @@
     screen(d) { if (d && d.open === false) OB.screens.close(); else if (d && d.name) OB.screens.open(d.name, d.arg); },
     selection(d) { if (d && d.ids) { S.sel = d.ids.slice(); S.primary = d.ids[0] || null; OB.emit('selection', S.sel); if (S.primary) OB.ui('select', { id: S.primary }); } },
     inventory(d) { S.inv = d; OB.emit('inventory', d); },
+    summary(d) { OB.emit('summary', d); },
     toast(d) { if (d) OB.toast(d.level, d.text, d); },
     place(d) { OB.emit('place', d); },
     settings(d) { Object.assign(OB.settings, d || {}); OB.applySettings(); },
