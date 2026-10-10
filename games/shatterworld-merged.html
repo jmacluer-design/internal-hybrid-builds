@@ -250,7 +250,7 @@
       <div><kbd>Z + SPACE</kbd> long jump / backflip</div><div><kbd>E</kbd> talk / flip pad</div><div><kbd>Q</kbd> recentre camera</div>
       <div><kbd>MOUSE</kbd> look</div><div><kbd>J</kbd> camera mode</div><div><kbd>M</kbd> mute &nbsp; <kbd>P</kbd> quality</div>
       <div class="wide"><kbd>CONTROLLER</kbd> L-stick move, R-stick look, A jump, RT punch/dive, LT hold = rewind, X = J camera, B = Z crouch/pound, Y = E, LB/R3 = Q, RB/L3 = Shift, Start = confirm / pause</div>
-      <div class="wide"><kbd>VR TOUCH</kbd> L-stick move (relative to your head), R-stick snap-turn the table 30&deg;, A jump, B crouch / pound, trigger punch / dive, grip (hold) REWIND, X table size (hold = recentre), Y pause, L-stick click sprint, R-stick click talk / flip pad. A Bluetooth pad works in VR too.</div>
+      <div class="wide"><kbd>VR TOUCH</kbd> L-stick move (relative to your head), R-stick snap-turn the table 30&deg;, A jump, B crouch / pound, trigger punch / dive, grip (hold) REWIND, X table size (hold = recentre), Y tap pause, <b>Y hold (0.4 s) inventory &amp; perks</b>, L-stick click sprint, R-stick click talk / flip pad. In the inventory / perk pick the sticks move the cursor, A equip / pick, B back, X salvage (twice), Y lock (hold = close), grips switch tab, trigger clicks what the laser points at. A Bluetooth pad works in VR too.</div>
     </div>
     <div id="rpgMenu"></div>
     <div class="qrow">QUALITY <button data-q="high">HIGH</button><button data-q="medium">MEDIUM</button><button data-q="low">LOW</button></div>
@@ -3564,7 +3564,7 @@ function vrPlaceTable() { // put the diorama in front of the viewer, below eye l
 function vrCycleSize() { vrCfg.size = (vrCfg.size + 1) % VRT.scales.length; VR.S = VRT.scales[vrCfg.size]; VR.fade = 1; vrSaveCfg(); vrHaptic(2, 0.3, 30); toast('Table size ' + ['SMALL', 'MEDIUM', 'LARGE'][vrCfg.size]); sfx('click'); UI.dirtyMain = true; }
 function vrActions(rdt) {
   const L = XI[0], R = XI[1], play = G.state === 'play', rpm = G.state === 'inv' || G.state === 'perk';
-  if (play !== VR.wasPlay || rpm !== VR.wasRp) { VR.wasPlay = play; VR.wasRp = rpm; vrReleaseAll(); L.sup = L.m; R.sup = R.m; RV.rep.dir = 0; RV.yHold = 0; VR.yDone = false; } // buttons held across a state change must be released before they count again
+  if (play !== VR.wasPlay || rpm !== VR.wasRp) { VR.wasPlay = play; VR.wasRp = rpm; vrReleaseAll(); L.sup = L.m; R.sup = R.m; RV.rep.dir = 0; RV.yHold = 0; RV.yFr = 0; VR.yDone = false; } // buttons held across a state change must be released before they count again
   for (let h = 0; h < 2; h++) { const X = XI[h]; X.sup &= X.m; X.e = X.m & ~X.sup; X.rise = X.e & ~X.pe; X.pe = X.e; }
   if (rpm) { vrRpgActions(rdt, L, R); return; } // inventory / perk pick: sticks = cursor, A confirm, B back, X salvage, Y lock, grips = tabs (the world is paused)
   // ---- left stick: analog direction + proportional speed (VRIN) and the same WASD keys the shim uses -------------------------------------
@@ -5079,7 +5079,7 @@ function rpgFrame(rdt, sdt) {
 function rpgDbg() {
   const alive = ENEMIES.filter(e => e.alive && e.state !== 'dead' && e.state !== 'squash'), cap = RP.level >= RPG_TUNING.levelCap;
   return { level: RP.level, xp: RP.xp, xpNext: cap ? 0 : rpgXpNext(RP.level), hp: Math.round(RT.hp * 10) / 10, maxHp: RT.max, shield: Math.round(RT.shield), gold: RP.gold, dust: RP.dust, bag: RP.bag.filter(Boolean).length, equipped: RPG_EQUIP.map(k => RP.equipped[k] ? rpgItemName(RP.equipped[k]) : null), loot: LOOT.length, enemies: alive.length, elites: alive.filter(e => e.rpg && e.rpg.tier !== 'normal').length, kills: RUN.kills,
-    perks: Object.assign({}, RP.perks), pending: RP.pending, free: RP.free, ui: RUI.open ? { tab: RUI.tab, zone: RUI.zone, i: RUI.i, rr: RUI.rr ? RUI.rr.row : -1 } : null, perkOpen: PK.open, rw: Math.round(RT.rw * 100) / 100, rwMax: RT.rwMax, diff: RP.diff, runDiff: RT.runDiff, riftUnlocked: RP.riftUnlocked, diffUnlocked: RP.diffUnlocked, bestRift: RP.bestRift, filter: RP.filter, chests: CHESTS.filter(c => !c.open).length, crates: CRATES.length, powers: RT.S.powers, codex: Object.keys(RP.codex).length, chill: Math.round(RT.chill * 100) / 100, projectiles: PROJ.filter(p => p.on).length, audio: AC ? AC.state : null,
+    perks: Object.assign({}, RP.perks), pending: RP.pending, free: RP.free, ui: RUI.open ? { tab: RUI.tab, zone: RUI.zone, i: RUI.i, rr: RUI.rr ? RUI.rr.row : -1 } : null, perkOpen: PK.open, perkI: PK.open ? PK.i : -1, rw: Math.round(RT.rw * 100) / 100, rwMax: RT.rwMax, diff: RP.diff, runDiff: RT.runDiff, riftUnlocked: RP.riftUnlocked, diffUnlocked: RP.diffUnlocked, bestRift: RP.bestRift, filter: RP.filter, chests: CHESTS.filter(c => !c.open).length, crates: CRATES.length, powers: RT.S.powers, codex: Object.keys(RP.codex).length, chill: Math.round(RT.chill * 100) / 100, projectiles: PROJ.filter(p => p.on).length, audio: AC ? AC.state : null,
     rift: RIFT ? { tier: RIFT.tier, seed: hexSeed(RIFT.seed), mods: RIFT.mods, t: Math.round(RIFT.t * 10) / 10, limit: RIFT.limit, prog: RIFT.prog, need: RIFT.need, phase: RIFT.phase, kills: RIFT.kills, done: RIFT.done, won: RIFT.won, guardian: !!(RIFT.guardian && RIFT.guardian.alive) } : null };
 }
 { const d0 = window.__dbg; window.__dbg = () => { const d = d0(); d.rpg = rpgDbg(); return d; }; }
@@ -5122,7 +5122,7 @@ const RV = {
   open: false, dirty: true, hotId: ['', ''], btns: [], armedOn: false, pkPage: 0,
   ban: { on: false, h: '', p: '', leg: false, until: 0 }, log: [{ t: '', c: '', until: 0 }, { t: '', c: '', until: 0 }], logSeq: 0,
   ws: { hp: -1, mx: -1, sh: -1, xp: -1, lv: -1, rw: -1, rwm: -1, gold: -1, buf: -1, rl: -2, rp: -2, big: -1, t: -1, coins: -1, shards: -1, score: -1, nsd: -9 }, hs: { rl: -2, rp: -2, ph: -2, bh: -2, ban: -1, log: -1, key: -1 },
-  plates: [], cand: [], selN: 0, putN: 0, plateT: 0, nPlates: 0, nBeams: 0, rep: { dir: 0, t: 0 }, hap: [], hapSeq: 0, hapPlayed: 0, cullT: 0, yHold: 0, scratch: null,
+  plates: [], cand: [], selN: 0, putN: 0, plateT: 0, nPlates: 0, nBeams: 0, rep: { dir: 0, t: 0 }, hap: [], hapSeq: 0, hapPlayed: 0, cullT: 0, yHold: 0, yFr: 0, scratch: null,
 };
 const RV_PERKS_PER_PAGE = 8;
 
@@ -5393,14 +5393,14 @@ function vrRpgActions(rdt, L, R) { // inventory / perk pick open: the Touch cont
     if (R.rise & 8) uiKey('z');
     if (L.rise & 4) uiKey('j');
     if (L.rise & 2) uiKey('q'); if (R.rise & 2) uiKey('shift');
-    if (L.e & 8) { RV.yHold += rdt; if (RV.yHold >= 0.4 && !VR.yDone) { VR.yDone = true; closeInv(); } } else { if (RV.yHold > 0 && !VR.yDone && G.state === 'inv') uiKey('e'); RV.yHold = 0; VR.yDone = false; }
-  } else { RV.yHold = 0; VR.yDone = false; }
+    if (L.e & 8) { RV.yHold += rdt; RV.yFr++; if (RV.yHold >= 0.4 && RV.yFr >= 5 && !VR.yDone) { VR.yDone = true; closeInv(); } } else { if (RV.yFr > 0 && !VR.yDone && G.state === 'inv') uiKey('e'); RV.yHold = 0; RV.yFr = 0; VR.yDone = false; }
+  } else { RV.yHold = 0; RV.yFr = 0; VR.yDone = false; }
 }
 // Y outside the inventory: a short tap is pause / resume (acted on at release); holding it for 0.4 s opens the inventory instead. Returns true when the inventory just opened.
 function vrYLogic(rdt, L) {
-  if (L.rawRise & 8) { RV.yHold = 0; VR.yDone = false; VR.yArm = G.state; }
-  if (L.m & 8) { if (VR.yArm !== '') { RV.yHold += rdt; if (RV.yHold >= 0.4 && !VR.yDone) { VR.yDone = true; if (openInv()) { VR.yArm = ''; return true; } } } }
-  else { if (VR.yArm !== '' && !VR.yDone && VR.yArm === G.state) { if (G.state === 'play') pauseGame(); else if (G.state === 'pause') resumeGame(); } VR.yArm = ''; RV.yHold = 0; VR.yDone = false; }
+  if (L.rawRise & 8) { RV.yHold = 0; RV.yFr = 0; VR.yDone = false; VR.yArm = G.state; }
+  if (L.m & 8) { if (VR.yArm !== '') { RV.yHold += rdt; RV.yFr++; if (RV.yHold >= 0.4 && RV.yFr >= 5 && !VR.yDone) { VR.yDone = true; if (openInv()) { VR.yArm = ''; return true; } } } } // >= 5 frames as well as 0.4 s: a 2-frame tap on a slow emulator (rdt is 0.25 s per frame there) is still a tap
+  else { if (VR.yArm !== '' && !VR.yDone && VR.yArm === G.state) { if (G.state === 'play') pauseGame(); else if (G.state === 'pause') resumeGame(); } VR.yArm = ''; RV.yHold = 0; RV.yFr = 0; VR.yDone = false; }
   return false;
 }
 

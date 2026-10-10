@@ -54,6 +54,9 @@ local w2, err = save.load(blob)           -- nil, "reason" on a damaged or too-n
 * The sim is **deterministic**: the same seed and the same sequence of `tick` / `handle` calls give the same state hash
   (`w:hash()`) on LuaJIT and Lua 5.4.
 * `w.s` is the plain-data state (read it for UI). Do not write to it from the adapter; use `handle`.
+* Helpers: `w:snapshot()` (one-table colony summary for HUDs: day, colonists, mood, food, wealth, alert, hordes, defense, power ...), `w:flush_events()` (events produced outside
+  `tick`/`handle`, e.g. at construction), `w:hash()` (state identity, 16 hex chars), `w:audit()` (item-conservation check; `true` or `false, {problems = {...}}`; for debugging).
+* A world is created with `World.new{seed, profile, colonists = n, ambient = n, max_dt = n, scenario = "default" | "empty"}`; `"empty"` has no colonists, zones or hordes (tests).
 
 ## 3. OUT events (sim -> game)
 
@@ -73,8 +76,7 @@ A colonist exists. Emitted for every starting colonist (via `flush_events`) and 
 ```
 
 ### OUT `colonist_state`
-Current stats of a colonist. Sent whenever something changed (throttled to one per 3 minutes per colonist, urgent changes included)
-and as a 30-minute heartbeat. Drive the colony UI and ped health/animation from it. Incubating infections are **hidden**
+Current stats of a colonist. Sent when something changed (at most one per 3 minutes per colonist) and as a 30-minute heartbeat. Drive the colony UI and ped health/animation from it. Incubating infections are **hidden**
 (`infection` stays `"none"` until symptoms show).
 
 | field | type | meaning |
