@@ -64,7 +64,7 @@ C.peds = {
 	snap_grace_ms = 4000,      -- a colonist ped that has not arrived this long after the sim's own walking time is placed at the destination
 	snap_max_ms = 60000,
 	-- movement speeds the client driver understands: 0 stand, 1 walk, 2 jog, 3 sprint
-	-- models: SA skin ids (UNVERIFIED appearances; getValidPedModels() filters invalid ids at start). No story characters (0, 1, 2, 265-300).
+	-- models: SA skin ids (UNVERIFIED appearances; getValidPedModels() filters invalid ids at start). No story characters (0, 1, 2, 265-272, 290-299).
 	zombie_models = { 78, 79, 134, 135, 137, 212, 230, 200, 160, 162 },
 	brute_models = { 162, 200 },
 	colonist_models = { 26, 27, 20, 44, 46, 47, 48, 54, 19, 56 },

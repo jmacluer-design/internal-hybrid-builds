@@ -56,6 +56,7 @@ function C.ensure_ped(e)
 	local ped, why = Peds.create("colonist", cfg.colonist_models, x, y, math.random() * 360.0, e.id)
 	if not ped then e.ped_fail = why; return nil end
 	e.ped, e.ped_fail = ped, nil
+	setElementData(ped, "ob:cid", e.id) -- the owner's client maps a picked ped back to the colonist id with it (the server never reads it back: clients can write element data)
 	C.stats.created = C.stats.created + 1
 	e.expected_health = health_for(e)
 	setElementHealth(ped, e.expected_health)

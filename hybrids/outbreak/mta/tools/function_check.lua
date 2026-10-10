@@ -61,7 +61,8 @@ end
 local function sides(side) if side == "shared" then return { "server", "client" } end return { side } end
 
 -- ---------------------------------------------------------------------------------------------------------------- text helpers
--- blank out comments (keep_strings = true keeps string literals; false also empties them). Line structure is preserved.
+-- blank out comments (keep_strings = true keeps string literals; false blanks their contents too). Length and line structure are preserved, so a position in one result is the same
+-- position in the other.
 local function strip(src, keep_strings)
 	local out, i, n = {}, 1, #src
 	while i <= n do
@@ -83,7 +84,7 @@ local function strip(src, keep_strings)
 			local close = "]" .. lvl .. "]"
 			local j = src:find(close, i, true) or n
 			local chunk = src:sub(i, j + #close - 1)
-			out[#out + 1] = keep_strings and chunk or ('""' .. chunk:gsub("[^\n]", " "))
+			out[#out + 1] = keep_strings and chunk or (chunk:gsub("[^\n]", " ")) -- same length, same lines
 			i = j + #close
 		elseif c == '"' or c == "'" then
 			local j = i + 1
@@ -91,7 +92,7 @@ local function strip(src, keep_strings)
 				local d = src:sub(j, j)
 				if d == "\\" then j = j + 2 elseif d == c or d == "\n" then break else j = j + 1 end
 			end
-			if keep_strings then out[#out + 1] = src:sub(i, j) else out[#out + 1] = c .. c end
+			if keep_strings then out[#out + 1] = src:sub(i, j) else out[#out + 1] = c .. string.rep(" ", math.max(0, j - i - 1)) .. c end -- same length: positions line up
 			i = j + 1
 		else
 			out[#out + 1] = c
@@ -205,11 +206,12 @@ for _, f in ipairs(files) do
 end
 
 -- ---------------------------------------------------------------------------------------------------------------- 2. library fields that MTA's Lua 5.1 lacks
-local texts = {}      -- file -> comment-stripped source (strings kept)
+local texts, codes = {}, {}      -- file -> comment-stripped source (strings kept) / code only (comments and string contents blanked, same length)
 for _, f in ipairs(files) do
 	local src = read(f) or die("cannot read " .. f)
 	texts[f] = strip(src, true)
 	local nostr = strip(src, false)
+	codes[f] = nostr
 	local nostr_lines = {}
 	for l in (nostr .. "\n"):gmatch("([^\n]*)\n") do nostr_lines[#nostr_lines + 1] = l end
 	for lib, bad in pairs(Defs.bad_fields) do
@@ -236,7 +238,9 @@ do
 	package.path = saved
 	if ok and type(mod) == "table" then NET = mod end
 end
+-- `NET.wire(topic)` maps a host topic to a wire name at run time; it can only produce the names in NET.TO_CLIENT, so every one of them is checked
 local function resolve(expr, f, line)
+	if expr:match("^NET%.wire%s*%(") and type(NET.TO_CLIENT) == "table" then return NET.TO_CLIENT end
 	local lit = expr:match('^"([^"]*)"$') or expr:match("^'([^']*)'$")
 	if lit then return lit end
 	local field = expr:match("^[%a_][%w_]*%.([%a_][%w_]*)$") or expr:match("^[%a_][%w_]*%.NET%.([%a_][%w_]*)$")
@@ -250,11 +254,11 @@ local registered = { server = {}, client = {} }    -- name -> remote bool
 local handlers = { server = {}, client = {} }
 local calls = {}
 for _, f in ipairs(files) do
-	local text = texts[f]
+	local text, code = texts[f], codes[f]
 	local function each(fname, fn)
 		local init = 1
 		while true do
-			local s, e = text:find("%f[%w_.:]" .. fname .. "%s*%(", init)
+			local s, e = code:find("%f[%w_.:]" .. fname .. "%s*%(", init) -- a call in the CODE (not inside a string); its arguments are read from the text that keeps strings
 			if not s then break end
 			local args, after = split_args(text, e)
 			fn(args, line_of(text, s))
@@ -275,7 +279,9 @@ for _, f in ipairs(files) do
 		local first = args[1] or ""
 		local idx = (first:match('^["\']') or first:match("NET%.") or first:match("^NET%.")) and 1 or 2
 		local name = resolve(args[idx] or "", f, line)
-		if name then calls[#calls + 1] = { kind = "client", name = name, where = rel(f) .. ":" .. line } end
+		if type(name) == "table" then
+			for _, n in ipairs(name) do calls[#calls + 1] = { kind = "client", name = n, where = rel(f) .. ":" .. line } end
+		elseif name then calls[#calls + 1] = { kind = "client", name = name, where = rel(f) .. ":" .. line } end
 	end)
 	each("triggerServerEvent", function(args, line)
 		local name = resolve(args[1] or "", f, line)

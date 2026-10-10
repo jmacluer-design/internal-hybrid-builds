@@ -25,7 +25,7 @@
   //   ring 1 = the three thumb-rest buttons (list order = slot: centre, up, left); other right-side buttons go on the outer arc; side 'L' = left column (modifiers).
   //   drag: dragging the finger while it rests on the button also drives look, so hold-to-swing + aim works with one thumb.
   //   label may be {_:'x',build:'y'}; only:'build' shows the button in that game mode only (profile.mode() returns the current mode name).
-  //   menuQuit: padMenu leaves the run (4 of 5 games), so the MENU button needs a second tap within 2 s.
+  //   menuQuit: padMenu abandons the run (webcraft, blockshot, parkcraft), so the MENU button needs a second tap within 2 s; colossus and souls64 only pause (souls64 shows its Resume menu).
   //   fanLift: px to raise the action fan (clears a bottom-right HUD block); utilX: px the MENU/gear pair sits left of the right edge (clears a top-right HUD block).
   const K=(id,label,k,o)=>Object.assign({id,label,t:'key',k},o||{});
   const FIRE=(label,o)=>Object.assign({id:'fire',label,t:'fire',ring:1,drag:true},o||{});
@@ -38,7 +38,7 @@
       K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('respawn','RESPAWN','q',{side:'L'}) ] },
     blockshot:{ menuQuit:true, fanLift:30, buttons:[ FIRE('FIRE',{big:1}), JUMP(), ALT('AIM'), K('reload','RELOAD','z'), K('frag','FRAG','q'), K('strike','STRIKE','e'), K('next','NEXT','j'),
       K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('sneak','SNEAK','c',{side:'L',mode:'toggle'}), K('prev','PREV','arrowleft',{side:'L'}) ] },
-    souls64:{ menuQuit:true, buttons:[ FIRE('PUNCH',{big:1}), JUMP(), ALT('GRAB'), K('crouch','CROUCH\nPOUND','z'), K('use','INTERACT','e'),
+    souls64:{ menuQuit:false, buttons:[ FIRE('PUNCH',{big:1}), JUMP(), ALT('GRAB'), K('crouch','CROUCH\nPOUND','z'), K('use','INTERACT','e'),
       K('creep','CREEP','shift',{side:'L',mode:'toggle'}), K('recenter','RECENTER','q',{side:'L'}) ] },
     parkcraft:{ menuQuit:true, utilX:118,
       mode:()=>{ const e=doc.getElementById('vMode'); return e&&/build/i.test(e.textContent)?'build':'ride'; },
