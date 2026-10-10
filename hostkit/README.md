@@ -17,6 +17,15 @@ It changes nothing; it prints GPU, RAM, free disk, Steam games, network speed, a
 
 Or, if Claude Code is on that PC: clone this repo there and say "follow hostkit/AGENTS.md".
 
+## Phase 0 for the Linux 4090 box (`appdev1`): one command over SSH
+SSH in from your phone (Termius or similar, over Tailscale), then:
+
+    curl -fsSL https://raw.githubusercontent.com/jmacluer-design/internal-hybrid-builds/claude/zealous-bell-jownt4/hostkit/linux/01-diagnose.sh | bash
+
+Read-only, no sudo. It reports GPU/driver, free disk, whether a monitor is attached, whether Windows could go on this
+box (partitions, UEFI, free space), network, Tailscale, Steam games, and what streaming software exists. Paste the output
+back. Run from the Claude Code session on the box instead and the same script is at `hostkit/linux/01-diagnose.sh`.
+
 ## Phase 1: flat streaming (works today, well understood)
 1. `02-install-streaming.ps1` (dry run), then `-Apply`: Tailscale + Sunshine via winget.
 2. Sunshine web UI (`https://localhost:47990`): local password, add Steam.
