@@ -33,7 +33,7 @@
   lua.global.set('js_log', (lvl, text) => { P.log.push('[' + lvl + '] ' + text); if (lvl === 'error') P.errors.push(text); });
   await lua.doString(B['preview/glue.lua']);
   const L = {};
-  for (const n of ['P_new', 'P_advance', 'P_ui', 'P_order', 'P_in', 'P_status', 'P_hash', 'P_state', 'P_catalog', 'P_set_scale', 'P_set_speed', 'P_resync', 'P_hash_runs']) L[n] = lua.global.get(n);
+  for (const n of ['P_new', 'P_advance', 'P_ui', 'P_order', 'P_in', 'P_status', 'P_hash', 'P_state', 'P_catalog', 'P_set_scale', 'P_set_speed', 'P_resync', 'P_hash_runs', 'P_why_not']) L[n] = lua.global.get(n);
   $('#loading').remove();
 
   // ---------------------------------------------------------------------------------------------- host <-> NUI routing
@@ -205,6 +205,7 @@
     stateJson() { return L.P_state(); },
     setScale(n) { L.P_set_scale(n); },
     hashRuns(days) { return L.P_hash_runs(days); },
+    whyNot(bp, x, y) { return L.P_why_not(bp, x, y); },
     drawBackdrop,
     pushState() { L.P_ui('request_state', '{}'); },
   };

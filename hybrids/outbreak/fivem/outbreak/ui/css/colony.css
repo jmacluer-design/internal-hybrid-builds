@@ -3,6 +3,7 @@
 #colony > * { pointer-events: auto; }
 #mapbg { position: absolute; inset: 0; z-index: 0; }
 #mapbg.layer { background: transparent; }
+#mapbg .selbox { position: fixed; z-index: 3; pointer-events: none; border: 1px solid var(--amber); background: rgba(246, 180, 79, .16); border-radius: 2px; }
 #mapbg .map-cv { position: absolute; inset: 0; display: block; }
 .map-cv { outline: none; touch-action: none; }
 
@@ -47,9 +48,9 @@
 .seg.speed button { min-width: 2.25rem; padding: 0 .5rem; }
 
 /* ---------- roster ---------- */
-#roster { position: absolute; left: .75rem; top: 5.75rem; bottom: 18.75rem; width: 18rem; display: flex; flex-direction: column; z-index: 2; min-height: 8rem; }
-#roster .panel-h { padding: .625rem .75rem; }
-#roster .panel-h h2 { font-size: 1.0625rem; }
+#roster { position: absolute; left: .75rem; top: 5.75rem; bottom: 18.75rem; width: 19rem; display: flex; flex-direction: column; z-index: 2; min-height: 8rem; }
+#roster .panel-h { padding: .625rem .75rem; gap: .4rem; }
+#roster .panel-h h2 { font-size: 1rem; letter-spacing: .04em; }
 .rlist { flex: 1; overflow-y: auto; padding: .375rem; display: flex; flex-direction: column; gap: .25rem; }
 .crow { position: relative; display: grid; grid-template-columns: 2.5rem 1fr 1.875rem; gap: .625rem; align-items: center; padding: .4rem .5rem .4rem .45rem; border-radius: .65rem; border: 1px solid transparent; background: rgba(255, 255, 255, .03); cursor: pointer; transition: background .12s, border-color .12s; }
 .crow:hover { background: rgba(255, 255, 255, .07); }
@@ -137,12 +138,13 @@
 .multi { display: flex; align-items: center; gap: .6rem; padding: .5rem .75rem; border-radius: .6rem; background: rgba(246, 180, 79, .1); border: 1px solid rgba(246, 180, 79, .3); font-size: .8125rem; }
 
 /* ---------- command bar ---------- */
-#cmdbar { position: absolute; left: 50%; bottom: 1.6rem; transform: translateX(-50%); display: flex; align-items: center; gap: .25rem; padding: .4rem .5rem; z-index: 3; }
-.cmd { display: flex; align-items: center; gap: .5rem; height: 2.75rem; padding: 0 .8rem; white-space: nowrap; border-radius: .65rem; border: 1px solid transparent; background: transparent; color: var(--text); font-weight: 600; font-size: .8125rem; transition: all .12s; }
+/* centred in the free space between the roster and the dock (not the screen), so it never runs under the dock */
+#cmdbar { position: absolute; left: calc(50% - 4rem); max-width: calc(100% - 49.5rem); bottom: 1.6rem; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: .15rem; padding: .4rem .5rem; z-index: 3; }
+.cmd { display: flex; align-items: center; gap: .45rem; height: 2.75rem; padding: 0 .7rem; white-space: nowrap; border-radius: .65rem; border: 1px solid transparent; background: transparent; color: var(--text); font-weight: 600; font-size: .8125rem; transition: all .12s; }
 .cmd .ic { color: var(--amber); width: 1.3rem; height: 1.3rem; }
 .cmd:hover { background: rgba(255, 255, 255, .08); }
 .cmd.on { background: rgba(246, 180, 79, .16); border-color: rgba(246, 180, 79, .5); color: var(--amber2); }
-.cmd kbd { margin-left: .1rem; }
+.cmd kbd { display: none; } /* the keys are in the tooltips and the Controls tab: the bar must fit between the roster and the dock */
 .vsep { width: 1px; height: 1.75rem; background: var(--stroke); margin: 0 .25rem; }
 
 /* ---------- minimap ---------- */

@@ -2,6 +2,8 @@
 #hud { position: absolute; inset: 0; pointer-events: none; opacity: var(--hud-opacity); z-index: 5; transition: opacity .3s; }
 :root[data-mode="colony"] #hud { display: none; }
 :root[data-screen]:not([data-screen=""]) #hud .hints { display: none; }
+/* the inventory panel covers the vitals corner: fade them out instead of leaving half a gauge showing */
+:root[data-screen="inventory"] #hud .vitals { opacity: 0; transform: translateX(-1rem); animation: none; transition: opacity .2s, transform .2s; }
 
 /* ----- vitals ----- */
 #hud .vitals { position: absolute; left: 1.75rem; bottom: 1.75rem; width: 21rem; padding: 1rem 1.125rem 1rem; display: flex; flex-direction: column; gap: .875rem; animation: rise .5s var(--ease) both; }

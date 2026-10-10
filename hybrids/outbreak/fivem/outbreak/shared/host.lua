@@ -582,6 +582,15 @@ function Host:debug(cmd, a)
 		self:absorb(w:handle({ type = "ped_damage", id = a.id, amount = U.num(a.amount, 20), kind = type(a.kind) == "string" and a.kind or "bite", part = a.part }))
 		self:flush_events()
 		return true
+	elseif cmd == "survival" then
+		-- set the player's body (screenshots, demos, tests): hunger / thirst / fatigue 0-100 (100 = worst), hp as a fraction of max
+		local c = self.survival.c
+		if U.num(a.hunger) then c.hunger = U.clamp(U.num(a.hunger), 0, 100) end
+		if U.num(a.thirst) then c.thirst = U.clamp(U.num(a.thirst), 0, 100) end
+		if U.num(a.fatigue) then c.fatigue = U.clamp(U.num(a.fatigue), 0, 100) end
+		if U.num(a.hp) then c.hp = U.clamp(U.num(a.hp), 1, c.hp_max) end
+		self:send(P.NET.hud, self:hud_payload())
+		return true
 	elseif cmd == "audit" then
 		local ok, rep = w:audit()
 		return ok, rep

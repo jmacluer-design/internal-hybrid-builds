@@ -361,8 +361,25 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-window.__gameId = 'shatterworld';
-window.__game = { id: 'shatterworld' };
+window.__gameId = 'shatterworld-next';
+window.__game = { id: 'shatterworld-next' };
+// TEST TILE ISOLATION: this build runs next to the verified main game on the same origin and NEVER writes or deletes its keys (sw_rpg, sw_vr, sw_q, sw_pdb, sw_mute, sw_best, ib_saves.shatterworld).
+// Everything it saves lives under swn_* (+ ib_saves['shatterworld-next'] through the shelf bridge). First run only: the old sw_rpg / sw_vr are READ and copied (as the Pip class) into swn_rpg / swn_vr, then flagged in swn_imported.
+(function swnImport() {
+  try {
+    if (localStorage.getItem('swn_imported')) return;
+    let from = '', vr = false;
+    const rd = k => { try { const v = localStorage.getItem(k); if (v) { JSON.parse(v); return v; } } catch (e) { } return null; }; // read-only; anything unparseable is ignored
+    if (localStorage.getItem('swn_rpg') === null) {
+      let v = rd('sw_rpg');
+      if (v) from = 'sw_rpg';
+      else { try { const g = (JSON.parse(localStorage.getItem('ib_saves') || '{}') || {}).shatterworld; if (g && g.rpg) { v = JSON.stringify(g.rpg); from = 'ib_saves'; } } catch (e) { } }
+      if (v) localStorage.setItem('swn_rpg', v);
+    }
+    const ov = rd('sw_vr'); if (ov && localStorage.getItem('swn_vr') === null) { localStorage.setItem('swn_vr', ov); vr = true; }
+    localStorage.setItem('swn_imported', JSON.stringify({ t: Date.now(), rpg: from, vr }));
+  } catch (e) { }
+})();
 
 // ---------------------------------------------------------------------------
 // TUNING - every gameplay number lives here (units: metres, seconds)
@@ -482,11 +499,11 @@ const QUALITY = {
 };
 const QORDER = ['high', 'medium', 'low'];
 let qName = 'high';
-try { const okQ = k => !!QUALITY[k] && !QUALITY[k].vr; const u = new URLSearchParams(location.search).get('q'); const s = localStorage.getItem('sw_q'); qName = okQ(u) ? u : okQ(s) ? s : 'high'; } catch (e) { }
+try { const okQ = k => !!QUALITY[k] && !QUALITY[k].vr; const u = new URLSearchParams(location.search).get('q'); const s = localStorage.getItem('swn_q'); qName = okQ(u) ? u : okQ(s) ? s : 'high'; } catch (e) { }
 let Q = QUALITY[qName];
 
 const canvas = $('gl');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: (() => { try { return localStorage.getItem('sw_pdb') === '1'; } catch (e) { return false; } })() }); // test hook only
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: (() => { try { return localStorage.getItem('swn_pdb') === '1'; } catch (e) { return false; } })() }); // test hook only
 renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType('local-floor'); renderer.xr.setFoveation(TUNING.vr.foveation);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1079,7 +1096,7 @@ function buildComposer() {
 }
 function applyQuality(name, silent) {
   if (!QUALITY[name]) return; if (window.__qdbg) console.log('applyQuality ' + name + ' ' + new Error().stack.split('\n').slice(1, 4).join(' | ')); qName = name; Q = QUALITY[name];
-  try { if (!Q.vr) localStorage.setItem('sw_q', name); } catch (e) { }
+  try { if (!Q.vr) localStorage.setItem('swn_q', name); } catch (e) { }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.pr) * qScale); renderer.setSize(W, H, false);
   buildComposer(); configureShadow();
   if (typeof onQualityChanged === 'function') onQualityChanged();
@@ -2880,7 +2897,7 @@ function updateRotators(dt) {
 // AUDIO: WebAudio chiptune-flavoured sfx + generative two-layer music bed (warm pads <-> 8-bit square/triangle), crossfaded by the world's voxel state
 // ============================================================================
 let AC = null, master = null, sfxBus = null, musicBus = null, revBus = null, gReal = null, gVox = null, muted = false, noiseBuf = null;
-try { muted = localStorage.getItem('sw_mute') === '1'; } catch (e) { }
+try { muted = localStorage.getItem('swn_mute') === '1'; } catch (e) { }
 function audioInit() {
   if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
   try {
@@ -2895,7 +2912,7 @@ function audioInit() {
     musicT = AC.currentTime + 0.3;
   } catch (e) { AC = null; }
 }
-function setMuted(m) { muted = m; try { localStorage.setItem('sw_mute', m ? '1' : '0'); } catch (e) { } if (master) master.gain.setTargetAtTime(m ? 0 : 0.85, AC.currentTime, 0.05); const t = $('muteTag'); if (t) t.textContent = m ? 'MUTED' : ''; }
+function setMuted(m) { muted = m; try { localStorage.setItem('swn_mute', m ? '1' : '0'); } catch (e) { } if (master) master.gain.setTargetAtTime(m ? 0 : 0.85, AC.currentTime, 0.05); const t = $('muteTag'); if (t) t.textContent = m ? 'MUTED' : ''; }
 let SFXP = 1; // per-class pitch of the hero's action sounds (set around sfx() by the class layer)
 function osc(type, f0, f1, t, dur, g, dest, detune = 0) {
   if (SFXP !== 1) { f0 *= SFXP; f1 *= SFXP; }
@@ -2994,7 +3011,7 @@ function updateMusic(rdt) {
 const G = { state: 'menu', act: 1, shards: 0, shardsTotal: 5, totalShards: 0, coins: 0, runCoins: 0, score: 0, t: 0, best: 0, slow: 1, flash: 0, flashRed: 0, hitstop: 0, trans: null, cine: 0, cineLock: false, atmT: 0, coinCombo: 0, coinComboT: 0, deaths: 0, ck: null, flags: { 1: [], 2: [], 3: [] }, won: false, started: false, finale: null, nsd: -1, nextShard: null };
 const ACT_NAMES = { 1: 'ACT I · GOLDEN VALLEY', 2: 'ACT II · SKY ARCHIPELAGO', 3: 'ACT III · NEON CANYON', 4: 'FINALE · BLOOM' };
 const ACT_SHARDS = { 1: 5, 2: 4, 3: 3 };
-try { G.best = +localStorage.getItem('sw_best') || 0; } catch (e) { }
+try { G.best = +localStorage.getItem('swn_best') || 0; } catch (e) { }
 let toastT = 0;
 function toast(msg, ms = 2400) { G.toastMsg = msg; G.toastSeq = (G.toastSeq | 0) + 1; const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms); }
 function fmtTime(s) { s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
@@ -3128,7 +3145,7 @@ function killHero(reason) {
   saveRun(false);
 }
 function saveRun(win) {
-  const prev = G.best; if (win && (!G.best || G.t < G.best)) { G.best = G.t; try { localStorage.setItem('sw_best', String(G.best)); } catch (e) { } }
+  const prev = G.best; if (win && (!G.best || G.t < G.best)) { G.best = G.t; try { localStorage.setItem('swn_best', String(G.best)); } catch (e) { } }
   if (window.__save) window.__save({ best: G.best, score: G.score, time: Math.round(G.t), coins: G.coins, shards: G.totalShards, deaths: G.deaths, won: !!win, newBest: !!win && G.best !== prev });
 }
 function resetHero(pos, keepHp) {
@@ -3279,8 +3296,8 @@ const VRT = TUNING.vr;
 const _va = new THREE.Vector3(), _vb = new THREE.Vector3(), _vc = new THREE.Vector3(), _vq = new THREE.Quaternion();
 const vrNoop = () => { };
 const vrCfg = { size: VRT.sizeDefault, snap: 1, q: 'vr' }; // persisted: table size index, snap(1)/smooth(0) turning, VR graphics tier
-try { const o = JSON.parse(localStorage.getItem('sw_vr') || 'null'); if (o) { if (o.size >= 0 && o.size < VRT.scales.length) vrCfg.size = o.size | 0; vrCfg.snap = o.snap ? 1 : 0; if (o.q === 'vrlite') vrCfg.q = 'vrlite'; } } catch (e) { }
-function vrSaveCfg() { try { localStorage.setItem('sw_vr', JSON.stringify(vrCfg)); } catch (e) { } }
+try { const o = JSON.parse(localStorage.getItem('swn_vr') || 'null'); if (o) { if (o.size >= 0 && o.size < VRT.scales.length) vrCfg.size = o.size | 0; vrCfg.snap = o.snap ? 1 : 0; if (o.q === 'vrlite') vrCfg.q = 'vrlite'; } } catch (e) { }
+function vrSaveCfg() { try { localStorage.setItem('swn_vr', JSON.stringify(vrCfg)); } catch (e) { } }
 function vrFbScale() { let v = VRT.fbScale; try { const u = parseFloat(new URLSearchParams(location.search).get('vrscale')); if (u >= 0.5 && u <= 1.5) v = u; } catch (e) { } return v; }
 Object.assign(VR, {
   prompt: false, built: false, lift: 0, fy: 0, wasPlay: false, headOk: false, needAnchor: true, snapFollow: true, first: true, floorY: 0,
@@ -4401,7 +4418,7 @@ function classNewSlot(id, bagN = 24, gemN = 30) { // a fresh per-class save slot
 // X = salvage (press twice), Y = lock, B = back, LB / RB = previous / next tab, RT = reroll an affix, LT = sort.  Keyboard: arrows or WASD, Space/Enter,
 // J, E, Z/Esc, Q, Shift, R, T.  Open with I / Tab / E (when nothing else is interactive) / Y on the pad (or Start -> Y).
 // =============================================================================================================================
-const RPG_SAVE_KEY = 'sw_rpg', BAG_N = 24, TB = JSON.parse(JSON.stringify(TUNING)); // TB = pristine copy: stat effects are always recomputed from it
+const RPG_SAVE_KEY = 'swn_rpg', BAG_N = 24, TB = JSON.parse(JSON.stringify(TUNING)); // TB = pristine copy: stat effects are always recomputed from it
 const RP = { // persistent progression (saved)
   seed: ((Math.random() * 4294967296) >>> 0) || 0x5EED1E5, n: 0, picks: 0, level: 1, xp: 0, free: 0, spent: { power: 0, agility: 0, resolve: 0 }, perks: {}, pending: 0, gold: 0, dust: 0,
   bag: new Array(BAG_N).fill(null), equipped: { cap: null, gloves: null, boots: null, body: null, charm1: null, charm2: null },
@@ -4443,7 +4460,7 @@ function rpgApplySnapshot(s) {
 }
 function rpgLoad() {
   let s = null; try { const v = localStorage.getItem(RPG_SAVE_KEY); if (v) s = JSON.parse(v); } catch (e) { }
-  if (!s) try { const g = (JSON.parse(localStorage.getItem('ib_saves') || '{}') || {}).shatterworld; if (g && g.rpg) s = g.rpg; } catch (e) { } // shelf-bridge fallback copy
+  if (!s) try { const g = (JSON.parse(localStorage.getItem('ib_saves') || '{}') || {})['shatterworld-next']; if (g && g.rpg) s = g.rpg; } catch (e) { } // shelf-bridge fallback copy (this build's own entry only)
   return s ? rpgApplySnapshot(s) : false;
 }
 function rpgSaveNow(light) { // light = localStorage only (periodic flush); full = also window.__save (server / Supabase / shelf copy), used at milestones
@@ -6733,8 +6750,9 @@ function gemGlyph(k, id, col) {
     default: k.beginPath(); k.arc(0, 0, 8, 0, TAU); k.fill();
   }
 }
+function gemElemOf(d) { return d.elem ? GEM_ELEMS[d.elem] : (d.tags && d.tags.length ? GEM_ELEMS[d.tags[d.tags.length - 1]] : null); } // supports carry no tags
 function gemIconBase(id) {
-  let cv = GEM_ICON_CACHE.get(id); if (cv) return cv; const d = GEM_BY_ID[id], base = GEM_COLORS[d.color].css, el = d.elem ? GEM_ELEMS[d.elem] : GEM_ELEMS[d.tags[d.tags.length - 1]]; cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d');
+  let cv = GEM_ICON_CACHE.get(id); if (cv) return cv; const d = GEM_BY_ID[id], base = GEM_COLORS[d.color].css, el = gemElemOf(d); cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d');
   const bg = c.createRadialGradient(32, 24, 4, 32, 32, 40); bg.addColorStop(0, base); bg.addColorStop(1, '#0c1622'); c.fillStyle = bg; c.beginPath(); const R = d.kind === 'skill' ? 29 : 27; for (let i = 0; i < 6; i++) { const a = -PI / 2 + i * PI / 3; c.lineTo(32 + Math.cos(a) * R, 32 + Math.sin(a) * R * (d.kind === 'skill' ? 1 : 0.92)); } c.closePath(); c.fill();
   c.lineWidth = 3; c.strokeStyle = RPG_RARITY_COL[d.tier]; c.stroke(); c.save(); c.translate(32, 32); c.shadowColor = 'rgba(0,0,0,.55)'; c.shadowBlur = 4; gemGlyph(c, id, el ? el.css : '#ffffff'); c.restore();
   c.fillStyle = 'rgba(255,255,255,.18)'; c.beginPath(); c.moveTo(32, 5); c.lineTo(50, 14); c.lineTo(32, 22); c.lineTo(14, 14); c.closePath(); c.fill(); GEM_ICON_CACHE.set(id, cv); return cv;
@@ -6811,7 +6829,7 @@ function gemDetailLines(sel) { // shared by the DOM tab and the VR panel
     else { push('h', 'EMPTY', '#8195a6'); push('p', 'Gems drop from enemies, chests, crates and Sun Shards. Skill gems level up as you use them.'); }
     return L;
   }
-  const g = sel.gem, d = GEM_BY_ID[g.id], el = GEM_ELEMS[d.elem] || GEM_ELEMS[d.tags[d.tags.length - 1]]; push('h', d.name, RPG_RARITY_COL[d.tier]); push('sub', (d.kind === 'skill' ? 'SKILL GEM' : 'SUPPORT GEM') + '  ·  ' + (el ? el.name.toUpperCase() : '') + '  ·  ' + GEM_COLORS[d.color].name.toUpperCase() + '  ·  LEVEL ' + g.lv + (g.lk ? '  ·  LOCKED' : ''));
+  const g = sel.gem, d = GEM_BY_ID[g.id], el = gemElemOf(d); push('h', d.name, RPG_RARITY_COL[d.tier]); push('sub', (d.kind === 'skill' ? 'SKILL GEM' : 'SUPPORT GEM') + '  ·  ' + (el ? el.name.toUpperCase() : '') + '  ·  ' + GEM_COLORS[d.color].name.toUpperCase() + '  ·  LEVEL ' + g.lv + (g.lk ? '  ·  LOCKED' : ''));
   push('bar', 'XP', '#53e0d0', { v: g.lv >= GEM_TUNING.maxLevel ? 1 : g.xp / gemXpNext(g.lv), txt: g.lv >= GEM_TUNING.maxLevel ? 'MAX LEVEL' : Math.floor(g.xp) + ' / ' + gemXpNext(g.lv) + ' XP' }); push('p', d.text);
   if (d.kind === 'skill') {
     const a = gemFindActive(g.u), ctx = { aff, skillCol: a ? a.skillCol : null }, R = a ? a.R : gemFinal(gemResolve(g, [], ctx), S); push('sep');
@@ -6891,7 +6909,7 @@ window.__gems = {
   socket(bi, row, idx) { return gemOpSocket(bi, row, idx); }, auto(bi) { return gemOpAuto(bi); }, unsocket(row, idx) { return gemOpUnsocket(row, idx); }, bind(slot, uid) { return gemBind(slot, uid); }, stash(bi) { return gemOpStash(bi); }, unstash(si) { return gemOpUnstash(si); }, salvage(bi) { return gemOpSalvage(bi); }, resocket(row) { return gemOpResocket(row); },
   sockets(row) { const it = gemRowItem(row); return it ? Object.assign(gemSockets(it), { gems: (it.gems || []).map(g => g ? { id: g.id, lv: g.lv, u: g.u } : null) }) : null; }, bag() { return RP.gems.map(g => g ? { id: g.id, lv: g.lv, xp: g.xp, u: g.u, lk: !!g.lk } : null); }, stashList() { return RP.stash.map(g => g ? { id: g.id, lv: g.lv, u: g.u } : null); }, hot() { return RP.hot.slice(); },
   xp(uid, n) { const a = gemFindActive(uid); if (a) { gemGainXp(a.gem, n); return a.gem.lv; } for (const g of RP.gems) if (g && g.u === uid) { gemGainXp(g, n); return g.lv; } return -1; }, setLevel(uid, lv) { const a = gemFindActive(uid); const g = a ? a.gem : RP.gems.find(q => q && q.u === uid); if (g) { g.lv = lv; g.xp = 0; GM.dirty = true; } },
-  fillSpark() { GM.spark = GM.sparkMax; GM.cd.fill(0); GM.cast = null; GM.queued = -1; }, spark() { return { spark: GM.spark, max: GM.sparkMax }; }, cd() { return GM.cd.slice(); }, state() { return gemDbg(); },
+  setSpark(v) { GM.spark = v; }, fillSpark() { GM.spark = GM.sparkMax; GM.cd.fill(0); GM.cast = null; GM.queued = -1; }, spark() { return { spark: GM.spark, max: GM.sparkMax }; }, cd() { return GM.cd.slice(); }, state() { return gemDbg(); },
   star(force) { return starTry(!!force); }, starEnd() { starEnd(true); }, setStar(v) { STAR.meter = v; }, starState() { return { meter: STAR.meter, on: STAR.on, run: STAR.run, t: STAR.t, dur: STAR.dur, kind: STAR.def ? STAR.def.id : null, hits: STAR.hits, chain: STAR.chain, vis: STAR.vis, enemyScale: GM.enemyScale, speedK: RT.speedK, jumpK: RT.jumpK, run_speed: TUNING.run, jump0: TUNING.jump[0], owns: STAR.owns, wv: [WV.R1, WV.R2] }; },
   form(id) { if (id) formStart(id); else formEnd(); return FORM.id; }, formState() { return { id: FORM.id, t: FORM.t, pickups: FPK.filter(p => p.on).length }; }, spawnForm(id, dist = 3) { formSpawn(id, P.x + Math.sin(P.yaw) * dist, P.y, P.z + Math.cos(P.yaw) * dist); },
   fx() { return { proj: PJ.filter(p => p.on).length, zones: ZN.filter(z => z.on).length, falls: FL.filter(f => f.on).length, burns: BN.filter(b => b.on).length, echoes: GM.echoes.filter(e => e.on).length, dash: !!(GM.dash && GM.dash.on), arcs: ARC_POOL.filter(a => a.on).length, beams: GBEAM_POOL.filter(a => a.on).length, slashes: SLASH_POOL.filter(a => a.on).length, ribbons: STAR.rib.filter(r => r.mesh.visible).length + (GM.ribDash && GM.ribDash.mesh.visible ? 1 : 0), cast: !!GM.cast, pose: GM.pose.kind }; },
@@ -6908,13 +6926,15 @@ window.__classes = {
   register(def, builder) { const d = classRegister(def); if (builder) CLASS_MODELS[d.model] = builder; PV.rigs[d.id] && delete PV.rigs[d.id]; if (PV.built) pvAddRig(d.id); return d.id; }, models: CLASS_MODELS, slots() { clsStashLive(); const o = {}; for (const id in RP.slots) o[id] = { level: RP.slots[id].level, xp: RP.slots[id].xp, gems: (RP.slots[id].gems || []).filter(Boolean).length, perks: Object.keys(RP.slots[id].perks || {}).length, bag: (RP.slots[id].bag || []).filter(Boolean).length }; return o; },
   heroModel() { return { cls: hero.cls, S: hero.S, parts: (() => { let n = 0; hero.root.traverse(o => { if (o.isMesh) n++; }); return n; })(), legs: hero.legs.map(l => l.scale.y), torso: hero.torso.scale.y }; }, previewRigs() { return Object.keys(PV.rigs); }, anim: CLASSES, snapshot: () => rpgSnapshot(),
 };
-function gemDbg() { return { spark: Math.round(GM.spark * 10) / 10, sparkMax: GM.sparkMax, hot: GM.slot.map(a => a ? a.gem.id : null), hotLv: GM.slot.map(a => a ? a.gem.lv : 0), cd: GM.cd.map(v => Math.round(v * 100) / 100), active: GM.active.length, star: { meter: Math.round(STAR.meter * 10) / 10, on: STAR.on, run: STAR.run, t: Math.round(STAR.t * 10) / 10 }, form: FORM.id, cls: RP.cls, unlocked: Object.keys(RP.unlocked), bag: RP.gems.filter(Boolean).length, stash: RP.stash.filter(Boolean).length, casts: GM.stats.casts, hits: GM.stats.hits, kills: GM.stats.kills, stars: GM.stats.stars, levelUps: GM.levelUps, proj: PJ.filter(p => p.on).length, zones: ZN.filter(z => z.on).length, dash: !!(GM.dash && GM.dash.on), pose: GM.pose.kind, enemyScale: GM.enemyScale, sel: CSU.open ? CLASS_ORDER[CSU.i] : null, tab: RUI.open ? RUI.tab : null }; }
+function gemDbg() { return { spark: Math.round(GM.spark * 10) / 10, sparkMax: GM.sparkMax, hot: GM.slot.map(a => a ? a.gem.id : null), hotLv: GM.slot.map(a => a ? a.gem.lv : 0), cd: GM.cd.map(v => Math.round(v * 100) / 100), active: GM.active.length, star: { meter: Math.round(STAR.meter * 10) / 10, on: STAR.on, run: STAR.run, t: Math.round(STAR.t * 10) / 10 }, form: FORM.id, cls: RP.cls, unlocked: Object.keys(RP.unlocked), bag: RP.gems.filter(Boolean).length, stash: RP.stash.filter(Boolean).length, casts: GM.stats.casts, last: GM.lastCast, sparkFlash: Math.round(GM.sparkFlash * 100) / 100, hits: GM.stats.hits, kills: GM.stats.kills, stars: GM.stats.stars, levelUps: GM.levelUps, proj: PJ.filter(p => p.on).length, zones: ZN.filter(z => z.on).length, dash: !!(GM.dash && GM.dash.on), pose: GM.pose.kind, enemyScale: GM.enemyScale, sel: CSU.open ? CLASS_ORDER[CSU.i] : null, tab: RUI.open ? RUI.tab : null }; }
+window.__rpg.snapshot = () => rpgSnapshot(); // __rpg captured the unwrapped function at construction: point it at the wrapped one (adds snapshot.x)
 { const d0 = window.__dbg; window.__dbg = () => { const d = d0(); d.gems = gemDbg(); return d; }; }
 { const r0 = window.__rpg.reset; window.__rpg.reset = function () { r0(); if (STAR.on) starEnd(true); gemClearFx(); RP.cls = 'pip'; RP.slots = {}; RP.unlocked = { pip: 1, lou: 1 }; RP.stash = new Array(GEM_TUNING.stashN).fill(null); RP.gn = 0; const s = classNewSlot('pip', BAG_N, GEM_TUNING.bagN); RP.core = s.core; RP.gems = s.gems; RP.hot = s.hot; if (hero.cls && hero.cls !== 'pip') heroSetModel('pip'); GM.dirty = true; GM.prevUids = null; STAR.meter = 0; rpgRecalc(); GM.spark = GM.sparkMax; rpgRenderMenu(); updateBestLine(); }; }
 function gemBoot() {
   gemHudBuild(); const loaded = rpgLoad(); if (!loaded) { const s = classNewSlot('pip', BAG_N, GEM_TUNING.bagN); RP.core = s.core; RP.gems = s.gems; RP.hot = s.hot; RP.cls = 'pip'; }
   RT.S = null; rpgRecalc(); RT.hp = RT.max; RT.rw = RT.rwMax; rpgMirror(); gemRebuild(); GM.spark = GM.sparkMax; if (RP.cls !== 'pip') heroSetModel(RP.cls); rpgRenderMenu(); updateBestLine();
 }
+{ const _save = rpgSaveNow; rpgSaveNow = function (light) { _save(light); try { localStorage.setItem('swn_class', RP.cls); } catch (e) { } }; }
 gemBoot();
 window.__game.gems = true;
 // </gem-game>
@@ -6928,7 +6948,7 @@ function detectSoftware() {
 }
 function bootGame() {
   // software-only GL (headless / very old devices): start on the lightest tier at reduced resolution unless the player chose one
-  let chosen = false; try { chosen = !!new URLSearchParams(location.search).get('q') || !!localStorage.getItem('sw_q'); } catch (e) { }
+  let chosen = false; try { chosen = !!new URLSearchParams(location.search).get('q') || !!localStorage.getItem('swn_q'); } catch (e) { }
   if (!chosen && detectSoftware()) { qName = 'low'; Q = QUALITY.low; qScale = 0.7; }
   else if (!chosen && matchMedia && matchMedia('(pointer:coarse)').matches) { qName = 'medium'; Q = QUALITY.medium; } // tablets / TV browsers start balanced
   onResize(); applyQuality(qName, true);

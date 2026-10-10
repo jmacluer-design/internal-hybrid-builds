@@ -44,6 +44,8 @@ function P_catalog() return json.encode(view.catalog()) end
 function P_set_scale(n) cfg.server.time_scale = n end
 function P_set_speed(n) HOST:ui_action("set_speed", { speed = n }) end
 function P_resync() HOST:emit_resync(true) end
+-- the sim's own placement rule (nil -> "ok"): the UI tests compare ui/js/build.js OB.build.validate against it
+function P_why_not(bp, x, y) return require("sim.blueprints").why_not(HOST.world, bp, { x = x, y = y, z = 0 }) or "ok" end
 
 -- state hash of the same fixed runs tests/hash_check.lua performs (default AI policy, 1-minute steps), as the same text lines
 function P_hash_runs(days)

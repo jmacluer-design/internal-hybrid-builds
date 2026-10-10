@@ -242,6 +242,7 @@
       this.drawExpeditions(ctx, st);
       this.drawBuildings(ctx, st, mini);
       this.drawPiles(ctx, st);
+      this.drawZoneLabels(ctx, st);
       this.drawCaravans(ctx, st);
       this.drawHordes(ctx, st, mini);
       this.drawRaids(ctx, st);
@@ -323,11 +324,29 @@
         ctx.strokeStyle = z.main ? 'rgba(126,167,255,.6)' : 'rgba(126,224,195,.6)'; ctx.lineWidth = 1.4; ctx.setLineDash([6, 5]);
         ctx.fillRect(x - half, y - half, half * 2, half * 2); ctx.strokeRect(x - half, y - half, half * 2, half * 2); ctx.setLineDash([]);
         if (!mini && this.s > 1.4) {
-          ctx.fillStyle = '#b9c8e6'; ctx.font = '600 ' + Math.max(10, this.rem * 0.68) + 'px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-          ctx.fillText(z.name + '  P' + z.prio, x, y - half - 3);
           const used = z.cap ? z.w / z.cap : 0;
           ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(x - half, y + half + 3, half * 2, 3);
           ctx.fillStyle = used > 0.9 ? '#ff5d6c' : '#7aa7ff'; ctx.fillRect(x - half, y + half + 3, half * 2 * Math.min(1, used), 3);
+        }
+      }
+    }
+    // zone names are drawn AFTER the buildings and piles (so nothing covers them), on a dark pill, and never over each other: a label that would overlap
+    // one already drawn tries the other side of its zone, then is skipped (zoom in to see it)
+    drawZoneLabels(ctx, st) {
+      if (this.s <= 1.4) return;
+      const fs = Math.max(10, this.rem * 0.68), placed = [];
+      ctx.font = '600 ' + fs + 'px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      for (const z of st.zones) {
+        const half = Math.sqrt(z.tiles) * 2.1 * this.s, x = this.sx(z.x), y = this.sy(z.y);
+        const text = z.name + '  P' + z.prio, tw = ctx.measureText(text).width;
+        for (const below of [false, true]) {
+          const base = below ? y + half + 10 + fs : y - half - 5;
+          const box = { x0: x - tw / 2 - 5, x1: x + tw / 2 + 5, y0: base - fs - 3, y1: base + 4 };
+          if (placed.some(b => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)) continue;
+          placed.push(box);
+          ctx.fillStyle = 'rgba(8,12,20,.78)'; ctx.fillRect(box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0);
+          ctx.fillStyle = '#c4d2ee'; ctx.fillText(text, x, base);
+          break;
         }
       }
     }

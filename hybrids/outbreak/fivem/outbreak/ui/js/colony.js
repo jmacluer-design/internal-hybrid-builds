@@ -97,7 +97,8 @@
     box.className = 'panel';
     el.rosterN = h('span.chip', { style: { '--c': 'var(--amber)' } }, '0');
     el.rosterList = h('div.rlist', { role: 'listbox', 'aria-label': 'Colonists' });
-    el.selAll = h('button.btn.sm.ghost', { on: { click: () => OB.select(S.state.colonists.map(c => c.id)) } }, 'All');
+    el.selAll = h('button.btn.sq.sm.ghost', { 'aria-label': 'Select everyone', on: { click: () => OB.select(S.state.colonists.map(c => c.id)) } }, OB.icon('cursor'));
+    OB.tip(el.selAll, 'Select everyone <kbd>Ctrl</kbd>+<kbd>A</kbd>');
     el.draftAll = h('button.btn.sm', { on: { click: () => { const any = S.state.colonists.some(c => !c.drafted); OB.order('all', 'draft', any); } } }, OB.icon('swords'), 'Draft');
     box.append(h('div.panel-h', OB.icon('people'), h('h2', 'Colonists'), el.rosterN, h('div.grow'), el.selAll, el.draftAll), el.rosterList);
     OB.tip(el.draftAll, 'Draft or release everyone <kbd>R</kbd> acts on the selection');
@@ -158,7 +159,7 @@
     OB.reconcile(el.rosterList, st.colonists, c => c.id, makeRow, updateRow);
     OB.toggle(el.rosterList, 'dense', st.colonists.length > 12);
     const anyUn = st.colonists.some(c => !c.drafted);
-    OB.setText(el.draftAll.lastChild, anyUn ? 'Draft all' : 'Release');
+    OB.setText(el.draftAll.lastChild, anyUn ? 'Draft' : 'Release');
     OB.toggle(el.draftAll, 'on', !anyUn && st.colonists.length > 0);
   }
 
@@ -396,9 +397,19 @@
       bg.classList.add('layer');
       const send = (type, e, extra) => OB.post('mouse', Object.assign({ type, x: e.clientX / innerWidth, y: e.clientY / innerHeight, button: e.button, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey }, extra || {}));
       const mv = OB.throttle(e => send('move', e), 33);
-      bg.addEventListener('pointerdown', e => { bg.setPointerCapture(e.pointerId); send('down', e); });
-      bg.addEventListener('pointerup', e => send('up', e));
-      bg.addEventListener('pointermove', mv);
+      // the selection rectangle is drawn here (the Lua side only needs the end points); it shows once the drag is a few pixels long
+      const box = h('div.selbox'); box.hidden = true; bg.append(box);
+      let drag = null;
+      const showBox = e => {
+        const x0 = Math.min(drag.x, e.clientX), y0 = Math.min(drag.y, e.clientY), w = Math.abs(e.clientX - drag.x), hh = Math.abs(e.clientY - drag.y);
+        const on = w + hh > 8;
+        if (on) { box.style.left = x0 + 'px'; box.style.top = y0 + 'px'; box.style.width = w + 'px'; box.style.height = hh + 'px'; }
+        box.hidden = !on;
+      };
+      bg.addEventListener('pointerdown', e => { bg.setPointerCapture(e.pointerId); if (e.button === 0) drag = { x: e.clientX, y: e.clientY }; send('down', e); });
+      bg.addEventListener('pointerup', e => { drag = null; box.hidden = true; send('up', e); });
+      bg.addEventListener('pointercancel', () => { drag = null; box.hidden = true; });
+      bg.addEventListener('pointermove', e => { if (drag && !OB.build.placing) showBox(e); mv(e); });
       bg.addEventListener('dblclick', e => send('dblclick', e));
       bg.addEventListener('wheel', e => { e.preventDefault(); send('wheel', e, { dy: Math.sign(e.deltaY) }); }, { passive: false });
       bg.addEventListener('contextmenu', e => { e.preventDefault(); send('context', e); });

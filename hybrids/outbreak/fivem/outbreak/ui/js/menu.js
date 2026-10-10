@@ -15,7 +15,7 @@
   function slider(key, min, max, step, fmt) {
     const val = h('b.num', fmt(OB.settings[key]));
     const inp = h('input', { type: 'range', min, max, step, value: OB.settings[key], 'aria-label': key, on: { input: e => { OB.settings[key] = +e.target.value; OB.setText(val, fmt(+e.target.value)); OB.saveSettings(); } } });
-    return h('div.sl', inp, val);
+    return h('div.slider', inp, val);
   }
   const TABS = {
     main() {
@@ -129,7 +129,7 @@
     OB.clear(sbody);
     const st = d.stats || {};
     const lost = d.dead || [];
-    const hero = h('div.shero', h('div.lbl', d.over ? 'The colony has fallen' : 'Colony report'), h('div.disp.sbig', d.survived_days + (d.survived_days === 1 ? ' day' : ' days')),
+    const hero = h('div.shero', h('div.lbl', d.over ? 'The colony has fallen' : 'Colony report'), h('div.disp.sbig' + (d.over ? '.fell' : ''), d.survived_days + (d.survived_days === 1 ? ' day' : ' days')),
       h('div.muted', d.over ? 'survived. The last colonist is gone on day ' + d.day + '.' : 'survived so far, ' + d.alive + ' colonists alive.'));
     const stat = (l, v, icon) => h('div.sstat', OB.icon(icon), h('div', h('div.disp.num', F.n(v)), h('div.lbl', l)));
     const grid = h('div.sgrid',

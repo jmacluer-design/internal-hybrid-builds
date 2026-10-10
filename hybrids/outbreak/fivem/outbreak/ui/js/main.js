@@ -118,9 +118,25 @@
     if (S.state && S.mode === 'colony') { OB.colony.update(S.state); OB.map.updateAll(S.state); }
   };
 
+  // The page owns the keyboard while it has NUI focus, so the game never sees WASD: the camera keys are forwarded to the Lua client (client/camera.lua
+  // on_key) as down / up pairs. Keys still held when the window loses focus or a screen opens are released, so the camera never keeps drifting.
+  const CAM_KEYS = { w: 'w', a: 'a', s: 's', d: 'd', q: 'q', e: 'e', ArrowUp: 'ArrowUp', ArrowDown: 'ArrowDown', ArrowLeft: 'ArrowLeft', ArrowRight: 'ArrowRight', Shift: 'shift' };
+  const heldKeys = new Set();
+  OB.releaseKeys = function () { heldKeys.forEach(k => OB.post('key', { k, down: false })); heldKeys.clear(); };
+  document.addEventListener('keyup', e => {
+    const k = CAM_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    if (k && heldKeys.delete(k)) OB.post('key', { k, down: false });
+  });
+  window.addEventListener('blur', () => OB.releaseKeys());
+  OB.on('screen', () => { if (OB.screens.current) OB.releaseKeys(); });
+
   document.addEventListener('keydown', e => {
     const tag = (e.target && e.target.tagName) || '';
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(tag);
+    if (!typing && S.mode === 'colony' && !OB.screens.current && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      const ck = CAM_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+      if (ck && !heldKeys.has(ck)) { heldKeys.add(ck); OB.post('key', { k: ck, down: true }); }
+    }
     if (e.key === 'Escape') {
       if (!OB.$('#ctx').hidden) { OB.closeCtx(); return e.preventDefault(); }
       if (OB.build && OB.build.cancel()) return e.preventDefault();

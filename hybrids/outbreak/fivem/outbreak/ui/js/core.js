@@ -14,7 +14,7 @@
     const el = document.createElement(m[1] || 'div');
     const cls = [];
     (m[2].match(/[.#][\w:-]+/g) || []).forEach(t => (t[0] === '.' ? cls.push(t.slice(1)) : (el.id = t.slice(1))));
-    if (props && (props.nodeType || typeof props === 'string' || Array.isArray(props))) { kids.unshift(props); props = null; }
+    if (props != null && props !== false && (props.nodeType || typeof props === 'string' || typeof props === 'number' || Array.isArray(props))) { kids.unshift(props); props = null; } // (a number as the first child, e.g. h('b', 3), is text, not a props object)
     if (props) {
       if (props.class) cls.push(props.class);
       for (const k of Object.keys(props)) {
