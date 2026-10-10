@@ -152,17 +152,20 @@
     tipEl.style.transform = 'translate(' + Math.round(l) + 'px,' + Math.round(t) + 'px)';
   }
   OB.tip = function (el, content, delay) {
+    const open = (x, y) => {
+      tipEl = tipEl || OB.$('#tip');
+      const c = typeof content === 'function' ? content() : content;
+      if (c == null || c === '') return false;
+      OB.clear(tipEl);
+      if (typeof c === 'string') tipEl.innerHTML = c; else tipEl.append(c);
+      tipEl.hidden = false;
+      placeTip(x, y);
+      return true;
+    };
+    el._tipOpen = open; // js/touch.js shows tooltips on tap / long-press (there is no hover on a phone)
     el.addEventListener('pointerenter', e => {
       clearTimeout(tipTimer);
-      tipTimer = setTimeout(() => {
-        tipEl = tipEl || OB.$('#tip');
-        const c = typeof content === 'function' ? content() : content;
-        if (c == null || c === '') return;
-        OB.clear(tipEl);
-        if (typeof c === 'string') tipEl.innerHTML = c; else tipEl.append(c);
-        tipEl.hidden = false;
-        placeTip(e.clientX, e.clientY);
-      }, delay == null ? 250 : delay);
+      tipTimer = setTimeout(() => open(e.clientX, e.clientY), delay == null ? 250 : delay);
     });
     el.addEventListener('pointermove', e => { if (tipEl && !tipEl.hidden) placeTip(e.clientX, e.clientY); });
     const hide = () => { clearTimeout(tipTimer); tipEl = tipEl || OB.$('#tip'); if (tipEl) tipEl.hidden = true; };

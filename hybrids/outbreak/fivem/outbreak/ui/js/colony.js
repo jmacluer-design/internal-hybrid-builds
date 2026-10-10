@@ -307,7 +307,7 @@
       const c = st.card;
       if (!c) {
         const key = 'none';
-        if (lastKey !== key) { lastKey = key; OB.clear(head); OB.clear(body); body.append(h('div.empty', OB.icon('cursor'), h('b', 'No colonist selected'), h('p.muted', 'Click a colonist on the map or in the roster. Drag to box-select, right-click to give a move order.'))); }
+        if (lastKey !== key) { lastKey = key; OB.clear(head); OB.clear(body); body.append(h('div.empty', OB.icon('cursor'), h('b', 'No colonist selected'), h('p.muted', OB.touch && OB.touch.on ? 'Tap a colonist on the map or in the strip. Use Select to drag a box around several, then Order and tap where they should go; long-press the map for more.' : 'Click a colonist on the map or in the roster. Drag to box-select, right-click to give a move order.'))); }
         tabs.hidden = true; return;
       }
       tabs.hidden = false;

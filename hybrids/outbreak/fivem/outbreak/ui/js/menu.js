@@ -28,7 +28,8 @@
       const prof = h('select', { 'aria-label': 'Pacing profile' }, ...['calm', 'escalating', 'chaos'].map(p => h('option', { value: p, selected: p === ((S.state && S.state.profile) || 'escalating') }, F.cap(p))));
       k.append(h('section.csec', h('div.lbl', 'New game'), h('div.row', h('label.muted.t-sm', 'Seed'), seed, h('label.muted.t-sm', 'Pacing'), prof, h('button.btn.danger', { on: { click: () => { OB.ui('new_game', { seed: +seed.value, profile: prof.value }); OB.screens.close(); OB.toast('warn', 'New colony started.', { icon: 'flag' }); } } }, 'Start new colony')),
         h('div.muted.t-xs', 'The same seed and profile give the same colony and the same Director schedule (the sim is deterministic).')));
-      if (OB.preview || (S.boot && S.boot.preview)) k.append(h('div.notice', OB.icon('info'), h('span', h('b', 'Browser preview. '), 'This page is the real NUI running against the real Lua sim in WebAssembly. There is no GTA here: no peds, no camera, no world.')));
+      if (S.boot && S.boot.phone) k.append(h('div.notice', OB.icon('info'), h('span', h('b', 'Phone companion. '), 'This page shows the live colony of the MTA server it was loaded from. Orders you give here run on the server; the 3D world, peds and camera are only in the GTA client.')));
+      else if (OB.preview || (S.boot && S.boot.preview)) k.append(h('div.notice', OB.icon('info'), h('span', h('b', 'Browser preview. '), 'This page is the real NUI running against the real Lua sim in WebAssembly. There is no GTA here: no peds, no camera, no world.')));
       return k;
     },
     settings() {
@@ -42,6 +43,7 @@
       return k;
     },
     controls() {
+      if (OB.touch && OB.touch.on) return OB.touch.helpView();
       const t = h('div.keys');
       for (const [k, d] of KEYS) t.append(h('div.krow', h('span.keycaps', ...k.split(' ').map(x => OB.key(x))), h('span', d)));
       return t;

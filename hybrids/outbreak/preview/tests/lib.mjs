@@ -30,7 +30,8 @@ export async function launch() {
 // opts: { w, h, query: 'seed=1&mode=colony', bench: false }
 export async function openPreview(env, opts = {}) {
   const { w = 1920, h = 1080, query = '', bench = false } = opts;
-  const ctx = await env.browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: opts.dpr || 1 });
+  // opts.mobile: Playwright mobile emulation (meta viewport honoured, coarse pointer, touch events) for the phone UI tests
+  const ctx = await env.browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: opts.dpr || 1, ...(opts.mobile ? { isMobile: true, hasTouch: true } : {}) });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));

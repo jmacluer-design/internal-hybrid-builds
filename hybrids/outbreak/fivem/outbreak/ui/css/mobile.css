@@ -1,0 +1,340 @@
+/* Outbreak NUI: phone / tablet layout. EVERY rule is scoped to html[data-ui="touch"], which js/touch.js sets only on a touch device (coarse pointer, no hover),
+   a window narrower than 720 px, or ?touch=1: the desktop layout is untouched. Portrait = bottom sheet + bottom tab bar + roster strip; landscape = roster
+   rail (left) + dock drawer with a tab rail (right). Hit targets are >= 44 px, type >= 11 px, safe-area insets respected (--sat/--sar/--sab/--sal). */
+html[data-ui="touch"] {
+  --m-rem: 16px;
+  --sat: env(safe-area-inset-top, 0px); --sar: env(safe-area-inset-right, 0px); --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px);
+  --pad-l: calc(var(--sal) + 8px); --pad-r: calc(var(--sar) + 8px);
+  --tap: 44px; --top-h: 112px; --sheet-h: 42vh; --drawer-w: min(46vw, 360px);
+  font-size: calc(var(--m-rem) * var(--ui-scale));
+  overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+}
+@media (orientation: landscape) and (max-height: 540px) { html[data-ui="touch"] { --m-rem: 14px; } }
+@media (min-width: 700px) and (min-height: 700px) { html[data-ui="touch"] { --m-rem: 18px; --sheet-h: 40vh; --drawer-w: min(40vw, 440px); } }
+html[data-ui="touch"] body { touch-action: pan-x pan-y; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; font-size: 1rem; }
+html[data-ui="touch"] button, html[data-ui="touch"] [role="button"], html[data-ui="touch"] .crow, html[data-ui="touch"] .res { touch-action: manipulation; }
+html[data-ui="touch"] .map-cv { touch-action: none; }
+
+/* ---------- controls: >= 44 px, no hover look ---------- */
+html[data-ui="touch"] .btn { height: var(--tap); min-width: var(--tap); padding: 0 16px; font-size: .875rem; border-radius: 12px; }
+html[data-ui="touch"] .btn:hover { background: rgba(255, 255, 255, .06); border-color: var(--stroke); }
+html[data-ui="touch"] .btn.primary:hover { background: linear-gradient(180deg, #ffc668, #e79d2e); }
+html[data-ui="touch"] .btn.on:hover { background: rgba(246, 180, 79, .16); border-color: rgba(246, 180, 79, .55); }
+html[data-ui="touch"] .btn.sq, html[data-ui="touch"] .btn.sm.sq { width: var(--tap); padding: 0; }
+html[data-ui="touch"] .btn.sm { height: var(--tap); padding: 0 14px; font-size: .8125rem; }
+html[data-ui="touch"] .btn.ghost:hover { background: transparent; }
+html[data-ui="touch"] .seg { padding: 2px; gap: 2px; border-radius: 12px; }
+html[data-ui="touch"] .seg button { height: var(--tap); min-width: var(--tap); padding: 0 12px; font-size: .875rem; border-radius: 10px; }
+html[data-ui="touch"] .seg button:hover { background: transparent; color: var(--muted); }
+html[data-ui="touch"] .seg button.on:hover { background: rgba(246, 180, 79, .18); color: var(--amber2); }
+html[data-ui="touch"] .chip.tab, html[data-ui="touch"] button.chip { height: var(--tap); padding: 0 16px; font-size: .8125rem; gap: .45rem; }
+html[data-ui="touch"] .chip.tab .ic { width: 1.1em; height: 1.1em; }
+html[data-ui="touch"] .src { height: var(--tap); padding: 0 14px; font-size: .8125rem; }
+html[data-ui="touch"] input[type=text], html[data-ui="touch"] input[type=number], html[data-ui="touch"] select { height: var(--tap); font-size: max(16px, 1rem); padding: 0 12px; border-radius: 12px; } /* >= 16 px: iOS does not zoom the page on focus */
+html[data-ui="touch"] .tgl { width: 64px; height: var(--tap); border: 0; background: none; border-radius: 0; flex: none; }
+html[data-ui="touch"] .tgl::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 30px; margin-top: -15px; border-radius: 99rem; border: 1px solid var(--stroke2); background: rgba(255, 255, 255, .08); transition: background .2s; }
+html[data-ui="touch"] .tgl.on::before { background: rgba(246, 180, 79, .35); border-color: rgba(246, 180, 79, .6); }
+html[data-ui="touch"] .tgl i { top: 50%; left: 5px; width: 22px; height: 22px; margin-top: -11px; }
+html[data-ui="touch"] .tgl.on i { transform: translateX(34px); }
+html[data-ui="touch"] input[type=range] { height: var(--tap); background: none; margin: 0; }
+html[data-ui="touch"] input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 99rem; background: rgba(255, 255, 255, .16); }
+html[data-ui="touch"] input[type=range]::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -11px; }
+html[data-ui="touch"] input[type=range]::-moz-range-track { height: 6px; border-radius: 99rem; background: rgba(255, 255, 255, .16); }
+html[data-ui="touch"] input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--amber2); border: .125rem solid #3a2610; }
+html[data-ui="touch"] .panel { -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(180deg, rgba(27, 34, 49, .97), rgba(12, 16, 25, .985)); } /* blur is too costly on a phone */
+html[data-ui="touch"] .lbl, html[data-ui="touch"] .t-xs { font-size: max(11px, .75rem); }
+html[data-ui="touch"] .t-sm { font-size: max(12px, .8125rem); }
+html[data-ui="touch"] #preview-badge { left: auto; right: var(--pad-r); bottom: auto; top: calc(var(--top-h) + 6px); transform: none; font-size: 10px; padding: .15rem .6rem; letter-spacing: .08em; }
+
+/* ---------- tooltip + context menu ---------- */
+html[data-ui="touch"] #tip { max-width: calc(100vw - 24px); font-size: .875rem; }
+html[data-ui="touch"] #ctx { min-width: 15rem; max-width: calc(100vw - 16px); padding: 6px; border-radius: 16px; }
+html[data-ui="touch"] .ctx-i { height: 48px; font-size: .9375rem; padding: 0 14px; border-radius: 10px; }
+html[data-ui="touch"] .ctx-i:hover { background: transparent; }
+html[data-ui="touch"] .ctx-i kbd { display: none; }
+
+/* ---------- toasts ---------- */
+html[data-ui="touch"] #toasts { top: calc(var(--top-h) + 6px); left: var(--pad-l); right: var(--pad-r); width: auto; transform: none; }
+html[data-ui="touch"][data-mode="survival"] #toasts { top: calc(var(--sat) + 8px); }
+html[data-ui="touch"] .toast { padding: .75rem .9rem; font-size: .875rem; min-height: var(--tap); }
+html[data-ui="touch"] .toast:nth-last-child(n+4) { display: none; }
+
+/* ======================================================================================================================== colony chrome (portrait) */
+html[data-ui="touch"] #colony { display: flex; flex-direction: column; align-items: stretch; }
+html[data-ui="touch"] #colony > #mapbg { position: absolute; inset: 0; flex: none; }
+html[data-ui="touch"] #minimap { display: none; }
+html[data-ui="touch"] #topbar { order: 1; } html[data-ui="touch"] #roster { order: 2; } html[data-ui="touch"] #cmdbar, html[data-ui="touch"] #placebar { order: 3; } html[data-ui="touch"] #dock { order: 4; }
+
+/* top bar: clock | speed | menu, and the scrolling resource row */
+html[data-ui="touch"] #topbar { position: relative; top: auto; left: auto; right: auto; height: auto; flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "clock speed menu" "res res res"; align-items: center; gap: 6px 8px;
+  padding: calc(var(--sat) + 6px) var(--pad-r) 8px var(--pad-l); border-radius: 0 0 18px 18px; border-width: 0 0 1px; white-space: normal; z-index: 3; }
+html[data-ui="touch"] #topbar .brand, html[data-ui="touch"] #topbar .grow { display: none; }
+html[data-ui="touch"] #topbar .timebox { grid-area: clock; position: relative; align-items: flex-start; justify-content: center; gap: 0; min-height: var(--tap); padding: 0 18px 0 2px; cursor: pointer; }
+html[data-ui="touch"] .timebox .tb-a { gap: 6px; }
+html[data-ui="touch"] .timebox .time { font-size: 1.5rem; }
+html[data-ui="touch"] .timebox .tb-b { gap: 4px; }
+html[data-ui="touch"] .timebox .tb-b .disp { font-size: .8125rem; }
+html[data-ui="touch"] .timebox .tb-b .lbl { display: none; }
+html[data-ui="touch"] .timebox .collapse { position: absolute; right: 0; top: 50%; margin-top: -8px; color: var(--muted); }
+html[data-ui="touch"] .timebox .collapse .ic { width: 16px; height: 16px; transition: transform .2s; }
+html[data-ui="touch"][data-top="min"] .timebox .collapse .ic { transform: rotate(180deg); }
+html[data-ui="touch"] #topbar .seg.speed { grid-area: speed; display: flex; padding: 2px; gap: 0; justify-self: stretch; }
+html[data-ui="touch"] #topbar .seg.speed button { flex: 1 1 0; min-width: var(--tap); padding: 0; }
+html[data-ui="touch"] #topbar > .btn.sq { grid-area: menu; }
+html[data-ui="touch"] #topbar .resources { grid-area: res; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x; scroll-snap-type: x proximity;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 20px; }
+html[data-ui="touch"] #topbar .resources::-webkit-scrollbar { display: none; }
+html[data-ui="touch"][data-top="min"] #topbar .resources { display: none; }
+html[data-ui="touch"] .res { flex: none; scroll-snap-align: start; min-width: 0; height: var(--tap); padding: 3px 10px 3px 5px; gap: 0 7px; grid-template-columns: auto auto; grid-template-rows: 1fr 3px; background: rgba(255, 255, 255, .05); border-color: var(--stroke); border-radius: 12px; }
+html[data-ui="touch"] .res:hover { background: rgba(255, 255, 255, .05); border-color: var(--stroke); }
+html[data-ui="touch"] .res .ri { width: 28px; height: 28px; }
+html[data-ui="touch"] .res .rl, html[data-ui="touch"] .res .rs { display: none; }
+html[data-ui="touch"] .res .rv { font-size: 1.1875rem; }
+html[data-ui="touch"] .res .bar { height: 3px; margin: 0; }
+html[data-ui="touch"] .thmeter { flex: none; width: 128px; height: var(--tap); padding: 6px 10px; gap: 4px; justify-content: center; border-radius: 12px; border: 1px solid var(--stroke); background: rgba(255, 255, 255, .05); scroll-snap-align: start; }
+html[data-ui="touch"] .thmeter > .lbl, html[data-ui="touch"] .thmeter .tl small { display: none; }
+html[data-ui="touch"] .thmeter .tl b { font-size: 1rem; }
+html[data-ui="touch"] .thmeter .segbar i { height: 5px; }
+
+/* roster = a strip of colonist cards (portrait) */
+html[data-ui="touch"] #roster { position: relative; top: auto; left: auto; bottom: auto; width: auto; min-height: 0; flex: none; margin: auto 0 0; padding: 0 var(--pad-r) 8px var(--pad-l); display: block; background: none; border: 0; box-shadow: none; z-index: 2; }
+html[data-ui="touch"] #roster .panel-h { display: none; }
+html[data-ui="touch"] .rlist { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 0; gap: 6px; scrollbar-width: none; touch-action: pan-x; overscroll-behavior-x: contain; }
+html[data-ui="touch"] .rlist::-webkit-scrollbar { display: none; }
+html[data-ui="touch"] .crow, html[data-ui="touch"] .rlist.dense .crow { flex: none; width: 152px; height: 56px; grid-template-columns: 38px 1fr; gap: 9px; padding: 6px 9px 6px 8px; background: rgba(15, 20, 30, .94); border-color: var(--stroke); border-radius: 14px; }
+html[data-ui="touch"] .crow:hover { background: rgba(15, 20, 30, .94); }
+html[data-ui="touch"] .crow.sel { background: rgba(70, 52, 22, .96); border-color: rgba(246, 180, 79, .55); }
+html[data-ui="touch"] .crow.prim { background: rgba(86, 60, 20, .98); border-color: var(--amber); }
+html[data-ui="touch"] .crow .dbtn, html[data-ui="touch"] .crow .rj { display: none; }
+html[data-ui="touch"] .crow .av, html[data-ui="touch"] .rlist.dense .av { width: 38px; height: 38px; font-size: .75rem; box-shadow: 0 0 0 2px var(--c); }
+html[data-ui="touch"] .crow .rn { font-size: .8125rem; }
+html[data-ui="touch"] .crow .rbars { margin-top: 5px; gap: 4px; }
+html[data-ui="touch"] .crow .fl { width: 1.2rem; height: 1.2rem; }
+
+/* command bar = a floating row above the tab bar */
+html[data-ui="touch"] #cmdbar { position: relative; left: auto; bottom: auto; max-width: none; transform: none; flex: none; margin: 0 var(--pad-r) 8px var(--pad-l); justify-content: flex-start; overflow-x: auto; gap: 2px; padding: 4px; border-radius: 18px; scrollbar-width: none; touch-action: pan-x; z-index: 3; }
+html[data-ui="touch"] #cmdbar::-webkit-scrollbar { display: none; }
+html[data-ui="touch"] #cmdbar [data-dock] { display: none; }
+html[data-ui="touch"] .cmd { flex: none; flex-direction: column; justify-content: center; gap: 3px; height: 54px; min-width: 56px; padding: 0 7px; font-size: max(11px, .6875rem); border-radius: 12px; }
+html[data-ui="touch"] .cmd .ic { width: 22px; height: 22px; }
+html[data-ui="touch"] .cmd:hover { background: transparent; }
+html[data-ui="touch"] .cmd.on:hover { background: rgba(246, 180, 79, .16); }
+html[data-ui="touch"] .cmd[disabled] { opacity: .4; }
+html[data-ui="touch"] #cmdbar .vsep { height: 30px; flex: none; }
+html[data-ui="touch"]:not([data-sheet="closed"]) #cmdbar, html[data-ui="touch"][data-bar="place"] #cmdbar, html[data-ui="touch"][data-bar="order"] #cmdbar { display: none; }
+
+/* placement / order bar */
+html[data-ui="touch"] #placebar { display: none; position: relative; flex: none; margin: 0 var(--pad-r) 8px var(--pad-l); padding: 6px; gap: 8px; align-items: center; border-radius: 18px; z-index: 3; }
+html[data-ui="touch"][data-bar="place"] #placebar, html[data-ui="touch"][data-bar="order"] #placebar { display: flex; }
+html[data-ui="touch"] #placebar .pb-info { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+html[data-ui="touch"] #placebar .pb-info b { font-size: .9375rem; }
+html[data-ui="touch"] #placebar .pb-sub { font-size: max(11.5px, .75rem); color: var(--muted); line-height: 1.25; }
+html[data-ui="touch"] #placebar .pb-sub.good { color: var(--good); } html[data-ui="touch"] #placebar .pb-sub.bad { color: var(--bad); }
+html[data-ui="touch"] #placebar .pb-cancel, html[data-ui="touch"] #placebar .pb-keep { width: var(--tap); padding: 0; }
+html[data-ui="touch"] #placebar .pb-cancel span, html[data-ui="touch"] #placebar .pb-keep span { display: none; }
+html[data-ui="touch"] #placebar .pb-ok { padding: 0 18px; font-size: .9375rem; }
+html[data-ui="touch"][data-bar="order"] #placebar .pb-keep, html[data-ui="touch"][data-bar="order"] #placebar .pb-ok { display: none; }
+html[data-ui="touch"][data-bar="order"] #placebar .pb-cancel { width: auto; padding: 0 16px; }
+html[data-ui="touch"][data-bar="order"] #placebar .pb-cancel span { display: inline; }
+
+/* floating map buttons */
+html[data-ui="touch"] #mapctl { position: absolute; z-index: 2; right: var(--pad-r); top: calc(var(--top-h) + 36px); display: flex; flex-direction: column; gap: 6px; }
+html[data-ui="touch"] #mapctl .btn { background: rgba(14, 19, 29, .9); border-color: var(--stroke2); }
+html[data-ui="touch"][data-bar="place"] #mapctl .btn:nth-child(3) { display: none; }
+
+/* dock = bottom sheet with the tab bar at its foot */
+html[data-ui="touch"] #dock { position: relative; top: auto; right: auto; bottom: auto; width: auto; height: auto; flex: none; margin: 0; display: flex; flex-direction: column-reverse; border-radius: 20px 20px 0 0; border-width: 1px 0 0; z-index: 4; }
+html[data-ui="touch"] #dock .dtabs { flex: none; gap: 2px; padding: 4px var(--pad-r) calc(4px + var(--sab)) var(--pad-l); border-bottom: 0; }
+html[data-ui="touch"] .dtab { min-height: 54px; padding: 4px 2px; border-radius: 12px; font-size: max(11.5px, .72rem); gap: 3px; letter-spacing: 0; text-transform: none; }
+html[data-ui="touch"] .dtab:hover { background: transparent; color: var(--muted); }
+html[data-ui="touch"] .dtab.on:hover { background: rgba(246, 180, 79, .13); color: var(--amber2); }
+html[data-ui="touch"] #dock .dbody { display: none; flex: none; padding: 6px 14px 16px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+html[data-ui="touch"][data-sheet="open"] #dock .dbody, html[data-ui="touch"][data-sheet="full"] #dock .dbody { display: block; height: var(--drag-h, var(--sheet-h)); }
+html[data-ui="touch"][data-sheet="full"] #dock { flex: 1 1 0; min-height: 0; }
+html[data-ui="touch"][data-sheet="full"] #dock .dbody { height: auto; flex: 1 1 0; min-height: 0; }
+html[data-ui="touch"] #dock[data-drag] { flex: none; }
+html[data-ui="touch"] #dock[data-drag] .dbody { flex: none; height: var(--drag-h); }
+html[data-ui="touch"] #dock .grip { display: none; flex: none; height: 32px; place-items: center; touch-action: none; cursor: grab; }
+html[data-ui="touch"] #dock .grip i { display: block; width: 44px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .3); }
+html[data-ui="touch"][data-sheet="open"] #dock .grip, html[data-ui="touch"][data-sheet="full"] #dock .grip { display: grid; }
+
+/* dock panels */
+html[data-ui="touch"] .chead { gap: .75rem; margin-bottom: .75rem; }
+html[data-ui="touch"] .cname { font-size: 1.375rem; }
+html[data-ui="touch"] .av.big { width: 3.25rem; height: 3.25rem; font-size: 1.1rem; }
+html[data-ui="touch"] .ctabs { flex-wrap: nowrap; }
+html[data-ui="touch"] .ctabs button { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: .8125rem; }
+html[data-ui="touch"] .ctabs.wrap { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 4px 4px 6px; margin: 0 -4px .5rem; width: auto; touch-action: pan-x; }
+html[data-ui="touch"] .ctabs.wrap::-webkit-scrollbar { display: none; }
+html[data-ui="touch"] .ctabs.wrap .chip { flex: none; }
+html[data-ui="touch"] .wp { min-height: 56px; padding: .4rem 0 .3rem; border-radius: 12px; }
+html[data-ui="touch"] .wp:hover { background: rgba(255, 255, 255, .04); color: var(--muted); }
+html[data-ui="touch"] .wp .ic { width: 1.25rem; height: 1.25rem; }
+html[data-ui="touch"] .wp i { font-size: 1rem; }
+html[data-ui="touch"] .bcard { padding: .75rem; border-radius: 14px; min-height: var(--tap); }
+html[data-ui="touch"] .bcard:hover { background: rgba(255, 255, 255, .035); transform: none; border-color: var(--stroke); }
+html[data-ui="touch"] .bcard.on:hover { background: rgba(53, 211, 154, .12); border-color: rgba(53, 211, 154, .6); }
+html[data-ui="touch"] .bn { font-size: 1rem; }
+html[data-ui="touch"] .bstats, html[data-ui="touch"] .bstat, html[data-ui="touch"] .mat { font-size: max(11.5px, .75rem); }
+html[data-ui="touch"] .pbanner { display: none; } /* the placement bar replaces it */
+html[data-ui="touch"] .site { min-height: var(--tap); }
+html[data-ui="touch"] .stepper { gap: .5rem; }
+html[data-ui="touch"] .dcard { min-height: var(--tap); }
+html[data-ui="touch"] .dcard:hover { background: rgba(255, 255, 255, .035); }
+html[data-ui="touch"] .dcard.on:hover { background: rgba(246, 180, 79, .14); }
+html[data-ui="touch"] .trow, html[data-ui="touch"] .drow { min-height: var(--tap); }
+html[data-ui="touch"] .trow:hover, html[data-ui="touch"] .drow:hover { background: rgba(255, 255, 255, .04); }
+html[data-ui="touch"] .xrow .btn, html[data-ui="touch"] .zcard .btn { align-self: flex-start; }
+html[data-ui="touch"] .dcol span { font-size: 10px; }
+html[data-ui="touch"] .mslot { font-size: 11px; }
+
+/* ======================================================================================================================== modal screens (full screen) */
+html[data-ui="touch"] .scrim { display: block; background: rgba(4, 7, 12, .94); animation: none; }
+html[data-ui="touch"] .scrim[data-screen="map"] { background: transparent; }
+html[data-ui="touch"] .screen, html[data-ui="touch"] .screen.mapscreen { position: absolute; inset: 0; width: auto; max-width: none; max-height: none; border-radius: 0; border: 0; box-shadow: none; padding: var(--sat) var(--sar) var(--sab) var(--sal); animation: none; background: linear-gradient(180deg, #131a28, #0a0e16); }
+html[data-ui="touch"] .screen.mapscreen { background: #080c13; padding: 0; }
+html[data-ui="touch"] .screen .panel-h { min-height: 56px; padding: .5rem .75rem; gap: .5rem; flex: none; }
+html[data-ui="touch"] .screen .panel-h h2 { font-size: 1.25rem; }
+html[data-ui="touch"] .screen > .panel-b { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .75rem; }
+
+/* priorities: stacked rows on a phone (name strip over seven 44 px cells) */
+html[data-ui="touch"] .screen.priorities .panel-b { display: flex; flex-direction: column; gap: .5rem; }
+html[data-ui="touch"] .screen.priorities .ptable { flex: 1 1 0; min-height: 0; }
+html[data-ui="touch"] .pbody { max-height: none; flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; gap: .625rem; }
+html[data-ui="touch"] .pintro { margin: 0; font-size: .8125rem; }
+html[data-ui="touch"] .plegend { margin-top: .5rem; gap: .5rem .75rem; }
+html[data-ui="touch"] .pcol { min-height: 56px; font-size: max(10.5px, .6875rem); letter-spacing: .04em; padding: .4rem 0; border-radius: 12px; }
+html[data-ui="touch"] .pcol:hover { background: rgba(255, 255, 255, .04); color: var(--muted); }
+html[data-ui="touch"] .pcell { min-height: var(--tap); border-radius: 12px; font-size: 1.5rem; }
+html[data-ui="touch"] .pcell:hover:not([disabled]) { background: rgba(255, 255, 255, .035); border-color: var(--stroke); }
+html[data-ui="touch"] .pcell[data-lv="1"]:hover:not([disabled]) { background: linear-gradient(180deg, #ffc668, #e79d2e); border-color: #ffdc9f; }
+html[data-ui="touch"] .pcell[data-lv="2"]:hover:not([disabled]) { background: rgba(246, 180, 79, .42); border-color: rgba(246, 180, 79, .7); }
+html[data-ui="touch"] .pcell[data-lv="3"]:hover:not([disabled]) { background: rgba(246, 180, 79, .2); border-color: rgba(246, 180, 79, .4); }
+html[data-ui="touch"] .pcell[data-lv="4"]:hover:not([disabled]) { background: rgba(246, 180, 79, .09); border-color: rgba(246, 180, 79, .22); }
+html[data-ui="touch"] .pcell .psk { font-size: 10px; right: .35rem; bottom: .2rem; }
+html[data-ui="touch"] .pcell.static { min-height: 2rem; width: 2.25rem; }
+html[data-ui="touch"] .pwho { min-height: var(--tap); }
+html[data-ui="touch"] .pwho:hover { background: transparent; }
+html[data-ui="touch"] .prow:hover { background: transparent; }
+@media (max-width: 640px) {
+  html[data-ui="touch"] .phead, html[data-ui="touch"] .prow { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+  html[data-ui="touch"] .pcorner { display: none; }
+  html[data-ui="touch"] .pwho { grid-column: 1 / -1; padding: .25rem .5rem; background: rgba(255, 255, 255, .03); }
+  html[data-ui="touch"] .prow { padding-bottom: 2px; }
+  html[data-ui="touch"] .screen.priorities .panel-b { padding: .5rem .35rem .75rem; }
+}
+@media (min-width: 641px) {
+  html[data-ui="touch"] .phead, html[data-ui="touch"] .prow { grid-template-columns: 10rem repeat(7, minmax(0, 1fr)); }
+}
+
+/* inventory: tap a stack for its menu; the two grids stack on a phone */
+html[data-ui="touch"] .screen.inventory .panel-h { flex-wrap: wrap; }
+html[data-ui="touch"] .screen.inventory .panel-h input { flex: 1 1 8rem; min-width: 0; order: 5; }
+html[data-ui="touch"] .itoolbar { flex: none; padding: .5rem .75rem 0; }
+html[data-ui="touch"] .itoolbar .catchips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: .4rem; touch-action: pan-x; padding: 4px 4px 6px; margin: 0 -4px; }
+html[data-ui="touch"] .itoolbar .catchips::-webkit-scrollbar { display: none; }
+html[data-ui="touch"] .itoolbar .catchips .chip { flex: none; }
+html[data-ui="touch"] .catchips { gap: .4rem; }
+html[data-ui="touch"] .ibody { flex: 1 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr); gap: 1rem; padding: .75rem; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; align-content: start; }
+html[data-ui="touch"] .imid { display: none; }
+html[data-ui="touch"] .igrid { grid-template-columns: repeat(5, minmax(0, 1fr)); max-height: none; overflow: visible; gap: .3rem; }
+html[data-ui="touch"] .slot.full:hover { transform: none; border-color: rgba(255, 255, 255, .11); }
+html[data-ui="touch"] .slot .si .ic { width: 2.2rem; height: 2.2rem; }
+html[data-ui="touch"] .slot .sw { display: none; }
+html[data-ui="touch"] .slot .sc { font-size: .8125rem; }
+html[data-ui="touch"] .slot .sl { font-size: max(10px, .625rem); }
+html[data-ui="touch"] .srclist { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
+html[data-ui="touch"] .srclist::-webkit-scrollbar { display: none; }
+html[data-ui="touch"] .src:hover { background: rgba(255, 255, 255, .04); }
+html[data-ui="touch"] .iempty { padding: 1rem; }
+
+/* menu */
+html[data-ui="touch"] .mbody { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); min-height: 0; flex: 1 1 0; }
+html[data-ui="touch"] .mnav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--stroke); padding: .5rem; gap: .35rem; scrollbar-width: none; touch-action: pan-x; }
+html[data-ui="touch"] .mn { flex: none; height: var(--tap); padding: 0 1rem; font-size: .9375rem; }
+html[data-ui="touch"] .mn:hover { background: transparent; color: var(--muted); }
+html[data-ui="touch"] .mn.on:hover { background: rgba(246, 180, 79, .14); color: var(--amber2); }
+html[data-ui="touch"] .mcontent { padding: 1rem; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+html[data-ui="touch"] .srow { flex-wrap: wrap; gap: .5rem 1rem; }
+html[data-ui="touch"] .slider { width: 100%; max-width: 20rem; }
+html[data-ui="touch"] .btnrow .btn { flex: 1 1 8rem; }
+html[data-ui="touch"] .krow { align-items: flex-start; font-size: .875rem; }
+html[data-ui="touch"] .keycaps { min-width: 6.5rem; }
+html[data-ui="touch"] .keycaps b { font-family: var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--amber2); }
+html[data-ui="touch"] .zform .row { flex-wrap: wrap; }
+
+/* summary */
+html[data-ui="touch"] .sbody { flex: 1 1 0; min-height: 0; padding: .75rem; overscroll-behavior: contain; touch-action: pan-y; }
+html[data-ui="touch"] .sbig { font-size: 3.5rem; }
+html[data-ui="touch"] .sgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+html[data-ui="touch"] .scharts { grid-template-columns: minmax(0, 1fr); }
+
+/* full map screen */
+html[data-ui="touch"] .mtool { top: calc(var(--sat) + 6px); left: var(--pad-l); right: var(--pad-r); gap: .4rem; padding: .4rem .5rem; flex-wrap: wrap; }
+html[data-ui="touch"] .mtool > .ic, html[data-ui="touch"] .mtool h2 { display: none; }
+html[data-ui="touch"] .mtool .layers { order: 5; flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
+html[data-ui="touch"] .mtool .layers::-webkit-scrollbar { display: none; }
+html[data-ui="touch"] .mtool .layers .chip { flex: none; }
+html[data-ui="touch"] .mtool .grow { order: 2; }
+html[data-ui="touch"] .mtool > .row { order: 1; }
+html[data-ui="touch"] .mtool > .btn.sq { order: 3; }
+html[data-ui="touch"] .mside { display: none; }
+html[data-ui="touch"] .mlegend { left: var(--pad-l); right: var(--pad-r); bottom: calc(var(--sab) + 6px); gap: .25rem .75rem; padding: .4rem .75rem; font-size: max(11px, .75rem); }
+html[data-ui="touch"] .mlegend span:has(kbd) { display: none; }
+
+/* ---------- survival HUD: no horizontal overflow on a phone ---------- */
+html[data-ui="touch"] #hud .vitals { left: var(--pad-l); bottom: calc(var(--sab) + 8px); width: min(21rem, calc(100vw - 16px)); }
+html[data-ui="touch"] #hud .compass { top: calc(var(--sat) + 6px); width: min(26rem, calc(100vw - 16px)); }
+html[data-ui="touch"] #hud .clock { top: calc(var(--sat) + 62px); right: var(--pad-r); min-width: 0; padding: .5rem .75rem; }
+html[data-ui="touch"] #hud .colony-chip { display: none; }
+html[data-ui="touch"] #hud .threat { top: calc(var(--sat) + 150px); right: var(--pad-r); width: min(15rem, 52vw); }
+html[data-ui="touch"] #hud .hints { display: none; }
+
+/* ======================================================================================================================== landscape */
+@media (orientation: landscape) {
+  html[data-ui="touch"] #colony { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto; }
+  html[data-ui="touch"] #topbar { grid-column: 1 / -1; grid-row: 1; display: flex; flex-direction: row; gap: 8px; padding: calc(var(--sat) + 4px) var(--pad-r) 4px var(--pad-l); border-radius: 0 0 16px 16px; }
+  html[data-ui="touch"] #topbar .timebox { order: 1; flex: none; padding-right: 20px; }
+  html[data-ui="touch"] #topbar .seg.speed { order: 2; flex: none; width: 236px; }
+  html[data-ui="touch"] #topbar .resources { order: 3; flex: 1 1 0; min-width: 0; }
+  html[data-ui="touch"] #topbar > .btn.sq { order: 4; flex: none; }
+  html[data-ui="touch"] #roster { grid-column: 1; grid-row: 2 / 4; margin: 0; padding: 0 0 0 var(--sal); width: auto; display: flex; flex-direction: column; min-height: 0; }
+  html[data-ui="touch"] .rlist { flex-direction: column; overflow-x: hidden; overflow-y: auto; padding: 6px 6px 6px 6px; gap: 6px; touch-action: pan-y; }
+  html[data-ui="touch"] .crow, html[data-ui="touch"] .rlist.dense .crow { width: 60px; height: auto; min-height: 60px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; }
+  html[data-ui="touch"] .crow .rbody { width: 100%; }
+  html[data-ui="touch"] .crow .rtop, html[data-ui="touch"] .crow .rj { display: none; }
+  html[data-ui="touch"] .crow .rbars { grid-template-columns: 1fr; gap: 3px; margin: 0; }
+  html[data-ui="touch"] #cmdbar, html[data-ui="touch"] #placebar { grid-column: 2; grid-row: 3; align-self: end; justify-self: center; max-width: 100%; margin: 0 8px 8px; }
+  html[data-ui="touch"] #placebar { width: min(560px, 100%); }
+  html[data-ui="touch"] #mapctl { right: calc(var(--sar) + 76px); top: calc(var(--top-h) + 8px); }
+  html[data-ui="touch"] #dock { grid-column: 3; grid-row: 2 / 4; flex-direction: row-reverse; border-radius: 20px 0 0 20px; border-width: 0 0 0 1px; min-height: 0; }
+  html[data-ui="touch"] #dock .dtabs { flex-direction: column; width: calc(64px + var(--sar)); padding: 4px calc(var(--sar) + 4px) 4px 4px; overflow-y: auto; scrollbar-width: none; gap: 4px; }
+  html[data-ui="touch"] .dtab { flex: none; min-height: 52px; }
+  html[data-ui="touch"][data-sheet="open"] #dock .dbody, html[data-ui="touch"][data-sheet="full"] #dock .dbody { height: auto; width: var(--drawer-w); flex: none; }
+  html[data-ui="touch"][data-sheet="full"] #dock { flex: none; }
+  html[data-ui="touch"][data-sheet="full"] #dock .dbody { width: min(68vw, 600px); }
+  html[data-ui="touch"] #dock .grip { display: none !important; }
+  html[data-ui="touch"]:not([data-sheet="closed"]) #cmdbar { display: flex; }
+  html[data-ui="touch"][data-bar="place"] #cmdbar, html[data-ui="touch"][data-bar="order"] #cmdbar { display: none; }
+  html[data-ui="touch"][data-sheet="open"] #mapctl, html[data-ui="touch"][data-sheet="full"] #mapctl { right: calc(var(--sar) + 76px + var(--drawer-w)); }
+  html[data-ui="touch"] .toast { padding: .5rem .75rem; }
+  html[data-ui="touch"] #toasts { left: calc(var(--sal) + 80px); right: calc(var(--sar) + 80px); }
+  html[data-ui="touch"] #preview-badge { display: none; }
+  /* screens: two columns where there is width */
+  html[data-ui="touch"] .ibody { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-ui="touch"] .mbody { grid-template-columns: 10rem minmax(0, 1fr); grid-template-rows: none; }
+  html[data-ui="touch"] .mnav { flex-direction: column; border-bottom: 0; border-right: 1px solid var(--stroke); overflow-y: auto; }
+  html[data-ui="touch"] .sgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html[data-ui="touch"] .scharts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html[data-ui="touch"] .mtool .layers { order: 0; flex: 1 1 0; min-width: 0; }
+  html[data-ui="touch"] .mtool { flex-wrap: nowrap; }
+  html[data-ui="touch"] #hud .vitals { transform-origin: bottom left; }
+  html[data-ui="touch"] #hud .clock { top: calc(var(--sat) + 8px); }
+  html[data-ui="touch"] #hud .threat { top: calc(var(--sat) + 90px); }
+  html[data-ui="touch"] #hud .compass { display: none; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  html[data-ui="touch"] #hud .gauges { display: none; }
+  html[data-ui="touch"] .sbig { font-size: 2.75rem; }
+  html[data-ui="touch"] .screen .panel-h { min-height: 48px; padding: .25rem .75rem; }
+}

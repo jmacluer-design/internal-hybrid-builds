@@ -112,7 +112,7 @@
     banner = h('div.pbanner', OB.icon('ghost'), h('b', 'Placing'), h('span.muted', 'Click to place · Shift to chain · Esc or right-click to cancel'), h('button.btn.sm', { on: { click: () => build.cancel() } }, 'Done'));
     banner.hidden = true;
     list = h('div.bgrid');
-    queue = { hd: h('div.lbl', 'Construction sites'), list: h('div.sites'), empty: h('div.muted.t-sm', 'Nothing under construction. Pick a blueprint, then click the map.') };
+    queue = { hd: h('div.lbl', 'Construction sites'), list: h('div.sites'), empty: h('div.muted.t-sm', 'Nothing under construction. Pick a blueprint, then ' + (OB.touch && OB.touch.on ? 'tap' : 'click') + ' the map.') };
     root.append(tabs, banner, list, h('div.sep'), queue.hd, queue.list, queue.empty);
     OB.on('catalog', () => { lastSig = ''; });
     return { el: root, update, onShow() { lastSig = ''; } };
