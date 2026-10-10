@@ -181,7 +181,7 @@
   }
   function setQuality(q) {
     try { localStorage.setItem('ob.quality', q); } catch (e) { /* ignore */ }
-    if (!W3D) return; if (q === 'auto') { const probe = Object.assign(document.createElement('canvas'), {}); W3D.tierAuto = true; W3D.setTier(W3D.autoTier || W3D.tierName); } else { W3D.tierAuto = false; W3D.setTier(q); }
+    if (!W3D) return; if (q === 'auto') { W3D.tierAuto = true; W3D.setTier(W3D.autoTier || W3D.tierName); } else { W3D.tierAuto = false; W3D.setTier(q); }
   }
   function pull3d() { // the sim pushes full state once a second and only in colony mode; the 3D world wants 4 Hz in every mode
     if (!W3D || !world.on || !W3D.ready || document.hidden || W3D.frozen) return;

@@ -36,11 +36,11 @@ export function isPhone() {
   return coarse || Math.min(screen.width, screen.height) < 600 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || '');
 }
 // returns { tier, auto, reason }
-export function pickTier(gpu, query) {
+export function pickTier(gpu, query, ignoreSaved) {
   const q = (query || '').toLowerCase();
   const forced = ALIAS[q] || q;
   if (TIERS[forced]) return { tier: forced, auto: false, reason: 'query' };
-  let saved = null; try { saved = localStorage.getItem('ob.quality'); } catch (e) { /* storage blocked */ }
+  let saved = null; if (!ignoreSaved) { try { saved = localStorage.getItem('ob.quality'); } catch (e) { /* storage blocked */ } }
   saved = ALIAS[saved] || saved;
   if (TIERS[saved]) return { tier: saved, auto: false, reason: 'saved' };
   if (isPhone()) return { tier: 'low', auto: true, reason: 'phone' };

@@ -38,7 +38,7 @@ export class World3D {
   async init(progress) {
     const o = this.o, canvas = this.canvas;
     const probe = document.createElement('canvas'); const pgl = probe.getContext('webgl2'); const gpu = pgl ? gpuInfo(pgl) : ''; if (pgl) { const e = pgl.getExtension('WEBGL_lose_context'); if (e) e.loseContext(); }
-    this.gpu = gpu; const pick = pickTier(gpu, this.q.q); this.tierName = pick.tier; this.tier = TIERS[pick.tier]; this.tierAuto = pick.auto; this.tierReason = pick.reason;
+    this.gpu = gpu; const pick = pickTier(gpu, this.q.q); this.autoPick = pickTier(gpu, '', true); this.autoTier = this.autoPick.tier; this.tierName = pick.tier; this.tier = TIERS[pick.tier]; this.tierAuto = pick.auto; this.tierReason = pick.reason;
     const T = this.tier;
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !T.post && T.msaa === 0, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: !!this.q.pdb });
     r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1; r.shadowMap.enabled = T.shadow > 0; r.shadowMap.type = THREE.PCFSoftShadowMap; r.info.autoReset = false;
@@ -81,8 +81,17 @@ export class World3D {
   setTier(name, silent) {
     if (!TIERS[name] || name === this.tierName) return; this.tierName = name; this.tier = TIERS[name]; const T = this.tier;
     this.renderer.shadowMap.enabled = T.shadow > 0; this.atmo.setTier(T); this.buildPost(); this.resize(true);
-    // pools / terrain depend on the tier: rebuild the static world
+    // pools / terrain / zombie + particle caps depend on the tier: rebuild the static world and the dynamic layer on the next frame
     this.rebuild = true; if (this.onTier) this.onTier(name);
+  }
+  async rebuildAll() {
+    this.rebuilding = true;
+    try {
+      if (!this.models.has('zombie') && this.tier.models.includes('zombie') && !this.models.failed.zombie) await this.models.load(this.tier.models.filter(n => !this.models.has(n) && !this.models.failed[n]));
+      await this.buildWorld(this.worldSeed);
+      const old = this.dyn, sel = old && { ids: [...old.sel], primary: old.primary }; if (old) old.dispose(); this.dyn = new Dynamic(this); await this.dyn.init(); if (this.catalog) this.dyn.setCatalog(this.catalog); if (this.state) this.dyn.sync(this.state); if (sel) this.dyn.setSelection(sel.ids, sel.primary);
+      this.camRig.follow = null; if (this.camRig.mode === 'chase') this.camRig.setMode('rts', {});
+    } finally { this.rebuilding = false; }
   }
   resize(force) {
     const c = this.canvas, host = c.parentElement || document.body, W = Math.max(2, host.clientWidth || innerWidth), H = Math.max(2, host.clientHeight || innerHeight);
@@ -95,7 +104,9 @@ export class World3D {
   // ------------------------------------------------------------------------------------------------ sim feed
   setCatalog(cat) { this.catalog = cat; if (this.dyn) this.dyn.setCatalog(cat); }
   setState(st) {
-    this.state = st; if (!st) return;
+    if (!st) return;
+    if (this.dyn && this.state && (st.t < this.state.t - 5 || st.seed !== this.state.seed)) this.dyn.reset(); // a new game / a load: no destruction effects for the old colony
+    this.state = st;
     if (st.seed && st.seed !== this.worldSeed && !this.rebuilding) { this.rebuilding = true; this.buildWorld(st.seed).then(() => { this.rebuilding = false; }); }
     if (this.dyn) this.dyn.sync(st);
     if (st.hour != null) this.hour = st.hour + (st.minute || 0) / 60;
@@ -107,7 +118,8 @@ export class World3D {
   stop() { this.running = false; if (this.raf) cancelAnimationFrame(this.raf); }
   frame(dt, now) {
     const t0 = performance.now(); this.frameNo++; this.time += dt; U.time.value = this.time;
-    if (this.rebuild && !this.rebuilding) { this.rebuild = false; this.rebuilding = true; this.buildWorld(this.worldSeed).then(() => { this.dyn.rebuildPools(); this.rebuilding = false; }); }
+    if (this.rebuild && !this.rebuilding) { this.rebuild = false; this.rebuildAll(); }
+    if (this.rebuilding) { this.renderer.info.reset(); return; } // the world is being rebuilt (tier switch / new seed): skip the frame
     this.resize(false); if (this.preFrame) this.preFrame(dt);
     const st = this.state, hour = this.hourOverride != null ? this.hourOverride : this.hour;
     this.camRig.update(dt);
