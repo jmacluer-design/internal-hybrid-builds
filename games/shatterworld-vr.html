@@ -116,6 +116,7 @@
 // ============================================================================
 // SHATTERWORLD - a realistic valley that shatters into blocks and rebuilds as stranger worlds.
 // All art is procedural, all sound is WebAudio. three.js r169 + postprocessing addons only.
+// This build adds WebXR (Quest Browser first, PC-VR via desktop Chrome): see the "WEBXR / VR" block + TUNING.vr. Flat play (keyboard/mouse, Xbox/PS pad, phone pad) is unchanged.
 // ============================================================================
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -164,7 +165,7 @@ const TUNING = {
     fog: 0.30,                      // FogExp2 density in REAL metres (the flat build uses ~0.004 per world metre): hazes out at ~3-5 m
     near: 0.05, far: 1500,          // real metres
     beamLen: 16,                    // (world m) shard beam height in the diorama (flat: 90)
-    shardVis: 95,                   // (world m) shards further than this from the hero are not drawn in VR (the arrow points to the nearest)
+    shardVis: 48,                   // (world m) shards further than this from the hero are not drawn in VR (the arrow points to the nearest)
     blinkDist: 4, blinkTime: 0.35,  // a hero teleport (respawn / pipe) bigger than this in one frame blinks to black instead of sliding the table
     fbScale: 0.9, foveation: 1,     // XR framebuffer scale (0.85-1.0; picked by estimated cost, NOT measured on a headset) and fixed foveation
   },
@@ -233,8 +234,8 @@ const QUALITY = {
   medium: { pr: 1.5, shadow: 1024, bloom: 1, bloomRes: 0.5, msaa: 0, cap: 30000, grass: 55000,  water: 1, god: 1, trees: 0.75, tex: 1024, lite: 0 },
   low:    { pr: 1,   shadow: 0,    bloom: 0, bloomRes: 0.5, msaa: 0, cap: 14000, grass: 9000,   water: 0, god: 0, trees: 0.4,  tex: 512, lite: 1 },
   // VR tiers (never persisted, never reachable from the flat quality cycle): no composer / bloom / god rays, one small shadow map, trimmed particles + cube cap + grass
-  vr:     { pr: 1,   shadow: 1024, bloom: 0, bloomRes: 0.5, msaa: 0, cap: 16000, grass: 24000,  water: 1, god: 0, trees: 0.6,  tex: 512, lite: 1, vr: 1 },
-  vrlite: { pr: 1,   shadow: 512,  bloom: 0, bloomRes: 0.5, msaa: 0, cap: 8000,  grass: 9000,   water: 0, god: 0, trees: 0.35, tex: 512, lite: 1, vr: 1 },
+  vr:     { pr: 1,   shadow: 1024, bloom: 0, bloomRes: 0.5, msaa: 0, cap: 16000, grass: 14000,  water: 1, god: 0, trees: 0.6,  tex: 512, lite: 1, vr: 1 },
+  vrlite: { pr: 1,   shadow: 512,  bloom: 0, bloomRes: 0.5, msaa: 0, cap: 8000,  grass: 6000,   water: 0, god: 0, trees: 0.35, tex: 512, lite: 1, vr: 1 },
 };
 const QORDER = ['high', 'medium', 'low'];
 let qName = 'high';
@@ -2997,7 +2998,11 @@ function perfMonitor(real) { // auto-downgrade: avg frame time over 3 s > 26 ms,
   if (perfT >= TUNING.autoDowngradeWindow) { const avg = frameMs.reduce((a, b) => a + b, 0) / frameMs.length; frameMs.length = 0; perfT = 0; if (avg > TUNING.autoDowngradeMs && real < 2) worse(); }
 }
 // ONE loop for both worlds: renderer.setAnimationLoop uses window rAF in flat play and the XR session's rAF while presenting (window rAF does not run then on Quest Browser)
-function tick(now) {
+let tickErrs = 0;
+function tick(now) { // never let one bad frame kill the loop (three schedules the next frame only after this callback returns)
+  try { tickBody(now); } catch (e) { if (tickErrs++ < 8) console.error('tick error:', e && e.stack || e); }
+}
+function tickBody(now) {
   if (window.__paused) { lastT = now; if (VR.presenting) renderFrame(); return; } const real = (now - lastT) / 1000, rdt = Math.min(0.25, real); lastT = now; if (rdt <= 0) return;
   if (VR.presenting) { if (window.__gpPoll) window.__gpPoll(); vrPre(rdt); frame(rdt, true); vrPerf(real); } // the gamepad shim's own rAF loop is dead in VR: pump it from here
   else { frame(rdt, true); perfMonitor(real); }
@@ -3346,7 +3351,7 @@ function vrPlaceTable() { // put the diorama in front of the viewer, below eye l
   VR.ay = clamp(fy - VRT.drop, VRT.tableMin, VRT.tableMax) - VR.floorY; VR.yaw = P.yaw - Math.atan2(VR.gx, VR.gz);
   VR.needAnchor = false; VR.snapFollow = true; VR.capAng = Math.atan2(VR.gx, VR.gz); vrRing.position.set(VR.ax, VR.ay, VR.az); UI.mode = 'none'; // re-opens (and re-places) the menu panels below
 }
-function vrCycleSize() { vrCfg.size = (vrCfg.size + 1) % VRT.scales.length; VR.S = VRT.scales[vrCfg.size]; vrSaveCfg(); vrHaptic(2, 0.3, 30); toast('Table size ' + ['SMALL', 'MEDIUM', 'LARGE'][vrCfg.size]); sfx('click'); UI.dirtyMain = true; }
+function vrCycleSize() { vrCfg.size = (vrCfg.size + 1) % VRT.scales.length; VR.S = VRT.scales[vrCfg.size]; VR.fade = 1; vrSaveCfg(); vrHaptic(2, 0.3, 30); toast('Table size ' + ['SMALL', 'MEDIUM', 'LARGE'][vrCfg.size]); sfx('click'); UI.dirtyMain = true; }
 function vrActions(rdt) {
   const L = XI[0], R = XI[1], play = G.state === 'play';
   if (play !== VR.wasPlay) { VR.wasPlay = play; vrReleaseAll(); L.sup = L.m; R.sup = R.m; } // buttons held across a state change must be released before they count again
@@ -3363,7 +3368,7 @@ function vrActions(rdt) {
   if (placeNow !== VR.place) { VR.place = placeNow; padPlace(placeNow); }
   // ---- Y: pause menu; X: tap = table size, hold = recentre ------------------------------------------------------------------------------
   if (L.rawRise & 8) { if (G.state === 'play') pauseGame(); else if (G.state === 'pause') resumeGame(); }
-  if (L.m & 4) { VR.xHold += rdt; if (VR.xHold > 0.6 && !VR.xDone) { VR.xDone = true; vrPlaceTable(); vrHaptic(0, 0.5, 60); toast('Table recentred'); } }
+  if (L.m & 4) { VR.xHold += rdt; if (VR.xHold > 0.6 && !VR.xDone) { VR.xDone = true; vrPlaceTable(); VR.fade = 1; vrHaptic(0, 0.5, 60); toast('Table recentred'); } }
   else { if (VR.xHold > 0 && !VR.xDone) vrCycleSize(); VR.xHold = 0; VR.xDone = false; }
   // ---- right stick: snap turn (30 deg per flick, re-armed when the stick returns) or smooth turn ----------------------------------------
   const rx = R.has ? R.ax : 0;
@@ -3484,7 +3489,7 @@ function vrRenderPrep() {
       const c = m.parent; _va.set(0, 0.06, 0.07).applyQuaternion(c.quaternion).add(c.position); _vb.set(0, Math.cos(0.5), Math.sin(0.5)).applyQuaternion(c.quaternion);
       _vc.set(VR.hpx - _va.x, VR.hpy - _va.y, VR.hpz - _va.z).normalize(); const d = _vb.x * _vc.x + _vb.y * _vc.y + _vb.z * _vc.z; a = sstep(0.15, 0.55, d);
     } else if (UI.wristFloat) { // no left controller: a small floating readout low in front of the viewer
-      m.position.set(VR.hpx + VR.gx * 0.75 - VR.gz * 0.0, Math.max(0.5, VR.hpy - 0.42), VR.hpz + VR.gz * 0.75); m.rotation.set(0, Math.atan2(VR.hpx - m.position.x, VR.hpz - m.position.z), 0); a = 1;
+      m.position.set(VR.hpx + VR.gx * 0.75, Math.max(0.5, VR.hpy - 0.42), VR.hpz + VR.gz * 0.75); m.rotation.set(0, Math.atan2(VR.hpx - m.position.x, VR.hpz - m.position.z), 0); a = 1;
     }
     UI.wrP.mat.opacity += (a - UI.wrP.mat.opacity) * 0.35; m.visible = UI.wrP.mat.opacity > 0.02 && !(UI.mode !== 'none' && false);
   }

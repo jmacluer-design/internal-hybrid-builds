@@ -120,7 +120,7 @@
   #rpgChill { position:absolute; inset:0; opacity:0; box-shadow:inset 0 0 140px 30px rgba(120,220,255,.5); transition:opacity .3s; }
   #rpgHit { position:absolute; inset:0; opacity:0; }
   /* ---- inventory ---- */
-  #inv, #perkpick { background:radial-gradient(ellipse at 50% 40%, rgba(12,26,40,.78), rgba(4,8,14,.93)); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); font-size:var(--fs); }
+  #inv, #perkpick { background:radial-gradient(ellipse at 50% 40%, rgba(12,26,40,.8), rgba(4,8,14,.94)); font-size:var(--fs); }
   .invWrap { width:min(1200px,97vw); height:min(670px,95vh); display:flex; flex-direction:column; gap:clamp(5px,1.2vh,12px); text-align:left; }
   .invHead { display:flex; align-items:center; gap:8px; }
   .padkey { font-size:.74em; font-weight:900; min-width:2.2em; text-align:center; padding:.15em .5em; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.3); color:#dfeaf3; letter-spacing:.08em; }
@@ -3327,7 +3327,7 @@ const RPG_PERKS = [
   rpgPerk('chain_stomp', 'Chain Stomp', 'chain', 3, null, 'chainStomp', r => `Stomps chain to ${r + 1} nearby enemies for 55% damage.`),
   rpgPerk('coin_rain', 'Coin Rain', 'coin', 3, { goldFind: 0.1 }, 'coinRain', r => `Kills rain ${2 + r * 2} extra coins and add 10% gold find.`),
   rpgPerk('extra_rewind', 'Extra Rewind', 'spiral', 3, { rewindMax: 1 }, null, r => '+1 Rewind charge.'),
-  rpgPerk('ricochet_cubes', 'Ricochet Cubes', 'ricochet', 3, null, 'ricochetCubes', r => `Dying enemies burst into cubes that ricochet to ${r} other enemies for 45% damage.`),
+  rpgPerk('ricochet_cubes', 'Ricochet Cubes', 'ricochet', 3, null, 'ricochetCubes', r => `Dying enemies burst into cubes that ricochet to ${r} other enem${r === 1 ? 'y' : 'ies'} for 45% damage.`),
   rpgPerk('second_wind', 'Second Wind', 'heart', 3, null, 'secondWind', r => `Below 30% health, heal ${30 + 10 * r}% of max health (every ${Math.max(20, 70 - 15 * r)} s).`),
   rpgPerk('long_legs', 'Long Legs', 'up', 4, { jumpH: 0.08 }, null, r => '+8% jump height.'),
   rpgPerk('quick_feet', 'Quick Feet', 'bolt', 4, { runSpd: 0.05 }, null, r => '+5% run speed.'),
@@ -3662,7 +3662,7 @@ function rpgBanner(h, p, leg) { const b = $('rpgBanner'); $('rpgBanH').textConte
 // ---- loot on the ground: items (rarity beams + plates), gold piles, shard dust ------------------------------------------------------------------------------
 const LOOT = [], LOOT_MAT = RPG_RARITY_COL.map((c, i) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: i === 0 ? 0.25 : 0.9, roughness: 0.35, metalness: 0.3 }));
 const LOOT_BEAM = RPG_RARITY_COL.map((c, i) => { const m = beamMat.clone(); m.uniforms.uTime = U.time; m.uniforms.uCol = { value: new THREE.Color(c) }; return m; });
-const LOOT_GEO = { gem: new THREE.OctahedronGeometry(0.3, 0), box: new THREE.BoxGeometry(0.34, 0.34, 0.34), beam: new THREE.CylinderGeometry(0.14, 0.3, 1, 12, 1, true).translate(0, 0.5, 0), coin: new THREE.CylinderGeometry(0.2, 0.2, 0.06, 14).rotateZ(PI / 2), dust: new THREE.OctahedronGeometry(0.17, 0) };
+const LOOT_GEO = { gem: new THREE.OctahedronGeometry(0.3, 0), box: new THREE.BoxGeometry(0.34, 0.34, 0.34), beam: new THREE.CylinderGeometry(0.2, 0.42, 1, 12, 1, true).translate(0, 0.5, 0), coin: new THREE.CylinderGeometry(0.2, 0.2, 0.06, 14).rotateZ(PI / 2), dust: new THREE.OctahedronGeometry(0.17, 0) };
 const GOLD_MAT = new THREE.MeshStandardMaterial({ color: 0xffc830, metalness: 0.85, roughness: 0.28, emissive: 0xffa000, emissiveIntensity: 0.55 }), DUST_MAT = new THREE.MeshStandardMaterial({ color: 0x53e0d0, emissive: 0x53e0d0, emissiveIntensity: 0.9, roughness: 0.3 });
 const BEAM_H = [0, 7, 14, 42];
 function spawnLoot(kind, x, y, z, payload) {
@@ -4111,7 +4111,7 @@ function rpgCmpTarget(item) { // which equipped item would this replace?
   if (!item) return null; if (item.slot !== 'charm') return RP.equipped[item.slot]; const a = RP.equipped.charm1, b = RP.equipped.charm2; if (!a || !b) return null; return rpgItemScore(a) <= rpgItemScore(b) ? a : b;
 }
 function openInv(tab) {
-  if (UI.open || PK.open) return false; const st = G.state; if (!(st === 'play' || st === 'pause' || st === 'menu' || st === 'dead')) return false;
+  if (UI.open || PK.open) return false; if (typeof tab !== 'number') tab = null; const st = G.state; if (!(st === 'play' || st === 'pause' || st === 'menu' || st === 'dead')) return false;
   if (st === 'play' && (G.trans || G.finale || P.dead)) { toast('Not now'); return false; }
   UI.from = st; UI.open = true; G.state = 'inv'; if (tab != null) UI.tab = tab; keys.clear(); mouseFire = mousePlace = false; UI.hid = [];
   for (const id of ['menu', 'dead', 'pause']) { const el = $(id); if (el && !el.classList.contains('hidden')) { el.classList.add('hidden'); UI.hid.push(id); } }
@@ -4378,7 +4378,7 @@ function rpgHud() {
 }
 function rpgUiTick(rdt) {
   uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || UI.open || PK.open; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide) return;
-  rpgHud(); rpgPlatesTick();
+  if (HC.php !== P.hp) { HC.php = P.hp; updateHUD(); } rpgHud(); rpgPlatesTick();
 }
 function rpgRunSummary() {
   const sp = (cls, t) => `<span class="${cls}">${t}</span>`, L = RUN.loot, out = [sp('', `+${rfmt(RUN.xp)} XP` + (RUN.levels ? ` &middot; LV ${RUN.lvStart} &rarr; ${RP.level}` : ` &middot; LV ${RP.level}`)), sp('', `${RUN.kills} kills` + (RUN.elites ? ` (${RUN.elites} elite)` : ''))];
@@ -4403,7 +4403,7 @@ function menuKey(k) {
   else if (k === 'j' && RP.riftUnlocked) rpgStartRift(RP.riftTier, RP.riftSeed || null); else if (k === 'e' || k === 'i' || k === 'tab') openInv();
 }
 $('pause').insertAdjacentHTML('beforeend', '<small id="pauseInv">Y / I / Tab: inventory &amp; character</small><button id="pauseInvBtn" style="margin-top:6px;font:inherit;letter-spacing:.2em;font-size:12px;color:#2a1400;background:linear-gradient(180deg,#fff2b0,#ffc54a 55%,#ff9c2b);border:0;border-radius:999px;padding:.4em 1.4em;cursor:pointer;font-weight:800">INVENTORY</button>');
-$('pauseInvBtn').addEventListener('click', e => { e.stopPropagation(); openInv('pause'); });
+$('pauseInvBtn').addEventListener('click', e => { e.stopPropagation(); openInv(); });
 $('menu').querySelector('.cheat').insertAdjacentHTML('beforeend', '<div class="wide"><kbd>LOOT &amp; LEVELS</kbd> I / Tab / Y inventory (pauses) &middot; walk over loot to pick up &middot; F hide commons &middot; RMB tap near enemies = Rewind Pulse (1 charge) &middot; Rifts unlock after the finale</div>');
 
 // ---- wrappers: world / run / screens -----------------------------------------------------------------------------------------------------------------------------------------
@@ -4437,7 +4437,7 @@ function rpgKeyDown(k) {
   if (PK.open) { perkKey(k); return; } if (UI.open) { uiKey(k); return; }
   const st = G.state;
   if (st === 'play') { if (k === 'i' || k === 'tab') openInv(); else if (k === 'e' && !(NPC.active && NPC.near) && !/Press E/.test(PROMPT)) openInv(); else if (k === 'f') { RP.filter = !RP.filter; RT.dirty = true; toast(RP.filter ? 'Common drops hidden' : 'Showing all drops'); rsfx('lock'); } }
-  else if (st === 'pause') { if (k === 'i' || k === 'tab' || k === 'e') openInv('pause'); }
+  else if (st === 'pause') { if (k === 'i' || k === 'tab' || k === 'e') openInv(); }
   else if (st === 'menu') menuKey(k);
   else if (st === 'dead') { if (k === 'i' || k === 'tab' || k === 'e') openInv(); else if (k === 'z' && (RIFT || G.won)) toMenu(); else if (k === 'j' && RIFT) rpgRiftRestart(false, false); }
 }
@@ -4470,11 +4470,13 @@ window.__rpg = {
   gainXp(n) { rpgGainXp(n, 'test'); }, giveGold(n) { RP.gold += n; RT.dirty = true; updateHUD(); }, giveDust(n) { RP.dust += n; RT.dirty = true; },
   spawnElite(spec = {}) { const f = spec.dist || 5, x = P.x + Math.sin(P.yaw) * f, z = P.z + Math.cos(P.yaw) * f, y = floorAt(x, z, P.y + 3); const e = rpgSpawnEnemy(spec.type || 'brute', x, z, { y: y > -1e8 ? y : P.y, tier: spec.tier || 'elite', aff: spec.aff, mlvl: spec.mlvl, aggroR: spec.aggroR != null ? spec.aggroR : 12, r: 3, seed: spec.seed }); return e ? { name: e.rpg.name, tier: e.rpg.tier, lvl: e.rpg.lvl, hp: e.rpg.hp, aff: e.rpg.aff, x: e.x, y: e.y, z: e.z } : null; },
   killAll() { let n = 0; for (const e of ENEMIES.slice()) if (e.alive && e.state !== 'dead' && e.state !== 'squash' && e.rpg) { RT.inAttack = true; rpgDamageEnemy(e, 1e9, 'punch', P); RT.inAttack = false; n++; } return n; },
-  drop(src = 'elite', n = 1) { for (let i = 0; i < n; i++) rpgDrops(src, P.x + Math.sin(P.yaw) * 2, P.y + 0.3, P.z + Math.cos(P.yaw) * 2, 10); return LOOT.length; }, loot() { return LOOT.map(L => ({ kind: L.kind, rarity: L.item ? L.item.rarity : null, landed: L.landed, x: L.x, y: L.y, z: L.z })); },
-  pick(i) { if (PK.open) perkPick(i); }, rift(tier, seed) { rpgStartRift(tier, seed); }, endRift(win) { if (RIFT) { RIFT.phase = 'fight'; rpgRiftEnd(!!win, win ? null : 'test'); } }, riftState() { return RIFT; },
+  drop(src = 'elite', n = 1, dist = 2) { for (let i = 0; i < n; i++) rpgDrops(src, P.x + Math.sin(P.yaw) * dist, P.y + 0.3, P.z + Math.cos(P.yaw) * dist, 10); return LOOT.length; }, loot() { return LOOT.map(L => ({ kind: L.kind, rarity: L.item ? L.item.rarity : null, landed: L.landed, x: L.x, y: L.y, z: L.z })); },
+  pick(i) { if (PK.open) perkPick(i); }, rift(tier, seed) { rpgStartRift(tier, seed); }, endRift(win) { if (RIFT) { RIFT.phase = 'fight'; rpgRiftEnd(!!win, win ? null : 'test'); } }, riftTime(t) { if (RIFT) RIFT.t = t; }, perk(id, rank) { if (rank) RP.perks[id] = rank; else delete RP.perks[id]; rpgRecalc(); },
+  levelInfo() { if (!LV) return null; let h = 0; const s = LV.surf; if (s) for (let i = 0; i < s.n; i++) h = (Math.imul(h, 31) + s.x[i] * 73856093 ^ s.y[i] * 19349663 ^ s.z[i] * 83492791 ^ s.p[i]) | 0; return { act: LV.act, n: LV.n, hash: h, r: LV.arenaR || 0, groups: LV.groups.filter(Boolean).length, broken: LV.groups.filter(g => g && g.broken).length, lowg: LV.lowg.length, deathY: LV.deathY }; },
+  inLowG() { return !!P.inLowG; },
   save() { rpgSaveNow(); }, load() { const ok = rpgLoad(); rpgRecalc(); rpgRenderMenu(); return ok; }, snapshot: rpgSnapshot, unlockRifts() { RP.riftUnlocked = true; RP.diffUnlocked = Math.max(RP.diffUnlocked, 1); rpgRenderMenu(); },
   reset() { try { localStorage.removeItem(RPG_SAVE_KEY); } catch (e) { } const fresh = { v: 1, level: 1, xp: 0 }; rpgApplySnapshot(fresh); RP.bag = new Array(BAG_N).fill(null); for (const k of RPG_EQUIP) RP.equipped[k] = null; RP.perks = {}; RP.spent = { power: 0, agility: 0, resolve: 0 }; RP.free = 0; RP.pending = 0; RP.gold = RP.dust = 0; RP.codex = {}; RP.bestRift = 0; RP.riftUnlocked = false; RP.diff = RP.diffUnlocked = 0; rpgRecalc(); rpgHealFull(); rpgRenderMenu(); },
-  hurt(v) { RT.curEnemy = null; RT.dmgOverride = v || 20; P.invuln = 0; hurtHero(P.x + 1, P.z); }, heal() { rpgHealFull(); }, tuning: RPG_TUNING, core: { rpgGenItem, rpgComputeStats, rpgItemName, rpgRerollAffix, rpgRiftSpec, rpgPerkChoices, rpgItemLevel, rpgKillXp, rpgMonsterStats, RPG_AFFIXES, RPG_PERKS, RPG_LEGENDARIES }, enemies: () => ENEMIES.filter(e => e.alive && e.rpg).map(e => ({ type: e.type, tier: e.rpg.tier, lvl: e.rpg.lvl, hp: e.rpg.hp, maxhp: e.rpg.maxhp, name: e.rpg.name, state: e.state, x: e.x, z: e.z, y: e.y })),
+  victory() { if (G.state === 'play') { G.won = true; G.state = 'play'; } victory(); }, hurt(v) { RT.curEnemy = null; RT.dmgOverride = v || 20; P.invuln = 0; hurtHero(P.x + 1, P.z); }, heal() { rpgHealFull(); }, tuning: RPG_TUNING, core: { rpgGenItem, rpgComputeStats, rpgItemName, rpgRerollAffix, rpgRiftSpec, rpgPerkChoices, rpgItemLevel, rpgKillXp, rpgMonsterStats, RPG_AFFIXES, RPG_PERKS, RPG_LEGENDARIES }, enemies: () => ENEMIES.filter(e => e.alive && e.rpg && e.state !== 'dead' && e.state !== 'squash').map(e => ({ type: e.type, tier: e.rpg.tier, lvl: e.rpg.lvl, hp: e.rpg.hp, maxhp: e.rpg.maxhp, name: e.rpg.name, state: e.state, x: e.x, z: e.z, y: e.y })),
 };
 window.__game.rpg = true;
 // boot-time init: restore progression, derive stats, paint the menu
