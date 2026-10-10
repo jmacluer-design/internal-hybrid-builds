@@ -112,7 +112,7 @@
     chain = chain.then(function () {
       return call('cb', name, data).then(function (r) {
         st.queue--;
-        if (r.resync) { st.ready = false; st.resyncs++; schedule(0); return; }
+        if (r.resync) { st.ready = false; st.resyncs++; pending.push([name, data]); schedule(0); return; } // the server forgot this page (expired / evicted / restarted): sign in again, then send it
         if (r.ok === false) {
           if (r.error === 'read-only') toastOnce('ro', 'warn', 'This login is read-only: you can look at the colony but not change it.');
           else if (/rate/.test(r.error || '')) toastOnce('rate', 'warn', 'Too many commands at once, slow down.', 3000);

@@ -6074,7 +6074,7 @@ function riftHTML() {
   const mods = sp.mods.map(m => `<span class="modPill" title="${esc(RPG_RIFT_MODS[m].text)}">${RPG_RIFT_MODS[m].name}</span>`).join(''), rr = (i, lab, val, ar) => `<div class="riftRow${RUI.riftRow === i ? ' focus' : ''}" data-z="rift" data-i="${i}"><b>${lab}</b><span class="v">${val}</span><span class="ar">${ar || ''}</span></div>`;
   return `<div class="pnl" style="flex:1"><h3>CAMPAIGN DIFFICULTY</h3>${rr(0, 'DIFFICULTY', `${D[RP.diff].name}${RP.diff > RP.diffUnlocked ? ' (locked)' : ''}`, '&larr; &rarr;')}<div style="font-size:.78em;color:#a9bccb;letter-spacing:.06em;line-height:1.5;margin:0 0 .8em">Applies to the next campaign run. Monster level +${D[RP.diff].mlvl}, item level floor ${D[RP.diff].ilvlFloor}, enemy health x${D[RP.diff].hp}, damage x${D[RP.diff].dmg}. Finish the finale to unlock the next difficulty (${RP.diffUnlocked + 1} of 3 open).</div>
   <h3>SHATTER RIFT${ok ? '' : ' &middot; LOCKED'}</h3>${ok ? rr(1, 'RIFT TIER', 'TIER ' + t + ' <small style="opacity:.6;font-size:.6em">(max ' + maxT + ')</small>', '&larr; &rarr;') + rr(2, 'SEED', hexSeed(seed), 'A = new') + rr(3, 'ENTER RIFT', 'SHATTER &rarr;', 'A') : '<div class="tipEmpty">Restore the world (clear the Act III finale) to unlock repeatable Shatter Rifts.</div>'}</div>
-  <div class="pnl" style="flex:1"><h3>RIFT PREVIEW</h3>${ok ? `<div class="tipRow"><b>MONSTER LEVEL</b> &nbsp;${sp.mlvl}-${sp.mlvl + 2}</div><div class="tipRow"><b>ITEM LEVEL</b> &nbsp;${rpgItemLevel({ plvl: RP.level, act: 3, diff: 0, rift: sp.tier })}</div><div class="tipRow"><b>KILLS TO SUMMON THE GUARDIAN</b> &nbsp;${sp.need}</div><div class="tipRow"><b>TIME LIMIT</b> &nbsp;${fmtTime(sp.limit)}</div><div style="margin:.5em 0">${mods}</div>${sp.mods.map(m => `<div class="tipRow base">${esc(RPG_RIFT_MODS[m].name)}: ${esc(RPG_RIFT_MODS[m].text)}</div>`).join('')}<div class="tipRow base" style="margin-top:.6em">Best cleared tier: ${RP.bestRift || 'none'}. The same seed always builds the same arena, modifiers and spawns.</div>` : '<div class="tipEmpty">Rifts are timed arena runs with a guardian at 100%.<br><small>Higher tiers: stronger monsters, better loot.</small></div>'}</div>`;
+  <div class="pnl" style="flex:1"><h3>RIFT PREVIEW</h3>${ok ? `<div class="tipRow"><b>MONSTER LEVEL</b> &nbsp;${sp.mlvl}-${sp.mlvl + 2}</div><div class="tipRow"><b>ITEM LEVEL</b> &nbsp;${rpgItemLevel({ plvl: RP.level, act: 3, diff: 0, rift: sp.tier })}</div><div class="tipRow"><b>KILLS TO SUMMON THE GUARDIAN</b> &nbsp;${sp.need}</div><div class="tipRow"><b>TIME LIMIT</b> &nbsp;${fmtTime(sp.limit)}</div><div class="tipRow"><b>MONSTER FAMILIES</b> &nbsp;${mobRiftFamilies(sp.seed, sp.tier).map(f => esc(MOB_FAMILIES[f].name)).join(', ')}</div><div style="margin:.5em 0">${mods}</div>${sp.mods.map(m => `<div class="tipRow base">${esc(RPG_RIFT_MODS[m].name)}: ${esc(RPG_RIFT_MODS[m].text)}</div>`).join('')}<div class="tipRow base" style="margin-top:.6em">Best cleared tier: ${RP.bestRift || 'none'}. The same seed always builds the same arena, modifiers and spawns.</div>` : '<div class="tipEmpty">Rifts are timed arena runs with a guardian at 100%.<br><small>Higher tiers: stronger monsters, better loot.</small></div>'}</div>`;
 }
 // ---- input ----
 function uiMove(dx, dy) {
@@ -6173,7 +6173,7 @@ function rpgStartRift(tier, seed) {
   if (RUI.open) { RUI.open = false; $('inv').classList.add('hidden'); } if (PK.open) { PK.open = false; $('perkpick').classList.add('hidden'); }
   rpgVacuum(); RT_TIMERS.length = 0; for (const p of PROJ) { p.on = false; p.m.visible = false; } RIFT = null; clearEntities(); RT.pend = null;
   Object.assign(RUN, { xp: 0, kills: 0, elites: 0, loot: [0, 0, 0, 0], gold: 0, dust: 0, lvStart: RP.level, levels: 0, legends: [], salv: 0, shards: 0 }); RT.runFlags = {}; RT.runDiff = RP.diff;
-  RIFT = { ...spec, t: 0, prog: 0, kills: 0, spawned: 0, phase: 'fight', guardian: null, spawnT: 0.8, rng: rpgRng(seed ^ 0xC0FFEE), done: false, won: false, theme: (seed & 1) ? 3 : 2, tileT: {}, endAt: 0, gT: 0 };
+  RIFT = { ...spec, fams: mobRiftFamilies(seed, tier), t: 0, prog: 0, kills: 0, spawned: 0, phase: 'fight', guardian: null, spawnT: 0.8, rng: rpgRng(seed ^ 0xC0FFEE), done: false, won: false, theme: (seed & 1) ? 3 : 2, tileT: {}, endAt: 0, gT: 0 };
   freeAllCubes(); HOMEG.clear(); DISCS.length = 0; SH = { on: false }; G.trans = null; G.finale = null; WV.R1 = -1; WV.R2 = -1; syncWave(); setAct1Visible(false); WC.hf = false; GF = 1; CAM.roll = 0; for (const b of BOXES) b.on = false; CS.ground = false; CS.grav = 5; CS.drag = 0.5; CS.floorY = -90;
   const O = { x: 0, y: 24, z: 0 }; LV = buildRiftArena(O, RIFT); instantBuild(LV); G.act = RIFT.theme; G.shards = 0; G.shardsTotal = 0; setAtmosphereInstant(RIFT.theme); G.ck = null;
   G.won = false; G.t = 0; G.slow = 1; G.cine = 0; CAM.cine = 0; G.state = 'play'; resetHero({ x: O.x + LV.start.x, y: O.y + LV.start.y, z: O.z + LV.start.z }); P.yaw = 0; CAM.yaw = 0; CAM.pitch = 0.3; updateHUD(); rpgRecalc(); rpgHealFull(); RT.rw = RT.rwMax;
@@ -6186,7 +6186,7 @@ function rpgRiftSpawn(n) {
   for (let k = 0; k < n; k++) {
     let x = 0, z = 0, y = 0, ok = false; for (let tries = 0; tries < 14 && !ok; tries++) { const a = RIFT.rng() * TAU, rr = 6 + RIFT.rng() * (LV.arenaR - 8); x = O.x + Math.cos(a) * rr; z = O.z + Math.sin(a) * rr; y = floorAt(x, z, O.y + 14); if (y > -1e8 && y > O.y - 3 && Math.hypot(x - P.x, z - P.z) > 9) ok = true; } if (!ok) continue;
     const r = RIFT.rng(), eliteP = (R.eliteBase + R.elitePerTier * RIFT.tier) * (sw ? 3 : 1), tier = r < eliteP ? 'elite' : r < eliteP + R.champion * (sw ? 1.4 : 1) ? 'champion' : 'normal', q = RIFT.rng();
-    const type = q < 0.32 ? 'walker' : q < 0.44 ? 'shell' : q < 0.6 ? 'hopper' : q < 0.76 ? 'spitter' : 'brute';
+    const type = mobRiftType(q) || (q < 0.32 ? 'walker' : q < 0.44 ? 'shell' : q < 0.6 ? 'hopper' : q < 0.76 ? 'spitter' : 'brute');
     rpgSpawnEnemy(type, x, z, { y, mlvl: RIFT.mlvl + (RIFT.spawned % 3), tier, idx: RIFT.spawned, aggroR: 16, r: 5 }); RIFT.spawned++; fxRing(x, y, z, 0.3, 2.2, 0.5, 0xc28cff, 0.7); puff(x, y + 0.4, z, 5, 0.8, 0xc28cff, 2);
   }
 }
@@ -6205,7 +6205,7 @@ function rpgRiftTick(dt) {
     if (RIFT.spawnT <= 0 && alive < maxAlive) { rpgRiftSpawn(sw ? 2 : 1); RIFT.spawnT = R.every * (sw ? 0.6 : 1) * (alive < 3 ? 0.4 : 1); }
     if (RIFT.prog >= RIFT.need) { RIFT.phase = 'guardian'; for (const o of ENEMIES) if (o.alive && o.state !== 'dead' && o.state !== 'squash') { o.alive = false; o.mesh.visible = false; puff(o.x, o.y + 0.5, o.z, 8, 1, 0xffd866); }
       const a = Math.atan2(P.z - LV.O.z, P.x - LV.O.x) + PI, gx = LV.O.x + Math.cos(a) * 11, gz = LV.O.z + Math.sin(a) * 11, gy = floorAt(gx, gz, LV.O.y + 14);
-      const g = rpgSpawnEnemy('brute', gx, gz, { y: gy > -1e8 ? gy : LV.O.y, tier: 'guardian', mlvl: RIFT.mlvl + 3, aggroR: 60, r: 8, seed: RIFT.seed }); if (g) { g.rpg.guardian = true; RIFT.guardian = g; } rsfx('elite'); rsfx('windup'); G.flash = 0.35; camShake(0.6); rpgBanner('THE GUARDIAN AWAKENS', g ? g.rpg.name.toUpperCase() : ''); }
+      const g = rpgSpawnEnemy(mobGuardianType(), gx, gz, { y: gy > -1e8 ? gy : LV.O.y, tier: 'guardian', mlvl: RIFT.mlvl + 3, aggroR: 60, r: 8, seed: RIFT.seed }); if (g) { g.rpg.guardian = true; RIFT.guardian = g; } rsfx('elite'); rsfx('windup'); G.flash = 0.35; camShake(0.6); rpgBanner('THE GUARDIAN AWAKENS', g ? g.rpg.name.toUpperCase() : ''); }
   } else if (RIFT.phase === 'guardian') {
     RIFT.spawnT -= dt; if (RIFT.spawnT <= 0 && alive < 5) { rpgRiftSpawn(1); RIFT.spawnT = 7; }
   }
@@ -6250,9 +6250,9 @@ function rpgHud() {
   rpgSty($('rpgChill'), 'opacity', RT.chill > 0.02 ? Math.min(1, RT.chill * 2.4).toFixed(2) : '0', 'chl');
   const rf = $('rpgRift'); if (RIFT) { rf.classList.add('on'); const left = Math.max(0, RIFT.limit - RIFT.t); rpgSet($('rpgRiftT'), fmtTime(left), 'rt'); $('rpgRiftT').classList.toggle('low', left < 30);
     rpgSet($('rpgRiftS'), 'SHATTER RIFT · TIER ' + RIFT.tier + ' · SEED ' + hexSeed(RIFT.seed), 'rs'); const pr = RIFT.phase === 'fight' ? RIFT.prog / RIFT.need : 1; rpgSty($('rpgRiftBar'), 'width', (sat(pr, 0, 1) * 100).toFixed(1) + '%', 'rb');
-    rpgSet($('rpgRiftM'), (RIFT.phase === 'fight' ? Math.min(100, Math.floor(pr * 100)) + '%  ·  ' : RIFT.phase === 'guardian' ? 'DEFEAT THE GUARDIAN  ·  ' : '') + RIFT.mods.map(m => RPG_RIFT_MODS[m].name.toUpperCase()).join('  ·  '), 'rm'); }
+    rpgSet($('rpgRiftM'), (RIFT.phase === 'fight' ? Math.min(100, Math.floor(pr * 100)) + '%  ·  ' : RIFT.phase === 'guardian' ? 'DEFEAT THE GUARDIAN  ·  ' : '') + RIFT.mods.map(m => RPG_RIFT_MODS[m].name.toUpperCase()).concat(RIFT.fams.map(f => MOB_FAMILIES[f].name.toUpperCase())).join('  ·  '), 'rm'); }
   else rf.classList.remove('on');
-  const bo = $('rpgBoss'); const g = RIFT && RIFT.guardian && RIFT.guardian.alive && RIFT.guardian.rpg ? RIFT.guardian : null; if (g) { bo.classList.add('on'); rpgSet($('rpgBossN'), g.rpg.name.toUpperCase(), 'bn'); rpgSty($('rpgBossBar'), 'width', (sat(g.rpg.hp / g.rpg.maxhp, 0, 1) * 100).toFixed(1) + '%', 'bb'); } else bo.classList.remove('on');
+  const bo = $('rpgBoss'); const g = rpgBossRef(); if (g) { bo.classList.add('on'); rpgSet($('rpgBossN'), g.rpg.name.toUpperCase(), 'bn'); rpgSty($('rpgBossBar'), 'width', (sat(g.rpg.hp / g.rpg.maxhp, 0, 1) * 100).toFixed(1) + '%', 'bb'); } else bo.classList.remove('on');
 }
 function rpgUiTick(rdt) {
   uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || RUI.open || PK.open || G.state === 'dead'; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide || VR.presenting) return; // VR: the wrist / strip panels and the 3D plates replace these DOM overlays
@@ -6586,7 +6586,7 @@ function rvRift(c) {
     const L2 = [['MONSTER LEVEL', sp.mlvl + '-' + (sp.mlvl + 2)], ['ITEM LEVEL', String(rpgItemLevel({ plvl: RP.level, act: 3, diff: 0, rift: sp.tier }))], ['KILLS FOR GUARDIAN', String(sp.need)], ['TIME LIMIT', fmtTime(sp.limit)], ['BEST CLEARED TIER', RP.bestRift ? String(RP.bestRift) : 'none']];
     rvStatBlock(c, 1068, 256, 912, L2, 58, 42); let y = 580;
     for (const m of sp.mods) { rrect(c, 1068, y - 40, 912, 52, 14); c.fillStyle = 'rgba(255,177,94,.16)'; c.fill(); rvTxt(c, RPG_RIFT_MODS[m].name, 1084, y, 40, '#ffb15e', 900); y += 54; c.font = '600 35px ' + VFONT; wrapLines(c, RPG_RIFT_MODS[m].text, 890, _wl); c.fillStyle = '#c4d4e2'; c.textAlign = 'left'; for (let i = 0; i < _wl.length && i < 2; i++) { c.fillText(_wl[i], 1084, y); y += 40; } y += 22; }
-    rvTxt(c, 'The same seed always builds the same arena.', 1068, 1090, 35, '#7d93a6', 600);
+    rvTxt(c, 'Families: ' + mobRiftFamilies(sp.seed, sp.tier).map(f => MOB_FAMILIES[f].name).join(', '), 1068, 1056, 35, '#9fd8ff', 700); rvTxt(c, 'The same seed always builds the same arena.', 1068, 1100, 35, '#7d93a6', 600);
   } else rvTxt(c, 'Rifts are timed arena runs with a guardian at 100%.', 1068, 300, 40, '#a9bccb', 600, 'left', 900);
 }
 function rvPerkPick(c) {
@@ -6667,9 +6667,9 @@ function vrYLogic(rdt, L) {
 }
 
 // ---- HUD strip panel (rift bar, boss bar, banner, loot log) -----------------------------------------------------------------------------------------------------------
-function vrHudWant(now) { return !!RIFT || (RV.ban.on && now < RV.ban.until) || RV.log[0].until > now || RV.log[1].until > now; }
+function vrHudWant(now) { return !!RIFT || !!rpgBossRef() || (RV.ban.on && now < RV.ban.until) || RV.log[0].until > now || RV.log[1].until > now; }
 function vrHudSig(now) {
-  const h = RV.hs, rl = RIFT ? Math.max(0, RIFT.limit - RIFT.t) | 0 : -1, rp = RIFT ? (RIFT.phase === 'fight' ? Math.min(100, (RIFT.prog / RIFT.need * 100) | 0) : 100) : -1, g = RIFT && RIFT.guardian && RIFT.guardian.alive && RIFT.guardian.rpg ? RIFT.guardian : null, bh = g ? Math.ceil(g.rpg.hp / g.rpg.maxhp * 40) : -1;
+  const h = RV.hs, rl = RIFT ? Math.max(0, RIFT.limit - RIFT.t) | 0 : -1, rp = RIFT ? (RIFT.phase === 'fight' ? Math.min(100, (RIFT.prog / RIFT.need * 100) | 0) : 100) : -1, g = rpgBossRef(), bh = g ? Math.ceil(g.rpg.hp / g.rpg.maxhp * 40) : -1;
   const ban = RV.ban.on && now < RV.ban.until ? 1 + (RV.ban.until | 0) : 0, lg = (RV.logSeq << 2) | (RV.log[0].until > now ? 1 : 0) | (RV.log[1].until > now ? 2 : 0), key = RIFT ? RIFT.seed : -1, ph = RIFT ? (RIFT.phase === 'fight' ? 0 : RIFT.phase === 'guardian' ? 1 : 2) : -1;
   if (h.rl !== rl || h.rp !== rp || h.ph !== ph || h.bh !== bh || h.ban !== ban || h.log !== lg || h.key !== key) { h.rl = rl; h.rp = rp; h.ph = ph; h.bh = bh; h.ban = ban; h.log = lg; h.key = key; return true; }
   return false;
@@ -6688,7 +6688,7 @@ function vrDrawHud(now) {
       rrect(c, 330, y + 68, 640, 34, 17); c.fillStyle = 'rgba(255,255,255,.12)'; c.fill(); if (pr > 0.01) { rrect(c, 330, y + 68, Math.max(34, 640 * clamp(pr, 0, 1)), 34, 17); c.fillStyle = RIFT.phase === 'fight' ? '#53e0d0' : '#ffb15e'; c.fill(); }
       rvTxt(c, (RIFT.phase === 'fight' ? Math.min(100, Math.floor(pr * 100)) + '%  ·  ' : RIFT.phase === 'guardian' ? 'DEFEAT THE GUARDIAN  ·  ' : '') + RIFT.mods.map(m => RPG_RIFT_MODS[m].name.toUpperCase()).join('  ·  '), 330, y + 134, 32, '#cfe0ee', 700, 'left', 640); y += 160;
     }
-    const g = RIFT && RIFT.guardian && RIFT.guardian.alive && RIFT.guardian.rpg ? RIFT.guardian : null;
+    const g = rpgBossRef();
     if (g) { rrect(c, 8, y, W - 16, 112, 30); c.fillStyle = 'rgba(40,12,16,.93)'; c.fill(); c.lineWidth = 5; c.strokeStyle = '#ff6a4a'; c.stroke(); rvTxt(c, g.rpg.name.toUpperCase(), W / 2, y + 48, 40, '#ffb1a0', 900, 'center', W - 100); rrect(c, 44, y + 62, W - 88, 30, 15); c.fillStyle = 'rgba(255,255,255,.14)'; c.fill(); const f = clamp(g.rpg.hp / g.rpg.maxhp, 0, 1); if (f > 0.005) { rrect(c, 44, y + 62, Math.max(30, (W - 88) * f), 30, 15); c.fillStyle = '#ff5a3c'; c.fill(); } y += 122; }
     for (let i = 0; i < 2; i++) { const l = RV.log[i]; if (l.until > now && l.t) { c.font = '700 38px ' + VFONT; const tw = Math.min(W - 40, c.measureText(l.t).width + 60); rrect(c, W / 2 - tw / 2, y, tw, 58, 29); c.fillStyle = 'rgba(10,22,34,.9)'; c.fill(); c.lineWidth = 3; c.strokeStyle = l.c; c.stroke(); rvTxt(c, l.t, W / 2, y + 41, 38, l.c, 700, 'center', W - 100); y += 66; } }
   }
@@ -8083,6 +8083,372 @@ function gemBoot() {
 gemBoot();
 window.__game.gems = true;
 // </gem-game>
+
+const FD = { kill: null };
+// <mob-models> ==================================================================================================================
+// SHATTERWORLD mob variety, part 2a: procedural models. Every mob is built with the SAME part() / outline-hull builder as the original walker / hero (parametrised by shape + palette),
+// so it carries userData.vrp / vro and is merged into one vertex-coloured mesh (+ one outline mesh) while presenting in VR. The small swarm types (Scuttler, Fusebug) are baked into
+// ONE shared geometry and drawn as InstancedMesh (all of them = 2 draw calls, however many).
+// ==============================================================================================================================
+const MM_CACHE = {}, mmat = hex => MM_CACHE[hex] || (MM_CACHE[hex] = hv(parseInt(hex.slice(1), 16)));
+const mglow = (hex, k = 2.4) => { const c = new THREE.Color(hex); c.multiplyScalar(k); return new THREE.MeshBasicMaterial({ color: c, fog: false, toneMapped: false }); };
+const MOB_GEO = { cone: new THREE.ConeGeometry(1, 1, 7), oct: new THREE.OctahedronGeometry(1, 0), box: new THREE.BoxGeometry(1, 1, 1), torus: new THREE.TorusGeometry(1, 0.1, 6, 24), disc: new THREE.CylinderGeometry(1, 1, 1, 18) };
+const mpart = (parent, geo, hex, x, y, z, sx, sy, sz, ol = 0.06) => part(parent, geo, mmat(hex), x, y, z, sx, sy, sz, ol);
+const mgpart = (parent, geo, mat, x, y, z, sx, sy, sz) => part(parent, geo, mat, x, y, z, sx, sy, sz, 0);
+const eyes = (parent, y, z, spread, s, hexW = '#ffffff', hexP = '#101010') => { for (const q of [-1, 1]) { mpart(parent, SPH, hexW, q * spread, y, z, s, s * 1.2, s * 0.7, 0); mpart(parent, SPH, hexP, q * spread, y - s * 0.05, z + s * 0.5, s * 0.5, s * 0.6, s * 0.3, 0); } };
+// every builder returns { g, body, x: { named extras the animator uses } } and leaves the model facing +z, standing on y = 0
+const MOB_SHAPES = {
+  slinger(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const arm = new THREE.Group(); arm.position.set(0.34, 0.62, 0.05); body.add(arm);
+    mpart(body, SPH, P[0], 0, 0.45, 0, 0.42, 0.4, 0.38); mpart(body, SPH, P[2], 0, 0.36, 0.2, 0.26, 0.22, 0.14, 0.03); mpart(body, MOB_GEO.cone, P[1], 0, 1.05, 0, 0.3, 0.55, 0.3); eyes(body, 0.72, 0.28, 0.12, 0.1, '#ffe9a0', '#331000');
+    for (const q of [-1, 1]) mpart(body, SPH, P[1], q * 0.18, 0.08, 0.06, 0.15, 0.09, 0.22, 0.04); mpart(arm, CYL, P[0], 0, -0.1, 0, 0.09, 0.3, 0.09, 0.04); const orb = mglow(P[2]); mgpart(arm, SPH, orb, 0, 0.28, 0.1, 0.17, 0.17, 0.17); mpart(body, CYL, P[0], -0.34, 0.5, 0.05, 0.08, 0.28, 0.08, 0.04);
+    return { g, body, x: { arm, orb } }; },
+  rammer(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const head = new THREE.Group(); head.position.set(0, 0.72, 0.62); body.add(head);
+    mpart(body, SPH, P[0], 0, 0.62, -0.05, 0.5, 0.42, 0.7); mpart(body, SPH, P[1], 0, 0.46, 0.0, 0.34, 0.18, 0.5, 0.03); for (const sx of [-1, 1]) for (const sz of [-1, 1]) mpart(body, CYL, P[0], sx * 0.3, 0.2, sz * 0.42, 0.12, 0.4, 0.12, 0.04);
+    mpart(head, SPH, P[0], 0, 0, 0, 0.3, 0.28, 0.3); for (const q of [-1, 1]) { const h = mpart(head, MOB_GEO.cone, P[1], q * 0.26, 0.14, 0.02, 0.08, 0.42, 0.08, 0.03); h.rotation.z = -q * 0.75; h.rotation.x = -0.35; } mgpart(head, SPH, mglow(P[2]), 0.12, 0.06, 0.26, 0.05, 0.05, 0.03); mgpart(head, SPH, mglow(P[2]), -0.12, 0.06, 0.26, 0.05, 0.05, 0.03); mpart(body, SPH, P[1], 0, 0.7, -0.74, 0.14, 0.14, 0.14, 0.03);
+    return { g, body, x: { head } }; },
+  scuttler(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); mpart(body, HEMI, P[0], 0, 0.22, 0, 0.36, 0.3, 0.42); mpart(body, SPH, P[1], 0, 0.2, 0.34, 0.18, 0.14, 0.16, 0.03); eyes(body, 0.3, 0.45, 0.09, 0.06, '#fff2b0', '#201000');
+    for (let i = 0; i < 6; i++) { const q = i % 2 ? 1 : -1, z = ((i / 2) | 0) * 0.22 - 0.1; const l = mpart(body, CYL, P[1], q * 0.34, 0.1, z, 0.04, 0.3, 0.04, 0.02); l.rotation.z = q * 1.0; } mpart(body, SPH, P[2], 0, 0.36, -0.1, 0.1, 0.06, 0.12, 0); return { g, body, x: {} }; },
+  mender(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); mpart(body, SPH, P[0], 0, 0.42, 0, 0.36, 0.38, 0.34); mpart(body, SPH, P[1], 0, 0.34, 0.2, 0.22, 0.2, 0.1, 0.03); eyes(body, 0.56, 0.28, 0.12, 0.09, '#ffffff', '#103010');
+    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU, lf = mpart(body, SPH, i % 2 ? P[0] : '#8af0a0', Math.cos(a) * 0.12, 0.86, Math.sin(a) * 0.12, 0.2, 0.05, 0.1, 0.03); lf.rotation.y = -a; lf.rotation.z = 0.5; } mpart(body, SPH, P[2], 0, 0.95, 0, 0.09, 0.09, 0.09, 0.02);
+    for (const q of [-1, 1]) mpart(body, SPH, P[0], q * 0.3, 0.3, 0.1, 0.1, 0.16, 0.1, 0.03); const bulb = mglow('#9af0a0'); mgpart(body, SPH, bulb, 0.5, 1.0, 0.1, 0.11, 0.11, 0.11); return { g, body, x: { bulb } }; },
+  weaver(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const ring = new THREE.Group(); ring.position.y = 1.6; body.add(ring);
+    mpart(body, MOB_GEO.cone, P[1], 0, 0.62, 0, 0.5, 1.2, 0.5); mpart(body, SPH, '#e8dcff', 0, 1.3, 0.04, 0.24, 0.26, 0.22); const ge = mglow(P[2]); for (const q of [-1, 0, 1]) mgpart(body, SPH, ge, q * 0.09, 1.34 + (q === 0 ? 0.07 : 0), 0.22, 0.04, 0.05, 0.03);
+    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + 0.4, l = mpart(body, CYL, P[0], Math.cos(a) * 0.36, 0.34, Math.sin(a) * 0.36, 0.035, 0.7, 0.035, 0.02); l.rotation.z = -Math.cos(a) * 0.7; l.rotation.x = Math.sin(a) * 0.7; }
+    const rm = mglow(P[2], 2.0); for (let i = 0; i < 3; i++) { const t = mgpart(ring, MOB_GEO.torus, rm, 0, i * 0.08, 0, 0.3 + i * 0.1, 0.3 + i * 0.1, 0.3 + i * 0.1); t.rotation.x = PI / 2; } return { g, body, x: { ring, ge } }; },
+  fuse(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); mpart(body, SPH, P[0], 0, 0.3, 0, 0.3, 0.3, 0.3); eyes(body, 0.38, 0.22, 0.1, 0.07, '#fff6d0', '#201000'); mpart(body, CYL, P[1], 0, 0.62, 0, 0.04, 0.16, 0.04, 0.02); const tip = mglow(P[2], 3.0); mgpart(body, SPH, tip, 0, 0.74, 0, 0.07, 0.07, 0.07);
+    for (const q of [-1, 1]) mpart(body, SPH, P[1], q * 0.14, 0.04, 0.04, 0.09, 0.06, 0.12, 0.02); return { g, body, x: { tip } }; },
+  bulwark(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const sh = new THREE.Group(); sh.position.set(0, 0.55, 0.56); body.add(sh);
+    mpart(body, HEMI, P[0], 0, 0.28, -0.05, 0.6, 0.48, 0.6); mpart(body, CYL, P[2], 0, 0.26, -0.05, 0.62, 0.06, 0.62, 0.03); for (const q of [-1, 1]) { mpart(body, CYL, P[1], q * 0.18, 0.7, 0.28, 0.03, 0.2, 0.03, 0.02); mpart(body, SPH, '#fff', q * 0.18, 0.84, 0.28, 0.07, 0.07, 0.07, 0); mpart(body, SPH, '#101018', q * 0.18, 0.84, 0.34, 0.035, 0.04, 0.02, 0); mpart(body, SPH, P[0], q * 0.5, 0.25, 0.4, 0.14, 0.1, 0.2, 0.04); }
+    for (let i = 0; i < 6; i++) { const q = i % 2 ? 1 : -1, z = ((i / 2) | 0) * 0.28 - 0.3; const l = mpart(body, CYL, P[2], q * 0.58, 0.1, z, 0.05, 0.3, 0.05, 0.02); l.rotation.z = q * 0.9; }
+    const plate = mpart(sh, MOB_GEO.disc, P[1], 0, 0, 0, 0.5, 0.09, 0.42, 0.05); plate.rotation.x = PI / 2; const emb = mglow('#9fd8ff', 1.8); const em = mgpart(sh, MOB_GEO.disc, emb, 0, 0, 0.06, 0.28, 0.04, 0.22); em.rotation.x = PI / 2; return { g, body, x: { sh, emb } }; },
+  wisp(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const core = mglow(P[1], 1.7), flame = mglow(P[0], 2.0), rm = mglow(P[2], 1.6); const swirl = new THREE.Group(); body.add(swirl);
+    mgpart(body, SPH, core, 0, 0.5, 0, 0.22, 0.26, 0.22); mgpart(body, SPH, flame, 0, 0.34, 0, 0.32, 0.4, 0.32); mgpart(body, MOB_GEO.cone, flame, 0, 0.05, 0, 0.22, 0.5, 0.22).rotation.x = PI; mgpart(body, SPH, flame, 0, 0.78, 0, 0.14, 0.16, 0.14);
+    for (let i = 0; i < 2; i++) { const t = mgpart(swirl, MOB_GEO.torus, rm, 0, 0.45, 0, 0.5 + i * 0.12, 0.5 + i * 0.12, 0.5 + i * 0.12); t.rotation.x = PI / 2.4 + i * 0.5; t.rotation.y = i * 1.2; } for (const q of [-1, 1]) { mpart(body, SPH, '#102030', q * 0.1, 0.56, 0.17, 0.045, 0.06, 0.03, 0); } return { g, body, x: { swirl, flame, core } }; },
+  mole(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); mpart(body, SPH, P[0], 0, 0.4, 0, 0.42, 0.38, 0.5); mpart(body, SPH, P[1], 0, 0.36, 0.28, 0.3, 0.26, 0.28, 0.04); mpart(body, MOB_GEO.cone, P[2], 0, 0.34, 0.6, 0.09, 0.2, 0.09, 0.02).rotation.x = PI / 2; mpart(body, SPH, '#101010', 0, 0.38, 0.72, 0.05, 0.05, 0.05, 0);
+    for (const q of [-1, 1]) { const c = new THREE.Group(); c.position.set(q * 0.42, 0.3, 0.32); body.add(c); for (let i = 0; i < 3; i++) { const cl = mpart(c, MOB_GEO.cone, P[1], (i - 1) * 0.09, 0, 0.1, 0.05, 0.28, 0.05, 0.02); cl.rotation.x = PI / 2; } mpart(c, SPH, P[0], 0, 0, 0, 0.14, 0.12, 0.16, 0.03); mpart(body, SPH, '#ffffff', q * 0.14, 0.52, 0.36, 0.05, 0.06, 0.04, 0); mpart(body, SPH, '#101010', q * 0.14, 0.52, 0.4, 0.025, 0.03, 0.02, 0); }
+    return { g, body, x: {} }; },
+  puffer(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const cap = new THREE.Group(); cap.position.y = 0.62; body.add(cap);
+    mpart(body, CYL, P[1], 0, 0.32, 0, 0.14, 0.6, 0.14, 0.04); mpart(cap, HEMI, P[0], 0, 0, 0, 0.56, 0.5, 0.56, 0.06); for (let i = 0; i < 7; i++) { const a = i / 7 * TAU, rr = i === 0 ? 0 : 0.34, y = i === 0 ? 0.48 : 0.26; mpart(cap, SPH, P[2], Math.cos(a) * rr, y, Math.sin(a) * rr, 0.09, 0.05, 0.09, 0); } eyes(body, 0.62, 0.3, 0.13, 0.08, '#fff6c0', '#302000');
+    const pores = mglow('#fff2a0', 1.6); for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; mgpart(cap, SPH, pores, Math.cos(a) * 0.3, -0.04, Math.sin(a) * 0.3, 0.05, 0.03, 0.05); } for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; mpart(body, SPH, P[1], Math.cos(a) * 0.2, 0.05, Math.sin(a) * 0.2, 0.18, 0.06, 0.1, 0.03).rotation.y = -a; } return { g, body, x: { cap, pores } }; },
+  warden(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const head = new THREE.Group(); head.position.set(0, 1.1, 0.34); body.add(head); const armL = new THREE.Group(), armR = new THREE.Group(); armL.position.set(-0.7, 0.95, 0.05); armR.position.set(0.7, 0.95, 0.05); body.add(armL, armR);
+    mpart(body, SPH, P[0], 0, 0.7, 0, 0.68, 0.58, 0.58); mpart(body, SPH, P[1], 0, 0.55, 0.28, 0.4, 0.3, 0.16, 0.04); for (const q of [-1, 1]) { mpart(body, CYL, P[0], q * 0.28, 0.2, 0, 0.18, 0.46, 0.2, 0.05); mpart(body, SPH, P[1], q * 0.8, 1.15, 0, 0.26, 0.2, 0.28, 0.05); for (let i = 0; i < 3; i++) { const sp = mpart(body, MOB_GEO.cone, P[1], q * (0.78 + i * 0.05), 1.34 + i * 0.12, -0.05 - i * 0.06, 0.09, 0.34, 0.09, 0.03); sp.rotation.z = -q * 0.5; } }
+    mpart(head, SPH, P[0], 0, 0, 0, 0.36, 0.3, 0.36); mpart(head, SPH, P[1], 0, -0.16, 0.2, 0.3, 0.12, 0.2, 0.03); for (const q of [-1, 1]) { mpart(head, MOB_GEO.cone, '#fff4d0', q * 0.14, -0.2, 0.34, 0.05, 0.22, 0.05, 0.02).rotation.x = -PI * 0.7; mgpart(head, SPH, mglow('#ff5a2a'), q * 0.14, 0.06, 0.3, 0.07, 0.06, 0.04); }
+    for (const a of [armL, armR]) { mpart(a, CYL, P[0], 0, -0.28, 0, 0.14, 0.54, 0.14, 0.04); mpart(a, SPH, P[1], 0, -0.6, 0.02, 0.24, 0.22, 0.24, 0.05); } for (let i = 0; i < 5; i++) { const sp = mpart(body, MOB_GEO.cone, P[2], (i - 2) * 0.24, 1.12, -0.38, 0.08, 0.3, 0.08, 0.03); sp.rotation.x = -PI * 0.65; } return { g, body, x: { head, armL, armR } }; },
+  thornback(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const head = new THREE.Group(); head.position.set(0, 0.95, 0.95); body.add(head);
+    mpart(body, SPH, P[0], 0, 0.95, 0, 0.95, 0.72, 1.15); mpart(body, SPH, P[1], 0, 0.62, 0.1, 0.7, 0.3, 0.9, 0.04); for (const sx of [-1, 1]) for (const sz of [-1, 0, 1]) { mpart(body, CYL, P[0], sx * 0.62, 0.3, sz * 0.7, 0.22, 0.6, 0.22, 0.05); }
+    const glow = mglow(P[2], 2.2); for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) { const a = (c - 2) * 0.34, y = 1.45 + Math.cos(a) * 0.22 - r * 0.0, z = -0.5 + r * 0.55, th = mpart(body, MOB_GEO.cone, P[1], Math.sin(a) * 0.82, y, z, 0.1, 0.5 + (c % 2) * 0.12, 0.1, 0.03); th.rotation.z = -a * 0.9; if (c === 2) mgpart(body, SPH, glow, Math.sin(a) * 0.82, y + 0.34, z, 0.06, 0.06, 0.06); }
+    mpart(head, SPH, P[0], 0, 0, 0, 0.5, 0.42, 0.5); mpart(head, SPH, P[1], 0, -0.2, 0.26, 0.4, 0.16, 0.3, 0.03); for (const q of [-1, 1]) { const hn = mpart(head, MOB_GEO.cone, '#f4e4c0', q * 0.42, 0.2, 0.1, 0.1, 0.62, 0.1, 0.03); hn.rotation.z = -q * 0.9; hn.rotation.x = -0.4; mgpart(head, SPH, mglow('#ff7a2a'), q * 0.2, 0.08, 0.44, 0.08, 0.07, 0.04); } mgpart(body, MOB_GEO.box, glow, 0, 0.75, -1.12, 0.3, 0.06, 0.04);
+    return { g, body, x: { head, glow } }; },
+  stormcaller(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const orbs = new THREE.Group(); orbs.position.y = 1.1; body.add(orbs); const ge = mglow(P[2], 2.0);
+    mpart(body, MOB_GEO.cone, P[0], 0, 0.7, 0, 0.62, 1.5, 0.62, 0.05); mpart(body, SPH, P[1], 0, 1.58, 0.02, 0.28, 0.3, 0.26, 0.04); mpart(body, MOB_GEO.cone, P[0], 0, 1.95, 0, 0.3, 0.5, 0.3, 0.04); for (const q of [-1, 1]) { mgpart(body, SPH, ge, q * 0.1, 1.6, 0.24, 0.06, 0.08, 0.04); mpart(body, SPH, P[1], q * 0.46, 0.9, 0.2, 0.12, 0.16, 0.12, 0.03); }
+    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; mgpart(orbs, SPH, ge, Math.cos(a) * 0.9, 0, Math.sin(a) * 0.9, 0.14, 0.14, 0.14); } for (let i = 0; i < 5; i++) { const a = (i - 2) * 0.4; const sp = mgpart(body, MOB_GEO.cone, ge, Math.sin(a) * 0.3, 2.28 + Math.cos(a) * 0.1, 0, 0.05, 0.3, 0.05); sp.rotation.z = -a; } return { g, body, x: { orbs, ge } }; },
+  prism(P) { const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const shards = new THREE.Group(); shards.position.y = 1.9; body.add(shards); const core = mglow(P[2], 2.4), cry = mglow('#d8b8ff', 1.5);
+    mpart(body, MOB_GEO.box, P[0], 0, 1.0, 0, 1.0, 1.15, 0.8, 0.05); mpart(body, MOB_GEO.box, P[1], 0, 0.3, 0, 0.8, 0.6, 0.6, 0.05); mgpart(body, MOB_GEO.box, core, 0, 1.05, 0.38, 0.34, 0.34, 0.12); for (const q of [-1, 1]) { mpart(body, MOB_GEO.box, P[0], q * 0.85, 1.0, 0.1, 0.34, 0.9, 0.34, 0.05); mpart(body, MOB_GEO.box, P[1], q * 0.85, 0.45, 0.14, 0.5, 0.4, 0.5, 0.05); mgpart(body, SPH, core, q * 0.18, 1.5, 0.38, 0.07, 0.07, 0.05); mpart(body, MOB_GEO.box, P[1], q * 0.3, 0.1, 0, 0.3, 0.4, 0.3, 0.04); }
+    mpart(body, MOB_GEO.box, P[0], 0, 1.8, 0.04, 0.4, 0.34, 0.36, 0.04); for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; const c = mgpart(shards, MOB_GEO.oct, cry, Math.cos(a) * 0.85, Math.sin(i * 1.7) * 0.15, Math.sin(a) * 0.85, 0.16, 0.34, 0.16); c.rotation.z = 0.3 * Math.sin(i); } return { g, body, x: { shards, core } }; },
+};
+// ---- instanced swarm types: bake a built model into one BufferGeometry (+ one outline geometry) --------------------------------------------------------------------------------------------------
+function mobBakeModel(m) { // flatten every part (and outline hull) of the model into world-of-root geometry
+  m.g.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(m.g.matrixWorld).invert(), body = [], outl = []; const tmp = new THREE.Matrix4();
+  m.g.traverse(o => { const ud = o.userData; if (!ud) return; if (ud.vrp) for (const p of ud.vrp) { p.updateWorldMatrix(true, false); tmp.multiplyMatrices(inv, p.matrixWorld); body.push({ geo: p.geometry, mat: tmp.clone(), col: p.material.color }); } if (ud.vro) for (const p of ud.vro) { p.updateWorldMatrix(true, false); tmp.multiplyMatrices(inv, p.matrixWorld); outl.push({ geo: p.geometry, mat: tmp.clone() }); } });
+  return { geo: vrBake(body, true), outGeo: vrBake(outl, false) };
+}
+const MOBI = {}; // id -> { mesh, out, n }
+function mobiGet(id) {
+  if (MOBI[id]) return MOBI[id]; const def = MOB_DEFS[id], m = MOB_SHAPES[def.shape](def.pal), b = mobBakeModel(m), cap = 40;
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x100e0c }), mesh = new THREE.InstancedMesh(b.geo, mat, cap), out = new THREE.InstancedMesh(b.outGeo, outlineMat, cap);
+  for (const x of [mesh, out]) { x.frustumCulled = false; x.count = 0; x.visible = false; scene.add(x); } mesh.castShadow = !VR.presenting; mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3); out.renderOrder = -1;
+  return MOBI[id] = { mesh, out, n: 0, cap };
+}
+const _mI = new THREE.Matrix4(), _mI2 = new THREE.Matrix4(), _mC = new THREE.Color();
+function mobiUpdate() { // once per rendered frame: every alive instanced mob of each type -> instance slots 0..n-1
+  for (const id in MOBI) MOBI[id].n = 0;
+  for (const e of ENEMIES) {
+    if (!e.mob || !e.mob.def.inst || !e.alive) continue; const I = MOBI[e.type]; if (!I || I.n >= I.cap) continue; if (!e.mesh.visible || e.mob.hidden) continue;
+    e.mesh.updateMatrixWorld(true); _mI.copy(e.mesh.matrixWorld); e.body.updateMatrix(); _mI2.copy(e.body.matrix); _mI.multiply(_mI2); const i = I.n++; I.mesh.setMatrixAt(i, _mI); I.out.setMatrixAt(i, _mI); const f = e.mob.flash || 0; _mC.setRGB(1 + f * 2.2, 1 + f * 0.9, 1 + f * 0.5); I.mesh.setColorAt(i, _mC);
+  }
+  for (const id in MOBI) { const I = MOBI[id], on = I.n > 0; I.mesh.count = I.out.count = I.n; I.mesh.visible = on; I.out.visible = on && !(VR.presenting && !VR.mobOutline); if (on) { I.mesh.instanceMatrix.needsUpdate = I.out.instanceMatrix.needsUpdate = true; I.mesh.instanceColor.needsUpdate = true; } }
+}
+// ---- animation: a few lines per shape, driven by the FSM state (the wind-up is a visible wind-up) ---------------------------------------------------------------------------------------------------
+const mk01 = (a, b, x) => Math.max(0, Math.min(1, (x - a) / (b - a)));
+function mobAnimate(e, dt, t) {
+  const m = e.mob, d = m.def, X = e.mx, b = e.body, st = m.st, wind = st === 'wind' ? mk01(0, m.atkD ? m.atkD.wind : 1, m.windT) : 0, ph = e.ph; if (!X && !d.inst) return;
+  if (!d.inst && e.mesh) { b.visible = !m.hidden; }
+  if (e.flinch > 0) return; // the rpg layer owns body.scale.y during a flinch
+  const sp = Math.hypot(m.vx, m.vz), walk = Math.sin(t * 9 + ph) * Math.min(1, sp / 2); let sy = 1, sx = 1, by = 0, rz = 0, rx = 0;
+  if (st === 'wind') { const k = Math.sin(wind * PI * 0.5); sy = 1 - 0.2 * k; sx = 1 + 0.12 * k; if (d.fam === 'artillery') { sy = 1 + 0.35 * k; sx = 1 + 0.3 * k; } if (d.fam === 'bomber') { sy = 1 + 0.25 * k; sx = 1 + 0.25 * k; } by = 0.02 * Math.sin(t * 40) * k; }
+  else if (st === 'stun') { rz = Math.sin(t * 14) * 0.18 + 0.4; sy = 0.86; } else if (st === 'phase') { sy = 1 + 0.08 * Math.sin(t * 24); sx = sy; } else if (st === 'exec') { sy = 1.1; sx = 0.94; } else { by = Math.abs(walk) * 0.05 * (d.fly ? 0.3 : 1); rz = walk * 0.05; }
+  if (d.fly && !d.inst) by += 0.06 * Math.sin(t * 3 + ph);
+  b.scale.set(sx, sy, sx); b.position.y = by; b.rotation.z = rz; b.rotation.x = rx;
+  if (d.inst) { if (d.fam === 'bomber') m.flash = st === 'wind' ? (Math.sin(t * (14 + wind * 24)) > 0 ? 1 : 0) : 0; return; }
+  if (!X) return;
+  switch (d.shape) {
+    case 'slinger': X.arm.rotation.x = st === 'wind' ? -2.4 * wind : st === 'exec' ? 0.6 : -0.3 + walk * 0.4; X.orb.color.setRGB(2.4 + wind * 2, 1.6 + wind, 0.6 + wind * 0.5); break;
+    case 'rammer': X.head.rotation.x = st === 'wind' ? 0.5 * wind : st === 'stun' ? 0.7 : st === 'exec' ? 0.35 : walk * 0.05; X.head.position.y = 0.72 - (st === 'wind' ? 0.15 * wind : 0); if (st === 'wind') b.position.z = -0.1 * wind; break;
+    case 'weaver': X.ring.rotation.y += dt * (st === 'wind' ? 10 : 1.5); X.ring.position.y = 1.6 + Math.sin(t * 2 + ph) * 0.08 + (st === 'wind' ? wind * 0.3 : 0); X.ring.scale.setScalar(1 + (st === 'wind' ? wind * 0.4 : 0)); break;
+    case 'bulwark': X.sh.rotation.y = st === 'wind' ? Math.sin(wind * 6) * 0.3 : 0; X.sh.position.z = 0.56 + (st === 'wind' ? -0.1 * wind : st === 'exec' ? 0.25 : 0); X.emb.color.setRGB(1.2 + wind * 3, 2 + wind * 2, 3 + wind); b.rotation.z = st === 'stun' ? 0.5 : rz; break;
+    case 'wisp': X.swirl.rotation.y += dt * (st === 'wind' ? 14 : 3); X.swirl.scale.setScalar(st === 'wind' ? 1 - 0.5 * wind : 1); X.flame.color.setRGB(0.9 + wind * 1.5, 2.0 + wind, 2.0); break;
+    case 'puffer': X.cap.scale.set(1 + (st === 'wind' ? 0.3 * wind : 0) + 0.04 * Math.sin(t * 3 + ph), 1 + (st === 'wind' ? 0.45 * wind : 0), 1 + (st === 'wind' ? 0.3 * wind : 0)); break;
+    case 'mender': X.bulb.color.setRGB(1.2 + wind * 2.5, 2.4 + wind, 1.2 + wind); break;
+    case 'warden': X.armL.rotation.x = st === 'wind' ? -2.5 * wind : st === 'exec' ? 0.4 : walk * 0.6; X.armR.rotation.x = st === 'wind' ? -2.5 * wind : st === 'exec' ? 0.4 : -walk * 0.6; X.head.rotation.x = st === 'wind' ? -0.3 * wind : 0; break;
+    case 'thornback': X.head.rotation.x = st === 'wind' ? 0.4 * wind : st === 'stun' ? 0.6 : 0; X.glow.color.setRGB(2.2 + wind * 2, 0.8 + wind * 0.4, 0.2); break;
+    case 'stormcaller': X.orbs.rotation.y += dt * (st === 'wind' ? 8 : 2); X.orbs.position.y = 1.1 + (st === 'wind' ? wind * 0.4 : 0); break;
+    case 'prism': X.shards.rotation.y += dt * (st === 'wind' ? 7 : 1.2); X.shards.position.y = 1.9 + Math.sin(t * 2 + ph) * 0.1; X.core.color.setRGB(2.4 + wind * 2, 1.0 + wind, 2.4 + wind); break;
+  }
+}
+// </mob-models>
+
+// <mob-game> ====================================================================================================================
+// SHATTERWORLD mob variety, part 2b: integration. The new mobs are ordinary ENEMIES entries (state 'mob'), so the whole RPG layer applies unchanged: level / tier / elite + champion affixes, hero verbs, skills,
+// gems, drops, plates, rift kill progress. The pure FSM (mob-core) runs at a fixed 30 Hz per mob; this block moves it through the world (floorAt / walls / edges), draws the TELEGRAPHS (ground decals that fill up
+// until the hit lands), enemy projectiles (one InstancedMesh), spore clouds, shockwaves, plays the cues, and spawns them per act, in Rifts (families) and as act guardians.
+// Re-bound here: addEnemy, rpgDecorate, rpgOnKilled, killEnemy, rpgDamageEnemy, rpgApplyDamage, heroVsEnemy, rpgEnemiesTick, rpgSpawnAct, rpgFrame, clearEntities, gemOk, rpgHud (boss bar).
+// ==============================================================================================================================
+const MOBX = { boss: null, hAir: 0, hvx: 0, hvz: 0, t: 0, minions: 0, spawned: 0, kills: {}, ctx: { hx: 0, hz: 0, hy: 0, hAir: 0, alive: true, hvx: 0, hvz: 0, hpf: 1, minions: 0, ally: null, move: null, wallAhead: null }, last: null, log: [] };
+// ---- cues: every action has its own sound (+ a haptic pattern in VR through the existing RV_HP table) --------------------------------------------------------------------------------------------------
+function msfx(name, a) {
+  if (VR.presenting) { const h = { tell: 'windup', boom: 'slam', zap: 'bolt', heal: 'heal', stun: 'crit', clang: 'shield', roar: 'slam', burst: 'nova' }[name]; if (h) vrRsfxHaptic(h, 0); }
+  if (!AC || muted) return; const t = AC.currentTime, now = performance.now(), key = 'm' + name; if (lastSfx[key] && now - lastSfx[key] < 40) return; lastSfx[key] = now;
+  switch (name) {
+    case 'tell': osc('sawtooth', 160 + (a || 0) * 40, 340 + (a || 0) * 60, t, 0.5, 0.04); noiseHit(t, 0.4, 0.025, 800, 3000, 1.5, 'bandpass'); break;
+    case 'tellhi': osc('triangle', 500, 900, t, 0.35, 0.05); osc('sine', 1000, 1500, t + 0.05, 0.3, 0.03); break;
+    case 'alert': osc('square', 620, 880, t, 0.08, 0.05); osc('square', 880, 880, t + 0.08, 0.1, 0.05); break;
+    case 'zap': osc('sawtooth', 900, 260, t, 0.16, 0.06); noiseHit(t, 0.1, 0.05, 6000, 1500, 1, 'highpass'); break;
+    case 'lob': osc('sine', 260, 520, t, 0.3, 0.07); noiseHit(t, 0.2, 0.04, 500, 2500, 1, 'bandpass'); break;
+    case 'splat': noiseHit(t, 0.3, 0.12, 1800, 200, 1); osc('sine', 150, 60, t, 0.25, 0.15); break;
+    case 'dash': noiseHit(t, 0.5, 0.12, 700, 3000, 1.3, 'bandpass'); osc('sawtooth', 120, 260, t, 0.4, 0.05); break;
+    case 'boom': osc('sine', 100, 28, t, 0.5, 0.42); noiseHit(t, 0.45, 0.28, 2600, 90, 1); osc('square', 180, 50, t, 0.2, 0.08); break;
+    case 'stomp': osc('sine', 80, 30, t, 0.4, 0.4); noiseHit(t, 0.3, 0.18, 1600, 100, 1); break;
+    case 'bite': noiseHit(t, 0.08, 0.1, 4500, 800, 1, 'bandpass'); osc('square', 420, 200, t, 0.06, 0.06); break;
+    case 'summon': [0, 3, 7, 10].forEach((n, i) => osc('triangle', nf(60 + n), nf(60 + n), t + i * 0.08, 0.5, 0.06)); noiseHit(t, 0.5, 0.05, 400, 1800, 1.5, 'bandpass'); break;
+    case 'heal': [0, 4, 7, 12].forEach((n, i) => osc('sine', nf(81 + n), nf(81 + n), t + i * 0.06, 0.4, 0.06)); break;
+    case 'clang': osc('square', 880, 700, t, 0.1, 0.07); osc('triangle', 1760, 1200, t, 0.18, 0.05); noiseHit(t, 0.05, 0.08, 6000, 3000, 1, 'highpass'); break;
+    case 'stun': osc('sawtooth', 300, 80, t, 0.3, 0.07); [0, 7, 14].forEach((n, i) => osc('triangle', nf(90 - n), nf(90 - n), t + 0.05 + i * 0.07, 0.2, 0.05)); break;
+    case 'burrow': noiseHit(t, 0.4, 0.14, 500, 120, 1); osc('sine', 70, 40, t, 0.4, 0.2); break;
+    case 'emerge': noiseHit(t, 0.3, 0.2, 1800, 200, 1); osc('sine', 90, 35, t, 0.3, 0.3); break;
+    case 'fuse': osc('square', 900 + (a || 0) * 120, 900 + (a || 0) * 120, t, 0.04, 0.04); break;
+    case 'roar': osc('sawtooth', 70, 150, t, 1.0, 0.12); osc('square', 140, 90, t, 0.9, 0.06); noiseHit(t, 0.9, 0.12, 1500, 200, 1); break;
+    case 'bossdown': [0, 4, 7, 12, 16, 19, 24, 28, 31].forEach((n, i) => { osc('square', nf(60 + n), nf(60 + n), t + i * 0.09, 0.5, 0.05); osc('triangle', nf(72 + n), nf(72 + n), t + i * 0.09, 1.0, 0.07); }); osc('sine', 60, 30, t, 1.6, 0.3); break;
+    case 'sweep': osc('sawtooth', 200, 1200, t, 1.4, 0.05); noiseHit(t, 1.4, 0.06, 600, 4000, 1.4, 'bandpass'); break;
+    case 'shield': osc('triangle', nf(96), nf(72), t, 0.4, 0.07); noiseHit(t, 0.3, 0.05, 7000, 1500, 1, 'highpass'); break;
+  }
+}
+// ---- telegraph decals: pools of circle / rect / cone parts. A decal is a faint full-size shape + a brighter fill that grows until the hit lands (so a player can read WHEN, and WHERE). ----------------------------------------------------
+const DEC_Y = 0.1, DECG = { disc: new THREE.CircleGeometry(1, 44).rotateX(-PI / 2), ring: new THREE.RingGeometry(0.9, 1, 56).rotateX(-PI / 2), rect: new THREE.PlaneGeometry(1, 1).rotateX(-PI / 2).translate(0, 0, 0.5), cones: {} };
+function decCone(arc) { const k = arc.toFixed(2); return DECG.cones[k] || (DECG.cones[k] = new THREE.CircleGeometry(1, 36, PI / 2 - arc / 2, arc).rotateX(-PI / 2)); } // sector centred on +z (after the x-rotation the sector sits in the xz plane)
+const decMat = (op) => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, forceSinglePass: true });
+const DEC_CIRC = [], DEC_RECT = [], DEC_CONE = [], TELLS = [];
+for (let i = 0; i < 14; i++) { const base = new THREE.Mesh(DECG.disc, decMat(0.15)), edge = new THREE.Mesh(DECG.ring, decMat(0.8)), fill = new THREE.Mesh(DECG.disc, decMat(0.3)); for (const m of [base, edge, fill]) { m.visible = false; m.frustumCulled = false; m.renderOrder = 16; scene.add(m); } DEC_CIRC.push({ base, edge, fill, used: false }); }
+for (let i = 0; i < 12; i++) { const base = new THREE.Mesh(DECG.rect, decMat(0.14)), fill = new THREE.Mesh(DECG.rect, decMat(0.32)); for (const m of [base, fill]) { m.visible = false; m.frustumCulled = false; m.renderOrder = 16; scene.add(m); } DEC_RECT.push({ base, fill, used: false }); }
+for (let i = 0; i < 3; i++) { const base = new THREE.Mesh(decCone(2.3), decMat(0.15)), fill = new THREE.Mesh(decCone(2.3), decMat(0.32)); for (const m of [base, fill]) { m.visible = false; m.frustumCulled = false; m.renderOrder = 16; scene.add(m); } DEC_CONE.push({ base, fill, used: false }); }
+const decTake = pool => { for (const p of pool) if (!p.used) { p.used = true; return p; } return null; };
+const decFree = (p, list) => { p.used = false; for (const k in p) if (p[k] && p[k].isMesh) p[k].visible = false; };
+const _dcol = new THREE.Color();
+function decColor(m, hex, k, op) { _dcol.set(hex); m.material.color.setRGB(_dcol.r * k, _dcol.g * k, _dcol.b * k); m.material.opacity = op; }
+function mobTellSpawn(e, ev) {
+  if (TELLS.length > 10) { const o = TELLS.shift(); mobTellKill(o); }
+  const T = { e, ev, t: 0, dur: ev.dur, hold: ev.hold || 0, col: ev.col, shape: ev.shape, self: ev.self, follow: ev.follow, parts: [], x: ev.x, z: ev.z, ang: ev.ang, r: ev.r, len: ev.len, w: ev.w, arc: ev.arc, pts: ev.pts, kind: ev.kind, tx: ev.tx, tz: ev.tz, n: ev.n | 0, done: false };
+  const circ = () => { const p = decTake(DEC_CIRC); if (p) { for (const k of ['base', 'edge', 'fill']) p[k].visible = true; T.parts.push({ type: 'c', p }); } return p; }, rect = () => { const p = decTake(DEC_RECT); if (p) { p.base.visible = p.fill.visible = true; T.parts.push({ type: 'r', p }); } return p; };
+  if (ev.shape === 'circle' || ev.shape === 'self') circ(); else if (ev.shape === 'multi') { for (const q of ev.pts) { const p = circ(); if (p) T.parts[T.parts.length - 1].pt = q; } } else if (ev.shape === 'line' || ev.shape === 'aim' || ev.shape === 'beam') rect(); else if (ev.shape === 'star') { for (let i = 0; i < T.n; i++) { rect(); T.parts[T.parts.length - 1].k = i; } }
+  else if (ev.shape === 'cone') { const p = decTake(DEC_CONE); if (p) { p.base.visible = p.fill.visible = true; T.parts.push({ type: 'k', p }); } }
+  if (!T.parts.length) return null; TELLS.push(T); mobTellUpdate(T, 0); return T;
+}
+function mobTellKill(T) { for (const q of T.parts) decFree(q.p); T.parts.length = 0; T.done = true; const i = TELLS.indexOf(T); if (i >= 0) TELLS.splice(i, 1); }
+function mobTellFloor(x, z, y, r) { let f = floorAt(x, z, y + 3); if (!(f > -1e8)) f = y; if (r > 0.5) for (const [dx, dz] of [[r, 0], [-r, 0], [0, r], [0, -r]]) { const g = floorAt(x + dx * 0.8, z + dz * 0.8, y + 3); if (g > f && g < f + 1.5) f = g; } return f; }
+function mobTellUpdate(T, dt) {
+  T.t += dt; const e = T.e, m = e && e.mob; if (e && (!e.alive || e.state === 'dead' || (m && m.dead))) { mobTellKill(T); return; }
+  const prog = clamp(T.t / Math.max(0.05, T.dur), 0, 1), fade = T.t > T.dur + T.hold ? 0 : T.t > T.dur + T.hold - 0.12 ? (T.dur + T.hold - T.t) / 0.12 : 1; if (T.t > T.dur + T.hold) { mobTellKill(T); return; }
+  const flick = 0.85 + 0.15 * Math.sin(U.time.value * 30), k = 1.5 + prog * 1.6, base = e ? e.fy : P.y;
+  let x = T.x, z = T.z, ang = T.ang; if (e && m) { if (T.self) { x = m.x; z = m.z; } else if (T.shape === 'circle' && T.follow) { x = m.aim.x; z = m.aim.z; } else if (T.shape === 'circle' && (T.kind === 'leap' || T.kind === 'lob' || T.kind === 'swoop' || T.kind === 'emerge')) { x = m.aim.x; z = m.aim.z; } else if (T.shape === 'circle') { x = T.x; z = T.z; } if (T.follow || T.shape === 'aim' || T.shape === 'line' || T.shape === 'star') { ang = m.face; if (T.shape !== 'line' || T.follow) { if (T.shape === 'aim') { x = m.x; z = m.z; } else if (T.shape !== 'star') { x = m.x; z = m.z; } else { x = m.x; z = m.z; } } else { x = m.x; z = m.z; } } if (T.shape === 'beam') { x = m.x; z = m.z; } }
+  for (const q of T.parts) {
+    const y = mobTellFloor(q.pt ? q.pt.x : x, q.pt ? q.pt.z : z, base, T.r) + DEC_Y;
+    if (q.type === 'c') { const p = q.p, cx = q.pt ? q.pt.x : x, cz = q.pt ? q.pt.z : z, R = T.r || 1; p.base.position.set(cx, y, cz); p.base.scale.set(R, 1, R); p.edge.position.set(cx, y + 0.01, cz); p.edge.scale.set(R, 1, R); const fr = Math.max(0.02, prog * R); p.fill.position.set(cx, y + 0.005, cz); p.fill.scale.set(fr, 1, fr); decColor(p.base, T.col, k * 0.5, 0.16 * fade); decColor(p.edge, T.col, k, (0.55 + prog * 0.4) * flick * fade); decColor(p.fill, T.col, k, (0.16 + prog * 0.34) * fade); }
+    else if (q.type === 'r') { const p = q.p; let len = T.len || 6, w = T.w || 1.2, a = ang; if (T.shape === 'aim') { len = Math.hypot(m.aim.x - m.x, m.aim.z - m.z) + 0.5; w = 0.2; } else if (T.shape === 'beam') { const dx = T.tx - m.x, dz = T.tz - m.z; len = Math.hypot(dx, dz); a = Math.atan2(dx, dz); w = 0.25; } else if (T.shape === 'star') { a = ang + q.k / Math.max(1, T.n) * TAU; w = T.w || 1.5; }
+      p.base.position.set(x, y, z); p.base.rotation.y = a; p.base.scale.set(w, 1, len); p.fill.position.set(x, y + 0.01, z); p.fill.rotation.y = a; const fl = T.shape === 'aim' || T.shape === 'beam' ? len : Math.max(0.05, len * prog); p.fill.scale.set(w * (T.shape === 'aim' ? 1 + prog * 1.5 : 1), 1, fl); decColor(p.base, T.col, k * 0.5, (T.shape === 'aim' ? 0.35 : 0.16) * fade); decColor(p.fill, T.col, k, (T.shape === 'aim' ? 0.5 + prog * 0.5 : 0.16 + prog * 0.36) * fade * flick); }
+    else if (q.type === 'k') { const p = q.p, R = T.r || 4; p.base.position.set(x, y, z); p.base.rotation.y = ang - PI / 2 + PI / 2; p.base.scale.set(R, 1, R); p.fill.position.set(x, y + 0.01, z); p.fill.rotation.y = ang; const fr = Math.max(0.05, prog * R); p.fill.scale.set(fr, 1, fr); p.base.rotation.y = ang; decColor(p.base, T.col, k * 0.5, 0.16 * fade); decColor(p.fill, T.col, k, (0.16 + prog * 0.34) * fade * flick); }
+  }
+  if (T.kind === 'fuse' && m && T.t < T.dur && Math.floor(T.t * (14 + prog * 24)) !== T.lastBlip) { T.lastBlip = Math.floor(T.t * (14 + prog * 24)); msfx('fuse', prog * 6); }
+}
+// ---- shockwave rings (linear radius so they match the hit test in the core), enemy projectiles (instanced), spore clouds ---------------------------------------------------------------------------------------------------------
+const WAVEG = new THREE.RingGeometry(0.9, 1, 64).rotateX(-PI / 2), WAVES = []; for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(WAVEG, decMat(0.8)); m.visible = false; m.frustumCulled = false; m.renderOrder = 17; scene.add(m); WAVES.push({ m, on: false, x: 0, y: 0, z: 0, r: 0, spd: 0, max: 20, col: '#ffffff' }); }
+function mobWave(x, y, z, spd, max, col) { const w = WAVES.find(q => !q.on) || WAVES[0]; w.on = true; w.x = x; w.y = y + 0.18; w.z = z; w.r = 0.5; w.spd = spd; w.max = max; w.col = col; w.m.visible = true; }
+const NMP = 24, MPJ = [], mpjMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshBasicMaterial({ fog: false, toneMapped: false }), NMP); mpjMesh.frustumCulled = false; mpjMesh.count = 0; mpjMesh.visible = false; mpjMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(NMP * 3), 3); scene.add(mpjMesh);
+for (let i = 0; i < NMP; i++) MPJ.push({ on: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0, dmg: 1, src: null, lob: false, T: 0, t: 0, tx: 0, tz: 0, ty: 0, r: 2, cloud: 0, col: '#ff9a4a', sc: 1 });
+const CLOUDG = new THREE.CircleGeometry(1, 40).rotateX(-PI / 2), CLOUDS = []; for (let i = 0; i < 5; i++) { const m = new THREE.Mesh(CLOUDG, decMat(0.3)); m.visible = false; m.frustumCulled = false; m.renderOrder = 15; scene.add(m); CLOUDS.push({ m, on: false, x: 0, y: 0, z: 0, r: 2, t: 0, dur: 3, tick: 0, dmg: 0.3, src: null, col: '#b8e86a' }); }
+function mobCloud(x, y, z, r, dur, dmg, src, col) { const c = CLOUDS.find(q => !q.on) || CLOUDS[0]; c.on = true; c.x = x; c.y = y + 0.14; c.z = z; c.r = r; c.t = 0; c.dur = dur; c.tick = 0.3; c.dmg = dmg; c.src = src; c.col = col || '#b8e86a'; c.m.visible = true; }
+function mobShoot(e, ev) {
+  const R = e.rpg, p = MPJ.find(q => !q.on); if (!p) return; const hy = e.y + 0.9 * (e.mesh.scale.y || 1), mk = ev.dmg || 1; p.on = true; p.src = e; p.x = ev.x; p.y = hy; p.z = ev.z; p.dmg = mk; p.col = ev.col || '#ff9a4a'; p.lob = !!ev.lob; p.t = 0; p.sc = ev.lob ? 1.6 : 1;
+  if (ev.lob) { p.T = ev.flight || 0.9; p.tx = ev.tx; p.tz = ev.tz; p.ty = floorAt(ev.tx, ev.tz, e.y + 4); if (!(p.ty > -1e8)) p.ty = e.fy; p.vx = (p.tx - p.x) / p.T; p.vz = (p.tz - p.z) / p.T; p.vy = ((p.ty + 0.3 - p.y) + 0.5 * 22 * p.T * p.T) / p.T; p.r = ev.r || 2.4; p.cloud = ev.cloud || 0; p.life = p.T + 0.5; msfx('lob'); }
+  else { p.vx = Math.sin(ev.ang) * ev.spd; p.vz = Math.cos(ev.ang) * ev.spd; p.vy = 0; p.life = ev.ring ? 3.2 : 3.0; p.cloud = 0; p.r = 0; msfx('zap'); }
+}
+function mobHurtHero(e, mult, kb, sx, sz) {
+  if (P.dead || P.invuln > 0 || G.trans || !e.rpg) return false; RT.curEnemy = e; RT.dmgOverride = e.rpg.dmg * mult; hurtHero(sx != null ? sx : e.x, sz != null ? sz : e.z); RT.curEnemy = null;
+  if (kb > 7) { const dx = P.x - (sx != null ? sx : e.x), dz = P.z - (sz != null ? sz : e.z), l = Math.hypot(dx, dz) + 0.01; P.vx += dx / l * (kb - 7) * 0.7; P.vz += dz / l * (kb - 7) * 0.7; } return true;
+}
+function mobFxFrame(rdt, sdt) {
+  if (G.state !== 'play') { if (G.state === 'menu' || G.state === 'dead') mobClearFx(); return; } const t = U.time.value;
+  for (let i = TELLS.length - 1; i >= 0; i--) mobTellUpdate(TELLS[i], sdt);
+  for (const w of WAVES) { if (!w.on) continue; w.r += w.spd * sdt; if (w.r > w.max) { w.on = false; w.m.visible = false; continue; } w.m.position.set(w.x, w.y, w.z); w.m.scale.set(w.r, 1, w.r); decColor(w.m, w.col, 2.4, 0.9 * (1 - w.r / w.max)); }
+  // projectiles
+  let n = 0; for (const p of MPJ) {
+    if (!p.on) continue; p.t += sdt; p.life -= sdt; if (p.lob) p.vy -= 22 * sdt; p.x += p.vx * sdt; p.y += p.vy * sdt; p.z += p.vz * sdt; let dead = false;
+    if (p.lob) { if (p.t >= p.T) { dead = true; mobLand(p); } } else { if (!P.dead && Math.hypot(P.x - p.x, P.z - p.z) < 0.8 && Math.abs(P.y + 0.9 - p.y) < 1.1) { if (p.src && p.src.alive) mobHurtHero(p.src, p.dmg, 5, p.x - p.vx, p.z - p.vz); dead = true; sparkBurst(p.x, p.y, p.z, 7, hexNum(p.col), 4); } else if (p.life <= 0 || solidPoint(p.x, p.y, p.z)) { dead = true; sparkBurst(p.x, p.y, p.z, 5, hexNum(p.col), 3); } }
+    if (p.life <= 0 && !dead) dead = true; if (dead) { p.on = false; continue; }
+    if (Math.random() < 0.5) puff(p.x, p.y, p.z, 1, 0.35, hexNum(p.col), 0.3, 0, 0.35);
+    _mI.makeScale(p.sc * (1 + Math.sin(t * 20 + n) * 0.12), p.sc, p.sc * (1 + Math.sin(t * 20 + n) * 0.12)); _mI.setPosition(p.x, p.y, p.z); mpjMesh.setMatrixAt(n, _mI); _mC.set(p.col); mpjMesh.setColorAt(n, _mC.multiplyScalar(2.2)); n++;
+  }
+  mpjMesh.count = n; mpjMesh.visible = n > 0; if (n > 0) { mpjMesh.instanceMatrix.needsUpdate = true; mpjMesh.instanceColor.needsUpdate = true; }
+  for (const c of CLOUDS) { if (!c.on) continue; c.t += sdt; if (c.t > c.dur) { c.on = false; c.m.visible = false; continue; } const k = c.t < 0.3 ? c.t / 0.3 : c.t > c.dur - 0.5 ? (c.dur - c.t) / 0.5 : 1; c.m.position.set(c.x, c.y, c.z); c.m.scale.set(c.r * (0.9 + 0.1 * Math.sin(t * 3)), 1, c.r); decColor(c.m, c.col, 1.3, 0.34 * k); if (Math.random() < 0.18) puff(c.x + (Math.random() - 0.5) * c.r * 1.4, c.y + 0.2, c.z + (Math.random() - 0.5) * c.r * 1.4, 1, 0.9, hexNum(c.col), 0.2, 0.9, 1.4);
+    c.tick -= sdt; if (c.tick <= 0) { c.tick = 0.5; if (!P.dead && Math.hypot(P.x - c.x, P.z - c.z) < c.r && P.y - c.y < 1.6 && c.src && c.src.alive !== undefined) { RT.curEnemy = c.src; RT.dmgOverride = (c.src.rpg ? c.src.rpg.dmg : 20) * c.dmg; hurtHero(c.x, c.z); RT.curEnemy = null; } } }
+}
+function mobLand(p) {
+  const e = p.src, fy = p.ty; sparkBurst(p.x, fy + 0.3, p.z, 12, hexNum(p.col), 5); fxRing(p.x, fy, p.z, 0.3, p.r, 0.4, hexNum(p.col), 0.9, true); puff(p.x, fy + 0.2, p.z, 8, 1.2, hexNum(p.col), 2.5, -1, 0.8); msfx('splat'); camShake(0.1);
+  if (e && e.alive && !P.dead && Math.hypot(P.x - p.x, P.z - p.z) < p.r + 0.3 && P.y - fy < 1.4) mobHurtHero(e, p.dmg, 6, p.x, p.z);
+  if (p.cloud > 0 && e) mobCloud(p.x, fy, p.z, p.r * 0.9, p.cloud, 0.3, e, p.col);
+}
+function mobClearFx() { for (const T of TELLS.slice()) mobTellKill(T); for (const w of WAVES) { w.on = false; w.m.visible = false; } for (const p of MPJ) p.on = false; mpjMesh.count = 0; mpjMesh.visible = false; for (const c of CLOUDS) { c.on = false; c.m.visible = false; } MOBX.boss = null; }
+// ---- events from the FSM -> the world ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+function mobHealRef(ref, frac) { const R = ref && ref.rpg; if (!R || !ref.alive || ref.state === 'dead') return; const v = R.maxhp * frac; R.hp = Math.min(R.maxhp, R.hp + v); floatText(ref.x, ref.y + 1.4, ref.z, '+' + Math.round(v), 'heal'); sparkBurst(ref.x, ref.y + 0.8, ref.z, 10, 0x8af7a0, 4); fxRing(ref.x, ref.y, ref.z, 0.3, 1.8, 0.5, 0x8af7a0, 0.9); }
+function mobSilentKill(o) { if (!o.alive) return; if (o.rpg) o.rpg.dead = true; o.alive = false; o.state = 'dead'; o.mesh.visible = false; puff(o.x, o.y + 0.5, o.z, 5, 0.8, 0xc28cff, 2); }
+function mobHandle(e, ev) {
+  const m = e.mob, R = e.rpg, def = m.def, k = ev.k, fy = e.fy;
+  switch (k) {
+    case 'alert': floatText(e.x, e.y + 1.9 * (e.mesh.scale.y || 1), e.z, def.boss ? '' : '!', 'crit'); msfx('alert'); if (def.boss) { rpgBanner(def.name.toUpperCase(), RIFT ? 'THE GUARDIAN' : 'ACT GUARDIAN'); msfx('roar'); camShake(0.4); G.flash = Math.max(G.flash, 0.2); } if (ev.r > 0) for (const o of ENEMIES) { if (o !== e && o.mob && o.alive && o.mob.pack === ev.pack && o.mob.st === 'idle' && Math.hypot(o.x - e.x, o.z - e.z) < ev.r) mobAlert(o.mob); } break;
+    case 'tell': mobTellSpawn(e, ev); msfx(ev.kind === 'shoot' || ev.kind === 'lob' || ev.kind === 'heal' ? 'tellhi' : 'tell', ev.dur > 0.9 ? 2 : ev.dur > 0.6 ? 1 : 0); break;
+    case 'strike': {
+      const col = hexNum(ev.col || '#ff8a4a'); const y = fy;
+      if (ev.shape === 'hit') { if (ev.hit) { mobHurtHero(e, ev.dmg, ev.kb, e.x - Math.sin(ev.ang || 0), e.z - Math.cos(ev.ang || 0)); msfx('bite'); sparkBurst(P.x, P.y + 0.9, P.z, 10, col, 5); } break; }
+      if (ev.shape === 'ringhit') { if (ev.hit) { mobHurtHero(e, ev.dmg, ev.kb, ev.x, ev.z); camShake(0.4); } break; }
+      if (ev.shape === 'beamhit') { if (ev.hit) { mobHurtHero(e, ev.dmg, ev.kb, ev.x, ev.z); sparkBurst(P.x, P.y + 0.9, P.z, 10, col, 6); } break; }
+      if (ev.shape === 'line') { const a = ev.ang, len = ev.len; for (let i = 1; i <= 4; i++) { const px = ev.x + Math.sin(a) * len * i / 4, pz = ev.z + Math.cos(a) * len * i / 4; fxRing(px, floorAt(px, pz, y + 2) > -1e8 ? floorAt(px, pz, y + 2) : y, pz, 0.3, 1.4, 0.35, col, 0.8); } if (ev.hit) mobHurtHero(e, ev.dmg, ev.kb, ev.x, ev.z); msfx('stomp'); camShake(0.2); break; }
+      if (ev.shape === 'cone') { for (let i = 0; i < 7; i++) { const a = ev.ang + (i / 6 - 0.5) * ev.arc, px = e.x + Math.sin(a) * ev.r * 0.8, pz = e.z + Math.cos(a) * ev.r * 0.8; sparkBurst(px, y + 0.5, pz, 3, col, 4); } fxRing(e.x, y, e.z, 0.5, ev.r, 0.3, col, 0.7); if (ev.hit) mobHurtHero(e, ev.dmg, ev.kb, e.x, e.z); msfx('bite'); camShake(0.25); break; }
+      const f = floorAt(ev.x, ev.z, y + 3), fyy = f > -1e8 ? f : y; fxRing(ev.x, fyy, ev.z, 0.3, ev.r, 0.4, col, 0.95, true); fxRing(ev.x, fyy, ev.z, 0.2, ev.r * 0.6, 0.3, 0xffffff, 0.7); sparkBurst(ev.x, fyy + 0.4, ev.z, ev.spike ? 5 : 12, col, ev.spike ? 4 : 7); puff(ev.x, fyy + 0.1, ev.z, ev.spike ? 3 : 8, 1.2, 0xd8c8a0, 3, -1, 0.7); if (ev.spike) fxChunks(ev.x, fyy + 0.4, ev.z, 3, col, 0.18, 4, fyy); camShake(ev.spike ? 0.08 : ev.boom ? 0.7 : 0.3); msfx(ev.boom ? 'boom' : ev.spike ? 'splat' : 'stomp');
+      if (ev.hit) mobHurtHero(e, ev.dmg, ev.kb, ev.x, ev.z); break; }
+    case 'shoot': mobShoot(e, ev); break;
+    case 'dash': msfx('dash'); puff(e.x, fy + 0.1, e.z, 6, 1.0, 0xd8c8a0, 3, -1, 0.6); break;
+    case 'ring': mobWave(ev.x, fy, ev.z, ev.spd, ev.max, ev.col); fxRing(ev.x, fy, ev.z, 0.5, 3.5, 0.4, hexNum(ev.col), 0.9); msfx('boom'); camShake(0.5); sparkBurst(ev.x, fy + 0.3, ev.z, 14, hexNum(ev.col), 7); break;
+    case 'sweep': msfx('sweep'); break;
+    case 'summon': { msfx('summon'); fxRing(ev.x, fy, ev.z, 0.3, ev.r, 0.6, 0xc28cff, 0.9, true); let nspawn = 0; for (let i = 0; i < ev.n; i++) { const a = Math.random() * TAU, ne = rpgSpawnEnemy(ev.type, ev.x + Math.cos(a) * ev.r * 0.7, ev.z + Math.sin(a) * ev.r * 0.7, { y: fy, minion: true, mlvl: Math.max(1, R.lvl - 2), xpMul: 0.2, aggroR: 24, r: 4 }); if (ne) { ne.owner = e; if (ne.mob) { ne.mob.pack = m.pack || (m.pack = (++MOBX.spawned) | 0 || 1); mobAlert(ne.mob); } nspawn++; } } break; }
+    case 'unsummon': for (const o of ENEMIES) if (o.owner === e && o.alive) mobSilentKill(o); break;
+    case 'heal': msfx('heal'); mobHealRef(ev.ref, ev.frac); if (ev.ref && ev.ref.alive) fxBolt(e.x, e.y + 0.9, e.z, ev.ref.x, ev.ref.y + 0.7, ev.ref.z, 0x8af7a0); sparkBurst(e.x, e.y + 0.9, e.z, 6, 0x8af7a0, 3); break;
+    case 'leap': msfx('dash'); puff(e.x, fy + 0.1, e.z, 6, 1.0, 0xd8c8a0, 3, -1, 0.6); break;
+    case 'emerge': msfx('emerge'); puff(ev.x, fy + 0.1, ev.z, 14, 1.6, 0xd8b878, 4, -1, 0.9); fxChunks(ev.x, fy + 0.3, ev.z, 8, 0x8a6a50, 0.2, 5, fy); camShake(0.25); break;
+    case 'burrow': msfx('burrow'); puff(ev.x, fy + 0.1, ev.z, 10, 1.3, 0xd8b878, 3, -1, 0.8); break;
+    case 'blink': puff(e.x, e.y + 0.8, e.z, 12, 1.2, 0xe0d0ff, 2, 0.5, 0.6); sparkBurst(e.x, e.y + 0.8, e.z, 14, 0xe0d0ff, 6); msfx('tellhi'); e.mob.x = ev.tx; e.mob.z = ev.tz; { const f = floorAt(ev.tx, ev.tz, e.fy + 4); if (f > -1e8) e.fy = f; else { e.mob.x = ev.x; e.mob.z = ev.z; } } e.x = e.mob.x; e.z = e.mob.z; puff(e.x, e.fy + 1, e.z, 12, 1.2, 0xe0d0ff, 2, 0.5, 0.6); sparkBurst(e.x, e.fy + 1, e.z, 14, 0xe0d0ff, 6); fxRing(e.x, e.fy, e.z, 0.3, 2.4, 0.4, 0xe0d0ff, 0.9); break;
+    case 'shield': msfx('shield'); fxRing(e.x, e.fy, e.z, 0.4, 3, 0.5, 0xbfe0ff, 0.9, true); floatText(e.x, e.y + 2.2, e.z, 'CRYSTAL SHELL', 'heal'); break;
+    case 'shieldDown': floatText(e.x, e.y + 2.2, e.z, 'SHELL FADES', 'xp'); break;
+    case 'shieldBreak': msfx('clang'); sparkBurst(e.x, e.y + 1, e.z, 24, 0xbfe0ff, 8); fxRing(e.x, e.fy, e.z, 0.4, 4, 0.5, 0xbfe0ff, 1); floatText(e.x, e.y + 2.2, e.z, 'SHIELD BREAK!', 'crit'); camShake(0.3); heroHitstop(0.06); break;
+    case 'clang': msfx('clang'); sparkBurst(e.x, e.y + 1, e.z, 5, 0xfff0c0, 4); floatText(e.x, e.y + 1.6, e.z, 'BLOCKED', 'xp'); break;
+    case 'stun': msfx('stun'); floatText(e.x, e.y + 2.0 * (e.mesh.scale.y || 1), e.z, 'STUNNED', 'crit'); sparkBurst(e.x, e.y + 1.2, e.z, 10, 0xffe27a, 4); camShake(0.3); heroHitstop(0.05); break;
+    case 'phase': msfx('roar'); rpgBanner(ev.name, def.name.toUpperCase()); camShake(0.7); G.flash = Math.max(G.flash, 0.3); fxRing(e.x, e.fy, e.z, 0.5, 9, 0.9, 0xffe27a, 1); fxRing(e.x, e.fy, e.z, 0.3, 6, 0.7, 0xffffff, 0.8); sparkBurst(e.x, e.y + 1.2, e.z, 30, 0xffe27a, 8); break;
+    case 'explode': { const f = ev.half ? 0.5 : 1, y = e.fy; fxRing(ev.x, y, ev.z, 0.4, ev.r, 0.4, 0xfff2b0, 1, true); fxRing(ev.x, y, ev.z, 0.2, ev.r * 0.6, 0.3, 0xff8a3a, 1); sparkBurst(ev.x, y + 0.6, ev.z, 26, 0xffb060, 9); fxChunks(ev.x, y + 0.5, ev.z, 10, 0xe84a4a, 0.22, 6, y); puff(ev.x, y + 0.3, ev.z, 12, 1.8, 0x504040, 4, 0.6, 1.0); msfx('boom'); camShake(0.6 * f);
+      if (ev.half && !P.dead && Math.hypot(P.x - ev.x, P.z - ev.z) < ev.r + 0.35 && P.y - y < 1.6) mobHurtHero(e, MOB_ATK.fuse.dmg * 0.5, 6, ev.x, ev.z); if (ev.self) { if (R) R.dead = true; e.alive = false; e.state = 'dead'; e.mesh.visible = false; } break; }
+    case 'cloud': mobCloud(ev.x, e.fy, ev.z, ev.r, ev.dur, 0.25, e, '#b8e86a'); break;
+    case 'death': if (ev.how !== 'self') { puff(ev.x, e.y + 0.5, ev.z, 8, 1.0, hexNum(def.pal[0]), 2.5, 0.5, 0.8); } if (def.boss) { msfx('bossdown'); camShake(0.8); G.flash = Math.max(G.flash, 0.4); } break;
+  }
+}
+function mobDrain(e) { const m = e.mob; if (!m.ev.length) return; const evs = m.ev.splice(0, m.ev.length); for (const ev of evs) { try { mobHandle(e, ev); } catch (err) { console.error('mob event', ev.k, err); } if (MOBX.log.length < 400) MOBX.log.push(ev.k + ':' + (ev.atk || ev.id || '')); } }
+// ---- movement through the real world: floor / step / edge / wall, with the cheap wall probe the charge attacks use ------------------------------------------------------------------------------------------------
+function mobMoveEnemy(e, nx, nz) {
+  const m = e.mob, d = m.def, fy = floorAt(nx, nz, e.fy + (d.fly ? 3.2 : 0.95)), none = !(fy > -1e8);
+  if (m.hidden) { if (none) return false; m.x = nx; m.z = nz; e.fy = fy; return true; }
+  if (d.fly) { if (none || fy > e.fy + 2.6) return false; m.x = nx; m.z = nz; e.fy = fy; return true; }
+  const edge = none || fy < e.fy - 1.1, wall = fy > e.fy + 0.6;
+  if (edge || wall) { // slide along the obstacle if one axis is free, but still report "blocked" (a charger that scrapes a wall is stunned)
+    const fx = floorAt(nx, m.z, e.fy + 0.95), fz = floorAt(m.x, nz, e.fy + 0.95); if (fx > -1e8 && fx >= e.fy - 1.1 && fx <= e.fy + 0.6 && Math.abs(nx - m.x) > Math.abs(nz - m.z)) { m.x = nx; e.fy = fx; } else if (fz > -1e8 && fz >= e.fy - 1.1 && fz <= e.fy + 0.6) { m.z = nz; e.fy = fz; } return false; }
+  m.x = nx; m.z = nz; e.fy = fy; return true;
+}
+function mobWallAhead(x, z, ang, len) { const sx = Math.sin(ang), sz = Math.cos(ang); let y = MOBX.curFy; for (let i = 1; i <= len; i++) { const px = x + sx * i, pz = z + sz * i, f = floorAt(px, pz, y + 0.95); if (!(f > -1e8) || f > y + 0.6 || f < y - 1.1) return (i - 1) / len; y = f; } return 1; }
+// ---- the per-mob step + the per-frame sync -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function mobStepEnemy(e) {
+  const m = e.mob, R = e.rpg, c = MOBX.ctx; c.hx = P.x; c.hz = P.z; c.hy = P.y; c.hAir = MOBX.hAir; c.alive = !P.dead; c.hvx = P.vx; c.hvz = P.vz; c.hpf = R ? clamp(R.hp / R.maxhp, 0, 1) : 1; c.minions = e.nMin | 0; c.ally = null;
+  if (m.def.fam === 'healer') { let best = null, bf = 0.82; for (const o of ENEMIES) { if (o === e || !o.alive || o.state === 'dead' || !o.rpg || o.mob && o.mob.hidden) continue; const f = o.rpg.hp / o.rpg.maxhp; if (f < bf && Math.hypot(o.x - m.x, o.z - m.z) < MOB_ATK.mend.range[1]) { bf = f; best = o; } } if (best) c.ally = { hurt: { x: best.x, z: best.z, ref: best } }; }
+  MOBX.curFy = e.fy; c.move = e.mvFn || (e.mvFn = (mm, nx, nz) => mobMoveEnemy(e, nx, nz)); c.wallAhead = mobWallAhead; mobTick(m, MOB_STEP, c); m.lastHpf = c.hpf; if (m.ev.length) mobDrain(e);
+}
+function mobSync(e, dt) {
+  const m = e.mob, d = m.def; e.x = m.x; e.z = m.z; e.y = e.fy + m.hover; e.ang = m.face; e.dir = 1; e.aggro = m.alert; if (e.mesh) { e.mesh.position.set(e.x, e.y, e.z); e.mesh.rotation.y = m.face; }
+  if (d.start === 'burrow' || d.move === 'burrow') { if (m.hidden && (m.vx || m.vz) && Math.random() < 0.5) puff(m.x, e.fy + 0.1, m.z, 1, 0.8, 0xd8b878, 1.2, -0.5, 0.7); }
+  if (m.st === 'stun' && Math.random() < 0.15) puff(m.x + (Math.random() - 0.5) * 0.8, e.y + 1.4 * (e.mesh.scale.y || 1), m.z + (Math.random() - 0.5) * 0.8, 1, 0.4, 0xffe27a, 0.6, 0.5, 0.5);
+  m.flash = m.flash || 0; mobAnimate(e, dt, U.time.value);
+}
+function mobTickAll(dt) {
+  MOBX.t += dt; const hf = floorAt(P.x, P.z, P.y + 0.6); MOBX.hAir = P.grounded ? 0 : (hf > -1e8 ? Math.max(0, P.y - hf) : 3); let boss = null, minions = new Map();
+  for (const e of ENEMIES) if (e.owner && e.alive && e.state !== 'dead') minions.set(e.owner, (minions.get(e.owner) || 0) + 1);
+  for (const e of ENEMIES) {
+    if (!e.mob || !e.alive) continue; if (e.state === 'dead' || e.state === 'squash') continue; if (!e.rpg) continue; const m = e.mob;
+    m.x = e.x; m.z = e.z; e.nMin = minions.get(e) || 0; e.macc = (e.macc || 0) + dt; let n = 0; while (e.macc >= MOB_STEP && n++ < 6) { e.macc -= MOB_STEP; mobStepEnemy(e); if (m.dead || e.state === 'dead') break; } if (e.macc > MOB_STEP * 6) e.macc = 0;
+    if (e.alive && e.state !== 'dead') mobSync(e, dt); if (m.def.boss && m.alert && e.alive && e.state !== 'dead') boss = e;
+  }
+  MOBX.boss = boss;
+}
+// ---- wrappers: spawn / decorate / damage / death / contact ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+const _mb_addEnemy2 = addEnemy;
+addEnemy = function (spec) {
+  const def = MOB_DEFS[spec.type]; if (!def) return _mb_addEnemy2(spec);
+  let g, body, mx = null; if (def.inst) { g = new THREE.Group(); body = new THREE.Group(); g.add(body); mobiGet(def.id); } else { const md = MOB_SHAPES[def.shape](def.pal); g = md.g; body = md.body; mx = md.x; }
+  const sc = def.size * 1.15; g.scale.setScalar(sc); g.position.set(spec.x, spec.y, spec.z); scene.add(g); if (VR.merge && !def.inst) vrMergeApply(g, true); const seed = ((Math.random() * 4294967296) >>> 0);
+  const e = { type: spec.type, x: spec.x, y: spec.y, z: spec.z, hx: spec.x, hz: spec.z, r: spec.r || 4, dir: 1, ang: Math.random() * TAU, vy: 0, state: 'mob', t: 0, mesh: g, body, mx, alive: true, ceil: false, kx: 0, kz: 0, h: def.h * sc, ph: Math.random() * 6, fy: spec.y };
+  e.mob = mobNew(def.id, seed, { x: spec.x, y: spec.y, z: spec.z, r: e.r, face: e.ang }); e.mob.hidden = def.start === 'burrow'; e.mob.noContact = e.mob.hidden; if (def.start === 'burrow') body.visible = false; ENEMIES.push(e); MOBX.spawned++; return e;
+};
+const _mb_rpgDecorate2 = rpgDecorate;
+rpgDecorate = function (e, o = {}) {
+  _mb_rpgDecorate2(e, o); if (!e.mob) return e; const R = e.rpg, m = e.mob, d = m.def; if (o.seed != null) { m.seed = o.seed >>> 0; m.rng = rpgRng((o.seed ^ 0x3F1) >>> 0); } if (o.aggroR != null && o.aggroR <= 0) m.aggro = 0.0001; else if (o.aggroR != null && o.aggroR > 0) m.aggro = Math.max(d.aggro, 0);
+  if (R.tier === 'guardian') R.name = (R.aff.map(i => RPG_MAFFIX[i].adj).join(' ') + ' ' + d.name).trim(); if (o.pack != null) m.pack = o.pack; R.spdMul = Math.min(R.spdMul, 1.8); m.spdK = 1; e.mob.baseSpd = 1; return e;
+};
+const _mb_rpgApplyDamage2 = rpgApplyDamage;
+rpgApplyDamage = function (e, v, crit, ak) {
+  if (e.mob) { const m = e.mob; if (m.hidden || m.dead) return false; v *= mobShieldFactor(m, P.x, P.z, ak === 'pound' ? 'pound' : ak); if (m.invuln) v *= 0.25; mobHurt(m, P.x, P.z); m.flash = 0.6; if (m.ev.length) mobDrain(e); }
+  return _mb_rpgApplyDamage2(e, v, crit, ak);
+};
+const _mb_killEnemy2 = killEnemy; killEnemy = function (e, kind, sx, sz) { if (e && e.mob && (e.mob.hidden || e.mob.dead)) return; _mb_killEnemy2(e, kind, sx, sz); };
+const _mb_rpgDamageEnemy2 = rpgDamageEnemy; rpgDamageEnemy = function (o, v, ak, from, forceCrit) { if (o && o.mob && (o.mob.hidden || o.mob.dead)) return false; return _mb_rpgDamageEnemy2(o, v, ak, from, forceCrit); };
+const _mb_gemOk2 = gemOk; gemOk = function (e) { return _mb_gemOk2(e) && !(e.mob && (e.mob.hidden || e.mob.dead)); };
+const _mb_rpgOnKilled2 = rpgOnKilled;
+rpgOnKilled = function (e, ak, sx, sz) {
+  if (e.mob) { const m = e.mob; if (!m.dead) { mobDie(m, 'hit'); mobDrain(e); } if (e.rpg) { MOBX.kills[e.type] = (MOBX.kills[e.type] | 0) + 1; } for (const o of ENEMIES) if (o.owner === e && o.alive && (m.def.fam === 'summoner' || m.def.boss)) mobSilentKill(o); FD.kill = e; }
+  _mb_rpgOnKilled2(e, ak, sx, sz); FD.kill = null;
+};
+const _mb_heroVsEnemy2 = heroVsEnemy;
+heroVsEnemy = function (e) { if (e.mob) { const m = e.mob; if (m.noContact || m.hidden || m.dead) return; if (m.def.fam === 'healer' || m.def.fam === 'summoner' || m.def.fam === 'artillery') { if (!(P.vy < -1 || P.act === 'dive' || P.act === 'pound' || P.act === 'punch')) return; } if (m.def.fly && m.hover > 1.1 && P.y - e.y < 0.4) return; if (m.phaseT > 0) return; } _mb_heroVsEnemy2(e); };
+const _mb_rpgEnemiesTick3 = rpgEnemiesTick; rpgEnemiesTick = function (dt) { _mb_rpgEnemiesTick3(dt); mobTickAll(dt * GM.enemyScale); };
+const _mb_rpgFrame2 = rpgFrame; rpgFrame = function (rdt, sdt) { _mb_rpgFrame2(rdt, sdt); try { mobFxFrame(rdt, sdt * GM.enemyScale); mobiUpdate(); } catch (err) { if (!MOBX.err) { MOBX.err = 1; console.error('mobFx', err); } } };
+const _mb_clearEntities3 = clearEntities; clearEntities = function () { mobClearFx(); _mb_clearEntities3(); };
+function rpgBossRef() { const g = RIFT && RIFT.guardian && RIFT.guardian.alive && RIFT.guardian.rpg ? RIFT.guardian : null; return g || (MOBX.boss && MOBX.boss.alive && MOBX.boss.rpg ? MOBX.boss : null); }
+// ---- spawning: per act (extra, seeded), act guardians, rift families ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function mobPickType(rng, act, fams) {
+  const tbl = MOB_CAMPAIGN.table.filter(r => r[2] <= act && (!fams || fams.some(f => MOB_FAMILIES[f].mobs.includes(r[0])))); if (!tbl.length) return 'slinger'; let tot = 0; for (const r of tbl) tot += r[1]; let x = rng() * tot; for (const r of tbl) { x -= r[1]; if (x <= 0) return r[0]; } return tbl[tbl.length - 1][0];
+}
+function mobSpawnAct() {
+  const act = G.act, diff = rpgDiffIdx(), rng = rpgRng(rpgHashSeed(RP.seed ^ 0x4D0B, act * 977 + diff * 31 + 11)), n = MOB_CAMPAIGN.extraPerAct[act] || 0; if (RIFT) return;
+  const anchors = []; for (const c of COINS) if (c.alive && !c.pop) anchors.push([c.x, c.y - 1, c.z]); for (const e of ENEMIES) if (e.alive && !e.ceil && !e.mob) anchors.push([e.hx, e.y, e.hz]); rpgScatter(rng, anchors, act === 1 ? 120 : 160); if (!anchors.length) return;
+  const used = ENEMIES.filter(e => e.alive).map(e => [e.x, e.y, e.z]); let idx = 100, placed = 0;
+  for (let i = 0; i < n * 2 && placed < n; i++) {
+    const type = mobPickType(rng, act, null), def = MOB_DEFS[type], s = rpgSpot(rng, anchors, used, { minHero: 14, space: 4 }); if (!s) continue; const r = rng(), tier = type === 'warden' ? 'normal' : r < 0.1 ? 'elite' : r < 0.26 ? 'champion' : 'normal', packN = def.pack ? MOB_CAMPAIGN.packSize : 1, pack = def.pack ? (++MOBX.spawned) : 0;
+    for (let k = 0; k < packN; k++) { const a = k / packN * TAU, x = s[0] + Math.cos(a) * (k ? 1.4 : 0), z = s[2] + Math.sin(a) * (k ? 1.4 : 0), e = rpgSpawnEnemy(type, x, z, { y: s[1], idx: idx++, tier: k === 0 ? tier : 'normal', seed: (rng() * 4294967296) >>> 0, r: 2.5 + rng() * 2, pack }); if (e && pack) e.mob.pack = pack; } placed++;
+  }
+  mobSpawnGuardian(act, rng);
+}
+function mobSpawnGuardian(act, rng) {
+  const id = MOB_BOSS_BY_ACT[act]; if (!id || RIFT) return; const sh = SHARDS.find(s => s.final); if (!sh) return; let best = null;
+  for (let k = 0; k < 36 && !best; k++) { const a = rng() * TAU, rr = 7 + rng() * 3, x = sh.x + Math.cos(a) * rr, z = sh.z + Math.sin(a) * rr, f = floorAt(x, z, sh.y + 2); if (f > -1e8 && Math.abs(f - (sh.y - 1.7)) < 2.5 && !solidPoint(x, f + 1.0, z)) best = [x, f, z]; }
+  if (!best) { const f = floorAt(sh.x + 4, sh.z, sh.y + 2); if (f > -1e8) best = [sh.x + 4, f, sh.z]; } if (!best) return;
+  const aff = act === 1 ? ['thorned', 'juggernaut'] : act === 2 ? ['shielded', 'vampiric'] : ['frozen', 'volatile'], e = rpgSpawnEnemy(id, best[0], best[2], { y: best[1], tier: 'guardian', aff, mlvl: rpgMonsterLevel({ act, diff: rpgDiffIdx(), idx: 3 }) + 2, seed: (rng() * 4294967296) >>> 0, aggroR: 30, r: 6 }); if (e) { e.rpg.actGuardian = act; MOBX.guardians = (MOBX.guardians | 0) + 1; }
+}
+const _mb_rpgSpawnAct2 = rpgSpawnAct; rpgSpawnAct = function () { _mb_rpgSpawnAct2(); try { mobSpawnAct(); } catch (err) { console.error('mobSpawnAct', err); } };
+// rifts: the families the seed picked fill ~55% of the spawns; the guardian is one of the three boss patterns (by seed)
+function mobRiftType(q) { const f = RIFT && RIFT.fams; if (!f || !f.length) return null; const r = rpgRng(rpgHashSeed(RIFT.seed, 0x600D + RIFT.spawned * 7)); if (r() > 0.55) return null; const pool = []; for (const id of f) for (const t of MOB_FAMILIES[id].mobs) pool.push(t); return pool[(r() * pool.length) | 0]; }
+function mobGuardianType() { return MOB_BOSS_BY_ACT[1 + ((RIFT ? RIFT.seed : 0) % 3)] || 'g_thorn'; }
+// ---- debug / test API ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+window.__mobs = {
+  spawn(type, o = {}) { const f = o.dist != null ? o.dist : 6, x = o.x != null ? o.x : P.x + Math.sin(P.yaw + (o.side || 0)) * f, z = o.z != null ? o.z : P.z + Math.cos(P.yaw + (o.side || 0)) * f, y = floorAt(x, z, P.y + 4); if (!(y > -1e8)) return null; const e = rpgSpawnEnemy(type, x, z, { y, tier: o.tier || 'normal', aff: o.aff, mlvl: o.mlvl || RP.level + 1, aggroR: o.aggroR != null ? o.aggroR : 20, r: o.r || 4, seed: o.seed, pack: o.pack }); return e ? mobInfo(e) : null; },
+  list() { return ENEMIES.filter(e => e.mob && e.alive && e.state !== 'dead').map(mobInfo); }, tells() { return TELLS.map(T => ({ shape: T.shape, kind: T.kind, t: +T.t.toFixed(2), dur: T.dur, parts: T.parts.length })); }, projectiles() { return MPJ.filter(p => p.on).length; }, clouds() { return CLOUDS.filter(c => c.on).length; }, waves() { return WAVES.filter(w => w.on).length;},
+  log() { return MOBX.log.slice(); }, clearLog() { MOBX.log.length = 0; }, types: MOB_IDS, boss() { return MOBX.boss ? mobInfo(MOBX.boss) : null; }, instanced() { const o = {}; for (const id in MOBI) o[id] = MOBI[id].n; return o; }, kills: () => Object.assign({}, MOBX.kills),
+  setHp(e, f) { const en = ENEMIES.find(x => x.mob && x.alive && x.mob === e.__m); }, force(i, st) { const e = ENEMIES.filter(x => x.mob && x.alive)[i]; if (!e) return false; e.mob.fsm.SetState(st); return true; },
+  find(type) { const e = ENEMIES.find(x => x.mob && x.alive && x.type === type); return e ? mobInfo(e) : null; }, hurt(type, v, ak = 'punch') { const e = ENEMIES.find(x => x.mob && x.alive && x.type === type); if (!e) return null; return rpgDamageEnemy(e, v, ak, P); }, setFraction(type, f) { const e = ENEMIES.find(x => x.mob && x.alive && x.type === type); if (!e) return false; e.rpg.hp = e.rpg.maxhp * f; return true; },
+  defs: MOB_DEFS, atks: MOB_ATK, core: { mobNew, mobTick, mobDie, mobShieldFactor, MOB_STEP },
+};
+function mobInfo(e) { const m = e.mob; return { type: e.type, st: m.st, atk: m.atk, x: e.x, y: e.y, z: e.z, fy: e.fy, hover: m.hover, hidden: m.hidden, alert: m.alert, phase: m.phase, vuln: m.vuln, hp: e.rpg ? e.rpg.hp : 0, maxhp: e.rpg ? e.rpg.maxhp : 0, tier: e.rpg ? e.rpg.tier : '', name: e.rpg ? e.rpg.name : '', shield: m.shieldT, dead: m.dead, pack: m.pack, stunT: m.stunT, visible: e.mesh.visible, bodyVisible: e.body.visible, idx: ENEMIES.indexOf(e) }; }
+{ const d0 = window.__dbg; window.__dbg = () => { const d = d0(); d.mobs = { n: ENEMIES.filter(e => e.mob && e.alive && e.state !== 'dead').length, tells: TELLS.length, proj: MPJ.filter(p => p.on).length, boss: MOBX.boss ? MOBX.boss.type : null }; return d; }; }
+// </mob-game>
 
 
 // ============================================================================

@@ -65,7 +65,7 @@ rec() { printf '%s=%q\n' "$1" "$2" >> "$WORK/curl.env"; }
 code() { curl -s -o /dev/null -m 15 -w '%{http_code}' "$@"; }
 # POST to the call interface: prints the HTTP code on the last line, the body above it
 post() { local cred="$1" body="$2"; shift 2; local auth=(); [ "$cred" != "-" ] && auth=(-u "$cred"); curl -s -m 15 -w '\n%{http_code}' "${auth[@]}" -X POST -H 'Content-Type: application/json' "$@" -d "$body" "$URL/call/phoneApi"; }
-inner() { python3 -c 'import sys,json; t=sys.stdin.read().rsplit("\n",1)[0]; print(json.loads(t)[0] if t.strip().startswith("[") else "NONJSON")'; }
+inner() { python3 -c 'import sys,json; t=sys.stdin.read().rstrip("\n").rsplit("\n",1)[0]; print(json.loads(t)[0] if t.strip().startswith("[") else "NONJSON")'; }
 jx() { python3 -c 'import sys,json; d=json.loads(sys.stdin.read()); print(eval(sys.argv[1]))' "$1" 2>/dev/null; }
 lastline() { tail -n 1; }
 SID=e2ecurlsession001; SIDV=e2ecurlview000001
@@ -75,6 +75,7 @@ curl_checks() {
 	# -- the login: MTA's HTTP server, Basic auth, ACL
 	rec C_page_anon "$(code "$URL/")"
 	rec C_page_noslash "$(code "$URL")"
+	rec C_noslash_leaks_ui "$(curl -s -m 15 "$URL" | grep -c 'phone-bridge\|<script')"
 	rec C_page_badpw "$(code -u "phone:wrong-password" "$URL/")"
 	rec C_page_nobody "$(code -u "nobody:$PW_NOBODY" "$URL/")"
 	rec C_page_phone "$(code -u "phone:$PW_PHONE" "$URL/")"
@@ -122,9 +123,9 @@ feeder() {
 	run "outbreak_speed 0" '\[outbreak\] true'
 	run "outbreak_status" "$STATUS"            # baseline: day / time / colonists / buildings, paused
 	run "outbreak_hash" '\[outbreak\] [0-9a-f]{16}$'
-	say "[e2e] curl checks" >&2; curl_checks >&2 2>>"$FEED"
+	say "[e2e] curl checks" >&3; curl_checks >&2 2>>"$FEED"
 	if [ "$BROWSER" = 1 ]; then
-		say "[e2e] browser half (Playwright, mobile emulation)" >&2
+		say "[e2e] browser half (Playwright, mobile emulation)" >&3
 		PHONE_USER=phone PHONE_PASS="$PW_PHONE" VIEW_USER=phoneview VIEW_PASS="$PW_VIEW" timeout 240 node "$HERE/../tests/phone_e2e.mjs" "$BURL" "$WORK/result.json" "$SHOTS" >> "$WORK/browser.log" 2>&1 || echo "the browser half failed (see $WORK/browser.log)" >> "$FEED"
 	fi
 	if [ -s "$WORK/result.json" ]; then
@@ -138,6 +139,7 @@ feeder() {
 	. "$WORK/curl.env" 2>/dev/null
 	local r lv2
 	lv2=$(( (${CURL_BEFORE:-0} + 1) % 5 ))
+	post "phone:$PW_PHONE" "[\"ready\",\"$SID\"]" -H "$H1" > /dev/null   # (the browsers may have used up the six session slots: sign in again, as the page does after a resync)
 	r="$(post "phone:$PW_PHONE" "[\"cb\",\"$SID\",\"order\",{\"id\":\"${CURL_ID:-c3}\",\"kind\":\"priority\",\"target\":{\"work\":\"${CURL_WORK:-haul}\",\"level\":$lv2}}]" -H "$H1")"
 	rec C_order_ok "$(echo "$r" | inner | jx "d['ok']")"; rec CURL_AFTER "$lv2"
 	sleep 1
@@ -169,6 +171,7 @@ out('E_BROWSER_ERRORS', len(d.get('errors', []))); out('E_FATAL', d.get('fatal',
 PY
 }
 
+exec 3>&1   # progress lines of the feeder (its stdout is the server console)
 say "== starting the real MTA server headless on UDP $PORT / HTTP $HTTP_PORT (polling its log $SLOG)"
 T0=$SECONDS
 feeder 2>>"$FEED" | timeout 600 "$SRV/mta-server64" -n > "$STDOUT_LOG" 2>&1
@@ -199,7 +202,7 @@ eq "GET /outbreak/ as phone" "${C_page_phone:-?}" 200
 eq "GET /outbreak/ as phoneview" "${C_page_view:-?}" 200
 [ "${C_page_has_bridge:-0}" -ge 1 ] && [ "${C_page_has_base:-0}" -ge 1 ] && ok "the page is the generated phone.html (phone-bridge.js, <base>)" || bad "the served page is not phone.html"
 [ "${C_page_inlined_css:-0}" -ge 5 ] && ok "its css is inlined (MTA serves .css as ${C_pub_css_type:-?}, which browsers refuse as a stylesheet)" || bad "css not inlined (${C_page_inlined_css:-0} <style> blocks)"
-note "GET /outbreak (no slash): ${C_page_noslash:-?}; GET /outbreak/phone/: ${C_page_phone_slash:-?} (only /outbreak/ exists: the default <html> item)"
+note "GET /outbreak (no slash, no login): ${C_page_noslash:-?} with $( [ "${C_noslash_leaks_ui:-0}" = 0 ] && echo no page content || echo PAGE CONTENT ); GET /outbreak/phone/: ${C_page_phone_slash:-?} (only /outbreak/ exists: the default <html> item)"
 eq "POST phoneApi without a login" "${C_api_anon:-?}" 401
 eq "POST phoneApi with a wrong password" "${C_api_badpw:-?}" 401
 eq "POST phoneApi as the account the ACL does not allow" "${C_api_nobody:-?}" 401
@@ -271,7 +274,7 @@ PHL="$(logline '\] phone on \|' 1 | sed 's/.*\] //')"
 note "console: $PHL"
 echo "$PHL" | grep -q 'missing X-Outbreak-Phone header' && echo "$PHL" | grep -q 'read-only' && echo "$PHL" | grep -q 'cross-origin call' && ok "the server counted the refusals (missing header, cross-origin, read-only)" || bad "outbreak_phone does not list the refusals: $PHL"
 [ "$(count_log 'Connection flood')" = 0 ] && ok "the HTTP flood guard never fired: polling over keep-alive connections is fine under the default settings" || bad "the server logged a connection flood"
-BADLINES="$(cat "$LOG" "$STDOUT_LOG" | grep -iE 'error|warning|failed|abort|timeout|exception|traceback|segmentation' | grep -vE 'owner_email_address|Resources: [0-9]+ loaded, 0 failed' || true)"
+BADLINES="$(cat "$LOG" "$STDOUT_LOG" | grep -iE 'error|warning|failed|abort|timeout|exception|traceback|segmentation' | grep -vE 'owner_email_address|Resources: [0-9]+ loaded, 0 failed|HTTP: Failed login attempt for user' || true)"
 if [ -z "$BADLINES" ]; then ok "no ERROR / WARNING / failed / abort / timeout line in the server log"; else bad "suspicious log lines:"; echo "$BADLINES" | sed 's/^\[[^]]*\] //' | sort -u | head -n 12 | sed 's/^/          /'; fi
 if [ -s "$FEED" ]; then bad "the scenario script itself reported:"; sed 's/^/          /' "$FEED" | head -n 8; fi
 say

@@ -79,7 +79,7 @@ T.test("the checks FAIL when a copy drifts: a changed sim file, a changed shared
 	os.execute("rm -rf " .. d)
 end)
 
-T.test("meta.xml lists every file of the resource, and server-only files are not downloaded", function()
+T.test("meta.xml lists exactly the files a client or a browser may fetch; the server-only files are NOT listed (MTA's HTTP server serves every listed <file> without a login)", function()
 	local m = H.Mock.new({ root = H.res, defs = false })
 	local listed = {}
 	for src in pairs(m.meta.files) do listed[src] = true end
@@ -90,17 +90,21 @@ T.test("meta.xml lists every file of the resource, and server-only files are not
 		if f ~= "meta.xml" and not listed[f] then unlisted[#unlisted + 1] = f end
 	end
 	p:close()
-	T.eq(#unlisted, 0, "not in meta.xml: " .. table.concat(unlisted, ", "))
+	-- everything unlisted is server-side code and data: server/*.lua (main.lua is a listed <script type="server">), the shared modules no client requires, sim/, data/, save/
+	local server_only = function(f) return f:match("^server/") or f:match("^sim/") or f:match("^data/") or f:match("^save/") or f:match("^shared/") end
+	for _, f in ipairs(unlisted) do T.truthy(server_only(f), f .. " is not listed in meta.xml but is not a server-only file either: add it to the generator or to the server-only folders") end
+	T.gt(#unlisted, 50, "the server-only files are the unlisted ones (" .. #unlisted .. ")")
 	for src in pairs(listed) do
 		local f = io.open(H.res .. "/" .. src, "rb")
 		T.truthy(f, "listed but missing: " .. src)
 		if f then f:close() end
+		T.falsy(src:match("^sim/") or src:match("^data/") or (src:match("^server/") and src ~= "server/main.lua") or src:match("^save/"), src .. " is listed: MTA would serve it to anyone over HTTP")
 	end
-	for _, name in ipairs({ "sim/world.lua", "data/tuning.lua", "server/main.lua", "shared/host.lua", "shared/view.lua", "shared/survival.lua", "shared/selftest.lua" }) do
-		local info = m.meta.files[name] or { download = (name == "server/main.lua") and false }
-		T.eq(info.download, false, name .. " must not be sent to clients")
+	for _, name in ipairs({ "sim/world.lua", "data/tuning.lua", "server/net.lua", "server/phone.lua", "shared/host.lua", "shared/view.lua", "shared/survival.lua", "shared/selftest.lua", "save/README.txt" }) do
+		T.falsy(listed[name], name .. " must not be listed (not downloaded, not served over HTTP)")
+		T.falsy(m.client_files[name], name .. " must not reach a client")
 	end
-	for _, name in ipairs({ "client/camera.lua", "shared/protocol.lua", "shared/mta_config.lua", "ui/mta.html", "ui/mta-bridge.js", "ui/js/core.js", "ui/css/base.css" }) do
+	for _, name in ipairs({ "client/camera.lua", "shared/protocol.lua", "shared/mta_config.lua", "ui/mta.html", "ui/mta-bridge.js", "ui/phone-bridge.js", "ui/js/core.js", "ui/css/base.css" }) do
 		T.eq(m.meta.files[name] and m.meta.files[name].download, true, name .. " must be downloadable")
 	end
 	-- the client's requires resolve: every module name a client file requires is a downloadable file
