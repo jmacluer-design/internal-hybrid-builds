@@ -3,6 +3,7 @@
 --
 -- borrowed: Blumlaut/RottenV client/spawners/zombiespawner.lua (MIT): AddRelationshipGroup("zombeez") + SetRelationshipBetweenGroups(5, ...) vs PLAYER;
 --           squarerootof49/7_popmanager client.lua (GPL-3.0): the relationship-reset on resource stop (done here per group we created).
+--           (RottenV: Copyright (c) 2021 Blumlaut, MIT License; the notice is reproduced in hybrids/outbreak/THIRD_PARTY.md.)
 local ctx = require("client.ctx")
 
 local R = { names = {} }

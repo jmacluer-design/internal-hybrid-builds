@@ -1,0 +1,2 @@
+{ "name": "ib-gpu-bench", "private": true, "type": "module", "description": "Real-GPU frame-time benchmark for the shelf games (desktop + phone-emulated)",
+  "dependencies": { "playwright": "1.56.1", "three": "0.169.0" } }

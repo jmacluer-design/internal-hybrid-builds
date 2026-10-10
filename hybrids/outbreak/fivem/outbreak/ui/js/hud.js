@@ -1,5 +1,5 @@
-/* Survival HUD. Layout idea (vitals cluster, status chips, weight bar) follows the survival HUD of Paradigm-MP/fivem-rust-gamemode
-   (GPL-3.0, private use: icon + fill + number stat rows) re-done as radial gauges; compass strip and threat panel are original. */
+/* Survival HUD. borrowed: Paradigm-MP/fivem-rust-gamemode/inventory/src/js/SurvivalHUD.js (GPL-3.0, private use): the layout idea (vitals cluster, status
+   chips, weight bar: icon + fill + number stat rows) re-done as radial gauges; compass strip and threat panel are original. */
 (function () {
   'use strict';
   const OB = window.OB, h = OB.h;

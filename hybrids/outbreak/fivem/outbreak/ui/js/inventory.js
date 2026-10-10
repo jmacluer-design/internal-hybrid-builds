@@ -1,6 +1,7 @@
 /* Inventory screen: player grid + one other container (stockpile zone, ground pile, colonist, world container). Drag and drop (pointer events),
    shift/ctrl quick-move, context menu, search + category filter, weight/slot meters.
-   Layout and interaction patterns borrowed from overextended/ox_inventory (GPL-3.0, private use; see THIRD_PARTY.md): 5-6 column square-slot grid,
+   borrowed: overextended/ox_inventory/web/src/components/inventory/{InventoryGrid,InventorySlot,InventoryControl,SlotTooltip}.tsx (GPL-3.0, private use; see THIRD_PARTY.md):
+   layout and interaction patterns (no code copied verbatim): 5-6 column square-slot grid,
    header weight meter, count top-right / label box at the bottom of the slot, dashed drop target, drag preview following the cursor,
    tooltip after a short hover delay, context menu (use / drop / give amount), ctrl-click = move one, alt/dblclick = use. Re-implemented in
    vanilla JS against our own message contract. Hotbar, shops and crafting of ox_inventory are not used. */

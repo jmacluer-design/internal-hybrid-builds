@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>internal hybrid builds · artifact shelf</title>
 <style>
 :root{--bg:#08070f;--card:#141322;--border:#2b2944;--foreground:#eceaf6;--muted-foreground:#9895b4;--accent:#8f7cf8;--radius:10px;}
@@ -30,6 +31,13 @@ html,body{margin:0;background:var(--bg);color:var(--foreground);font-family:syst
 .artifact-filters select{font-family:inherit;background:var(--card);color:var(--foreground);border:1px solid var(--border);border-radius:8px;}
 .artifact-filters small{font-size:11px;color:var(--muted-foreground);}
 .artifact-card.hidden-search{display:none;}
+
+@media (max-width:640px){
+  .wrap{padding:max(14px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));gap:12px;}
+  .artifact-library{padding:12px 12px;}
+  html,body{font-size:15px;}
+  a,button,summary,select,input{min-height:40px;}
+}
 </style>
 </head>
 <body>

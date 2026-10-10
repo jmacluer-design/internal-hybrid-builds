@@ -1,7 +1,8 @@
 -- client/noise.lua : turns what the player (and armed colonists) do into `noise` IN events (API.md: footsteps 8, melee 20, vehicle 45, gunshot 110,
 -- shotgun 140, rifle 150, explosion 200) and makes MATERIALIZED zombies investigate the same sound. Abstract hordes are attracted by the sim.
 -- Detection set (brief): gunshots, explosions, sirens / horns, sprinting, melee. Per-kind throttling keeps the event rate low.
--- IsPedShooting is true for a single frame, so it is polled every frame (RottenV / TP-Advanced-Zombies do the same with Wait(0) / Wait(1)).
+-- IsPedShooting is true for a single frame, so it is polled every frame (the same approach as Blumlaut/RottenV (MIT) and TP-Advanced-Zombies (Apache-2.0),
+-- which poll with Wait(0) / Wait(1); only the idea, no code).
 local ctx = require("client.ctx")
 local Zombies = require("client.zombies")
 

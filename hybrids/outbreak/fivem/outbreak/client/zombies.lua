@@ -7,6 +7,8 @@
 --     attributes 16/17/46/5, config flags 100/33, drunk movement clipsets, damage packs, "dies when injured" off), boss presets, corpse delete queue.
 --   TitansProductions/TP-Advanced-Zombies client/tp-client_main.lua (Apache-2.0): distance based detection (crouching / walking / sprinting radii),
 --     TaskGoToEntity chase, gunshot attraction, the stumble-animation melee attack with a cooldown, per-model health / damage tables.
+--   Licence notices: RottenV is Copyright (c) 2021 Blumlaut, MIT License; TP-Advanced-Zombies is under the Apache License 2.0 (changed here: adapted to the
+--   sim-driven horde model, Lua 5.4 / LuaJIT, our config table and pool). Full notices are reproduced in hybrids/outbreak/THIRD_PARTY.md.
 -- Written here: the group bookkeeping, spawn queue with backoff, batching of the think loop, noise investigation, colonist targets, sim reporting.
 local ctx = require("client.ctx")
 local Pool = require("client.pool")

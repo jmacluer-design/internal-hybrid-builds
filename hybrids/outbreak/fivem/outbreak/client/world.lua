@@ -3,7 +3,8 @@
 --
 -- borrowed: squarerootof49/7_popmanager client.lua (GPL-3.0): the scenario type list, the population budgets and dispatch / wanted-level switches, and
 --           its restore-on-stop block (the original calls SetPedNonCreationArea/AddScenarioBlockingArea again on stop; we remove what we added instead).
---           Blumlaut/RottenV client/gameplay/nopeds.lua (MIT): the *DensityMultiplierThisFrame(0.0) loop, SetBlackout, scenario groups.
+--           Blumlaut/RottenV client/gameplay/nopeds.lua (MIT, Copyright (c) 2021 Blumlaut; notice in THIRD_PARTY.md): the *DensityMultiplierThisFrame(0.0) loop,
+--           the scenario switches; client/missions/power_c.lua: SetBlackout(not state) for an outage.
 local ctx = require("client.ctx")
 
 local W = { saved = {}, blocking = {}, clock = { t = 0, at = 0, scale = 0.5 }, weather = nil, blackout = false }

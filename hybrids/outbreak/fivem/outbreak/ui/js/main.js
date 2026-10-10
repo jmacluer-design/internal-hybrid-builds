@@ -82,7 +82,7 @@
       d = d || [];
       const silent = d.length > 12; // fast-forward / resync bursts: log them, do not spam toasts
       d.forEach(e => onEvent(e, silent));
-      if (silent) { const bad = d.filter(e => e.type === 'colonist_died').length; OB.toast(bad ? 'bad' : 'info', d.length + ' events processed' + (bad ? ', ' + bad + ' colonist(s) lost' : '') + '.', { icon: 'list' }); }
+      if (silent) { const bad = d.filter(e => e.type === 'colonist_died').length; if (bad) OB.toast('bad', d.length + ' events processed, ' + bad + ' colonist(s) lost.', { icon: 'list' }); } // (a join / load resync is not news)
     },
     mode(d) { OB.setMode(d && d.mode); },
     screen(d) { if (d && d.open === false) OB.screens.close(); else if (d && d.name) OB.screens.open(d.name, d.arg); },

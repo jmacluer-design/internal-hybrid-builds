@@ -1,4 +1,4 @@
-/* Toasts + message log. Layout follows the notification pattern of overextended/ox_lib (LGPL-3.0, private use: icon chip, title/description,
+/* Toasts + message log. borrowed: overextended/ox_lib/web/src/features/notifications/NotificationWrapper.tsx (LGPL-3.0, private use): the layout pattern ( icon chip, title/description,
    stacked at an edge, auto-dismiss with a progress rule), restyled; the message log feeds the Director drawer. */
 (function () {
   'use strict';
