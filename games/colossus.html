@@ -2365,8 +2365,8 @@ function releaseGrabbed(thrown){
 function grabbedStep(dt){
   P.grab.t += dt; const Gb = P.grab;
   pos[0] += (TI.palmX - pos[0]) * damp(18, dt); pos[1] += (TI.palmY - pos[1]) * damp(18, dt); pos[2] += (TI.palmZ - pos[2]) * damp(18, dt); vel[0] = vel[1] = vel[2] = 0;
-  if (IN.firePressed) { Gb.prog += Gb.last !== 1 ? 0.105 : 0.03; Gb.last = 1; sfx.mash(); }
-  if (IN.zipP) { Gb.prog += Gb.last !== 2 ? 0.105 : 0.03; Gb.last = 2; sfx.mash(); }
+  if (IN.firePressed) { Gb.prog += Gb.last !== 1 ? 0.15 : 0.03; Gb.last = 1; sfx.mash(); }
+  if (IN.zipP) { Gb.prog += Gb.last !== 2 ? 0.15 : 0.03; Gb.last = 2; sfx.mash(); }
   Gb.prog = Math.max(0, Gb.prog - 0.06 * dt);
   if (Gb.prog >= 1) { releaseGrabbed(false); }
 }
@@ -2781,12 +2781,12 @@ function updateCamera(dt, rx, ry, rz){
   if (!camInit) { camFocus.set(tx, ty, tz); camLen = C.dist; camInit = true; cam.fov = C.fovBase; }
   const fh = cl ? 40 : C.followH; camFocus.x += (tx - camFocus.x) * damp(fh, dt); camFocus.z += (tz - camFocus.z) * damp(fh, dt); camFocus.y += (ty - camFocus.y) * damp(cl ? 40 : C.followV, dt);
   const cp = Math.cos(cam.pitch), dx = -Math.sin(cam.yaw) * cp, dy = Math.sin(cam.pitch), dz = -Math.cos(cam.yaw) * cp, rxv = Math.cos(cam.yaw), rzv = -Math.sin(cam.yaw);
-  const near = clamp((95 - dT) / 95, 0, 1);
-  const want = C.dist + near * C.titanPull + clamp(sp * C.distSpeed, 0, 3.4) + (S.on ? 0.8 : 0) + (P.state === 'dive' ? 1.2 : 0) + (cl ? 3.5 : 0) - 1.4 * P.yank.charge;
+  const near = clamp((95 - dT) / 95, 0, 1), gb = P.state === 'grabbed';
+  const want = C.dist + near * C.titanPull + clamp(sp * C.distSpeed, 0, 3.4) + (S.on ? 0.8 : 0) + (P.state === 'dive' ? 1.2 : 0) + (cl ? 3.5 : 0) + (gb ? 9 : 0) - 1.4 * P.yank.charge;
   const sh = C.shoulder * (0.5 + 0.5 * smooth(2, 7, want));
   let wx = -dx * want + rxv * sh, wy = -dy * want + C.height - cam.dip, wz = -dz * want + rzv * sh; const wl = Math.hypot(wx, wy, wz); let allowed = wl;
   const ray = (yw, pt, len) => { const c2 = Math.cos(pt), ddx = Math.sin(yw) * c2, ddy = -Math.sin(pt), ddz = Math.cos(yw) * c2; return castRay(camFocus.x, camFocus.y, camFocus.z, ddx, ddy, ddz, len + 0.6, 0, null) ? Math.max(0.8, RH.t - 0.55) : len; };
-  if (castRay(camFocus.x, camFocus.y, camFocus.z, wx / wl, wy / wl, wz / wl, wl + 0.6, 0, null)) allowed = Math.max(0.9, Math.min(wl, RH.t - 0.55));
+  if (castRay(camFocus.x, camFocus.y, camFocus.z, wx / wl, wy / wl, wz / wl, wl + 0.6, gb ? 4 : 0, null)) allowed = Math.max(0.9, Math.min(wl, RH.t - 0.55));
   if (cl && allowed < want * 0.55) {      // cramped against the hide: slide the orbit toward the roomiest direction
     let bestS = -1e9, byw = cam.yaw, bpt = cam.pitch;
     for (const dy of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9, 2.6]) for (const dp of [0, 0.35, -0.3]) {
@@ -2857,7 +2857,7 @@ function updateHud(dt){
   if (wp && P.state !== 'dead') {
     project(wp.wp.x, wp.wp.y, wp.wp.z, _sc); let x = _sc.x, y = _sc.y; const m = 34, W = window.innerWidth, H = window.innerHeight;
     if (_sc.behind) { x = W - x; y = H - y; }
-    x = clamp(x, m, W - m); y = clamp(y, m + 60, H - m - 20);
+    x = clamp(x, m + 40, W - m); y = clamp(y, m + 60, H - 110);
     E.wpMark.style.opacity = 0.95; E.wpMark.style.transform = 'translate(' + x + 'px,' + y + 'px) rotate(' + ((performance.now() * 0.05) % 360) + 'deg)'; E.wpDist.style.opacity = 0.9; E.wpDist.style.transform = 'translate(' + x + 'px,' + (y + 22) + 'px) translateX(-50%)';
     E.wpDist.textContent = wp.name + '  ' + Math.round(Math.hypot(wp.wp.x - pos[0], wp.wp.y - pos[1], wp.wp.z - pos[2])) + ' m';
   } else { E.wpMark.style.opacity = 0; E.wpDist.style.opacity = 0; }
