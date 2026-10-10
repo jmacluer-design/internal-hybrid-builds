@@ -15,10 +15,15 @@ Shallow clones live OUTSIDE this repo (never committed). Re-pull with e.g.
 | [praydog/UEVR](https://github.com/praydog/UEVR) | 4ee5c6b (2026-08-29) | `LICENSE` | How the universal Unreal VR injector hooks stereo rendering (for native PC VR on Quest via Link) |
 | [Junior37534/QuestBridge](https://github.com/Junior37534/QuestBridge) | 00ba562 (2026-05-27) | MIT | Quest controller -> WebXR page -> websocket -> game input bridge |
 | [alesan99/mari0_ae](https://github.com/alesan99/mari0_ae) | c75ae92 (2026-02-21) | WTFPL | Mari0 (Mario x Portal-style) entities/enemies/power-ups in LOVE/Lua, reference for a Mario base |
+| [Ciken-taste/forbidden-flesh](https://github.com/Ciken-taste/forbidden-flesh) | 99069cf (2025-09-07) | GPL-3.0 | Godot 4.2 souls-like prototype (~1.5k lines GDScript): stamina, dodge/roll, health, enemy AI (`Objects/Player/player.gd`, `Objects/DemoEnemy/`). No boss or parry found |
+| [KonstantinKolo/RiftBreakers](https://github.com/KonstantinKolo/RiftBreakers) | 7f80fe1 (2026-03-23) | MIT | Godot 4.5 3D action game: melee, patrol/chase AI, stamina bar, boss scripts (`scripts/`). 1.7 GB with assets |
+| [noidexe/top-down-action-rpg-template](https://github.com/noidexe/top-down-action-rpg-template) | 525d133 (2024-01-08) | MIT | Godot top-down ARPG template; author calls it a starting point, not a solid foundation |
+| [Reterics/another-try](https://github.com/Reterics/another-try) | 2be7017 (2025-12-08) | GPL-3.0 | three.js + Vite + Socket.IO multiplayer RPG skeleton (procedural terrain, chunk streaming, netcode). No combat yet |
 
 ## Found, not pulled (verify before relying on)
 - Curated lists: [bobeff/open-source-games](https://github.com/bobeff/open-source-games) (Xonotic, Cube 2, Red Eclipse, Liblast, Surreal Engine, OpenGOAL, SRB2, OpenMW, Veloren, SuperTuxKart, Zelda TP decomp...)
 - GTA-style bases: OpenLiberty ([openfw-game](https://github.com/openfw-game), Godot, needs your GTA data), re3-gd, GTA7 (three.js vertical slice)
+- Action-RPG candidates not pulled: Veloren (GPL-3.0, official source on GitLab), Loot Master (GPL-3.0, GitLab), OpenMW / Daggerfall Unity / OpenEnroth (engine remakes; large)
 - Swing prototype: GabrielGameDev/SpiderMan2DWebSwing (Unity, 2D; linked from its itch.io page, unopened)
 - No open-source repo found for: web-swing city traversal, Flick-It skating, colossus climbing.
 
