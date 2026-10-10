@@ -129,9 +129,11 @@
     bind() {
       const cv = this.canvas;
       const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+      const T = e => e.pointerType === 'touch' && OB.touch && OB.touch.on && OB.touch.map(this, e); // phone: js/touch.js owns touch pointers
       cv.addEventListener('contextmenu', e => e.preventDefault());
       cv.addEventListener('wheel', e => { e.preventDefault(); const [px, py] = pos(e); this.zoomAt(px, py, e.deltaY < 0 ? 1.18 : 1 / 1.18); }, { passive: false });
       cv.addEventListener('pointerdown', e => {
+        if (T(e)) return;
         const [px, py] = pos(e);
         cv.setPointerCapture(e.pointerId);
         this.down = { px, py, button: e.button, shift: e.shiftKey, moved: false, cx: this.cx, cy: this.cy, t: performance.now() };
@@ -139,6 +141,7 @@
         if (e.button === 2) this.down.ctx = true;
       });
       cv.addEventListener('pointermove', e => {
+        if (T(e)) return;
         const [px, py] = pos(e);
         this.mouse = { px, py };
         const d = this.down;
@@ -155,6 +158,7 @@
         if (this.ghost) { this.updateGhost(px, py); this.dirty = true; }
       });
       cv.addEventListener('pointerup', e => {
+        if (T(e)) return;
         const [px, py] = pos(e);
         const d = this.down; this.down = null; cv.style.cursor = this.ghost ? 'crosshair' : 'default';
         if (!d) return;
@@ -178,6 +182,7 @@
           this.rightClick(px, py, e);
         }
       });
+      cv.addEventListener('pointercancel', e => { T(e); });
       cv.addEventListener('pointerleave', () => { this.hover = null; this.hoverKey = ''; if (!this.down) this.dirty = true; });
       window.addEventListener('keydown', e => { if (!this.host.offsetParent) return; if (/INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName || '')) return; const k = e.key === ' ' ? 'space' : e.key.length === 1 ? e.key.toLowerCase() : e.key; if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'space'].includes(k)) { this.keys[k] = true; } this.keys.shift = e.shiftKey; });
       window.addEventListener('keyup', e => { const k = e.key === ' ' ? 'space' : e.key.length === 1 ? e.key.toLowerCase() : e.key; delete this.keys[k]; this.keys.shift = e.shiftKey; });

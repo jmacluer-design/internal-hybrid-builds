@@ -169,7 +169,7 @@
     });
     el.addEventListener('pointermove', e => { if (tipEl && !tipEl.hidden) placeTip(e.clientX, e.clientY); });
     const hide = () => { clearTimeout(tipTimer); tipEl = tipEl || OB.$('#tip'); if (tipEl) tipEl.hidden = true; };
-    el.addEventListener('pointerleave', hide);
+    el.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') hide(); }); // a finger lifting must not close the tip a long-press just opened (js/touch.js hides it)
     el.addEventListener('pointerdown', hide);
     return el;
   };

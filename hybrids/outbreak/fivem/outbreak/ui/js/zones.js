@@ -9,8 +9,8 @@
     OB.order('colony', 'zone_create', { name: 'Stockpile', pos: { x, y, z: 0 }, tiles: 4, prio: 3 });
   };
   zones.start = function () {
+    if (OB.build.cancel) OB.build.cancel(true); // (before the flag: the cancel wrapper below also stops a zone placement, which used to switch the flag straight off again, so Esc / right-click could not cancel it)
     zones.placing = true;
-    if (OB.build.cancel) OB.build.cancel(true);
     for (const v of [OB.mapBg, OB.bigMap].filter(Boolean)) { v.ghost = { zone: true, tiles: zones.draft.tiles, x: null, y: null, ok: true }; v.canvas.style.cursor = 'crosshair'; v.dirty = true; }
     OB.toast('info', (OB.touch && OB.touch.on ? 'Tap the map to place "' : 'Click the map to place "') + zones.draft.name + '" (' + zones.draft.tiles + ' tiles).' + (OB.touch && OB.touch.on ? '' : ' Esc cancels.'), { title: 'New stockpile zone', icon: 'zone' });
   };

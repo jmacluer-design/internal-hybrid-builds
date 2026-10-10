@@ -2,13 +2,18 @@
 <html lang="en" data-mode="survival">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#06090f">
 <title>Outbreak UI</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/hud.css">
 <link rel="stylesheet" href="css/colony.css">
 <link rel="stylesheet" href="css/screens.css">
+<link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
 <!-- Outbreak NUI. Vanilla HTML/CSS/JS, no CDN, no build step. Scripts talk to the game only through OB.post() / window "message" events
@@ -53,5 +58,6 @@
 <script src="js/menu.js"></script>
 <script src="js/mapscreen.js"></script>
 <script src="js/main.js"></script>
+<script src="js/touch.js"></script>
 </body>
 </html>

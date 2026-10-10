@@ -59,9 +59,9 @@ const posts = (p, name) => p.page.evaluate(n => window.__posts.filter(x => !n ||
 const clearPosts = p => p.page.evaluate(() => { window.__posts.length = 0; });
 const simState = p => p.page.evaluate(() => JSON.parse(window.__preview.stateJson()));
 const rectOf = (p, sel, nth = 0) => p.ui.evaluate(([s, n]) => { const e = document.querySelectorAll(s)[n]; if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: r.right, b: r.bottom }; }, [sel, nth]);
-const tapEl = async (p, sel, nth = 0) => { const r = await rectOf(p, sel, nth); if (!r) throw new Error('no element ' + sel); await p.t.tap(r.cx, r.cy); return r; };
+const tapEl = async (p, sel, nth = 0) => { await p.ui.evaluate(([s, n]) => { const e = document.querySelectorAll(s)[n]; if (e && e.closest('.dbody, .scrim, .pbody, .mcontent, .ibody')) e.scrollIntoView({ block: 'center' }); }, [sel, nth]); const r = await rectOf(p, sel, nth); if (!r) throw new Error('no element ' + sel); await p.t.tap(r.cx, r.cy); return r; };
 const tapText = async (p, scope, text) => { // tap the first visible button inside `scope` whose text includes `text`
-  const r = await p.ui.evaluate(([s, t]) => { const b = [...document.querySelectorAll(s + ' button')].find(x => x.offsetParent && x.textContent.trim().toLowerCase().includes(t.toLowerCase())); if (!b) return null; const r = b.getBoundingClientRect(); return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; }, [scope, text]);
+  const r = await p.ui.evaluate(([s, t]) => { const b = [...document.querySelectorAll(s + ' button')].find(x => x.offsetParent && x.textContent.trim().toLowerCase().includes(t.toLowerCase())); if (!b) return null; if (b.closest('.dbody, .scrim')) b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; }, [scope, text]);
   if (!r) throw new Error('no button "' + text + '" in ' + scope); await p.t.tap(r.cx, r.cy);
 };
 const shot = (p, name) => p.page.screenshot({ path: path.join(SHOTS, name + '.png') });
@@ -117,6 +117,8 @@ async function layoutSuite(name, w, h, dpr, tag) {
   await shot(p, `${tag}-01-colony`);
   const geo = await p.ui.evaluate(() => { const r = s => { const e = document.querySelector(s); if (!e || !e.offsetParent) return null; const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; }; return { top: r('#topbar'), roster: r('#roster'), cmd: r('#cmdbar'), dock: r('#dock'), tabs: r('#dock .dtabs'), mini: r('#minimap') }; });
   check(!geo.mini, 'the corner minimap is not drawn on a touch screen (the Map button opens the full map)');
+  const cmdFit = await p.ui.evaluate(() => [...document.querySelectorAll('#cmdbar .cmd')].filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return { t: b.textContent.trim(), ok: r.left >= -0.5 && r.right <= innerWidth + 0.5 }; }));
+  check(cmdFit.length >= 6 && cmdFit.every(c => c.ok), 'every command button is on screen without scrolling the bar: ' + cmdFit.map(c => c.t).join(', '));
   if (h > w) {
     check(geo.top.b <= geo.roster.y + 1 && geo.roster.b <= geo.cmd.y + 1 && geo.cmd.b <= geo.dock.y + 1, 'portrait: top bar, colonist strip, command bar and tab bar stack without overlap');
     check(Math.abs(geo.dock.b - h) < 2 && geo.dock.w >= w - 1, 'portrait: the tab bar is a full-width bottom bar');
@@ -136,8 +138,7 @@ async function layoutSuite(name, w, h, dpr, tag) {
   }
   await tapEl(p, '#dock .dtab[data-id="exped"]'); await sleep(100); // active tab again = close
   await tapEl(p, '#dock .dtab[data-id="exped"]'); await sleep(100);
-  const s2 = await isOpen(p, 'closed');
-  check(s2 !== undefined, 'tab taps toggle the sheet');
+  check(await isOpen(p, 'closed'), 'tapping the active tab closes the sheet again');
   // modal screens: full-screen, scrollable inside, controls still >= 44 px
   for (const [name2, btn] of [['priorities', 'Priorities'], ['inventory', 'Inventory'], ['map', 'Map']]) {
     if (!(await isOpen(p, 'closed'))) await tapEl(p, '#dock .dtab.on');
@@ -315,7 +316,7 @@ async function flows(w, h, dpr, tag) {
   const pl = await p.ui.evaluate(() => ({ placing: OB.build.placing, sheet: document.documentElement.dataset.sheet, bar: document.documentElement.dataset.bar, ghost: OB.mapBg.ghost && { x: OB.mapBg.ghost.x, ok: OB.mapBg.ghost.ok }, s: OB.mapBg.s, okDisabled: document.querySelector('#placebar .pb-ok').disabled }));
   check(pl.placing === 'wall' && pl.sheet === 'closed' && pl.bar === 'place', 'picking a blueprint closes the sheet and shows the placement bar');
   check((await posts(p, 'place')).some(x => x[1].op === 'start' && x[1].bp === 'wall'), 'the game is told (place start)');
-  check(pl.ghost && pl.ghost.x != null && pl.s >= 3.1, `the ghost is already on the map, zoomed to a placeable scale (x${pl.s.toFixed(1)})`);
+  check(pl.ghost && pl.ghost.x != null && pl.s >= 4.9, `the ghost is already on the map, zoomed to a placeable scale (x${pl.s.toFixed(1)})`);
   await shot(p, `${tag}-14-placing`);
   const base = st0.base;
   const [gx, gy] = await mapPt(p, base.x + 15, base.y + 11);
@@ -366,6 +367,7 @@ async function flows(w, h, dpr, tag) {
   await tapText(p, '.zones-panel', 'Place on map'); await sleep(250);
   check(await p.ui.evaluate(() => OB.zones.placing && document.documentElement.dataset.bar === 'place' && /Stockpile/.test(document.querySelector('#placebar .pb-info b').textContent)), 'a stockpile zone is placed with the same ghost + bar');
   await tapEl(p, '#placebar .pb-cancel'); await sleep(100);
+  check(await p.ui.evaluate(() => !OB.zones.placing && !OB.mapBg.ghost && !document.documentElement.dataset.bar), 'Cancel ends the zone placement (Esc / right-click can cancel it too: zones.js start() no longer switches its own flag off)');
 
   // --- the Director opens by touch
   await tapEl(p, '#dock .dtab[data-id="director"]'); await sleep(250);
@@ -409,7 +411,11 @@ async function flows(w, h, dpr, tag) {
   await tapText(p, '#cmdbar', 'Inventory');
   await p.ui.waitForFunction(() => OB.screens.current === 'inventory', null, { timeout: 4000 });
   await sleep(400);
+  await tapEl(p, '.scrim:not([hidden]) .src', 0); await sleep(400); // pick a container (the stockpile), as a player would
+  await p.ui.waitForFunction(() => document.querySelectorAll('.scrim:not([hidden]) .slot.full').length > 0, null, { timeout: 5000 });
   const slot = await rectOf(p, '.scrim:not([hidden]) .slot.full', 0);
+  await p.ui.evaluate(() => document.querySelector('.scrim:not([hidden]) .slot.full').scrollIntoView({ block: 'center' })); await sleep(100);
+  Object.assign(slot, await rectOf(p, '.scrim:not([hidden]) .slot.full', 0));
   await p.t.tap(slot.cx, slot.cy); await sleep(150);
   const im = await p.ui.evaluate(() => { const m = document.querySelector('#ctx'); return m && !m.hidden ? [...m.querySelectorAll('.ctx-i')].map(b => b.textContent.trim()) : null; });
   check(im && im.length >= 2, 'a tap on an inventory stack opens its menu: ' + (im || []).join(' / '));
@@ -455,11 +461,14 @@ if (want('desktop')) {
   check(d.top.pos === 'absolute' && d.roster.pos === 'absolute' && d.dock.pos === 'absolute' && d.cmd.pos === 'absolute', 'top bar, roster, dock and command bar are still absolutely positioned');
   check(Math.abs(d.top.x - 12) < 1 && Math.abs(d.top.h - 72) < 1 && Math.abs(d.dock.w - 432) < 1 && Math.abs(d.roster.w - 304) < 1, `desktop geometry unchanged (top bar ${d.top.h}px high, dock ${d.dock.w}px, roster ${d.roster.w}px wide)`);
   check(d.mm !== 'none' && d.grip !== 'none', 'the minimap and the dock panel are shown');
-  const mq = await ui.evaluate(() => [...document.styleSheets].flatMap(s => [...s.cssRules]).filter(r => r.selectorText && !/data-ui="touch"/.test(r.selectorText) && /mobile/.test(s => '')).length);
-  check(mq === 0, 'mobile.css only contains rules scoped to the touch mode');
-  const sheet = fs.readFileSync(path.join(ROOT, 'fivem/outbreak/ui/css/mobile.css'), 'utf8');
-  const bad = [...sheet.matchAll(/^([^@\s/][^{]*)\{/gm)].map(m => m[1].trim()).filter(sel => !sel.split(',').every(x => /^html\[data-ui="touch"\]/.test(x.trim())) && !/^(from|to|\d+%)/.test(sel));
-  check(bad.length === 0, 'every selector in mobile.css starts with html[data-ui="touch"]' + (bad.length ? ': ' + bad.slice(0, 3).join(' | ') : ''));
+  const scope = await ui.evaluate(() => {
+    const sh = [...document.styleSheets].find(x => /mobile\.css/.test(x.href || ''));
+    let n = 0; const bad = [];
+    const walk = rules => { for (const r of rules) { if (r.cssRules && !r.selectorText) walk(r.cssRules); else if (r.selectorText) { n++; for (const s of r.selectorText.split(/,(?![^\[]*\])/)) if (!/^html\[data-ui="touch"\]/.test(s.trim())) bad.push(s.trim()); } } };
+    if (sh) walk(sh.cssRules);
+    return { loaded: !!sh, n, bad };
+  });
+  check(scope.loaded && scope.n > 200 && scope.bad.length === 0, `all ${scope.n} rules of mobile.css are scoped to html[data-ui="touch"]` + (scope.bad.length ? ': ' + scope.bad.slice(0, 3).join(' | ') : ''));
   await collect(p, 'desktop'); await p.close();
 }
 

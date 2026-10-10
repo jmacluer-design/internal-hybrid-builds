@@ -70,7 +70,8 @@
   const ROUTE = {
     boot(d) {
       S.boot = d || {};
-      OB.show(OB.$('#preview-badge'), !!(d && d.preview) || OB.preview);
+      OB.show(OB.$('#preview-badge'), !!(d && (d.preview || d.badge)) || OB.preview);
+      if (d && d.badge) OB.$('#preview-badge').textContent = d.badge;
       if (d && d.settings) { Object.assign(OB.settings, d.settings); OB.applySettings(); }
     },
     catalog(d) { S.catalog = d; OB.emit('catalog', d); },

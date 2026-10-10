@@ -54,7 +54,7 @@
 
   // ----------------------------------------------------------------------------------------------------------- drag and drop
   function startDrag(e, side, idx, stack, node) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.pointerType === 'touch') return;
     const sx = e.clientX, sy = e.clientY, ctrl = e.ctrlKey, shift = e.shiftKey;
     let started = false;
     const gh = OB.$('#dragghost');
