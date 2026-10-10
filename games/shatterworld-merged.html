@@ -3277,7 +3277,7 @@ function vrMergeApply(root, on) {
 function vrMergeAll(on) { VR.merge = on; vrMergeApply(hero.root, on); vrMergeApply(twin.root, on); for (const e of ENEMIES) vrMergeApply(e.mesh, on); for (const k of CHESTS) vrMergeApply(k.g, on); }
 
 // ---- procedural Touch-style controller (no asset download) ---------------------------------------------------------------------------
-const UI = { mode: 'none', built: false, btns: [], hotKey: -1, laserLen: [1.2, 1.2], hit: [false, false], hot: [-1, -1], cap: { talk: '', talkOn: false, talkSeq: -1, toast: '', toastOn: false, toastSeq: -1, prompt: '', promptOn: false, who: '' }, capT: 0, wr: { sig: '' }, howShown: false, rp: null, hudP: null, chips: [], sumBottom: 0 };
+const UI = { mode: 'none', built: false, btns: [], hotKey: -1, laserLen: [1.2, 1.2], hit: [false, false], hot: [-1, -1], cap: { talk: '', talkOn: false, talkSeq: -1, toast: '', toastOn: false, toastSeq: -1, prompt: '', promptOn: false, who: '' }, capT: 0, wr: { sig: '' }, howShown: false, rp: null, hudP: null, chips: [], sumBottom: 0, contentH: 1000 };
 const vrCtrl = [null, null]; // three controller groups (target-ray space); their hand is data.handedness
 UI.ch = [null, null];        // controller group currently carrying the LEFT (0) / RIGHT (1) hand, or null
 function vrBuildControllerModel() {
@@ -3328,7 +3328,7 @@ function vrRpgSubLines() { // two short RPG status lines for the start panel (mi
 }
 function vrDrawMain() {
   const p = UI.main, c = p.ctx, W = p.pw, H = p.ph, m = UI.mode; c.clearRect(0, 0, W, H);
-  rrect(c, 8, 8, W - 16, H - 16, 46); const gr = c.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(12,30,48,.95)'); gr.addColorStop(1, 'rgba(6,14,24,.95)'); c.fillStyle = gr; c.fill();
+  const FH = Math.min(H - 16, Math.max(520, UI.contentH + 20)); rrect(c, 8, 8, W - 16, FH, 46); const gr = c.createLinearGradient(0, 0, 0, FH); gr.addColorStop(0, 'rgba(12,30,48,.95)'); gr.addColorStop(1, 'rgba(6,14,24,.95)'); c.fillStyle = gr; c.fill();
   c.lineWidth = 6; c.strokeStyle = m === 'lose' ? 'rgba(255,143,122,.9)' : 'rgba(255,214,107,.9)'; c.stroke();
   c.textAlign = 'center'; c.textBaseline = 'alphabetic';
   let title = 'SHATTERWORLD', sub = '', sub2 = '', col = '#ffd66b';
@@ -3349,7 +3349,7 @@ function vrDrawMain() {
     if (b.primary) { g2.addColorStop(0, hot ? '#fff9d0' : '#fff2b0'); g2.addColorStop(0.55, hot ? '#ffd45f' : '#ffc54a'); g2.addColorStop(1, hot ? '#ffa43a' : '#ff9c2b'); } else if (b.static) { g2.addColorStop(0, 'rgba(255,255,255,.05)'); g2.addColorStop(1, 'rgba(255,255,255,.02)'); } else { g2.addColorStop(0, hot ? 'rgba(120,200,255,.55)' : 'rgba(255,255,255,.14)'); g2.addColorStop(1, hot ? 'rgba(60,140,220,.55)' : 'rgba(255,255,255,.06)'); }
     c.fillStyle = g2; c.fill(); c.lineWidth = hot ? 6 : 3; c.strokeStyle = hot ? '#ffffff' : (b.primary ? 'rgba(255,235,170,.6)' : 'rgba(255,255,255,.4)'); c.stroke();
     const lab = b.label(); let fs = b.primary ? 54 : 36; c.font = (b.primary ? '900 ' : '800 ') + fs + 'px ' + VFONT; while (c.measureText(lab).width > b.w - 28 && fs > 26) { fs -= 2; c.font = (b.primary ? '900 ' : '800 ') + fs + 'px ' + VFONT; }
-    c.fillStyle = b.primary ? '#2a1400' : b.static ? 'rgba(234,246,255,.55)' : '#eaf6ff'; c.textBaseline = 'middle'; c.fillText(lab, b.x + b.w / 2, b.y + b.h / 2 + 2); c.textBaseline = 'alphabetic';
+    c.fillStyle = b.primary ? '#2a1400' : b.id === 'rtl' ? '#ffe27a' : b.static ? 'rgba(234,246,255,.55)' : '#eaf6ff'; c.textBaseline = 'middle'; c.fillText(lab, b.x + b.w / 2, b.y + b.h / 2 + 2); c.textBaseline = 'alphabetic';
   }
   p.tex.needsUpdate = true;
 }
@@ -3366,7 +3366,7 @@ function vrBuildButtons(mode) {
     rows = [[['cta2', () => $('cta2').textContent || 'RETRY', 1]], ex, [['exit', () => 'EXIT VR']]];
   }
   const m = 48; UI.sumBottom = y;
-  rows.forEach((row, ri) => { const h = ri === 0 ? 112 : 84, n = row.length, gap = 22; let tw = 0; for (const r of row) tw += r[3] || 1; const aw = W - 2 * m - gap * (n - 1); let x = m; row.forEach(r => { const w = aw * (r[3] || 1) / tw; B.push({ id: r[0], label: r[1], primary: !!r[2], static: !!r[4], x, y, w, h }); x += w + gap; }); y += h + 22; });
+  rows.forEach((row, ri) => { const h = ri === 0 ? 112 : 84, n = row.length, gap = 22; let tw = 0; for (const r of row) tw += r[3] || 1; const aw = W - 2 * m - gap * (n - 1); let x = m; row.forEach(r => { const w = aw * (r[3] || 1) / tw; B.push({ id: r[0], label: r[1], primary: !!r[2], static: !!r[4], x, y, w, h }); x += w + gap; }); y += h + 22; }); UI.contentH = y;
 }
 function vrDrawHow() {
   const p = UI.how, c = p.ctx, W = p.pw, H = p.ph; c.clearRect(0, 0, W, H);
@@ -3407,10 +3407,11 @@ function vrDrawWrist() {
   c.fillStyle = '#04202a'; c.font = '800 30px ' + VFONT; c.fillText('XP ' + Math.floor(xf * 100) + '%', W / 2, 236);
   // rewind pips + gold
   c.textAlign = 'left'; c.fillStyle = '#9fb4c8'; c.font = '700 30px ' + VFONT; c.fillText('REWIND', 44, 312); const nrw = Math.ceil(RT.rwMax); for (let i = 0; i < nrw; i++) { const x = 200 + i * 66; rrect(c, x, 280, 56, 44, 12); c.fillStyle = 'rgba(255,255,255,.12)'; c.fill(); const f = clamp(RT.rw - i, 0, 1); if (f > 0.02) { rrect(c, x, 280, Math.max(14, 56 * f), 44, 12); c.fillStyle = '#53e0d0'; c.fill(); } }
-  rvCoin(c, W - 200, 302, 30); c.textAlign = 'right'; c.fillStyle = '#fff4d8'; c.font = '900 58px ' + VFONT; c.fillText(rfmt(RP.gold), W - 44, 324);
+  c.textAlign = 'right'; c.fillStyle = '#fff4d8'; c.font = '900 58px ' + VFONT; const gw = c.measureText(rfmt(RP.gold)).width; c.fillText(rfmt(RP.gold), W - 44, 324); rvCoin(c, W - 44 - gw - 34, 304, 28);
   // buff chips
   let bx = 44; const chip = (t, col) => { c.font = '800 30px ' + VFONT; const w = c.measureText(t).width + 30; if (bx + w > W - 40) return; rrect(c, bx, 346, w, 46, 23); c.fillStyle = col; c.fill(); c.fillStyle = '#10202e'; c.textAlign = 'left'; c.fillText(t, bx + 15, 380); bx += w + 10; };
   if (RT.chill > 0.05) chip('CHILLED', '#9cf3ff'); if (RT.goldStack) chip('GOLD RUSH x' + RT.goldStack, '#ffd24a'); if (RT.surgeT > 0) chip('STAR SURGE', '#ffe27a'); if (RT.S.fx.comboFiend && RT.combo > 1) chip('COMBO x' + Math.min(5, RT.combo), '#ff9a7a'); if (RT.shield > 0.5) chip('SHIELD', '#9fd0ff'); if (P.big) chip('SUPER', '#ff8f7a');
+  if (RIFT) { c.textAlign = 'left'; c.fillStyle = '#ffb15e'; c.font = '800 30px ' + VFONT; c.fillText(RIFT.mods.map(m => RPG_RIFT_MODS[m].name.toUpperCase()).join('  \u00b7  '), 44, 436); }
   // shards
   const n = ACT_SHARDS[G.act] || 0; if (!RIFT) for (let i = 0; i < n; i++) { const x = 70 + i * (n > 4 ? 84 : 98), y = 440, on = i < G.shards; c.save(); c.translate(x, y); c.rotate(PI / 4); rrect(c, -24, -24, 48, 48, 6); c.fillStyle = on ? '#ffc54a' : 'rgba(255,255,255,.12)'; c.fill(); c.lineWidth = 4; c.strokeStyle = on ? '#fff2b8' : 'rgba(255,230,160,.5)'; c.stroke(); c.restore(); }
   c.textAlign = 'left'; c.fillStyle = '#9fb4c8'; c.font = '700 30px ' + VFONT; c.fillText('TIME', 44, 520); c.fillText('SCORE', 470, 520);
@@ -3445,7 +3446,7 @@ function vrBuild() {
     c.addEventListener('disconnected', () => { c.userData.hasSrc = false; c.userData.hand = ''; vrAttachWrist(); });
     rig.add(c); vrCtrl[i] = c;
   }
-  UI.main = vrPanel(1.15, 1.123, 1024, 1000, true); UI.how = vrPanel(0.84, 0.681, 1024, 830, true); UI.capP = vrPanel(0.8, 0.25, 1024, 320, false); UI.wrP = vrPanel(0.26, 0.195, 1024, 768, false);
+  UI.main = vrPanel(1.15, 1.123, 1024, 1000, true); UI.how = vrPanel(0.84, 0.771, 1024, 940, true); UI.capP = vrPanel(0.8, 0.25, 1024, 320, false); UI.wrP = vrPanel(0.26, 0.195, 1024, 768, false);
   rig.add(UI.main.mesh, UI.how.mesh, UI.capP.mesh); UI.wrP.mesh.rotation.x = -PI / 2 + 0.5; UI.wrP.mesh.position.set(0, 0.06, 0.07); rig.add(UI.wrP.mesh);
   UI.wrP.mat.opacity = 0; vrRpgBuild(); vrDrawHow(); UI.built = true;
 }
@@ -5237,7 +5238,7 @@ function rvTooltip(c, x0, y0, w, h) {
     if (sl || hot) { rrect(c, x - 8, y - 40, iw + 16, 56, 12); c.fillStyle = sl ? 'rgba(255,226,122,.28)' : 'rgba(160,220,255,.22)'; c.fill(); }
     rrect(c, x, y - 34, 64, 42, 10); c.fillStyle = ['#46607a', '#3a8a8a', '#3d8f5a', '#a8842a', '#c8602a'][a.tier] || '#46607a'; c.fill(); rvTxt(c, 'T' + (a.tier + 1), x + 32, y - 3, 34, '#fff', 900, 'center');
     const txt = rpgFmtStat(d.stat, a.value) + ' ' + RPG_STATS[d.stat].label, rng = rpgFmtStat(d.stat, T.lo, false) + '-' + rpgFmtStat(d.stat, T.hi, false); rvTxt(c, txt, x + 78, y, 40, '#ffffff', 700, 'left', iw - 80);
-    c.font = '700 40px ' + VFONT; const tw = c.measureText(txt).width; if (78 + tw + 20 + 150 < iw) rvTxt(c, rng, x + iw, y, 34, '#7d93a6', 600, 'right'); y += 54;
+    c.font = '700 40px ' + VFONT; const tw = c.measureText(txt).width; c.font = '600 34px ' + VFONT; const rw = c.measureText(rng).width; if (78 + tw + 24 + rw < iw) rvTxt(c, rng, x + iw, y, 34, '#7d93a6', 600, 'right'); y += 54;
   }
   if (item.legendary) { const L = RPG_LEG_BY_ID[item.legendary]; c.font = '600 38px ' + VFONT; wrapLines(c, L.text, iw - 24, _wl); const hh = 56 + Math.min(4, _wl.length) * 42; rrect(c, x - 6, y - 38, iw + 12, hh, 14); c.fillStyle = 'rgba(255,138,42,.16)'; c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(255,138,42,.6)'; c.stroke(); rvTxt(c, 'LEGENDARY POWER', x + 8, y, 34, '#ffb15e', 900); y += 44; c.font = '600 38px ' + VFONT; c.fillStyle = '#ffe9c8'; c.textAlign = 'left'; for (let i = 0; i < _wl.length && i < 4; i++) { c.fillText(_wl[i], x + 8, y); y += 42; } y += 16; }
   if (RUI.rr) { const rc = rpgRerollCost(item); rvTxt(c, 'REROLL: pick an affix (A). Cost ' + rc.dust + ' shards + ' + rc.gold + ' gold', x, y, 34, '#ffe27a', 700, 'left', iw); y += 48; }
@@ -5251,13 +5252,13 @@ function rvItems(c) {
   const eqx = 40, eqw = 480, bx = 540, bw = 780, tx = 1340, tw = 668, y0 = 130, hh = 1010;
   rvPanelBg(c, eqx, y0, eqw, hh, 26); rvTxt(c, 'EQUIPPED', eqx + 28, y0 + 56, 40, '#9fd8ff', 800);
   for (let i = 0; i < 6; i++) { const k = RPG_EQUIP[i], cx = eqx + 56 + (i % 2) * 220, cy = y0 + 84 + ((i / 2) | 0) * 262; rvSlot(c, 'eq:' + i, cx, cy, 180, RP.equipped[k], 'eq', RUI.zone === 'eq' && RUI.i === i, k.replace(/\d/, '')); rvTxt(c, RPG_SLOT_LABEL[k], cx + 90, cy + 180 + 40, 40, '#cfe0ee', 700, 'center'); }
-  const S = RT.S; rvStatBlock(c, eqx + 30, y0 + 912, eqw - 60, [['MAX HP', String(RT.max)], ['DAMAGE / hit', rfmt(RT.sheet.punch)], ['CRIT', Math.round(S.critTotal * 100) + '%  x' + S.critMul.toFixed(2)]], 46, 40);
+  const S = RT.S; rvStatBlock(c, eqx + 30, y0 + 888, eqw - 60, [['MAX HP', String(RT.max)], ['DAMAGE / hit', rfmt(RT.sheet.punch)], ['CRIT', Math.round(S.critTotal * 100) + '%  x' + S.critMul.toFixed(2)]], 46, 40);
   rvPanelBg(c, bx, y0, bw, hh, 26); const cnt = RP.bag.filter(Boolean).length; rvTxt(c, 'BAG ' + cnt + ' / ' + BAG_N, bx + 28, y0 + 56, 40, '#9fd8ff', 800);
   for (let i = 0; i < BAG_N; i++) rvSlot(c, 'bag:' + i, bx + 12 + (i % 6) * 128, y0 + 78 + ((i / 6) | 0) * 128, 116, RP.bag[i], 'bag', RUI.zone === 'bag' && RUI.i === i);
   const cy0 = y0 + 78 + 4 * 128 + 24;
-  for (let i = 0; i < 4; i++) rvBtn(c, 'chip:' + i, bx + 12 + (i % 2) * 378, cy0 + ((i / 2) | 0) * 84, 366, 72, i === 3 ? (RP.filter ? 'HIDE COMMONS: ON' : 'HIDE COMMONS: OFF') : i === 2 ? 'SALVAGE MAGIC' : i === 1 ? 'SALVAGE COMMONS' : 'SORT BAG', { fs: 36, r: 20, on: i === 3 && RP.filter });
+  for (let i = 0; i < 4; i++) rvBtn(c, 'chip:' + i, bx + 12 + (i % 2) * 378, cy0 + ((i / 2) | 0) * 84, 366, 72, i === 3 ? (RP.filter ? 'COMMONS HIDDEN' : 'HIDE COMMONS') : i === 2 ? 'SALVAGE MAGIC' : i === 1 ? 'SALVAGE COMMON' : 'SORT BAG', { fs: 34, r: 20, on: i === 3 && RP.filter });
   if (RUI.zone === 'chip') { rrect(c, bx + 6 + (RUI.i % 2) * 378, cy0 - 6 + ((RUI.i / 2) | 0) * 84, 378, 84, 24); c.lineWidth = 7; c.strokeStyle = '#fff'; c.stroke(); }
-  const sel = uiSel(), item = sel.item, by = cy0 + 130; rvTxt(c, 'SELECTED ITEM', bx + 28, by - 18, 34, '#9fd8ff', 800);
+  const sel = uiSel(), item = sel.item, by = cy0 + 218; rvTxt(c, 'SELECTED ITEM', bx + 28, by - 18, 34, '#9fd8ff', 800);
   if (item) {
     const rc = rpgRerollCost(item), can = RP.dust >= rc.dust && RP.gold >= rc.gold;
     if (sel.where === 'bag') { rvBtn(c, 'act:equip', bx + 12, by, 366, 72, 'EQUIP', { primary: true, fs: 42 }); if (item.locked) rvBtn(c, '', bx + 390, by, 366, 72, 'LOCKED', { dim: true, static: true, fs: 38 }); else rvBtn(c, 'act:salv', bx + 390, by, 366, 72, 'SALVAGE +' + rpgSalvageValue(item, RT.S.dustFind), { fs: 38 }); }
@@ -5290,7 +5291,7 @@ function rvPerksTab(c) {
   rvPanelBg(c, 40, 130, 1968, 1010, 26); rvTxt(c, 'PERKS  ·  ' + ids.length + ' OF ' + RPG_PERKS.length + ' LEARNED', 68, 186, 40, '#9fd8ff', 800);
   let y = 216; if (RP.pending) { rvBtn(c, 'perkgo', 68, y, 1912, 96, 'PERK READY  ·  ' + RP.pending + ' PICK' + (RP.pending > 1 ? 'S' : '') + ' WAITING  ·  A: CHOOSE', { primary: true, fs: 48 }); y += 118; }
   if (!ids.length) { rvTxt(c, 'No perks yet.', 1024, 560, 56, '#a9bccb', 800, 'center'); rvTxt(c, 'Every level you choose 1 of 3.', 1024, 630, 42, '#7d93a6', 600, 'center'); return; }
-  const top = y, ch = Math.floor((1090 - top) / 4) - 12; if (!RV.scratch) RV.scratch = document.createElement('canvas');
+  const top = y, ch = Math.floor((1010 - top) / 4) - 12; if (!RV.scratch) RV.scratch = document.createElement('canvas');
   for (let n = 0; n < RV_PERKS_PER_PAGE; n++) {
     const id = ids[RV.pkPage * RV_PERKS_PER_PAGE + n]; if (!id) break; const p = RPG_PERK_BY_ID[id], r = RP.perks[id], x = 68 + (n % 2) * 964, yy = top + ((n / 2) | 0) * (ch + 12);
     rrect(c, x, yy, 948, ch, 22); c.fillStyle = 'rgba(255,255,255,.07)'; c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(255,214,107,.4)'; c.stroke();
@@ -5298,15 +5299,15 @@ function rvPerksTab(c) {
     rvTxt(c, p.name, x + 136, yy + 50, 44, '#fff', 900, 'left', 560); for (let i = 0; i < p.max; i++) rvDiamond(c, x + 906 - i * 34, yy + 34, 12, i < r ? '#ffd66b' : 'rgba(255,255,255,.18)');
     c.font = '600 36px ' + VFONT; wrapLines(c, p.desc(r), 780, _wl); c.fillStyle = '#c4d4e2'; c.textAlign = 'left'; for (let i = 0; i < _wl.length && i < 2; i++) c.fillText(_wl[i], x + 136, yy + 94 + i * 40);
   }
-  if (pages > 1) { rvBtn(c, 'pkpg:-1', 1500, 150, 150, 70, '<', { fs: 48, r: 20 }); rvTxt(c, 'PAGE ' + (RV.pkPage + 1) + ' / ' + pages, 1740, 198, 40, '#cfe0ee', 800, 'center'); rvBtn(c, 'pkpg:1', 1830, 150, 150, 70, '>', { fs: 48, r: 20 }); }
+  if (pages > 1) { rvBtn(c, 'pkpg:-1', 760, 1040, 150, 76, '<', { fs: 48, r: 20 }); rvTxt(c, 'PAGE ' + (RV.pkPage + 1) + ' / ' + pages, 1024, 1092, 42, '#cfe0ee', 800, 'center'); rvBtn(c, 'pkpg:1', 1138, 1040, 150, 76, '>', { fs: 48, r: 20 }); }
 }
 function rvCodex(c) {
   rvPanelBg(c, 40, 130, 1968, 1010, 26); rvTxt(c, 'LEGENDARY CODEX  ·  ' + Object.keys(RP.codex).length + ' / ' + RPG_LEGENDARIES.length, 68, 186, 40, '#9fd8ff', 800);
   for (let i = 0; i < RPG_LEGENDARIES.length; i++) {
-    const L = RPG_LEGENDARIES[i], got = RP.codex[L.id], x = 68 + (i % 3) * 648, y = 214 + ((i / 3) | 0) * 230, id = 'cdx:' + i, hot = rvHot(id); RV.btns.push({ id, x, y, w: 632, h: 214 });
-    rrect(c, x, y, 632, 214, 22); c.fillStyle = got ? 'rgba(88,42,10,.55)' : 'rgba(255,255,255,.05)'; c.fill(); c.lineWidth = RUI.cdx === i ? 7 : 3; c.strokeStyle = RUI.cdx === i ? '#fff' : hot ? 'rgba(160,220,255,.9)' : got ? 'rgba(255,138,42,.7)' : 'rgba(255,255,255,.2)'; c.stroke();
-    rvTxt(c, RPG_SLOT_LABEL[L.slot].toUpperCase(), x + 24, y + 42, 34, got ? '#ffb15e' : '#6f8294', 800); rvTxt(c, got ? L.name : '? ? ?', x + 24, y + 92, 46, got ? '#ffd9a8' : '#6f8294', 900, 'left', 584);
-    c.font = '600 35px ' + VFONT; wrapLines(c, got ? L.text : 'Not found yet.', 584, _wl); c.fillStyle = got ? '#e9d6bd' : '#5d7083'; c.textAlign = 'left'; for (let q = 0; q < _wl.length && q < 3; q++) c.fillText(_wl[q], x + 24, y + 136 + q * 36);
+    const L = RPG_LEGENDARIES[i], got = RP.codex[L.id], x = 68 + (i % 3) * 648, y = 200 + ((i / 3) | 0) * 232, id = 'cdx:' + i, hot = rvHot(id); RV.btns.push({ id, x, y, w: 632, h: 220 });
+    rrect(c, x, y, 632, 220, 22); c.fillStyle = got ? 'rgba(88,42,10,.55)' : 'rgba(255,255,255,.05)'; c.fill(); c.lineWidth = RUI.cdx === i ? 7 : 3; c.strokeStyle = RUI.cdx === i ? '#fff' : hot ? 'rgba(160,220,255,.9)' : got ? 'rgba(255,138,42,.7)' : 'rgba(255,255,255,.2)'; c.stroke();
+    rvTxt(c, RPG_SLOT_LABEL[L.slot].toUpperCase(), x + 24, y + 38, 34, got ? '#ffb15e' : '#6f8294', 800); rvTxt(c, got ? L.name : '? ? ?', x + 24, y + 86, 46, got ? '#ffd9a8' : '#6f8294', 900, 'left', 584);
+    c.font = '600 34px ' + VFONT; wrapLines(c, got ? L.text : 'Not found yet.', 584, _wl); c.fillStyle = got ? '#e9d6bd' : '#5d7083'; c.textAlign = 'left'; for (let q = 0; q < _wl.length && q < 3; q++) c.fillText(_wl[q], x + 24, y + 130 + q * 35);
   }
 }
 function rvRift(c) {
@@ -5334,11 +5335,11 @@ function rvPerkPick(c) {
   const W = UI.rp.pw; rvTxt(c, 'LEVEL ' + RP.level, W / 2, 190, 110, '#ffe27a', 900, 'center'); rvTxt(c, RP.pending > 1 ? 'CHOOSE A PERK  ·  ' + RP.pending + ' PICKS WAITING' : 'CHOOSE A PERK', W / 2, 270, 54, '#cfe0ee', 800, 'center');
   const n = PK.choices.length, cw = 600, gap = 44, x0 = (W - (n * cw + (n - 1) * gap)) / 2; if (!RV.scratch) RV.scratch = document.createElement('canvas');
   for (let i = 0; i < n; i++) {
-    const p = PK.choices[i], rk = (RP.perks[p.id] || 0) + 1, x = x0 + i * (cw + gap), y = 330, h = 740, f = PK.i === i, id = 'pk:' + i, hot = rvHot(id); RV.btns.push({ id, x, y, w: cw, h });
+    const p = PK.choices[i], rk = (RP.perks[p.id] || 0) + 1, x = x0 + i * (cw + gap), y = 350, h = 660, f = PK.i === i, id = 'pk:' + i, hot = rvHot(id); RV.btns.push({ id, x, y, w: cw, h });
     rrect(c, x, y, cw, h, 32); const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, f || hot ? 'rgba(70,110,150,.95)' : 'rgba(34,52,74,.92)'); g.addColorStop(1, f || hot ? 'rgba(30,60,96,.95)' : 'rgba(16,28,42,.92)'); c.fillStyle = g; c.fill(); c.lineWidth = f ? 10 : 4; c.strokeStyle = f ? '#ffe27a' : hot ? '#bfe6ff' : 'rgba(255,255,255,.35)'; c.stroke();
     rpgSigil(RV.scratch, p.glyph, f ? '#ffe27a' : '#ffd66b'); c.drawImage(RV.scratch, x + cw / 2 - 100, y + 36, 200, 200);
     rvTxt(c, p.name, x + cw / 2, y + 300, 58, '#fff', 900, 'center', cw - 40); rvTxt(c, 'RANK ' + rk + ' / ' + p.max, x + cw / 2, y + 362, 42, '#ffd66b', 800, 'center');
-    c.font = '600 44px ' + VFONT; wrapLines(c, p.desc(rk), cw - 70, _wl); c.fillStyle = '#e3eef7'; c.textAlign = 'center'; for (let q = 0; q < _wl.length && q < 6; q++) c.fillText(_wl[q], x + cw / 2, y + 438 + q * 56);
+    c.font = '600 48px ' + VFONT; wrapLines(c, p.desc(rk), cw - 70, _wl); c.fillStyle = '#e3eef7'; c.textAlign = 'center'; for (let q = 0; q < _wl.length && q < 6; q++) c.fillText(_wl[q], x + cw / 2, y + 446 + q * 60);
     c.beginPath(); c.arc(x + 44, y + 44, 30, 0, TAU); c.fillStyle = f ? '#ffe27a' : 'rgba(255,255,255,.2)'; c.fill(); c.textBaseline = 'middle'; rvTxt(c, String(i + 1), x + 44, y + 46, 38, f ? '#2a1400' : '#fff', 900, 'center'); c.textBaseline = 'alphabetic';
   }
 }

@@ -126,7 +126,7 @@ the colony earned). Boons (caravan, supply drop, refugee) run on their own timer
 
 | profile | multiplier day 1 -> 30 | threat gap (days) | spend of budget | surge | feel |
 |---|---|---|---|---|---|
-| calm | 0.50 -> 1.05 | 1.3-2.8 -> 1.2-2.6 | 45-80% | 0 | long quiet stretches, boons weighted up |
+| calm | 0.50 -> 1.15 | 1.3-2.8 -> 1.2-2.6 | 45-80% | 0 | long quiet stretches, boons weighted up |
 | escalating | 0.55 -> 1.15 | 1.8-3.2 -> 0.35-0.85 | 55-85% | 10% | gentle start, steady ramp |
 | chaos | 0.80 -> 1.05 | 0.25-0.8 -> 0.15-0.55 | 60-95% | 30% | short gaps, spikes, little rest |
 
@@ -165,7 +165,20 @@ No item, monster, mission or text data from the game is used. All names (gangs, 
 threat days and the cause of death. Targets: calm 85-95%, escalating 35-60%, chaos 20-45%. The numbers are tuned against the **default AI policy** (`sim/ai_policy.lua`), which plays a competent but not clever
 colony: it builds walls / towers / generator in a fixed order, drafts when a threat is within 420 units, scavenges when stocks run low and trades surplus. A better player will do better; a worse one, worse.
 Knobs, most influential first: `director.profiles.*.mult1` and `.mult0`, `threat_gap*`, `combat.k_kill / k_damage`, `needs.infection.*`, `expedition.risk`, loot tables, starting stock.
-See the final report / `bin/balance.lua` output for the latest measured numbers; the balance run uses `--step 5` (5-minute internal steps) for speed and was cross-checked at step 1 on a smaller sample.
+The balance run uses `--step 5` (5-minute internal steps) for speed; re-run it after any change to `data/` (`luajit bin/balance.lua --seeds 200`, about 5 minutes per profile).
+
+Measured with the shipped data (200 seeds x 30 days per profile, `--step 5`, default 5 starting colonists, default policy):
+
+| profile | survival to end of day 30 | target | avg colonists alive | median director events/day | median threat days (of 30) | deaths zombie / infection / other |
+|---|---|---|---|---|---|---|
+| calm | 87.5% | 85-95% | 6.22 | 0.87 | 7 | 173 / 54 / 29 |
+| escalating | 45.5% | 35-60% | 2.54 | 1.00 | 12 | 516 / 118 / 98 |
+| chaos | 36.5% | 20-45% | 1.67 | 2.78 | 25 | 247 / 377 / 132 |
+
+Reading the numbers: with 200 seeds the standard error is about 2.3 percentage points, so calm is "somewhere in 83-92%", not exactly 87.5%. Sensitivity probe: calm `mult1` 1.05 and 1.10 gave 93.5% and 93.0%
+(each also a 200-seed run), i.e. near the upper edge of the target; 1.15 was kept because it is the setting measured together with the other two profiles and it leaves a margin on the upper side. A 40-seed cross-check at `--step 1` (the adapter's real step size)
+with slightly earlier numbers gave calm 85%, escalating 37.5%, chaos 30%, so `--step 5` is a faithful but not identical proxy (step 1 was a little harsher in that sample, within its noise of about 7 points).
+Chaos kills mostly through infection (377 of 756 deaths); the other two profiles die mostly to zombies. (Probable cause: short gaps leave less time to recover and re-supply antibiotics; not isolated by an experiment.)
 
 ## 7. Tests
 
