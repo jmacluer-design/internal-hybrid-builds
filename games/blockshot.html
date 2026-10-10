@@ -134,6 +134,8 @@
   .row .d{ margin-left:auto; text-align:right; color:var(--dim); }
   kbd{ display:inline-block; min-width:calc(var(--u)*2.1); text-align:center; padding:0 calc(var(--u)*.55); font:700 calc(var(--u)*1.1)/calc(var(--u)*1.9) ui-monospace,Menlo,Consolas,monospace; color:#e9eef2;
     background:linear-gradient(#3a424c,#262c34); border:1px solid #11151a; border-bottom-width:calc(var(--u)*.3); border-radius:3px; text-shadow:none; }
+  .hint.ctl{ margin-top:calc(var(--u)*.2); color:#b9c4cf; }
+  .hint b{ color:var(--amber); letter-spacing:.14em; }
   .hint{ margin-top:calc(var(--u)*1.1); font-size:calc(var(--u)*1.1); color:var(--dim); line-height:1.5; text-shadow:none; }
   #dead{ background:radial-gradient(ellipse at center, rgba(60,0,0,.55), rgba(8,0,0,.92)); flex-direction:column; text-align:center; opacity:0; transition:opacity .6s; }
   #dead.show{ opacity:1; }
@@ -213,6 +215,7 @@
           <div class="row"><span>JUMP &middot; J &middot; Z</span><span class="d">jump &middot; next slot &middot; reload</span></div>
           <div class="row"><span>Shift &middot; E &middot; Q</span><span class="d">sprint &middot; strike &middot; frag</span></div>
         </div>
+        <div class="full hint ctl"><b>CONTROLLER</b> (Xbox / PlayStation, press any button once) &middot; L stick move &middot; R stick look &middot; A jump &middot; RT fire &middot; LT aim / place &middot; X next slot &middot; B reload &middot; Y strike &middot; LB / R3 frag &middot; RB / L3 sprint &middot; D-pad: &#9664;&#9654; slot, &#9650; frag, &#9660; sneak &middot; Start confirm / menu</div>
         <div class="full hint">Guns break blocks too: dirt and leaves fall in a hit or two, stone takes a magazine. Hold LMB with a block or empty hand to mine. <b>TNT</b> blows on any hit and chains. Pick up drops by walking over them. 3 kills = UAV, 5 = airstrike. Health regenerates after 5 s unhurt. A fresh world generates on every respawn.</div>
       </div>
     </div>
@@ -1220,10 +1223,12 @@ const flashG = new THREE.Group(); flashG.visible = false;
 { const a = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), flashMat), b = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), flashMat); b.rotation.y = Math.PI / 2; const c = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), flashMat); c.rotation.x = Math.PI / 2; flashG.add(a, b, c); }
 vmRoot.add(flashG);
 // held items for non-gun slots
-const handG = new THREE.Group(); handG.visible = false; vmRoot.add(handG);
+const handPivot = new THREE.Group(); handPivot.position.set(0.2, -0.42, -0.05); vmRoot.add(handPivot);
+const handG = new THREE.Group(); handG.visible = false; handG.position.set(-0.2, 0.42, 0.05); handPivot.add(handG);
 vlimb(handG, 0.2, -0.42, -0.05, 0.1, -0.17, -0.4, 0.1, MAT.sleeve); vbox(handG, 0.085, 0.085, 0.085, 0.095, -0.165, -0.42, MAT.skin);
-const heldBlock = new THREE.Mesh(blockCubeGeom(B.PLANKS), new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true })); heldBlock.scale.setScalar(0.17); heldBlock.position.set(0.07, -0.075, -0.5); heldBlock.rotation.set(0.25, -0.7, 0.05); heldBlock.visible = false; handG.add(heldBlock);
-const nadeG = new THREE.Group(); nadeG.visible = false; vmRoot.add(nadeG);
+const heldBlock = new THREE.Mesh(blockCubeGeom(B.PLANKS), new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true })); heldBlock.scale.setScalar(0.12); heldBlock.position.set(0.085, -0.095, -0.5); heldBlock.rotation.set(0.25, -0.7, 0.05); heldBlock.visible = false; handG.add(heldBlock);
+const nadePivot = new THREE.Group(); nadePivot.position.set(0.2, -0.42, -0.05); vmRoot.add(nadePivot);
+const nadeG = new THREE.Group(); nadeG.visible = false; nadeG.position.set(-0.2, 0.42, 0.05); nadePivot.add(nadeG);
 { vlimb(nadeG, 0.2, -0.42, -0.05, 0.1, -0.2, -0.38, 0.1, MAT.sleeve); const s = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 10), MAT.nade); s.scale.set(1, 1.15, 1); s.position.set(0.09, -0.16, -0.42); nadeG.add(s); vbox(nadeG, 0.02, 0.018, 0.02, 0.09, -0.11, -0.42, MAT.steel); vbox(nadeG, 0.008, 0.05, 0.02, 0.122, -0.15, -0.42, MAT.steel); vbox(nadeG, 0.09, 0.09, 0.07, 0.1, -0.2, -0.38, MAT.glove); }
 
 function resizeAll() {
@@ -1388,7 +1393,7 @@ function playerTick(dt) {
   if (!keys.has('w')) pl.sprintLatch = false;
   pl.sprintSuppress -= dt;
   if (gunSel && (pl.fireHeld || pl.fireBuf > 0)) pl.sprintSuppress = 0.25;
-  pl.sneaking = pl.alive && keys.has('c') && !pl.inWater;
+  pl.sneaking = pl.alive && (keys.has('c') || keys.has('arrowdown')) && !pl.inWater;
   const aimWant = gunSel && (pl.adsHeld || pl.adsTap > 0);
   pl.sprinting = pl.alive && (keys.has('shift') || pl.sprintLatch) && iz > 0.3 && !pl.sneaking && !aimWant && pl.sprintSuppress <= 0 && !pl.inWater;
   let speed = pl.sneaking ? PT.sneak : pl.sprinting ? PT.sprint : PT.walk;
@@ -1404,7 +1409,7 @@ function playerTick(dt) {
   if (pl.alive && keys.has(' ') && pl.onGround) pl.jumpBuf = PT.jumpBuffer;
   pl.jumpBuf -= dt;
   if (pl.inWater) {
-    pl.vy -= 9 * dt; pl.vy *= Math.max(0, 1 - 2.4 * dt);
+    pl.vy -= 5 * dt; pl.vy *= Math.max(0, 1 - 2.4 * dt);
     if (pl.alive && keys.has(' ')) { pl.vy = Math.min(pl.vy + 30 * dt, 3.6); if (!pl.headWater) pl.vy = Math.max(pl.vy, 4.4); }
   } else {
     if (pl.jumpBuf > 0 && pl.coyote > 0 && pl.alive) { pl.vy = JUMP_V; pl.onGround = false; pl.coyote = 0; pl.jumpBuf = 0; sfx.jump(); }
@@ -1665,11 +1670,11 @@ function updateViewmodel(dt) {
     if (vmS.flashT > 0) { _mzw.set(M.muzzle[0], M.muzzle[1], M.muzzle[2] + 0.03); M.g.localToWorld(_mzw); vmFlashLight.position.copy(_mzw); }
     vmRoot.updateMatrixWorld(true);
   } else if (g === 'hand' || g === 'nade') {
-    const o = g === 'hand' ? handG : nadeG;
+    const o = g === 'hand' ? handPivot : nadePivot, ox0 = 0.2, oy0 = -0.42, oz0 = -0.05;
     const sp = pl.swing > 0 ? Math.sin(pl.swing * Math.PI) : 0;
     let tt = 0; if (g === 'nade' && pl.throwAnim > 0) { pl.throwAnim = Math.max(0, pl.throwAnim - dt * 2.6); tt = Math.sin((1 - pl.throwAnim) * Math.PI); }
-    o.position.set(vmS.sx * 0.4 + Math.sin(pl.bobT * 2.3) * 0.012 * bs, (Math.abs(Math.cos(pl.bobT * 2.3)) - 0.5) * -0.014 * bs + vmS.sy * 0.3 - dip * 0.35 - pl.landDip * 0.5 - sb * 0.1 - tt * 0.05, -sp * 0.1 - tt * 0.25 + pl.vmKick * 0.02);
-    o.rotation.set(-sp * 0.9 + tt * 0.8 - sb * 0.25, -sp * 0.3 + sb * 0.2, sp * 0.15);
+    o.position.set(ox0 + vmS.sx * 0.4 + Math.sin(pl.bobT * 2.3) * 0.012 * bs, oy0 + (Math.abs(Math.cos(pl.bobT * 2.3)) - 0.5) * -0.014 * bs + vmS.sy * 0.3 - dip * 0.35 - pl.landDip * 0.5 - sb * 0.08 - tt * 0.02, oz0 - sp * 0.05 - tt * 0.1 + pl.vmKick * 0.02);
+    o.rotation.set(0.12 - sp * 0.85 + tt * 0.9 - sb * 0.3, -sp * 0.25 + sb * 0.2, sp * 0.12);
     if (g === 'hand') { const id = (slot && slot.id) || 0; if (id !== vmS.heldId) { vmS.heldId = id; heldBlock.visible = !!id; if (id) heldBlock.geometry = blockCubeGeom(id); } }
     flashG.visible = false; vmFlashLight.intensity = 0;
     vmRoot.updateMatrixWorld(true);
@@ -2449,7 +2454,9 @@ E.pause.addEventListener('click', () => resumeGame());
 // ---------- simulation ----------
 function actionEdges() {
   for (let i = 1; i <= 9; i++) if (takeEdge(String(i))) selectSlot(i - 1);
-  if (takeEdge('j')) cycleSlot(1);
+  if (takeEdge('j') | takeEdge('arrowright')) cycleSlot(1);
+  if (takeEdge('arrowleft')) cycleSlot(-1);
+  if (takeEdge('arrowup')) throwGrenade();
   if (takeEdge('r') | takeEdge('z')) { const g = curGun(); if (g) startReload(g); }
   if (takeEdge('g') | takeEdge('q')) throwGrenade();
   if (takeEdge('e')) useStrike();
@@ -2525,6 +2532,8 @@ window.__dbg = () => {
   };
 };
 Object.assign(window.__game, {
+  sfx,
+  explode(x, y, z, r) { explode(x, y, z, r, { playerDmg: 0, mobDmg: 0 }); },
   spawnMob(type, dist = 8, ang = 0) { const a = pl.yaw + ang, x = pl.x - Math.sin(a) * dist, z = pl.z - Math.cos(a) * dist; const y = groundYAt(Math.floor(x), Math.floor(z), pl.y + 10); const m = spawnMob(type, x, y + 0.01, z); m.alert = 8; m.lastX = pl.x; m.lastZ = pl.z; return mobs.indexOf(m); },
   addKills(n) { for (let i = 0; i < n; i++) onKill({ type: 'zombie' }, false, W.ar); },
   hurt(n) { hurtPlayer(n, pl.x + 3, pl.z, 'debug'); },

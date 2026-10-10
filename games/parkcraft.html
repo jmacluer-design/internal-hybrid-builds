@@ -56,6 +56,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:var(--bg);overflo
 #meter{position:absolute;left:50%;bottom:clamp(60px,15vh,130px);transform:translateX(-50%);width:min(340px,54vw);text-align:center;font-size:clamp(9px,1.7vh,13px);letter-spacing:3px;color:var(--ink);}
 #meterTrack{position:relative;height:14px;margin-top:5px;border-radius:7px;background:rgba(10,8,32,.65);border:1px solid var(--line);overflow:hidden;}
 #meterSafe{position:absolute;left:30%;width:40%;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,210,61,.25),rgba(182,255,61,.45),rgba(255,210,61,.25));}
+#meterTrack b{position:absolute;top:0;font-size:9px;line-height:14px;color:#ffd23d;padding:0 4px;} #mkL{left:0;} #mkR{right:0;}
 #meterNeedle{position:absolute;top:-2px;bottom:-2px;width:5px;margin-left:-2px;background:#fff;box-shadow:0 0 8px #fff;border-radius:2px;left:50%;}
 #bailTxt{position:absolute;top:44%;left:50%;transform:translate(-50%,-50%);font-size:clamp(28px,9vh,80px);font-weight:900;letter-spacing:8px;color:var(--bad);text-shadow:0 4px 0 #3a0010,0 0 30px rgba(255,68,102,.6);opacity:0;}
 #bailTxt.show{animation:bailpop 1.2s ease-out forwards;}
@@ -141,7 +142,7 @@ button{font-family:inherit;cursor:pointer;}
     <div id="pops"></div>
     <div id="landTxt"></div>
     <div id="bailTxt">BAIL</div>
-    <div id="meter" class="hidden"><div id="meterLbl">MANUAL</div><div id="meterTrack"><div id="meterSafe"></div><div id="meterNeedle"></div></div></div>
+    <div id="meter" class="hidden"><div id="meterLbl">MANUAL</div><div id="meterTrack"><div id="meterSafe"></div><div id="meterNeedle"></div><b id="mkL">A</b><b id="mkR">D</b></div></div>
     <div id="hBL"><div id="spd">0<small>SPD</small></div><div id="spdBar"><i></i></div><div id="stateTxt"></div></div>
     <div id="cross" class="hidden"></div>
     <div id="buildInfo" class="hidden"></div>
@@ -158,7 +159,7 @@ button{font-family:inherit;cursor:pointer;}
         <section>
           <h3>RIDE</h3>
           <ul>
-            <li><kbd>W</kbd> / <b>LMB</b> push &nbsp; <kbd>S</kbd> / <b>RMB</b> brake</li>
+            <li><kbd>W</kbd> / <b>LMB</b> push &nbsp; <kbd>S</kbd> / <b>RMB</b> brake (hold S when stopped = roll back)</li>
             <li><kbd>A</kbd><kbd>D</kbd> carve (less at speed)</li>
             <li><kbd>Space</kbd> hold = crouch, release = <b>ollie</b></li>
             <li><kbd>J</kbd> + <kbd>A</kbd>/<kbd>D</kbd>/<kbd>W</kbd>/<kbd>S</kbd> in air = kickflip / heelflip / shove-it / varial</li>
@@ -181,7 +182,7 @@ button{font-family:inherit;cursor:pointer;}
           </ul>
         </section>
         <section>
-          <h3>PHONE PAD</h3>
+          <h3>PAD / CONTROLLER</h3>
           <ul>
             <li>left stick = <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> &middot; right stick = look</li>
             <li><b>JUMP</b> = <kbd>Space</kbd> (ollie / fly up)</li>
@@ -190,6 +191,7 @@ button{font-family:inherit;cursor:pointer;}
             <li><kbd>E</kbd> toggle build &middot; <kbd>Q</kbd> respawn / rotate</li>
             <li>build: <b>J</b> next piece, <b>Z</b> previous piece</li>
             <li><b>SHIFT</b> = fly down</li>
+            <li><b>Xbox / PS</b>: sticks move + look &middot; <b>A</b> ollie &middot; <b>X</b> flips &middot; <b>B</b> grab / manual &middot; <b>Y</b> build &middot; <b>RT</b> push / place &middot; <b>LT</b> brake / remove &middot; <b>LB</b> respawn / rotate &middot; <b>RB</b> down &middot; <b>Start</b> start / pause</li>
           </ul>
         </section>
       </div>
@@ -266,14 +268,14 @@ const TUNING = {
   SPIN_RATE: 7.6, SPIN_ACC: 46, SPIN_DAMP: 5, SPIN_ASSIST: 7,
   FLIP_TIME: 0.46, SHOVE_TIME: 0.40,
   // --- landing quality (deg of board-vs-travel error, wheels-down error, impact m/s) ---
-  LAND_PERFECT_DEG: 12, LAND_CLEAN_DEG: 22, LAND_BAIL_DEG: 38,
+  LAND_PERFECT_DEG: 12, LAND_CLEAN_DEG: 22, LAND_BAIL_DEG: 35,
   FLIP_SLOPPY_DEG: 28, FLIP_BAIL_DEG: 55,
   VN_SLOPPY: 13, VN_BAIL: 21, SLOPPY_KEEP: 0.7, PERFECT_BOOST: 1.04, MIN_TRICK_AIR: 0.28,
   // --- manual (balance meter -1..1, fail at |b|>=1) ---
   MANUAL_MIN_SPEED: 1.3, MANUAL_UNSTABLE: 4.2, MANUAL_CTRL: 9.0, MANUAL_DAMP: 1.6, MANUAL_GROW: 0.12, MANUAL_DECEL: 0.35,
   // --- grind ---
   GRIND_SNAP_H: 0.5, GRIND_SNAP_V: 0.42, GRIND_BELOW: 0.25, GRIND_ANGLE_DEG: 48, GRIND_MIN_SPEED: 2.6,
-  GRIND_MAX_UP: 5.0, GRIND_COOLDOWN: 0.22, GRIND_UNSTABLE: 3.0, GRIND_CTRL: 7.5, GRIND_DAMP: 1.4, GRIND_GROW: 0.10,
+  GRIND_MAX_UP: 5.0, GRIND_COOLDOWN: 0.22, GRIND_UNSTABLE: 3.6, GRIND_CTRL: 7.5, GRIND_DAMP: 1.4, GRIND_GROW: 0.10,
   RAIL_FRICTION: 0.45, LEDGE_FRICTION: 1.1,
   // --- bail / session / score ---
   BAIL_TIME: 1.2, SESSION: 120, COMBO_BANK: 1.4, MULT_MAX: 12, REPEAT_MUL: 0.35,
@@ -903,11 +905,11 @@ function buildStarter() {
   clearPark();
   const P = (id, x0, z0, gy, rot) => addPiece(mkPiece(TYPE_BY_ID[id], x0, z0, gy, rot));
   // funbox: platform with kicker (S), stairs (N), handrail, ledge on top, flat rail beside
-  for (let x = -3; x < 3; x++) for (let z = -3; z < 0; z++) P('cube', x, z, 0, 0);
+  for (let x = -3; x < 3; x++) for (let z = -4; z < 0; z++) P('cube', x, z, 0, 0);
   P('wedge', -2, 0, 0, 2);
-  P('stairs', -2, -7, 0, 0);
-  P('srail', 1, -7, 0, 0);
-  P('ledge', -2, -2, 1, 1);
+  P('stairs', -2, -8, 0, 0);
+  P('srail', 1, -8, 0, 0);
+  P('ledge', -2, -4, 1, 0);
   P('rail', 5, -6, 0, 0); P('rail', 5, -10, 0, 0);
   // two quarter-pipes (x2 wide) facing each other with an 11 block flat between
   for (const z of [-4, -1]) { P('qp', -24, z, 0, 3); P('qp', -10, z, 0, 1); }
@@ -974,7 +976,7 @@ const skyGroup = new THREE.Group(); scene.add(skyGroup);
   const sd = new THREE.Vector3(SUN_DIR.x, 0.16, SUN_DIR.z).normalize();
   const disc = new THREE.Mesh(new THREE.CircleGeometry(24, 40), new THREE.MeshBasicMaterial({ color: 0xffd9a0, fog: false, depthWrite: false }));
   disc.position.copy(sd).multiplyScalar(420); disc.lookAt(0, 0, 0); disc.renderOrder = -9; skyGroup.add(disc);
-  const glow = new THREE.Mesh(new THREE.CircleGeometry(95, 40), new THREE.MeshBasicMaterial({ color: 0xff8a6a, fog: false, depthWrite: false, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending }));
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(70, 40), new THREE.MeshBasicMaterial({ color: 0xff8a6a, fog: false, depthWrite: false, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending }));
   glow.position.copy(sd).multiplyScalar(418); glow.lookAt(0, 0, 0); glow.renderOrder = -9; skyGroup.add(glow);
   const sp = [], rr = mulberry(77);
   for (let i = 0; i < 260; i++) { const a = rr() * TAU, e = 0.25 + rr() * 0.75, r = Math.sqrt(1 - e * e); sp.push(Math.cos(a) * r * 430, e * 430, Math.sin(a) * r * 430); }
@@ -1251,7 +1253,7 @@ const S = { score: 0, best: 0, bestCombo: 0, tricks: 0, bails: 0, time: T.SESSIO
 const combo = { pts: 0, mult: 1, names: new Map(), order: [], bankT: 0, active: false };
 const sk = {
   mode: 'ground', x: 0, y: 0, z: 0, yaw: 0, spd: 0, vx: 0, vy: 0, vz: 0, nx: 0, ny: 1, nz: 0, tx: 0, ty: 0, tz: 1,
-  steer: 0, charge: 0, crouchHeld: 0, landDip: 0, pushT: 0, pushGap: 0, braking: 0, brakeV: 0,
+  steer: 0, charge: 0, backHold: 0, crouchHeld: 0, landDip: 0, pushT: 0, pushGap: 0, braking: 0, brakeV: 0,
   man: false, manBal: 0, manV: 0, manT: 0, manSeed: 0, landLock: 0,
   airT: 0, takeYaw: 0, spinV: 0, spinTot: 0, flip: null, flipRoll: 0, shove: 0, flipDone: 0,
   grab: 0, grabOn: false, grabName: '', grabT: 0, grabBest: '', startY: 0, maxY: 0, tricks: [], coyote: 0, bufOllie: 0, ollied: false, popT: 0, grindCd: 0,
@@ -1372,7 +1374,7 @@ function groundStep(dt) {
       acc += (I.s - I.w) * T.MANUAL_CTRL;
       sk.manV += acc * dt; sk.manV *= Math.exp(-T.MANUAL_DAMP * dt); sk.manBal += sk.manV * dt;
       sk.spd -= sgn(sk.spd) * Math.min(aspd, T.MANUAL_DECEL * dt);
-      combo.pts += (50 + 45 * Math.min(sk.manT, 8)) * dt; combo.bankT = 0; combo.active = true;
+      combo.pts += (40 + 22 * Math.min(sk.manT, 6)) * dt; combo.bankT = 0; combo.active = true;
       if (Math.abs(sk.manBal) >= 1) { endManual(true); return; }
     }
   }
@@ -1386,7 +1388,10 @@ function groundStep(dt) {
     sk.pushGap -= dt;
     if (wantPush && sk.pushGap <= 0 && sk.spd < T.PUSH_MAX * 0.97 && !wantBrake) { sk.pushT = T.PUSH_TIME; SFX.push(); sparkBurst(sk.x - tx * 0.3, sk.y + 0.04, sk.z - tz * 0.3, 3, 1.2, 0.7, 0.7, 0.8, 0.25, 0.1); }
   }
-  sk.braking = wantBrake && aspd > 0.15 ? 1 : 0;
+  sk.backHold = I.s && !sk.man ? sk.backHold + dt : 0;
+  const reversing = sk.backHold > 0.25 && sk.spd < 0.4 && !sk.pushT;
+  sk.braking = wantBrake && aspd > 0.15 && !reversing ? 1 : 0;
+  if (reversing) sk.spd = Math.max(sk.spd - 6 * dt, -2.8);       // hold S at a standstill to roll backwards
   if (sk.braking) { sk.spd -= sgn(sk.spd) * Math.min(aspd, T.BRAKE * dt); if (aspd > 2 && Math.random() < 0.3) sparksAt(sk.x - tx * 0.6, sk.y + 0.05, sk.z - tz * 0.6, 1, 1, 0.8, 0.4); }
   // --- gravity along slope + resistance
   sk.spd += -T.G * (T.SLOPE_G + (T.SLOPE_G_STEEP - T.SLOPE_G) * clamp((0.94 - sk.ny) / 0.44, 0, 1)) * ty * dt;
@@ -1556,7 +1561,7 @@ function grindStep(dt) {
   let acc = sk.grBal * unstable + Math.sin(sk.grTime * 3.7 + sk.grT) * 0.7;
   acc += (I.d - I.a) * T.GRIND_CTRL * (sk.grDir > 0 ? 1 : 1);
   sk.grV += acc * dt; sk.grV *= Math.exp(-T.GRIND_DAMP * dt); sk.grBal += sk.grV * dt;
-  combo.pts += (90 + 40 * Math.min(sk.grTime, 6)) * dt; combo.bankT = 0; combo.active = true;
+  combo.pts += (70 + 28 * Math.min(sk.grTime, 6)) * dt; combo.bankT = 0; combo.active = true;
   if (I.sp) sk.charge = Math.min(1, sk.charge + dt / T.CHARGE_TIME);
   const t = clamp(sk.grT, 0, s.len);
   sk.x = s.ax + s.dx * t; sk.y = s.ay + s.dy * t - 0.07; sk.z = s.az + s.dz * t;
@@ -1825,7 +1830,7 @@ function updateHUD(dt) {
     setText(H.stateTxt, 'st', st);
     const showM = sk.man || sk.mode === 'grind';
     H.meter.classList.toggle('hidden', !showM);
-    if (showM) { const b = sk.mode === 'grind' ? sk.grBal : sk.manBal; setText(H.meterLbl, 'ml', sk.mode === 'grind' ? (sk.grName.toUpperCase() + '  A / D') : 'MANUAL  W / S'); H.meterNeedle.style.left = clamp(50 + b * 50, 0, 100) + '%'; H.meterNeedle.style.background = Math.abs(b) > 0.7 ? '#ff4466' : Math.abs(b) > 0.4 ? '#ffd23d' : '#fff'; }
+    if (showM) { const b = sk.mode === 'grind' ? sk.grBal : sk.manBal; setText(H.meterLbl, 'ml', sk.mode === 'grind' ? sk.grName.toUpperCase() : 'MANUAL'); setText($('mkL'), 'mkl', sk.mode === 'grind' ? 'A' : 'W'); setText($('mkR'), 'mkr', sk.mode === 'grind' ? 'D' : 'S'); H.meterNeedle.style.left = clamp(50 + b * 50, 0, 100) + '%'; H.meterNeedle.style.background = Math.abs(b) > 0.7 ? '#ff4466' : Math.abs(b) > 0.4 ? '#ffd23d' : '#fff'; }
   } else {
     H.meter.classList.add('hidden');
     setText(H.stateTxt, 'st', 'FLY  ' + Math.round(Math.hypot(fly.x, fly.z)) + 'm  pieces ' + pieceList.length);
@@ -1936,7 +1941,7 @@ function toggleMode() {
 function settleSkater() {
   if (sk.mode === 'grind') { sk.mode = 'air'; sk.seg = null; }
   const top = topAnyAt(sk.x, sk.z), g = groundAt(sk.x, sk.z, 1e3);
-  const inside = wallAt(sk.x, sk.z, sk.y) || (sk.y + 0.05 < top - T.STEP_UP && !groundAt(sk.x, sk.z, sk.y + T.STEP_UP).p && top > 0.3);
+  const inside = wallAt(sk.x, sk.z, sk.y);
   if (inside) { placeSkater(sk.x, g.h, sk.z, sk.yaw, false); }
   else if (sk.mode === 'ground') { const gg = groundAt(sk.x, sk.z, sk.y + T.STEP_UP); if (Math.abs(gg.h - sk.y) > 0.05) { sk.mode = 'air'; sk.vx = sk.vy = sk.vz = 0; sk.airT = 0; sk.startY = sk.y; sk.maxY = sk.y; sk.takeYaw = sk.yaw; resetAir(); } }
   sk.invuln = 0.5;
@@ -1947,7 +1952,7 @@ function startSession() {
   S.score = 0; S.tricks = 0; S.bails = 0; S.time = T.SESSION; S.newBest = false; S_landedTricks = 0;
   resetCombo(); resetCones(); mode = 'ride'; state = 'play'; paused = false; setOverlay(''); setModeUI(); respawnAtSpawn();
   H.pops.innerHTML = ''; hc.cn = null; requestLock(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-  popup(freeride ? 'FREERIDE' : 'SESSION START', 'ok');
+  popup(freeride ? 'FREERIDE' : 'SESSION START', 'ok'); popup('W push  |  hold Space + release = ollie  |  E build', '');
 }
 function endSession() {
   if (state !== 'play') return;

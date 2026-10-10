@@ -963,8 +963,9 @@ function updateBlink(t){
 // ============================================================================
 //  input state shared by keyboard / mouse / phone pad
 // ============================================================================
-const keys = new Set();                       // lowercase key names; the pad bridge writes straight into this
 const latch = Object.create(null), prevK = Object.create(null);
+class KeySet extends Set { add(k){ if (!this.has(k)) latch[k] = true; return super.add(k); } }   // remember press edges even if the key is released between two physics ticks
+const keys = new KeySet();                    // lowercase key names; the pad bridge writes straight into this
 function pressedKey(k){ const d = keys.has(k); const r = (d && !prevK[k]) || latch[k]; prevK[k] = d; latch[k] = false; return !!r; }
 const INP = { mouseFire: false, padFire: false, mouseZip: false, padZip: false, zipLatch: false, padLookX: 0, padLookY: 0, fireTapT: 0 };
 const cam = { yaw: 0.6, pitch: 0.05, fov: 68, roll: 0, shake: 0, dist: 6.6 };

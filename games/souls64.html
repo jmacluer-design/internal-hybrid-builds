@@ -244,7 +244,7 @@ const DAIS_TOP = 1.2, DAIS_R0 = 5.2, DAIS_R1 = 8.2;
 
 function makeFloorTex() {
   const N = 1024, c = mkCanvas(N, N), g = c.getContext('2d');
-  g.drawImage(noiseCanvas(512, [46, 52, 64], 46, 34, 16), 0, 0, N, N);
+  g.drawImage(noiseCanvas(512, [66, 73, 90], 50, 34, 18), 0, 0, N, N);
   const cx = N / 2, ppm = N / (2 * FLOOR_R);
   _seed = 77;
   for (let r0 = DAIS_R1 - 0.5, ring = 0; r0 < FLOOR_R; ring++) {
@@ -273,7 +273,7 @@ function makeFloorTex() {
 }
 function makeBrickTex(w = 256, h = 256) {
   const c = mkCanvas(w, h), g = c.getContext('2d');
-  g.drawImage(noiseCanvas(128, [52, 56, 66], 40, 14, 22), 0, 0, w, h);
+  g.drawImage(noiseCanvas(128, [104, 110, 124], 46, 14, 24), 0, 0, w, h);
   _seed = 9; const rows = 6, rh = h / rows;
   for (let r = 0; r < rows; r++) {
     const n = 3, bw = w / n, off = (r % 2) * bw / 2;
@@ -355,6 +355,7 @@ Object.assign(moon.shadow.camera, { left: -36, right: 36, top: 36, bottom: -36, 
 moon.shadow.bias = -0.0004; moon.shadow.normalBias = 0.05;
 scene.add(moon, moon.target);
 const fillRim = new THREE.DirectionalLight(0x8a5a44, 0.5); fillRim.position.set(30, 12, -20); scene.add(fillRim);
+scene.add(new THREE.AmbientLight(0x35466a, 0.9));
 const braziers = [];  // {x,z,light?,flames[]}
 const lavaLights = [];
 for (let i = 0; i < 2; i++) { const l = new THREE.PointLight(0xff5a1c, 38, 46, 1.6); l.position.set(i ? 24 : -24, -2.5, i ? -24 : 24); scene.add(l); lavaLights.push(l); }
@@ -885,8 +886,8 @@ const POSES = {
 };
 for (const k in POSES) POSES[k] = Object.assign({}, POSES.idle, POSES[k]);
 const BR = (() => {
-  const mat = (c, r, m, map) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, map: map || null });
-  const armor = mat(0x586072, .5, .72, texBrickBoss), trim = mat(0x9a7a42, .42, .85), under = mat(0x15181f, .85, .1), plate = mat(0x3b4150, .55, .7, texGrain);
+  const mat = (c, r, m, map) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, bumpMap: map ? texGrain : null, bumpScale: 2.0 });
+  const armor = mat(0x95a2bb, .55, .3, true), trim = mat(0xc29a52, .4, .5), under = mat(0x242830, .85, .1), plate = mat(0x66718a, .55, .35, true);
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffa33a }), ventMat = new THREE.MeshBasicMaterial({ color: 0xff7a22 }), tipMat = new THREE.MeshBasicMaterial({ color: 0xff8a30 });
   const S = new THREE.Group(); S.scale.setScalar(BT.scale); bossRoot.add(S);
   const hips = new THREE.Group(); hips.position.y = 4.1; S.add(hips);
@@ -1556,7 +1557,7 @@ function wakingStep(dt) {
   if (B.t < .5) setPose('dormant', 3); else if (B.t < 2.2) setPose('kneel', 2); else setPose('roar', 2.2);
   if (B.t > .5 && !B.s1) { B.s1 = 1; SFX.stomp(); shakeAmt = .6; }
   if (B.t > 1.8 && !B.s2) { B.s2 = 1; SFX.roar(); shakeAmt = 1.0; bossSolid.walk = false; bossSolid.top = BT.topStand; }
-  if (B.t > 3.3) { B.state = 'idle'; B.cd = 1.0; setPose('idle', 3); }
+  if (B.t > 3.3) { B.state = 'idle'; B.cd = 2.2; setPose('idle', 3); }
 }
 function idleStep(dt) {
   setPose('idle', 4); B.eye = 1;
@@ -1607,7 +1608,7 @@ ATK.slam = (dt, a) => {
     a.tx = B.x + Math.sin(B.yaw) * 4.4; a.tz = B.z + Math.cos(B.yaw) * 4.4;
     const f = a.t / a.wind, locked = a.t >= a.lock;
     if (locked && !a.locked) { a.locked = 1; SFX.lock(330); }
-    setMarker(a.mk[0], a.tx, a.tz, 0, 6.8, 6.8, locked ? [1, .3, .1] : [1, .5, .18], .22 + .5 * f + (locked ? .12 * Math.sin(a.t * 40) : 0));
+    setMarker(a.mk[0], a.tx, a.tz, 0, 6.8, 6.8, locked ? [1, .3, .1] : [1, .38, .08], .22 + .5 * f + (locked ? .12 * Math.sin(a.t * 40) : 0));
     if (a.t >= a.wind) { a.stage = 1; a.t = 0; setPose('slamHit', 45); slamStrike(a); }
   } else {
     if (a.mk[0]) { a.mk[0].mat.opacity = Math.max(0, .6 - a.t * 3); if (a.t > .25) { freeMarker(a.mk[0]); a.mk[0] = null; } }
@@ -1626,7 +1627,7 @@ function sweepAtk(low) {
   return (dt, a) => {
     const sp = B.phase === 2 ? .85 : 1;
     if (!a.init) {
-      a.init = true; a.wind = (low ? 1.05 : 1.0) * sp; a.rec = 1.3; a.act = .32; a.lock = a.wind - .35; a.R = 9.8; a.col = low ? [1, .5, .15] : [.35, .9, 1];
+      a.init = true; a.wind = (low ? 1.05 : 1.0) * sp; a.rec = 1.3; a.act = .32; a.lock = a.wind - .35; a.R = 9.8; a.col = low ? [1, .4, .06] : [.1, .85, 1];
       a.mk = [getMarker('wedge160')]; SFX.wind(low ? 'sweepLow' : 'sweepHigh'); setPose(low ? 'sweepLowWind' : 'sweepHighWind', 5);
       sweepSheet.material.uniforms.uColor.value.setRGB(a.col[0], a.col[1], a.col[2]); sweepSheet.visible = true;
     }
@@ -1696,7 +1697,7 @@ ATK.volley = (dt, a) => {
 function fireShot(i) {
   const h = bossHand(), T = 1.4, g = 18, tx = H.x + H.vx * .35 + RR(-1.2, 1.2), tz = H.z + H.vz * .35 + RR(-1.2, 1.2), tyy = Math.max(0, baseH(tx, tz));
   const vx = (tx - h.x) / T, vz = (tz - h.z) / T, vy = (tyy - h.y + .5 * g * T * T) / T, bomb = i % 2 === 1;
-  const mk = getMarker('ringthin'); setMarker(mk, tx, tz, 0, bomb ? 3.8 : 4.6, bomb ? 3.8 : 4.6, bomb ? [.85, 1, .3] : [1, .5, .2], .3);
+  const mk = getMarker('ringthin'); setMarker(mk, tx, tz, 0, bomb ? 3.8 : 4.6, bomb ? 3.8 : 4.6, bomb ? [.7, 1, .1] : [1, .35, .06], .3);
   SFX.orb(); sparkBurst(h.x, h.y, h.z, 8, 6, [1, .7, .3]);
   if (bomb) { const b = spawnBomb('volley', h.x, h.y, h.z, 'flying'); if (b) { b.vx = vx; b.vy = vy; b.vz = vz; b.mk = mk; b.age = 0; b.T = T; b.tx = tx; b.tz = tz; } else freeMarker(mk); }
   else { const o = orbs.find(q => !q.on); if (o) { Object.assign(o, { on: true, x: h.x, y: h.y, z: h.z, vx, vy, vz, mk, age: 0, T, tx, tz }); o.g.visible = true; } else freeMarker(mk); }
@@ -1974,7 +1975,7 @@ function ringHits() {
 /* =====================================================================================
    CAMERA
    ===================================================================================== */
-const cam = { yaw: Math.PI, pitch: 0.3, dist: 7.6, fov: 62, fovKick: 0, tx: 0, ty: 1.4, tz: 40, rec: 0, curDist: 7.6, shk: 0, mouseT: 0 };
+const cam = { yaw: Math.PI, pitch: 0.34, dist: 9.0, fov: 62, fovKick: 0, tx: 0, ty: 1.4, tz: 40, rec: 0, curDist: 9.0, bn: 0, shk: 0, mouseT: 0 };
 const camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), _ic = new THREE.Vector3(), _il = new THREE.Vector3();
 let locked = false, lockFailed = false, lockTimer = 0;
 function camKick(f) { cam.fovKick = Math.max(cam.fovKick, f); }
@@ -1990,6 +1991,7 @@ function camCollide(tx, ty, tz, dx, dy, dz, dist) {
 const smooth01 = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
 function updateCamera(dt) {
   const st = game.state;
+  { const dd = hyp(B.x - H.x, B.z - H.z), want = (st === 'fight' || st === 'intro') && !B.dead && B.state !== 'dormant' ? clamp(1 - (dd - 5) / 16, 0, 1) : 0; cam.bn += (want - cam.bn) * damp(2.5, dt); }
   if (I.lookX || I.lookY) { cam.yaw -= I.lookX * 2.6 * dt; cam.pitch = clamp(cam.pitch + I.lookY * 2.0 * dt, -0.5, 1.3); cam.rec = 0; }
   if (I.qPress) { I.qPress = false; cam.rec = 0.6; }
   if (cam.rec > 0) { cam.rec -= dt; cam.yaw += wrapPi(H.yaw - cam.yaw) * damp(13, dt); cam.pitch += (0.3 - cam.pitch) * damp(10, dt); }
@@ -2004,9 +2006,9 @@ function updateCamera(dt) {
     const a = game.clock * 0.05 + 0.6; camPos.set(Math.sin(a) * 33, 12, Math.cos(a) * 33); camLook.set(0, 3.5, 0);
   } else {
     const cp = Math.cos(cam.pitch), dx = -Math.sin(cam.yaw) * cp, dy = Math.sin(cam.pitch), dz = -Math.cos(cam.yaw) * cp; // from target to camera
-    const want = cam.curDist * (1 + 0.15 * Math.max(0, cam.pitch));
+    const want = cam.curDist * (1 + 0.15 * Math.max(0, cam.pitch)) * (1 + 0.38 * cam.bn);
     const d = camCollide(cam.tx, cam.ty, cam.tz, dx, dy, dz, want);
-    camPos.set(cam.tx + dx * d, cam.ty + dy * d, cam.tz + dz * d); camLook.set(cam.tx, cam.ty + 0.15, cam.tz);
+    camPos.set(cam.tx + dx * d, cam.ty + dy * d, cam.tz + dz * d); camLook.set(cam.tx, cam.ty + 0.15 + cam.bn * 2.4, cam.tz);
     if (st === 'intro') {
       const t = game.introT, w = smooth01((t - 3.0) / 1.1);
       if (w < 1) {
@@ -2222,7 +2224,7 @@ function resetWorld(mode) {
   arena.userData.sealBox.on = false;
   if (mode === 'gate' || mode === 'menu') { H.x = 0; H.z = 40.5; H.yaw = Math.PI; arena.userData.sealBox.on = true; }
   else { H.x = 0; H.z = 21; H.yaw = Math.PI; game.sealed = true; arena.userData.sealBox.on = true; }
-  H.y = Math.max(0, groundAt(H.x, H.z, .5)); cam.yaw = Math.PI; cam.pitch = .3; cam.tx = H.x; cam.ty = H.y + 1.35; cam.tz = H.z; cam.curDist = cam.dist;
+  H.y = Math.max(0, groundAt(H.x, H.z, .5)); cam.yaw = Math.PI; cam.pitch = .34; cam.tx = H.x; cam.ty = H.y + 1.35; cam.tz = H.z; cam.curDist = cam.dist;
   if (mode === 'retry') { B.state = 'idle'; B.eye = 1; B.pose = POSES.idle; Object.assign(BP, POSES.idle); bossSolid.walk = false; bossSolid.top = BT.topStand; B.cd = 1.8; }
   ensureArenaBombs(); applyMood(0); setHint('', 0);
   for (const b of bombs) if (b.on) { b.g.position.set(b.x, b.y, b.z); }
@@ -2390,6 +2392,8 @@ Object.assign(window.__game, {
   attack(id) { if (B.state === 'idle') { startAttack(id); } }, boss: B, hero: H, state: game,
   skipIntro() { if (game.state === 'intro') { game.introT = 4.3; B.state = 'idle'; B.eye = 1; bossSolid.walk = false; bossSolid.top = BT.topStand; } },
   killHero() { if (game.state === 'fight') { H.inv = 0; hurtHero(99, B.x, B.z, 'test'); } }, killBoss() { B.hp = 1; B.phase = 2; bossDamage(5, 0, 'test'); },
+  step(sec) { pollInput(); const n = Math.round(sec / TUNING.step); for (let i = 0; i < n; i++) { if (hitStop > 0) { hitStop -= TUNING.step; continue; } simStep(TUNING.step * 1); } I.ePress = false; },
+  info() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }; },
   bombAt(x, z) { const b = spawnBomb('arena', x, baseH(x, z) + .65, z, 'idle'); return !!b; }
 });
 
