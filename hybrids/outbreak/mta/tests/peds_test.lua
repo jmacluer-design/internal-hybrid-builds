@@ -86,7 +86,7 @@ end)
 
 T.test("colonists: a ped that lags is placed at the destination (the sim never waits for it); the deadline follows the sim's walking time and the time scale", function()
 	local m = H.boot({ warm_ms = 1000 })
-	m.auto_syncer = false -- nobody drives the peds: every walk lags
+	m.no_movement = true -- the peds do not obey their control states (a blocked path, a bug): every walk lags
 	m:step(120000)
 	local C = mods(m).Colonists
 	T.gt(C.stats.snaps, 0, "snaps happened: " .. C.stats.snaps)
@@ -168,8 +168,8 @@ T.test("colonists: a sim-side death kills the ped without echoing a second ped_d
 	local victims = {}
 	for _, x in pairs(C.list) do if not x.dead and x.ped then victims[#victims + 1] = x end end
 	local v = victims[1]
-	H.host(m):debug("horde", { n = 4, dist = 60 })
-	m:step(6000)
+	H.host(m):debug("horde", { n = 10, dist = 100 })
+	m:step(7000)
 	local Z = mods(m).Zombies
 	local zeds = of_kind(m, "zombie")
 	T.gt(#zeds, 0)
@@ -287,7 +287,8 @@ T.test("hordes: with max_materialized at 60 the sim never asks for more than 60 
 		H.host(m):debug("event", { id = "gang_raid" })
 		for _ = 1, 8 do
 			m:step(2500)
-			local hostile = #of_kind(m, "zombie") + #of_kind(m, "raider")
+			local hostile = 0 -- living ones: corpses waiting for deletion are counted in peak_all
+			for _, kind in ipairs({ "zombie", "raider" }) do for _, p in ipairs(of_kind(m, kind)) do if not p.dead then hostile = hostile + 1 end end end
 			peak = math.max(peak, hostile)
 			peak_all = math.max(peak_all, #m:live("ped"))
 			T.le(mat_total(w) + (function() local n = 0 for _, r in ipairs(w.s.raids) do if r.mat then n = n + r.mat.count end end return n end)(), 60, "the sim's own count stays within the cap")
@@ -359,8 +360,10 @@ T.test("hordes: zombies notice, chase and bite the player: stance sets the detec
 	m:step(4000)
 	T.gt(Z.stats.attacks, 0)
 	T.lt(host.survival.c.hp, hp0, "the bite reached the survival body")
-	T.near(m.player.health, host.survival:effects().health * 100, 3, "and the owner's ped health follows it")
 	T.truthy(zed.anim and zed.anim.block == "FIGHT_B", "the swing animation plays")
+	zed.x, zed.y = m.player.x + 300, m.player.y -- out of reach: no further bites while the HUD push catches up
+	m:step(1500)
+	T.near(m.player.health, host.survival:effects().health * 100, 3, "and the owner's ped health follows it")
 	-- sprinting widens the radius to 45
 	m.player.ducked = false
 	rec.state = "wander"

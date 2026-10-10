@@ -9,8 +9,9 @@ local NET = require("shared.mta_net")
 local G = { cursor = 1, stats = { sent = 0, samples = 0 } }
 local cfg = ctx.cfg
 
+-- getGroundPosition casts a ray DOWN from z, so for something that fell below the ground the cast must start higher: just above the base height (never below the element itself)
 local function sample_ground(x, y, z)
-	local gz = getGroundPosition(x, y, z + 3.0)
+	local gz = getGroundPosition(x, y, math.max(z + 3.0, ctx.origin.z + 30.0))
 	if type(gz) == "number" and gz ~= 0 then return gz end
 	return nil
 end

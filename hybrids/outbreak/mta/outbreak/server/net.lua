@@ -55,7 +55,7 @@ end
 local function greet(player)
 	local host = ctx.host
 	triggerClientEvent(player, NET.hello, resourceRoot, { owner = true, origin = { x = ctx.origin.x, y = ctx.origin.y, z = ctx.origin.z },
-		client = { colony_key = ctx.config.client.colony_key } })
+		client = { colony_key = ctx.config.client.colony_key, ui_mode = ctx.config.client.ui_mode, grid = ctx.config.client.grid } })
 	triggerClientEvent(player, NET.catalog, resourceRoot, V.catalog())
 	ctx.client_only = true
 	local ok, err = pcall(host.emit_resync, host, true) -- reset + the current world (colonists, buildings, power, weather, live hordes ...) to THIS client only
@@ -120,6 +120,7 @@ function Net.register()
 			return
 		end
 		ctx.owner = player
+		Peds.set_syncer_all(player)
 		World.join_team(player)
 		if scfg.spawn_player and (isPedDead(player) or not ctx.spawned) then World.spawn_owner(player); ctx.spawned = true end
 		greet(player)

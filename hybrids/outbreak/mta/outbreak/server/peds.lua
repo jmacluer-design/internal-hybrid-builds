@@ -77,6 +77,15 @@ function Peds.destroy(ped)
 	if isElement(ped) then destroyElement(ped) end
 end
 
+-- the owner joined after some peds already existed (the starting colonists are created before any player is there): make the owner's client the syncer of all of them
+function Peds.set_syncer_all(owner)
+	local n = 0
+	for ped in pairs(Peds.list) do
+		if isElement(ped) and setElementSyncer(ped, owner, true) then n = n + 1 end
+	end
+	return n
+end
+
 function Peds.owns(ped) return Peds.list[ped] ~= nil end
 function Peds.kind_of(ped) local r = Peds.list[ped]; return r and r.kind end
 function Peds.counts() return { peds = Peds.n, stats = Peds.stats } end

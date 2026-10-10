@@ -26,6 +26,8 @@ function M.set_mode(mode)
 	if mode == "colony" then Camera.enter() else Camera.leave(); Placement.cancel_placing() end
 	UI.update_focus()
 	UI.send("mode", { mode = mode })
+	-- the server needs to know too (zombies do not hunt the anchored player ped in colony view); the page sends the same message, which is harmless
+	triggerServerEvent(NET.ui_action, resourceRoot, "screens", { colony = (mode == "colony") })
 end
 
 -- ---------------------------------------------------------------------------------------------------------------- startup (after the server says hello)
@@ -35,6 +37,11 @@ local function start(msg)
 	end
 	ctx.owner = msg.owner == true
 	if not ctx.owner then return end
+	-- the settings that live on the server (a client has no get()): only known keys of the right type are taken
+	if type(msg.client) == "table" then
+		for k, v in pairs(msg.client) do if ctx.cfg[k] ~= nil and type(v) == type(ctx.cfg[k]) then ctx.cfg[k] = v end end
+	end
+	UI.create() -- only the owner gets a browser, and only once the server has said which mode to use
 	if not M.started then
 		M.started = true
 		World.start(); Noise.start(); Survival.start(); Camera.start(); Placement.start(); Driver.start(); Ground.start()
@@ -94,7 +101,6 @@ end
 local function on_start()
 	register_network()
 	UI.register({ set_mode = M.set_mode, camera = Camera, build = Placement })
-	UI.create()
 
 	bindKey(ctx.cfg.colony_key:lower(), "down", function() if ctx.owner then M.set_mode(M.mode == "colony" and "survival" or "colony") end end)
 	bindKey(ctx.cfg.inventory_key, "down", function() if ctx.owner and not ctx.colony_mode then UI.send("screen", { name = "inventory" }) end end)

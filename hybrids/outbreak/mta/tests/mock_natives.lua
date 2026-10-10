@@ -434,6 +434,7 @@ return function(Mock, K)
 		end
 		N.getGroundPosition = function(x, y, z)
 			if m.no_ground then return 0.0 end
+			if z < terrain(x, y) then return 0.0 end -- the ray starts under the surface: nothing below
 			return terrain(x, y)
 		end
 		N.processLineOfSight = function(x1, y1, z1, x2, y2, z2)
@@ -578,18 +579,26 @@ return function(Mock, K)
 				if e.syncer ~= nil then syncer_ok = (e.syncer == self.player) else syncer_ok = self.auto_syncer ~= false end
 				if streamed and syncer_ok and not e.frozen then
 					local gz = terrain(e.x, e.y)
-					if e.z < gz - 3.0 then e.fell, e.z = true, -50.0
+					if e.z < gz - 1.0 then
+						e.z = e.z - 25.0 * sec -- below the ground: falling through the world
+						if e.z < gz - 150.0 then e.fell = true end -- lost for good
 					elseif not e.fell then e.z = (e.z > gz + 1.05) and math.max(gz + 1.0, e.z - 9.8 * sec) or (gz + 1.0) end
-					if e.controls.forwards and not e.fell then
+					if e.controls.forwards and not e.fell and not self.no_movement then
 						local v = (e.controls.sprint and SPEED.sprint) or (e.controls.walk and SPEED.walk) or SPEED.jog
 						local r = math.rad(e.rz)
 						local nx, ny = e.x + (-math.sin(r)) * v * sec, e.y + math.cos(r) * v * sec
-						local blocked = false
-						for _, w in ipairs(self.walls or {}) do
-							if nx >= w[1] and nx <= w[3] and ny >= w[2] and ny <= w[4] then blocked = true; break end
+						local function hits(x, y)
+							for _, w in ipairs(self.walls or {}) do if x >= w[1] and x <= w[3] and y >= w[2] and y <= w[4] then return true end end
+							return false
 						end
-						if blocked then e.blocked_ms = (e.blocked_ms or 0) + dt else e.x, e.y = nx, ny; e.blocked_ms = 0; e.walked = (e.walked or 0) + v * sec end
-						e.vx, e.vy = (nx - e.x), (ny - e.y)
+						-- collision slides along a wall: try the full step, then each axis on its own
+						local mx, my = nx, ny
+						if hits(nx, ny) then
+							if not hits(nx, e.y) then mx, my = nx, e.y elseif not hits(e.x, ny) then mx, my = e.x, ny else mx, my = e.x, e.y end
+						end
+						local blocked = (mx == e.x and my == e.y)
+						if blocked then e.blocked_ms = (e.blocked_ms or 0) + dt else e.blocked_ms = 0; e.walked = (e.walked or 0) + math.sqrt((mx - e.x) ^ 2 + (my - e.y) ^ 2); e.x, e.y = mx, my end
+						e.vx, e.vy = 0.0, 0.0
 					end
 				end
 			end
