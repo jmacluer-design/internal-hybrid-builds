@@ -54,6 +54,7 @@ const API = location.origin;
 const BUILD = '__BUILD__'; // stamped by deploy.sh; busts edge caches so a new build never serves a stale copy
 const SUPA = (()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
 const games = [
+ {id:'parkcraft', name:'PARKCRAFT', desc:'build the park, then shred it · push, carve, ollie, flip tricks, grinds, manuals · block-style park builder · Xbox/PS pad', file:'games/parkcraft.html', bytes:163326},
  {id:'neondrift', name:'NEONDRIFT', desc:'synthwave hover-skiff runner · rings, shards, boost', file:'games/archive/neondrift.html', bytes:25729, archived:true},
  {id:'blockshot-v1', name:'BLOCKSHOT v1', desc:'MW2 × Minecraft × SM64 × Skate3 prototype · superseded by the rebuild', file:'games/archive/blockshot-v1.html', bytes:23873, archived:true},
 ];
