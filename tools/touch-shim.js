@@ -36,8 +36,8 @@
       K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('respawn','RESPAWN','q',{side:'L'}) ] },
     webcraft:{ menuQuit:true, utilX:118, buttons:[ FIRE('SWING',{big:1}), JUMP(), ALT('ZIP'), K('dive','DIVE','z'), K('yank','YANK','j'),
       K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('respawn','RESPAWN','q',{side:'L'}) ] },
-    blockshot:{ menuQuit:true, fanLift:30, buttons:[ FIRE('FIRE',{big:1}), JUMP(), ALT('AIM'), K('reload','RELOAD','z'), K('frag','FRAG','q'), K('strike','STRIKE','e'), K('next','NEXT','j'),
-      K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('sneak','SNEAK','c',{side:'L',mode:'toggle'}), K('prev','PREV','arrowleft',{side:'L'}) ] },
+    blockshot:{ menuQuit:true, fanLift:30, buttons:[ FIRE('FIRE',{big:1}), JUMP(), ALT('AIM'), K('reload','RELOAD','z'), K('frag','FRAG','q'), K('strike','STRIKE','e'), K('prev','PREV','arrowleft'), K('next','NEXT','j'),
+      K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('sneak','SNEAK','c',{side:'L',mode:'toggle'}) ] },
     souls64:{ menuQuit:false, buttons:[ FIRE('PUNCH',{big:1}), JUMP(), ALT('GRAB'), K('crouch','CROUCH\nPOUND','z'), K('use','INTERACT','e'),
       K('creep','CREEP','shift',{side:'L',mode:'toggle'}), K('recenter','RECENTER','q',{side:'L'}) ] },
     parkcraft:{ menuQuit:true, utilX:118,
@@ -112,7 +112,7 @@
 .ibt-panel .bt{display:flex;gap:8px;margin-top:6px}
 .ibt-panel button{flex:1;min-height:40px;border-radius:8px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.1);color:#fff;font:inherit;font-size:12px}
 .ibt-panel button:active{background:rgba(255,196,64,.5)}
-#ibt-rot{position:fixed;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);z-index:99991;display:none;align-items:center;gap:10px;padding:8px 12px;border-radius:20px;
+#ibt-rot{position:fixed;left:0;right:0;margin:0 auto;width:max-content;top:max(8px,env(safe-area-inset-top));z-index:99991;display:none;align-items:center;gap:10px;padding:6px 8px 6px 12px;border-radius:20px;
   background:rgba(14,18,26,.92);border:1px solid rgba(255,196,64,.7);color:#fff;font:600 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.03em;max-width:calc(100vw - 16px)}
 #ibt-rot.on{display:flex}
 #ibt-rot i{font-style:normal;font-size:20px}
@@ -134,7 +134,7 @@ html.ibt-active,html.ibt-active body{overscroll-behavior:none}
   const uMenu=h('ibt-u',root,'MENU'), uGear=h('ibt-u',root,'\u2699');
   const bd=h('ibt-bd',root), panel=h('ibt-panel',root);
   const go=h('',doc.body); go.id='ibt-go';   // floating start button, only when the menu / retry button is not reachable on screen (tall card on a short phone)
-  const rot=h('',doc.body); rot.id='ibt-rot'; h('',rot,'\u21BB','i'); h('',rot,'Rotate your phone to landscape to play','span'); const rotX=h('',rot,'\u00D7','b');
+  const rot=h('',doc.body); rot.id='ibt-rot'; h('',rot,'\u21BB','i'); h('',rot,'Rotate to landscape to play','span'); const rotX=h('',rot,'\u00D7','b');
   // settings panel
   const row=lab=>{ const r=h('r',panel); h('',r,lab,'span'); return r; };
   const ph=h('h',panel); h('',ph,'TOUCH CONTROLS','span'); const pX=h('',ph,'\u00D7','b'); pX.style.cssText='font-size:22px;padding:2px 10px';

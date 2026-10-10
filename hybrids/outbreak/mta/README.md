@@ -38,6 +38,22 @@ Other facts taken from the source and wiki and relied on (each is a checked fact
 
 ## 2. Install
 
+**Fastest path on a Linux x86-64 server (for example appdev2): one command.** From a checkout of this repo:
+
+```sh
+bash hybrids/outbreak/mta/tools/install_server_linux.sh            # installs into ~/mta-server; re-run after every git pull to update the resource (saves are kept)
+tmux new -s mta 'cd ~/mta-server/multitheftauto_linux_x64 && ./mta-server64'
+```
+
+It downloads the official MTA:SA server, makes the config private (no browser listing, no LAN broadcast, only `outbreak` starts), installs the resource and prints the exact fix for any missing library.
+`install_server_linux.sh --check` reports the state without changing anything.
+
+**Verified on the REAL MTA:SA 1.6 server (64-bit Linux, Ubuntu 24.04), 2026-10-10, no client attached:** `Resources: 1 loaded, 0 failed`; the in-game self-test reproduced the recorded sim hash
+`449ba8f9380b6128` inside MTA's own Lua engine (the same hash as LuaJIT, Lua 5.4 and PUC 5.1.5); a scripted console session (`outbreak_autopilot on`, `outbreak_speed 16`, `outbreak_horde`, `outbreak_ff 1440`)
+ran about two game days with zero errors or warnings: buildings grew 4 to 20, `outbreak_audit` printed `audit OK` twice, real `createPed` / `createObject` calls succeeded (peds 2/96, objects 10/400),
+saves written on command and on resource stop. NOT covered (needs a real client): peds walking, camera, CEF UI, streaming, anything in section 10.
+
+
 **What you need**
 
 * A legitimate copy of **GTA San Andreas for PC** (MTA does not include the game) and the **MTA:SA client** from <https://www.multitheftauto.com/> (the resource asks for 1.5.8 or newer;
