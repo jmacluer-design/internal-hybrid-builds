@@ -64,11 +64,14 @@ end
 
 function C.ensure_ped(e)
 	if e.ped and DoesEntityExist(e.ped) then return e.ped end
-	if e.state == "away" or e.dead then return nil end
+	if e.state == "away" or e.dead or e.creating then return nil end -- `creating`: model streaming yields, so the upkeep thread must not start a second creation
+	e.creating = true
 	local x, y, z = ctx.to_game(e.pos.x, e.pos.y, e.pos.z)
 	z = Pool.ground_z(x, y, z)
 	local ped, why = Pool.create_ped("colonist", ctx.cfg.colonist_models, x, y, z + 0.5, math.random() * 360.0, e.id)
+	e.creating = nil
 	if not ped then e.ped_fail = why; return nil end
+	if C.list[e.id] ~= e then Pool.delete_ped(ped); return nil end -- the colonist left / the world was reset while the ped was streaming in
 	e.ped, e.ped_fail = ped, nil
 	C.stats.created = C.stats.created + 1
 	configure(e)

@@ -209,7 +209,14 @@ T.test("orders: draft, place_blueprint, cancel; a sim refusal comes back as orde
 	h:on_order({ id = "colony", kind = "place_blueprint", target = { bp = "wall", pos = { x = b.x + 20, y = b.y + 20 } } })
 	local r = find(events_of(rec, from), "order_result")
 	T.truthy(r and r.ok == false and r.reason == "blocked", "second placement at the same spot: " .. tostring(r and r.reason))
-	h:on_order({ id = "colony", kind = "cancel_blueprint", target = placed.id })
+	from = #rec.sent + 1
+	h:on_order({ id = "colony", kind = "cancel_blueprint", target = { id = placed.id } })
+	local gone = find(events_of(rec, from), "building_destroyed")
+	T.truthy(gone and gone.id == placed.id and gone.cancelled == true, "the sim emits nothing on cancel: the host reports the removal so clients drop the ghost")
+	T.eq(h.world:building(placed.id), nil)
+	from = #rec.sent + 1
+	h:on_order({ id = "colony", kind = "cancel_blueprint", target = { id = "b99999" } })
+	T.eq(find(events_of(rec, from), "building_destroyed"), nil, "nothing to report for an unknown id")
 end)
 
 T.test("orders: invalid orders are rejected with a result and counted", function()
@@ -401,7 +408,8 @@ T.test("resync describes the whole world: buildings, hordes, raids, caravans, pi
 	local built, planned = 0, 0
 	for _, bd in ipairs(w.s.buildings) do if bd.state == "built" then built = built + 1 else planned = planned + 1 end end
 	T.eq(count_of(evs, "construction_done"), built); T.eq(count_of(evs, "place_blueprint"), planned)
-	T.eq(count_of(evs, "loot_spawn"), #w.s.piles)
+	local sync = find(evs, "piles_sync")
+	T.truthy(sync and #sync.piles == #w.s.piles, "one piles_sync listing every live pile")
 	local mat = 0
 	for _, hd in ipairs(w.s.hordes) do if hd.mat and hd.mat.count > 0 then mat = mat + 1 end end
 	T.eq(count_of(evs, "spawn_horde"), mat)

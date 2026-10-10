@@ -4200,7 +4200,8 @@ const GEM_SUPPORTS = [
   gemSupport('thrifty', 'Thrifty', 'R', 0, ['any'], 'Costs much less Spark. Slightly less damage.', (R, L) => { R.costMul *= 0.7 - 0.004 * (L - 1); R.more *= 0.9 + 0.003 * (L - 1); }),
 ];
 const GEM_DEFS = GEM_SKILLS.concat(GEM_SUPPORTS), GEM_BY_ID = {}; GEM_DEFS.forEach(d => GEM_BY_ID[d.id] = d);
-const gemIsSkill = id => !!GEM_BY_ID[id] && GEM_BY_ID[id].kind === 'skill', gemIsSupport = id => !!GEM_BY_ID[id] && GEM_BY_ID[id].kind === 'support';
+const gemIsSkill = id => !!GEM_BY_ID[id] && GEM_BY_ID[id].kind === 'skill';
+const gemIsSupport = id => !!GEM_BY_ID[id] && GEM_BY_ID[id].kind === 'support';
 
 // ---- levels ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function gemXpNext(L) { return L >= GEM_TUNING.maxLevel ? 0 : Math.round(GEM_TUNING.xpBase * Math.pow(L, GEM_TUNING.xpPow)); }

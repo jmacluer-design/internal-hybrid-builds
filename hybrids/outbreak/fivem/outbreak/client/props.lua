@@ -13,39 +13,65 @@ local function ref_kind(ref)
 	return "container", ref
 end
 
+-- create the crate prop of a pile / drop. The entry is RESERVED before anything waits (model streaming yields), so two events for the same ref that arrive
+-- while the first is still streaming cannot create two props.
+function Pr.ensure(ref, pos, source)
+	if Pr.props[ref] then return false end
+	local placeholder = { pending = true, born = GetGameTimer() }
+	Pr.props[ref] = placeholder
+	local x, y, z = ctx.to_game(pos.x, pos.y, pos.z or 0.0)
+	z = Pool.ground_z(x, y, z)
+	local obj = Pool.create_object(ctx.config.props._pile, x, y, z, true)
+	if Pr.props[ref] ~= placeholder then -- a reset (or the pile vanishing) happened while we waited
+		if obj then Pool.delete_object(obj) end
+		return false
+	end
+	if not obj then Pr.props[ref] = nil; return false end -- the next piles_sync retries
+	FreezeEntityPosition(obj, true)
+	placeholder.obj, placeholder.x, placeholder.y, placeholder.z, placeholder.pending = obj, x, y, z, nil
+	if source == "drop" then Pr.stats.drops = Pr.stats.drops + 1 else Pr.stats.piles = Pr.stats.piles + 1 end
+	return true
+end
+
 ctx.on("loot_spawn", function(ev)
 	local ref = ev.container
 	if type(ref) ~= "string" or ev.pos == nil then return end
 	if not (ref:sub(1, 5) == "pile:" or ev.source == "drop") then return end -- world containers are the game's own props, not ours
-	local old = Pr.props[ref]
-	if old then return end
-	local x, y, z = ctx.to_game(ev.pos.x, ev.pos.y, ev.pos.z)
-	z = Pool.ground_z(x, y, z)
-	local obj = Pool.create_object(ctx.config.props._pile, x, y, z, true)
-	if not obj then return end
-	FreezeEntityPosition(obj, true)
-	Pr.props[ref] = { obj = obj, x = x, y = y, z = z, born = GetGameTimer() }
-	if ev.source == "drop" then Pr.stats.drops = Pr.stats.drops + 1 else Pr.stats.piles = Pr.stats.piles + 1 end
+	Pr.ensure(ref, ev.pos, ev.source)
 end)
 
--- the colony UI state lists the live piles: drop props whose pile is gone (hauled away / emptied)
-function Pr.sync_piles(piles)
-	local alive = {}
-	for _, p in ipairs(piles or {}) do alive["pile:" .. p.id] = true end
+local function drop_missing(alive)
 	local gone = {}
 	for ref in pairs(Pr.props) do
 		if ref:sub(1, 5) == "pile:" and not alive[ref] then gone[#gone + 1] = ref end
 	end
 	for _, ref in ipairs(gone) do
-		Pool.delete_object(Pr.props[ref].obj)
+		local p = Pr.props[ref]
 		Pr.props[ref] = nil
+		if p.obj then Pool.delete_object(p.obj) end
 	end
+end
+
+-- the host lists every live ground pile whenever the set changes (the sim emits no event when a pile is emptied or created by a death / a cancelled
+-- blueprint): crates appear for new piles and vanish for gone ones, also while no colony screen is open
+ctx.on("piles_sync", function(ev)
+	local alive = {}
+	for _, p in ipairs(ev.piles or {}) do alive["pile:" .. p.id] = true end
+	drop_missing(alive)
+	for _, p in ipairs(ev.piles or {}) do Pr.ensure("pile:" .. p.id, { x = p.x, y = p.y, z = 0.0 }, "pile") end
+end)
+
+-- the colony UI state lists the live piles too: drop props whose pile is gone
+function Pr.sync_piles(piles)
+	local alive = {}
+	for _, p in ipairs(piles or {}) do alive["pile:" .. p.id] = true end
+	drop_missing(alive)
 end
 
 function Pr.nearest(x, y, z, radius)
 	local best, bd = nil, radius
 	for ref, p in pairs(Pr.props) do
-		local d = math.sqrt((p.x - x) ^ 2 + (p.y - y) ^ 2 + (p.z - z) ^ 2)
+		local d = p.obj and math.sqrt((p.x - x) ^ 2 + (p.y - y) ^ 2 + (p.z - z) ^ 2) or 1e9
 		if d <= bd then best, bd = ref, d end
 	end
 	return best
@@ -67,8 +93,9 @@ end
 ctx.on("caravan", function(ev)
 	if ev.phase == "arrive" then
 		if Pr.traders[ev.id] or not ev.pos then return end
-		local x, y, z = ctx.to_game(ev.pos.x, ev.pos.y, ev.pos.z)
 		local list = {}
+		Pr.traders[ev.id] = list -- reserved before the (waiting) creation below, so a repeated arrive event cannot double the traders
+		local x, y, z = ctx.to_game(ev.pos.x, ev.pos.y, ev.pos.z)
 		for i = 1, 2 do
 			local gz = Pool.ground_z(x + i * 1.5, y, z)
 			local ped = Pool.create_ped("trader", ctx.config.client.faction_models[ev.faction] or ctx.config.client.colonist_models, x + i * 1.5, y, gz, 0.0, ev.id)
@@ -80,7 +107,7 @@ ctx.on("caravan", function(ev)
 				list[#list + 1] = ped
 			end
 		end
-		Pr.traders[ev.id] = list
+		if Pr.traders[ev.id] ~= list then for _, ped in ipairs(list) do Pool.delete_ped(ped) end end -- left / reset while we were creating them
 	elseif ev.phase == "leave" then
 		for _, ped in ipairs(Pr.traders[ev.id] or {}) do Pool.delete_ped(ped) end
 		Pr.traders[ev.id] = nil
@@ -88,7 +115,7 @@ ctx.on("caravan", function(ev)
 end)
 
 function Pr.clear()
-	for ref, p in pairs(Pr.props) do Pool.delete_object(p.obj); Pr.props[ref] = nil end
+	for ref, p in pairs(Pr.props) do if p.obj then Pool.delete_object(p.obj) end; Pr.props[ref] = nil end
 	for id, list in pairs(Pr.traders) do
 		for _, ped in ipairs(list) do Pool.delete_ped(ped) end
 		Pr.traders[id] = nil

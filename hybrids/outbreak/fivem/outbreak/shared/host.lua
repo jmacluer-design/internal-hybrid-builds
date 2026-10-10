@@ -151,13 +151,22 @@ function Host:resync_events()
 		out[#out + 1] = { type = "caravan", t = now, phase = "arrive", id = c.id, faction = c.faction, name = fd and fd.name or c.faction, leave_t = c.leave_t, stock = stock,
 			pos = pos3(TUNING.base.garage.x + 10, TUNING.base.garage.y + 15) }
 	end
-	for i = 1, #s.piles do
-		local p = s.piles[i]
-		local map = {}
-		for _, it in ipairs(items.list(p.items)) do map[it.id] = it.n end
-		out[#out + 1] = { type = "loot_spawn", t = now, container = "pile:" .. p.id, items = map, source = "restore", pos = SU.pos_copy(p.pos) }
-	end
+	out[#out + 1] = self:piles_event(true)
 	return out
+end
+
+-- the sim emits no event when a ground pile appears (a death, a cancelled blueprint) or is emptied, so the host lists the live piles whenever the set changes
+function Host:piles_event(force)
+	local piles, ids = {}, {}
+	local ps = self.world.s.piles
+	for i = 1, #ps do
+		piles[i] = { id = ps[i].id, x = U.r1(ps[i].pos.x), y = U.r1(ps[i].pos.y), n = items.total_count(ps[i].items) }
+		ids[i] = ps[i].id
+	end
+	local digest = table.concat(ids, ",")
+	if not force and digest == self.pile_digest then return nil end
+	self.pile_digest = digest
+	return { type = "piles_sync", t = self.world.s.t, piles = piles }
 end
 
 -- queue a full resync; `reset` tells the client to drop everything it has first
@@ -173,7 +182,10 @@ end
 -- send the outbox (or `evs`) in messages of at most max_events_per_msg events. `reset` marks the first message of a resync.
 function Host:flush_events(reset, evs)
 	local list = evs
-	if not list then list = self.outbox; self.outbox = {} end
+	if not list then
+		if self.world then local pe = self:piles_event(false); if pe then self.outbox[#self.outbox + 1] = pe end end -- (cheap: one join over the live piles)
+		list = self.outbox; self.outbox = {}
+	end
 	if #list == 0 and not reset then return 0 end
 	local per = self.cfg.server.max_events_per_msg
 	local sent, i = 0, 1
@@ -371,7 +383,17 @@ function Host:on_order(raw)
 		self.stats.orders_rejected = self.stats.orders_rejected + 1
 		return false
 	end
+	-- the sim emits NO event when a blueprint / building is removed by order (sim/blueprints.lua M.cancel), so a client would keep the ghost prop forever:
+	-- the host reports the removal with a synthetic building_destroyed (marked cancelled = true)
+	local gone
+	if ev.kind == "cancel_blueprint" and type(ev.target) == "table" and type(ev.target.id) == "string" then
+		local b = self.world:building(ev.target.id)
+		if b then gone = { id = b.id, bp = b.bp, pos = SU.pos_copy(b.pos) } end
+	end
 	self:absorb(self.world:handle(ev))
+	if gone and not self.world:building(gone.id) then
+		self:absorb({ { type = "building_destroyed", t = self.world.s.t, id = gone.id, bp = gone.bp, pos = gone.pos, cancelled = true } })
+	end
 	self:flush_events()
 	if self.ui_open then self:push_state() end
 	return true

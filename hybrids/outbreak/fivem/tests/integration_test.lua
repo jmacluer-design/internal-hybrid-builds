@@ -334,18 +334,19 @@ T.test("hordes: zombies notice, chase and bite the player; the damage reaches th
 	local target = z[1]
 	m:player_move_to(target.x + 8, target.y)
 	local hp0 = host.survival:view().hp
-	m:step(12000)
+	local min_hp = hp0
+	for _ = 1, 24 do m:step(500); min_hp = math.min(min_hp, host.survival:view().hp) end -- (a dead player respawns after ~6 s, so watch the minimum)
 	local gone_to = 0
 	for _, p in ipairs(zombies_of(m)) do if p.task == "go_to_entity" or (p.task_log and #p.task_log > 0) then gone_to = gone_to + 1 end end
 	T.gt(gone_to, 0, "zombies were tasked to chase")
 	T.gt(mods(m).Zombies.stats.attacks, 0, "zombies attacked")
-	T.lt(host.survival:view().hp, hp0, "the bites cost the player health in the host's survival body")
+	T.lt(min_hp, hp0, "the bites cost the player health in the host's survival body")
 	local dmg = m:in_events("player_damage")
 	T.gt(#dmg, 0, "player_damage events were sent")
 	-- the HUD message carries it back, and the client applied it to the ped
-	local hud
-	for _, msg in ipairs(m:nui_messages("hud")) do hud = msg.data end
-	T.truthy(hud and hud.hp < 100)
+	local lowest = 100
+	for _, msg in ipairs(m:nui_messages("hud")) do lowest = math.min(lowest, msg.data.hp) end
+	T.lt(lowest, 100, "the HUD showed the damage")
 	assert_clean(m, "chase")
 end)
 
@@ -445,4 +446,165 @@ T.test("noise: the sim's own horde reacts to a loud noise (abstract hordes are a
 	T.ge(#m:in_events("noise"), 1)
 	T.truthy(h.state ~= nil)
 	assert_clean(m, "noise attraction")
+end)
+
+-- ---------------------------------------------------------------------------------------------------------------------------- raiders
+local function raiders_of(m)
+	local out = {}
+	for _, p in ipairs(m:entities("ped", true)) do if p.weapon and p.group ~= ctxm(m).rel.OB_COLONY and p.group ~= ctxm(m).rel.OB_ZOMBIE then out[#out + 1] = p end end
+	return out
+end
+
+local function plan_raid_near(m, faction, points, dist)
+	local w = H.world(m)
+	local factions = require("sim.factions")
+	local r = factions.plan_raid(w, points or 60, faction or "rustjaw")
+	local b = TUNING.base
+	r.x, r.y = b.x + (dist or 120), b.y
+	return r
+end
+
+T.test("raiders: a raid near the player materializes as armed peds of the faction's relationship group walking to the base", function()
+	local m = H.boot()
+	local w = H.world(m)
+	player_at_base(m)
+	local r = plan_raid_near(m, "rustjaw", 80, 120)
+	m:step(8000)
+	T.truthy(r.mat and r.mat.count > 0, "the sim materialized the raid")
+	local rd = raiders_of(m)
+	T.eq(#rd, r.mat.count, "raider peds == sim count")
+	T.eq(mods(m).Raiders.alive_total(), #rd)
+	local group = ctxm(m).rel.OB_RUSTJAW
+	local base_game = { x = TUNING.base.x + ORIGIN.x, y = TUNING.base.y + ORIGIN.y }
+	for _, p in ipairs(rd) do
+		T.eq(p.group, group)
+		T.truthy(next(p.weapons), "armed")
+		local walks = 0
+		for _, rec in ipairs(p.task_log or {}) do
+			if rec.name == "go_to_coord" and math.abs(rec.x - base_game.x) < 1e-6 and math.abs(rec.y - base_game.y) < 1e-6 then walks = walks + 1 end
+		end
+		T.ge(walks, 1, "walks to the base (origin-offset target)")
+	end
+	assert_clean(m, "raiders")
+end)
+
+T.test("raiders: deaths are reported with the raid id; when the last one dies the raid is repelled", function()
+	local m = H.boot()
+	local w = H.world(m)
+	player_at_base(m)
+	local r = plan_raid_near(m, "tallow", 50, 100)
+	m:step(8000)
+	local rd = raiders_of(m)
+	T.gt(#rd, 0)
+	local rid = r.id
+	for _, p in ipairs(rd) do m:kill(p.handle, m.player.ped.handle) end
+	m:step(3000)
+	local died = 0
+	for _, e in ipairs(m:in_events("ped_died")) do if e.id == rid then died = died + 1 end end
+	T.eq(died, #rd, "one ped_died per raider, with the raid id")
+	T.eq(factions_find and 0 or 0, 0)
+	T.eq(require("sim.factions").find_raid(w, rid), nil, "the raid is over in the sim")
+	m:step(30000)
+	T.eq(#raiders_of(m), 0, "bodies cleaned up")
+	assert_clean(m, "raid repelled")
+end)
+
+T.test("raiders: raid_report keeps the abstract position in sync", function()
+	local m = H.boot()
+	player_at_base(m)
+	plan_raid_near(m, "rustjaw", 60, 150)
+	m:step(12000)
+	local reports = m:in_events("raid_report")
+	T.gt(#reports, 0)
+	for _, e in ipairs(reports) do T.truthy(P.sanitize_in(e)); T.lt(math.abs(e.pos.x), 600) end
+	assert_clean(m, "raid report")
+end)
+
+-- ---------------------------------------------------------------------------------------------------------------------------- building
+local function wall_pos() return { x = TUNING.base.x + 14, y = TUNING.base.y + 10 } end
+local function objects(m) return m:entities("object", true) end
+-- blueprint ghosts: translucent props without collision (colonists also carry crate props while hauling, so counting every object would be wrong)
+local function ghosts(m)
+	local out = {}
+	for _, e in ipairs(objects(m)) do if e.alpha < 255 and e.collision == false then out[#out + 1] = e end end
+	return out
+end
+
+T.test("build: an order through the NUI makes a translucent, collision-free ghost that ramps up and turns solid", function()
+	local m = H.boot()
+	local w = H.world(m)
+	local p = wall_pos()
+	T.eq(#ghosts(m), 0)
+	m:nui("place", { op = "commit", bp = "wall", x = p.x, y = p.y })
+	m:step(2500)
+	local placed = m:out_events("place_blueprint")
+	T.eq(#placed, 1); T.eq(placed[1].bp, "wall")
+	T.eq(#ghosts(m), 1)
+	local ghost = ghosts(m)[1]
+	T.truthy(ghost, "a translucent prop")
+	T.eq(ghost.alpha, 90, "ghost alpha floor")
+	T.eq(ghost.collision, false, "no collision while it is a ghost")
+	T.near(ghost.x, p.x + ORIGIN.x, 0.01); T.near(ghost.y, p.y + ORIGIN.y, 0.01)
+	T.eq(ghost.frozen, true)
+	-- let the colony build it (the sim's own AI plays)
+	m:host():debug("autopilot", { on = true })
+	local last_alpha, rose = ghost.alpha, false
+	local done = m:wait_until(function()
+		if ghost.alpha > last_alpha and ghost.alpha < 255 then rose = true end
+		last_alpha = ghost.alpha
+		for _, b in ipairs(w.s.buildings) do if b.id == placed[1].id and b.state == "built" then return true end end
+		return false
+	end, 0)
+	m:host():ui_action("set_speed", { speed = 16 })
+	done = m:wait_until(function()
+		if ghost.alpha > last_alpha and ghost.alpha < 255 then rose = true end
+		last_alpha = ghost.alpha
+		for _, b in ipairs(w.s.buildings) do if b.id == placed[1].id and b.state == "built" then return true end end
+		return false
+	end, 240000)
+	T.truthy(done, "the colony finished the wall")
+	m:step(2000)
+	T.truthy(rose, "alpha rose with construction progress")
+	T.eq(ghost.alpha, 255, "solid when done")
+	T.eq(ghost.collision, true, "collision when done")
+	assert_clean(m, "build")
+end)
+
+T.test("build: a refused placement comes back as order_result, and no prop is leaked", function()
+	local m = H.boot()
+	local p = wall_pos()
+	m:nui("place", { op = "commit", bp = "wall", x = p.x, y = p.y })
+	m:step(2000)
+	T.eq(#ghosts(m), 1)
+	m:nui("place", { op = "commit", bp = "wall", x = p.x, y = p.y }) -- same spot: blocked
+	m:step(2000)
+	T.eq(#ghosts(m), 1, "no second ghost")
+	local bad
+	for _, e in ipairs(m:out_events("order_result")) do if e.ok == false then bad = e end end
+	T.truthy(bad and bad.reason == "blocked", "order_result blocked")
+	assert_clean(m, "refused placement")
+end)
+
+T.test("build: model fallback when the preferred prop model does not exist", function()
+	local m = H.boot({ invalid_models = { prop_barrier_work05 = true, prop_conc_blocks01a = true, prop_mp_barrier_02b = true } })
+	local ctx = ctxm(m)
+	local p = wall_pos()
+	m:nui("place", { op = "commit", bp = "wall", x = p.x, y = p.y })
+	m:step(3000)
+	T.eq(#ghosts(m), 1, "a ghost exists even though the first model names were invalid")
+	assert_clean(m, "model fallback")
+end)
+
+T.test("build: destroyed buildings lose their prop; a reset clears every prop", function()
+	local m = H.boot()
+	local w = H.world(m)
+	local p = wall_pos()
+	m:nui("place", { op = "commit", bp = "wall", x = p.x, y = p.y })
+	m:step(2500)
+	T.eq(#ghosts(m), 1)
+	local id = m:out_events("place_blueprint")[1].id
+	m:host():on_order({ id = "colony", kind = "cancel_blueprint", target = { id = id } })
+	m:step(2500)
+	T.eq(#ghosts(m), 0, "cancelled blueprint prop removed")
+	assert_clean(m, "cancel")
 end)
