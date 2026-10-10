@@ -292,7 +292,7 @@ renderer.toneMapping = THREE.NoToneMapping;
 const FOG_COL = 0xb4b0a2;
 renderer.setClearColor(FOG_COL);
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(FOG_COL, 0.0040);
+scene.fog = new THREE.FogExp2(FOG_COL, 0.0036);
 const camera = new THREE.PerspectiveCamera(66, 16 / 9, 0.3, 3200);
 scene.add(camera);
 function onResize(){
@@ -371,17 +371,16 @@ function buildTextures(){
     strokeLines(ctx, L, 'rgba(14,16,16,.7)', 2.0, S); strokeLines(gtx, L, 'rgb(255,128,48)', 1.6, S);
     TEX.titan = toTex(c, 1); TEX.titanGlow = toTex(g2, 1);
   }
-  // armour: bronzed plate with rivets, engraved rune lines, patina
-  { const c0 = [78, 70, 56], c1 = [146, 124, 84], pat = [74, 124, 108], o = [0, 0, 0], t = [0, 0, 0];
+  // armour: weathered patina bronze with rivets and engraved bands
+  { const c0 = [58, 56, 50], c1 = [128, 112, 82], pat = [62, 112, 98], o = [0, 0, 0], t = [0, 0, 0];
     const c = pixelPaint(S, (u, v, out) => {
-      const n = fbmT(u * 5, v * 5, 5, 4, 61), br = vnoiseT(u * 6, v * 220, 6, 31), m = fbmT(u * 3 + 2, v * 3 + 5, 3, 4, 71);
-      mix3(o, c0, c1, clamp(n * 0.9 + br * 0.25, 0, 1)); mix3(t, o, pat, smooth(0.55, 0.8, m) * 0.6); out[0] = t[0]; out[1] = t[1]; out[2] = t[2];
+      const n = fbmT(u * 5, v * 5, 5, 4, 61), br = vnoiseT(u * 6, v * 200, 6, 31), m = fbmT(u * 3 + 2, v * 3 + 5, 3, 4, 71);
+      mix3(o, c0, c1, clamp(n * 0.85 + br * 0.22, 0, 1)); mix3(t, o, pat, smooth(0.45, 0.72, m) * 0.7); out[0] = t[0]; out[1] = t[1]; out[2] = t[2];
     });
-    const ctx = c.getContext('2d'); ctx.strokeStyle = 'rgba(20,16,10,.65)'; ctx.lineWidth = 2;
-    ctx.strokeRect(10, 10, S - 20, S - 20); ctx.strokeRect(26, 26, S - 52, S - 52);
-    for (let i = 0; i < 8; i++) { const a = i * TAU / 8, x = S / 2 + Math.cos(a) * 80, y = S / 2 + Math.sin(a) * 80; ctx.beginPath(); ctx.moveTo(S / 2, S / 2); ctx.lineTo(x, y); ctx.stroke(); }
-    ctx.beginPath(); ctx.arc(S / 2, S / 2, 44, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(S / 2, S / 2, 80, 0, TAU); ctx.stroke();
-    ctx.fillStyle = 'rgba(210,190,140,.8)'; for (const [x, y] of [[18, 18], [S - 18, 18], [18, S - 18], [S - 18, S - 18], [S / 2, 18], [S / 2, S - 18], [18, S / 2], [S - 18, S / 2]]) { ctx.beginPath(); ctx.arc(x, y, 3.4, 0, TAU); ctx.fill(); }
+    const ctx = c.getContext('2d'); ctx.strokeStyle = 'rgba(14,12,8,.55)'; ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, S - 16, S - 16); ctx.beginPath(); ctx.moveTo(8, 36); ctx.lineTo(S - 8, 36); ctx.moveTo(8, S - 36); ctx.lineTo(S - 8, S - 36); ctx.stroke();
+    ctx.lineWidth = 1.4; const R2 = mulberry32(19); for (let i = 0; i < 9; i++) { const x = 20 + R2() * (S - 40), y0 = 44 + R2() * 30; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x + (R2() - 0.5) * 14, y0 + 60 + R2() * 90); if (R2() < 0.5) ctx.lineTo(x + 10, y0 + 110 + R2() * 40); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(190,170,120,.75)'; for (const [x, y] of [[16, 16], [S - 16, 16], [16, S - 16], [S - 16, S - 16], [S / 2, 16], [S / 2, S - 16]]) { ctx.beginPath(); ctx.arc(x, y, 3.2, 0, TAU); ctx.fill(); }
     TEX.armour = toTex(c, 1);
   }
   // rune ring (transparent bg): glowing glyph circle for ground and pillar bands
@@ -429,7 +428,7 @@ buildTextures();
 const MAT = {
   ground: new THREE.MeshStandardMaterial({ map: TEX.ground, vertexColors: true, roughness: 1, metalness: 0 }),
   stone: new THREE.MeshStandardMaterial({ map: TEX.stone, vertexColors: true, roughness: 0.96, metalness: 0, flatShading: true }),
-  titan: new THREE.MeshStandardMaterial({ map: TEX.titan, vertexColors: true, roughness: 0.92, metalness: 0.02, emissive: 0xff8c46, emissiveMap: TEX.titanGlow, emissiveIntensity: 0.55 }),
+  titan: new THREE.MeshStandardMaterial({ map: TEX.titan, vertexColors: true, roughness: 0.92, metalness: 0.02, emissive: 0xff8c46, emissiveMap: TEX.titanGlow, emissiveIntensity: 0.4 }),
   armour: new THREE.MeshStandardMaterial({ map: TEX.armour, vertexColors: true, roughness: 0.62, metalness: 0.25, emissive: 0xff5a20, emissiveIntensity: 0 }),
   moss: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, flatShading: true }),
   eye: new THREE.MeshBasicMaterial({ color: 0xffa040 }),
@@ -757,9 +756,9 @@ function makeFogLayer(y, alpha, scale, col){
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), m); mesh.rotation.x = -Math.PI / 2; mesh.position.y = y; mesh.frustumCulled = false; mesh.renderOrder = 5;
   scene.add(mesh); fogLayers.push(mesh); return mesh;
 }
-makeFogLayer(5, 0.42, 0.0042, [0.86, 0.82, 0.74]);
-makeFogLayer(15, 0.34, 0.0031, [0.84, 0.80, 0.72]);
-makeFogLayer(34, 0.22, 0.0024, [0.80, 0.78, 0.74]);
+makeFogLayer(5, 0.26, 0.0042, [0.84, 0.80, 0.72]);
+makeFogLayer(15, 0.2, 0.0031, [0.82, 0.78, 0.70]);
+makeFogLayer(34, 0.13, 0.0024, [0.78, 0.76, 0.72]);
 
 const shaftMat = new THREE.ShaderMaterial({
   uniforms: { uTex: { value: TEX.shaft }, uTime: { value: 0 }, uCam: { value: new THREE.Vector3() }, uCol: { value: new THREE.Color(1.0, 0.86, 0.62) } },
@@ -1118,7 +1117,7 @@ function titanPaint(g, seed, base, moss, ink){
     o[0] = r; o[1] = gg; o[2] = b;
   }); return g;
 }
-const STONE = [1.5, 1.55, 1.5], STONE2 = [1.3, 1.38, 1.38], ARM = [1.15, 1.02, 0.86];
+const STONE = [1.65, 1.7, 1.62], STONE2 = [1.45, 1.52, 1.5], ARM = [1.2, 1.18, 1.05];
 function stoneMesh(g, parent, x, y, z, seed, moss, base){ titanPaint(g, seed, base || STONE, moss == null ? 0.8 : moss); const m = new THREE.Mesh(g, MAT.titan); m.position.set(x, y, z); parent.add(m); return m; }
 function armourMesh(g, parent, x, y, z, seed, base){ titanPaint(g, seed, base || ARM, 0.0); const m = new THREE.Mesh(g, MAT.armour); m.position.set(x, y, z); parent.add(m); return m; }
 function limbGeo(r, len, seed, tex){ const g = new THREE.CapsuleGeometry(r, len, 5, 12); g.translate(0, -len / 2, 0); uvScale(g, r * 0.55, (len + 2 * r) / 14); return g; }
@@ -1135,6 +1134,16 @@ function tuftGeo(R, n, region, tint){
     items.push({ g: c, m });
   }
   return mergeGeos(items);
+}
+function mossClumps(R, n, cx, cy, cz, rx, ry, rz, minY, tint){
+  const items = [];
+  for (let i = 0; i < n; i++) {
+    let dx, dy, dz, l; do { dx = R() * 2 - 1; dy = R() * 2 - 1; dz = R() * 2 - 1; l = Math.hypot(dx, dy, dz); } while (l < 0.2 || l > 1 || dy / l < minY);
+    dx /= l; dy /= l; dz /= l; const r = 0.9 + R() * 1.7, g = new THREE.IcosahedronGeometry(r, 1);
+    paintGeo(g, (x, y, z, nx, ny, nz, o) => { const k = 0.8 + 0.5 * (y / r + 1) * 0.5; o[0] = tint[0] * k; o[1] = tint[1] * k; o[2] = tint[2] * k; });
+    items.push({ g, m: mat4(cx + dx * rx, cy + dy * ry, cz + dz * rz, R() * 3, R() * 3, R() * 3, 1, 0.55, 1) });
+  }
+  return new THREE.Mesh(mergeGeos(items), MAT.moss);
 }
 const WPS = [];
 const WP_DEFS = [
@@ -1169,10 +1178,10 @@ function buildTitan(){
   // ---- torso
   stoneMesh(roundedBoxGeo(26, 22, 15.4, 4.8, 10, [2, 1.6]), spine, 0, 10.5, 0, 11, 1.0, STONE2);
   stoneMesh(roundedBoxGeo(33, 9, 14, 3.4, 8, [2.4, 0.8]), spine, 0, 19.5, 0, 12, 1.0);
-  armourMesh(roundedBoxGeo(20, 15.5, 3.0, 1.0, 8, [1.4, 1.2]), spine, 0, 13.2, 8.35, 21);               // chest plate
-  armourMesh(roundedBoxGeo(15, 5, 2.4, 0.8, 6, [1.1, 0.4]), spine, 0, 3.6, 8.0, 22);
-  const back = armourMesh(roundedBoxGeo(21, 19, 3.4, 1.0, 8, [1.4, 1.3]), spine, 0, 12.5, -8.6, 23);   // back plate (fur/moss grows here)
-  const tuftsBack = new THREE.Mesh(tuftGeo(R, 70, { x0: -10, x1: 10, y0: 4, y1: 22, z0: -10.4, z1: -9.2, tilt: [0, -2.2] }, [0.62, 0.7, 0.36]), MAT.moss); spine.add(tuftsBack);
+  armourMesh(roundedBoxGeo(16, 13, 3.0, 1.4, 8, [1.1, 0.9]), spine, 0, 13.2, 8.35, 21);               // chest plate
+  for (const sd of [1, -1]) armourMesh(roundedBoxGeo(7, 11, 2.2, 1.0, 6, [0.6, 0.9]), spine, sd * 10.8, 12.5, 7.4, 22 + sd).rotation.y = -sd * 0.28;
+  const back = armourMesh(roundedBoxGeo(20, 17, 3.4, 1.6, 8, [1.3, 1.2]), spine, 0, 12.5, -8.6, 23);   // back plate (fur/moss grows here)
+  spine.add(mossClumps(R, 46, 0, 12.5, -9.8, 11, 9.5, 2.2, -0.6, [0.5, 0.66, 0.32])); spine.add(new THREE.Mesh(tuftGeo(R, 60, { x0: -10, x1: 10, y0: 4, y1: 21, z0: -11.2, z1: -9.6, tilt: [0, -2.4] }, [0.5, 0.64, 0.3]), MAT.moss));
   // ---- neck + head
   { const g = new THREE.CapsuleGeometry(3.4, 3, 4, 10); g.translate(0, 1, 0); uvScale(g, 1.3, 0.6); stoneMesh(g, neck, 0, 0, 0, 31, 0.3); }
   stoneMesh(roundedBoxGeo(10.6, 11, 11.2, 3.0, 8, [0.9, 0.9]), head, 0, 4.2, 1.0, 32, 0.5);
@@ -1187,6 +1196,7 @@ function buildTitan(){
     const gs = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.soft, color: 0xff8a30, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0.7, fog: false })); gs.scale.set(9, 9, 1); gs.position.set(sd * 2.9, 5.0, 7.6); head.add(gs); eyeGlow.push(gs);
   }
   TB.eyeGlow = eyeGlow;
+  head.add(mossClumps(R, 10, 0, 5, -1.5, 5, 5, 5, 0.3, [0.5, 0.66, 0.32]));
   // crown: ring of spikes + central gem socket
   for (let i = 0; i < 7; i++) { const a = i * TAU / 7, sp = new THREE.ConeGeometry(0.9, 4.6, 5); sp.translate(0, 2.3, 0); const m = armourMesh(sp, head, Math.cos(a) * 3.6, 10.0, 1.0 + Math.sin(a) * 3.6, 40 + i); m.rotation.z = -Math.cos(a) * 0.35; m.rotation.x = Math.sin(a) * 0.35; }
   armourMesh(new THREE.CylinderGeometry(4.2, 4.6, 1.2, 14), head, 0, 9.6, 1.0, 50);
@@ -1198,10 +1208,10 @@ function buildTitan(){
     // pauldron dome
     { const g = new THREE.SphereGeometry(6.4, 14, 10); g.scale(1.05, 0.85, 1); armourMesh(g, sh, sd * 0.6, 2.6, 0, 60 + sd); }
     armourMesh(new THREE.TorusGeometry(5.6, 0.8, 6, 16), sh, sd * 0.6, 1.6, 0, 61).rotation.x = Math.PI / 2;
-    stoneMesh(limbGeo(3.7, 14, 62 + sd), sh, 0, 0, 0, 62 + sd, 0.4);
-    const tf = tuftGeo(R, 14, { x0: -2.5 + sd * 2, x1: 2.5 + sd * 3, y0: 6, y1: 8.4, z0: -3, z1: 3, tilt: [0, 0] }, [0.6, 0.7, 0.34]); sh.add(new THREE.Mesh(tf, MAT.moss));
-    stoneMesh(limbGeo(3.5, 14, 64 + sd), el, 0, 0, 0, 64 + sd, 0.3);
-    armourMesh(roundedBoxGeo(8.4, 9.6, 8.4, 1.6, 8, [1, 0.8]), el, 0, -6.8, 0, 66 + sd);
+    stoneMesh(limbGeo(4.2, 14, 62 + sd), sh, 0, 0, 0, 62 + sd, 0.4);
+    sh.add(mossClumps(R, 16, sd * 0.6, 2.6, 0, 6.2, 5.2, 6.2, 0.45, [0.5, 0.66, 0.32]));
+    stoneMesh(limbGeo(3.9, 14, 64 + sd), el, 0, 0, 0, 64 + sd, 0.3);
+    armourMesh(new THREE.CylinderGeometry(4.9, 4.4, 8, 14, 1, false), el, 0, -6.8, 0, 66 + sd);
     armourMesh(new THREE.SphereGeometry(3.9, 10, 8), el, 0, 0.6, 0, 67 + sd);
     // hand (+Z = back of hand): palm, fingers, thumb
     stoneMesh(roundedBoxGeo(6.8, 7.0, 3.9, 1.2, 6, [0.7, 0.8]), hdm, 0, -3.4, 0, 70 + sd, 0.2, STONE2);
@@ -1217,23 +1227,23 @@ function buildTitan(){
       const dist = new THREE.Group(); dist.position.set(0, -3.2, 0); prox.add(dist); stoneMesh(limbGeo(0.9, 2.6, 98), dist, 0, 0, 0, 98, 0.0, STONE2); FINGERS.push({ prox, dist, S, thumb: true }); }
     // colliders
     capOnBone(sh, 'pauldron' + S, [sd * 0.6, 2.6, 0], [sd * 0.6, 2.6, 0], 6.5);
-    capOnBone(sh, 'uarm' + S, [0, -1, 0], [0, -13, 0], 3.8); capOnBone(el, 'farm' + S, [0, -1, 0], [0, -13, 0], 3.6);
+    capOnBone(sh, 'uarm' + S, [0, -1, 0], [0, -13, 0], 4.3); capOnBone(el, 'farm' + S, [0, -1, 0], [0, -13, 0], 4.0);
     obbOnBone(hdm, 'hand' + S, [0, -3.4, 0], [3.5, 3.6, 2.4], 1.0);
   }
   // ---- legs
   for (const sd of [1, -1]) {
     const S = sd > 0 ? 'L' : 'R';
     const hip = mkBone('hip' + S, pelvis, sd * 7.6, -2, 0), kn = mkBone('kn' + S, hip, 0, -14.5, 0), an = mkBone('an' + S, kn, 0, -14, 0);
-    stoneMesh(limbGeo(4.7, 14.5, 100 + sd), hip, 0, 0, 0, 100 + sd, 0.6);
-    armourMesh(roundedBoxGeo(7.6, 10, 3.0, 1.0, 6, [0.8, 0.8]), hip, 0, -7.4, 4.1, 102 + sd);
+    stoneMesh(limbGeo(5.3, 14.5, 100 + sd), hip, 0, 0, 0, 100 + sd, 0.6);
+    for (const y of [-4, -10.5]) armourMesh(new THREE.CylinderGeometry(5.5, 5.5, 2.2, 14, 1, false), hip, 0, y, 0, 102 + sd + y);
     { const g = new THREE.SphereGeometry(4.2, 12, 8); armourMesh(g, kn, 0, 0.2, 2.4, 103 + sd); armourMesh(new THREE.TorusGeometry(3.6, 0.7, 6, 14), kn, 0, 0.2, 4.4, 104).rotation.y = 0; }
-    stoneMesh(limbGeo(3.8, 14, 105 + sd), kn, 0, 0, 0, 105 + sd, 0.4);
-    armourMesh(roundedBoxGeo(5.8, 11.5, 2.4, 0.9, 6, [0.6, 0.9]), kn, 0, -7.2, 3.5, 106 + sd);
+    stoneMesh(limbGeo(4.3, 14, 105 + sd), kn, 0, 0, 0, 105 + sd, 0.4);
+    for (const y of [-5, -11]) armourMesh(new THREE.CylinderGeometry(4.5, 4.4, 2.0, 14, 1, false), kn, 0, y, 0, 106 + sd + y);
     stoneMesh(roundedBoxGeo(8.2, 4.8, 14.2, 1.6, 8, [0.8, 1.0]), an, 0, -2.6, 3.2, 107 + sd, 0.6);
     armourMesh(roundedBoxGeo(7.4, 2.4, 5.4, 0.8, 6, [0.6, 0.4]), an, 0, -0.9, 7.6, 108 + sd);
     // toe/heel markers for ground contact
     const toe = new THREE.Object3D(); toe.position.set(0, -5.0, 9.6); an.add(toe); const heel = new THREE.Object3D(); heel.position.set(0, -5.0, -2.8); an.add(heel); TB['toe' + S] = toe; TB['heel' + S] = heel;
-    capOnBone(hip, 'thigh' + S, [0, -1, 0], [0, -13.5, 0], 4.8); capOnBone(kn, 'shin' + S, [0, -1, 0], [0, -13, 0], 3.9);
+    capOnBone(hip, 'thigh' + S, [0, -1, 0], [0, -13.5, 0], 5.4); capOnBone(kn, 'shin' + S, [0, -1, 0], [0, -13, 0], 4.4);
     capOnBone(kn, 'kneecap' + S, [0, 0.2, 2.4], [0, 0.2, 2.4], 4.2); obbOnBone(an, 'foot' + S, [0, -2.6, 3.2], [4.1, 2.5, 7.1], 1.4);
   }
   capOnBone(neck, 'neck', [0, -1, 0], [0, 3, 0], 3.5);
@@ -2782,7 +2792,7 @@ function updateCamera(dt, rx, ry, rz){
   const fh = cl ? 40 : C.followH; camFocus.x += (tx - camFocus.x) * damp(fh, dt); camFocus.z += (tz - camFocus.z) * damp(fh, dt); camFocus.y += (ty - camFocus.y) * damp(cl ? 40 : C.followV, dt);
   const cp = Math.cos(cam.pitch), dx = -Math.sin(cam.yaw) * cp, dy = Math.sin(cam.pitch), dz = -Math.cos(cam.yaw) * cp, rxv = Math.cos(cam.yaw), rzv = -Math.sin(cam.yaw);
   const near = clamp((95 - dT) / 95, 0, 1), gb = P.state === 'grabbed';
-  const want = C.dist + near * C.titanPull + clamp(sp * C.distSpeed, 0, 3.4) + (S.on ? 0.8 : 0) + (P.state === 'dive' ? 1.2 : 0) + (cl ? 3.5 : 0) + (gb ? 9 : 0) - 1.4 * P.yank.charge;
+  const want = C.dist + near * C.titanPull * (cl ? 0.25 : 1) + clamp(sp * C.distSpeed, 0, 3.4) + (S.on ? 0.8 : 0) + (P.state === 'dive' ? 1.2 : 0) + (cl ? 3.5 : 0) + (gb ? 9 : 0) - 1.4 * P.yank.charge;
   const sh = C.shoulder * (0.5 + 0.5 * smooth(2, 7, want));
   let wx = -dx * want + rxv * sh, wy = -dy * want + C.height - cam.dip, wz = -dz * want + rzv * sh; const wl = Math.hypot(wx, wy, wz); let allowed = wl;
   const ray = (yw, pt, len) => { const c2 = Math.cos(pt), ddx = Math.sin(yw) * c2, ddy = -Math.sin(pt), ddz = Math.cos(yw) * c2; return castRay(camFocus.x, camFocus.y, camFocus.z, ddx, ddy, ddz, len + 0.6, 0, null) ? Math.max(0.8, RH.t - 0.55) : len; };

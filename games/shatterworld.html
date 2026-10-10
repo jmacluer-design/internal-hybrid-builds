@@ -1316,7 +1316,7 @@ const P = {
   x: -24, y: 0, gy: 0, z: -46, vx: 0, vy: 0, vz: 0, yaw: 0.6, grounded: false, groundedT: 0, act: 'ground', actT: 0, h: TUNING.height, size: 1,
   jumpBuf: 0, zBuf: 0, fireBuf: 0, chainN: 0, chainT: 0, landT: 9, jumpHeld: false, airKind: 'jump', wallT: 0, wnx: 0, wnz: 0, kickCd: 0,
   invuln: 0, hurtT: 0, hp: TUNING.hp, big: false, poundT: 0, diveT: 0, punchT: 0, punchAlt: 0, crouch: false, speed: 0, wade: false, inLowG: false,
-  dead: false, frozen: 0, skid: false, flipT: 0, flipKind: '', prevY: 0, step: 0, onPlat: null, victory: 0, talk: 0, bounceT: 0,
+  stats: { jumps: 0, punches: 0, dives: 0, pounds: 0, flips: 0, kicks: 0 }, dead: false, frozen: 0, skid: false, flipT: 0, flipKind: '', prevY: 0, step: 0, onPlat: null, victory: 0, talk: 0, bounceT: 0,
 };
 const INP = { ix: 0, iz: 0, jump: false, crouch: false, run: false, mag: 0 };
 const _pk = { jump: false, z: false, e: false, j: false, q: false, m: false, p: false, fire: false, place: false };
@@ -1379,18 +1379,18 @@ function stepHero(dt) {
       P.jumpBuf = 0; P.grounded = false; P.groundedT = 1;
       const sp = Math.hypot(P.vx, P.vz), face = P.yaw;
       if (P.crouch && sp > 5.5) { // long jump
-        const s = Math.min(Math.max(sp, 6) * T.longJump.mult, T.longJump.cap); P.vx = Math.sin(face) * s; P.vz = Math.cos(face) * s; P.vy = T.longJump.vy; setAct('long'); P.airKind = 'long'; sfx('long'); heroKick(hero, -9); puff(P.x, P.y + 0.1, P.z, 6, 0.9);
+        const s = Math.min(Math.max(sp, 6) * T.longJump.mult, T.longJump.cap); P.vx = Math.sin(face) * s; P.vz = Math.cos(face) * s; P.vy = T.longJump.vy; setAct('long'); P.airKind = 'long'; P.stats.jumps++; sfx('long'); heroKick(hero, -9); puff(P.x, P.y + 0.1, P.z, 6, 0.9);
       } else if (P.crouch) { // backflip
-        P.vx = -Math.sin(face) * T.backflip.back; P.vz = -Math.cos(face) * T.backflip.back; P.vy = T.backflip.vy; setAct('flip'); P.flipKind = 'back'; P.airKind = 'flip'; P.flipT = 0; sfx('flip'); heroKick(hero, 10);
+        P.vx = -Math.sin(face) * T.backflip.back; P.vz = -Math.cos(face) * T.backflip.back; P.vy = T.backflip.vy; setAct('flip'); P.flipKind = 'back'; P.airKind = 'flip'; P.flipT = 0; P.stats.flips++; sfx('flip'); heroKick(hero, 10);
       } else if (P.skid && sp > 3) { // side flip out of a skid
         const nx = wx || -Math.sin(face), nz = wz || -Math.cos(face); P.vx = nx * T.sideflip.speed; P.vz = nz * T.sideflip.speed; P.yaw = Math.atan2(nx, nz); P.vy = T.sideflip.vy; setAct('flip'); P.flipKind = 'side'; P.airKind = 'flip'; P.flipT = 0; sfx('flip'); heroKick(hero, 10);
       } else {
         let n = 0; if (P.chainN > 0 && P.landT < T.chain + 0.05 && sp > 3) n = P.chainN; P.chainN = (n + 1) % 3 || 0; if (n === 0) P.chainN = 1; P.chainT = T.chain + 0.1;
         const base = T.jump[n]; P.vy = base + (n < 2 ? T.jumpSpeedBonus * sp : 0); const k = T.jumpKeep; P.vx *= k; P.vz *= k; P.airKind = 'jump'; setAct(n === 2 ? 'flip' : 'air'); P.flipKind = n === 2 ? 'triple' : ''; P.flipT = 0; P.jumpN = n;
-        if (n === 2) P.chainN = 0; sfx(n === 0 ? 'jump' : n === 1 ? 'jump2' : 'jump3'); heroKick(hero, 8 + n * 2);
+        if (n === 2) P.chainN = 0; P.stats.jumps++; sfx(n === 0 ? 'jump' : n === 1 ? 'jump2' : 'jump3'); heroKick(hero, 8 + n * 2);
       }
     }
-    if (P.fireBuf > 0 && P.act === 'ground' && !locked && !P.crouch) { P.fireBuf = 0; setAct('punch'); P.punchAlt ^= 1; P.punchT = T.punch.time; const f = P.yaw; P.vx += Math.sin(f) * 3.2; P.vz += Math.cos(f) * 3.2; sfx('punch'); doPunch(); }
+    if (P.fireBuf > 0 && P.act === 'ground' && !locked && !P.crouch) { P.fireBuf = 0; setAct('punch'); P.punchAlt ^= 1; P.punchT = T.punch.time; P.stats.punches++; const f = P.yaw; P.vx += Math.sin(f) * 3.2; P.vz += Math.cos(f) * 3.2; sfx('punch'); doPunch(); }
     else if (P.fireBuf > 0 && P.crouch && !locked) { P.fireBuf = 0; } // crouch + fire does nothing special
   } else {
     // ---------------- airborne ----------------
@@ -1406,14 +1406,14 @@ function stepHero(dt) {
     if (P.jumpBuf > 0 && P.groundedT < T.coyote && P.vy <= 0.1 && air !== 'pound' && P.act !== 'wallkick') { P.jumpBuf = 0; P.vy = T.jump[0] + T.jumpSpeedBonus * Math.hypot(P.vx, P.vz); P.groundedT = 1; setAct('air'); P.airKind = 'jump'; P.chainN = 1; sfx('jump'); heroKick(hero, 8); }
     // wall kick
     if (P.jumpBuf > 0 && P.wallT > 0 && air !== 'pound') {
-      P.jumpBuf = 0; P.wallT = 0; P.vy = T.wallKick.vy; const sp = Math.max(T.wallKick.push, Math.hypot(P.vx, P.vz) * 0.6); P.vx = P.wnx * sp; P.vz = P.wnz * sp; P.yaw = Math.atan2(P.wnx, P.wnz); setAct('flip'); P.flipKind = 'wall'; P.flipT = 0; P.airKind = 'flip'; sfx('kick'); heroKick(hero, 9); puff(P.x - P.wnx * 0.4, P.y + 1, P.z - P.wnz * 0.4, 6, 0.8);
+      P.jumpBuf = 0; P.wallT = 0; P.vy = T.wallKick.vy; const sp = Math.max(T.wallKick.push, Math.hypot(P.vx, P.vz) * 0.6); P.vx = P.wnx * sp; P.vz = P.wnz * sp; P.yaw = Math.atan2(P.wnx, P.wnz); P.stats.kicks++; setAct('flip'); P.flipKind = 'wall'; P.flipT = 0; P.airKind = 'flip'; sfx('kick'); heroKick(hero, 9); puff(P.x - P.wnx * 0.4, P.y + 1, P.z - P.wnz * 0.4, 6, 0.8);
     }
     // ground pound
     if (P.zBuf > 0 && air !== 'pound' && !locked) {
       const f = floorAt(P.x, P.z, P.y + 0.3), clear = f < -1e8 || P.y - f > 0.9;
-      if (clear) { P.zBuf = 0; setAct('pound'); P.poundT = 0; P.vx = P.vz = 0; P.vy = 0; sfx('poundstart'); }
+      if (clear) { P.zBuf = 0; setAct('pound'); P.stats.pounds++; P.poundT = 0; P.vx = P.vz = 0; P.vy = 0; sfx('poundstart'); }
     }
-    if (P.fireBuf > 0 && air !== 'dive' && air !== 'pound' && !locked) { P.fireBuf = 0; setAct('dive'); const sp = Math.min(Math.max(Math.hypot(P.vx, P.vz), 5.5) + T.dive.add, T.dive.cap); P.vx = Math.sin(P.yaw) * sp; P.vz = Math.cos(P.yaw) * sp; P.vy = Math.max(T.dive.vy, P.vy * 0.3); sfx('dive'); }
+    if (P.fireBuf > 0 && air !== 'dive' && air !== 'pound' && !locked) { P.fireBuf = 0; setAct('dive'); P.stats.dives++; const sp = Math.min(Math.max(Math.hypot(P.vx, P.vz), 5.5) + T.dive.add, T.dive.cap); P.vx = Math.sin(P.yaw) * sp; P.vz = Math.cos(P.yaw) * sp; P.vy = Math.max(T.dive.vy, P.vy * 0.3); sfx('dive'); }
     // variable jump height: releasing jump caps the rise (like the originals)
     if (P.airKind === 'jump' && !INP.jump && P.vy > T.jumpCutVy) P.vy = Math.max(T.jumpCutVy, P.vy * Math.exp(-40 * dt));
     if (air === 'pound') {
@@ -1716,7 +1716,7 @@ function cubeBallistic(i, dt) {
   if (CS.ground) {
     const g = colHeight(C.x[i], C.z[i]), half = 0.5 * C.s[i];
     if (C.y[i] - half < g) {
-      C.y[i] = g + half; if (C.vy[i] < -2.5) { C.vy[i] = -C.vy[i] * 0.36; C.vx[i] *= 0.72; C.vz[i] *= 0.72; C.wx[i] *= 0.6; C.wy[i] *= 0.6; C.wz[i] *= 0.6; } else { C.vy[i] = 0; C.vx[i] *= 0.9; C.vz[i] *= 0.9; C.wx[i] *= 0.8; C.wy[i] *= 0.8; C.wz[i] *= 0.8; if (Math.abs(C.vx[i]) + Math.abs(C.vz[i]) < 0.3) { C.st[i] = ST.REST; } }
+      C.y[i] = g + half; if (C.vy[i] < -2.5) { C.vy[i] = -C.vy[i] * 0.36; C.vx[i] *= 0.72; C.vz[i] *= 0.72; C.wx[i] *= 0.6; C.wy[i] *= 0.6; C.wz[i] *= 0.6; } else { C.vy[i] = 0; C.vx[i] *= 0.9; C.vz[i] *= 0.9; C.wx[i] *= 0.8; C.wy[i] *= 0.8; C.wz[i] *= 0.8; if (Math.abs(C.vx[i]) + Math.abs(C.vz[i]) < 0.3 && C.st[i] === ST.BALL) { C.st[i] = ST.REST; } }
     }
   }
   if (C.y[i] < CS.floorY) { C.y[i] = CS.floorY; C.vy[i] = 0; C.vx[i] *= 0.9; C.vz[i] *= 0.9; }
@@ -1750,7 +1750,7 @@ function updateCubes(dt, rdt, time) {
       case ST.STRM: { // waterfall of falling cubes (analytic)
         const L = C.hx[i], u = (time * C.hy[i] * 6 + C.wy[i] * L) % L; C.x[i] = C.tx[i] + C.wx[i] * (0.3 + u / L * 0.7); C.z[i] = C.tz[i] + C.wz[i] * (0.3 + u / L * 0.7); C.y[i] = C.ty[i] - u; const f = u < 1.5 ? u / 1.5 : u > L - 4 ? (L - u) / 4 : 1; C.s[i] = C.ts[i] * f; C.qy[i] = Math.sin(u * 0.4) * 0.5; C.qw[i] = Math.sqrt(1 - C.qy[i] * C.qy[i]); break; }
       case ST.ROT: { const R = C.grp[i] >= 0 ? null : null; break; }
-      case ST.DIE: { C.age[i] += dt; const k = 1 - C.age[i] / 0.45; if (k <= 0) { freeCube(i); continue; } C.s[i] = C.ts[i] * k; cubeBallistic(i, dt * 0.2); break; }
+      case ST.DIE: { C.age[i] += dt; const k = C.age[i] < 0 ? 1 : 1 - C.age[i] / 0.45; if (k <= 0) { freeCube(i); continue; } C.s[i] = C.ts[i] * k; cubeBallistic(i, dt * 0.2); break; }
     }
     writeCube(i);
   }
@@ -1782,6 +1782,7 @@ function flyCube(i, dt) {
 function cubeArrive(i) {
   C.x[i] = C.tx[i]; C.y[i] = C.ty[i]; C.z[i] = C.tz[i]; C.vx[i] = C.vy[i] = C.vz[i] = 0; C.qx[i] = C.qy[i] = C.qz[i] = 0; C.qw[i] = 1; C.s[i] = C.ts[i]; C.r[i] = C.tr[i]; C.g[i] = C.tg[i]; C.b[i] = C.tb[i];
   if (C.rew[i]) { cubeHome(i); return; }
+  if (C.owner[i] === -3) { C.st[i] = ST.AMB; C.vox[i] = 0.4; C.glow[i] = 0; C.s[i] = C.ts[i]; return; }
   C.age[i] = 0; C.st[i] = ST.POP; vgSet(Math.floor(C.tx[i]), Math.floor(C.ty[i]), Math.floor(C.tz[i]), 1);
   if (C.owner[i] === -3) { /* ambient converts below */ }
   if (CS.clackBudget > 1 && clackQ < 2) { CS.clackBudget -= 1; clackQ++; sfxClack(C.x[i], C.y[i], C.z[i]); }
@@ -1865,7 +1866,7 @@ function shatterPiece(p, ox, oz, power = 6) {
 // ---------------------------------------------------------------------------------------------------------------------
 let rewinding = false, rewindSfx = 0;
 function doRewind(dt) {
-  const on = INP.place && G.state === 'play'; rewinding = on; $('rew').classList.toggle('on', on); if (!on) return;
+  const on = INP.place && G.state === 'play'; if (on && !rewinding) G.rewinds = (G.rewinds || 0) + 1; rewinding = on; $('rew').classList.toggle('on', on); if (!on) return;
   let n = 0; const R2 = 55 * 55;
   for (let i = 0; i < cubeHi; i++) {
     const st = C.st[i]; if (st !== ST.BALL && st !== ST.REST || C.owner[i] === -1 || C.rew[i]) continue;
@@ -2891,7 +2892,7 @@ function loop(now) { requestAnimationFrame(loop); if (window.__paused) { lastT =
 function onQualityChanged() { onGrassQuality(); onTreeQuality(); updateHUD(); }
 
 // ---- debug / test hooks ---------------------------------------------------------------------------------------------------------------
-window.__dbg = () => ({ speed: P.speed, crouch: P.crouch, camWide: CAM.wide, talk: NPC.talkT > 0, npcNear: NPC.near, qScale, state: G.state, act: G.act, pos: [P.x, P.y, P.z], vel: [P.vx, P.vy, P.vz], hp: P.hp, big: P.big, score: G.score, coins: G.coins, shards: G.shards, totalShards: G.totalShards, grounded: P.grounded, pact: P.act, yaw: P.yaw, camYaw: CAM.yaw, camPitch: CAM.pitch, quality: qName, vox: voxAtCPU(P.x, P.z), cubes: cubeLive, trans: G.trans ? G.trans.kind : null, shk: SH.on ? SH.kind : null, wave: [WV.R1, WV.R2], gf: GF, muted, time: G.t, rewinding, deaths: G.deaths, fps: frameMs.length, locked, chain: P.chainN, wallT: P.wallT, invuln: P.invuln, nan: [P.x, P.y, P.z, P.vx, P.vy, P.vz, CAM.yaw, CAM.pitch].some(v => !Number.isFinite(v)) });
+window.__dbg = () => ({ stats: P.stats, rewinds: G.rewinds || 0, speed: P.speed, crouch: P.crouch, camWide: CAM.wide, talk: NPC.talkT > 0, npcNear: NPC.near, qScale, state: G.state, act: G.act, pos: [P.x, P.y, P.z], vel: [P.vx, P.vy, P.vz], hp: P.hp, big: P.big, score: G.score, coins: G.coins, shards: G.shards, totalShards: G.totalShards, grounded: P.grounded, pact: P.act, yaw: P.yaw, camYaw: CAM.yaw, camPitch: CAM.pitch, quality: qName, vox: voxAtCPU(P.x, P.z), cubes: cubeLive, trans: G.trans ? G.trans.kind : null, shk: SH.on ? SH.kind : null, wave: [WV.R1, WV.R2], gf: GF, muted, time: G.t, rewinding, deaths: G.deaths, fps: frameMs.length, locked, chain: P.chainN, wallT: P.wallT, invuln: P.invuln, nan: [P.x, P.y, P.z, P.vx, P.vy, P.vz, CAM.yaw, CAM.pitch].some(v => !Number.isFinite(v)) });
 Object.assign(window.__game, {
   advance(sec, doRender = false) { const n = Math.round(sec * 60); for (let i = 0; i < n; i++) frame(1 / 60, doRender && i === n - 1); },
   teleport(x, y, z) { setHeroPos(x, y, z); }, setQuality(q) { applyQuality(q, true); }, collect(i) { const s = SHARDS.filter(s => !s.got)[i || 0]; if (s) collectShard(s); return !!s; }, shards: () => SHARDS.map(s => [s.x, s.y, s.z, s.got, s.final]),
@@ -2903,7 +2904,13 @@ Object.assign(window.__game, {
 // ============================================================================
 // BOOT + shelf bridge
 // ============================================================================
+function detectSoftware() {
+  try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); const r = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : ''; return /swiftshader|llvmpipe|software|softpipe/i.test(r); } catch (e) { return false; }
+}
 function bootGame() {
+  // software-only GL (headless / very old devices): start on the lightest tier at reduced resolution unless the player chose one
+  let chosen = false; try { chosen = !!new URLSearchParams(location.search).get('q') || !!localStorage.getItem('sw_q'); } catch (e) { }
+  if (!chosen && detectSoftware()) { qName = 'low'; Q = QUALITY.low; qScale = 0.6; }
   onResize(); applyQuality(qName, true);
   placeTrees(); placeRocks(); buildStructures(); buildFarMountains(); ACT1_BOXES = BOXES.slice();
   onQualityChanged(); drawLogo(); setMuted(muted); updateBestLine();
