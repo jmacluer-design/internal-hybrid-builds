@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Phone Bench</title>
+<style>
+:root{--bg:#0e1116;--panel:#171b22;--line:#262c36;--text:#e8ecf1;--dim:#8b95a5;--accent:#4da3ff;--ok:#3ddc84;--warn:#ffc857;--bad:#ff6b6b;color-scheme:dark}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f6f9;--panel:#fff;--line:#d9dee6;--text:#14181f;--dim:#5b6575;--accent:#0a6cff;--ok:#16a34a;--warn:#b7791f;--bad:#dc2626;color-scheme:light}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px max(16px,env(safe-area-inset-right)) 40px max(16px,env(safe-area-inset-left))}
+main{max-width:720px;margin:0 auto}h1{font-size:22px;margin:6px 0 2px}.dim{color:var(--dim)}.small{font-size:13px}a{color:var(--accent)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+select,button{font:inherit;min-height:46px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);padding:8px 12px}
+button.go{background:var(--accent);color:#fff;border:0;font-weight:600}button:disabled{opacity:.5}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-weight:600;font-size:13px}.ok{background:rgba(61,220,132,.18);color:var(--ok)}.warn{background:rgba(255,200,87,.18);color:var(--warn)}.bad{background:rgba(255,107,107,.18);color:var(--bad)}
+#stage{position:fixed;inset:0;background:#000;z-index:50;display:none}#stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+#hud{position:fixed;left:8px;top:max(8px,env(safe-area-inset-top));z-index:60;font:600 13px/1.3 ui-monospace,monospace;background:rgba(0,0,0,.65);color:#fff;padding:6px 9px;border-radius:8px;display:none}
+#spark{width:100%;height:70px;display:block}
+</style>
+</head>
+<body>
+<main>
+  <h1>Phone bench</h1>
+  <div class="dim small">Open this on the phone you want to test. It plays a game for 15 seconds on its own, measures frame times, and shows a result card you can screenshot. Nothing is uploaded. <a href="/">&larr; shelf</a></div>
+  <div class="card">
+    <div class="row"><select id="game" aria-label="Game"></select><button id="go" class="go">Run 15 s test</button></div>
+    <div class="small dim" style="margin-top:8px">Tip: close other tabs, plug in the phone, turn off Low Power Mode, and use landscape. For heat effects, run the same test again after a few minutes of play.</div>
+  </div>
+  <div class="card" id="dev"></div>
+  <div id="results"></div>
+</main>
+<div id="hud"></div>
+<div id="stage"></div>
+<script>
+const GAMES = [['shatterworld','Shatterworld'],['colossus','Colossus'],['blockshot','Blockshot'],['webcraft','Webcraft'],['souls64','Souls-64'],['parkcraft','Parkcraft']];
+const $ = id => document.getElementById(id);
+GAMES.forEach(([id, n]) => { const o = document.createElement('option'); o.value = id; o.textContent = n; $('game').appendChild(o); });
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+function gpuName() { try { const gl = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl'); const e = gl && gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'hidden by the browser'; } catch (_) { return 'unknown'; } }
+const DEV = { gpu: gpuName(), cores: navigator.hardwareConcurrency || '?', mem: navigator.deviceMemory || '?', dpr: window.devicePixelRatio, screen: `${screen.width}x${screen.height}`, viewport: `${innerWidth}x${innerHeight}`, ua: navigator.userAgent };
+$('dev').innerHTML = `<b>This device</b><table><tr><td>GPU</td><td>${esc(DEV.gpu)}</td></tr><tr><td>CPU threads</td><td>${DEV.cores}</td></tr><tr><td>Memory (approx, capped by browsers)</td><td>${DEV.mem} GB</td></tr><tr><td>Screen / pixel ratio</td><td>${DEV.screen} @ ${DEV.dpr}x</td></tr><tr><td>Browser</td><td class="small">${esc(DEV.ua)}</td></tr></table>`;
+const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : 0; };
+function spark(dts) { const c = document.createElement('canvas'); c.id = 'spark'; c.width = 600; c.height = 70; const x = c.getContext('2d'); const mx = Math.max(50, Math.min(120, pct(dts, .99) * 1.2)); x.fillStyle = 'rgba(128,128,128,.15)'; x.fillRect(0, 0, 600, 70); x.strokeStyle = 'rgba(255,200,87,.7)'; x.beginPath(); const y33 = 70 - 70 * 33.3 / mx; x.moveTo(0, y33); x.lineTo(600, y33); x.stroke();
+  x.strokeStyle = '#4da3ff'; x.lineWidth = 1.5; x.beginPath(); dts.forEach((d, i) => { const px = i / Math.max(1, dts.length - 1) * 600, py = 70 - 70 * Math.min(d, mx) / mx; i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke(); return c; }
+async function run() {
+  const id = $('game').value, name = GAMES.find(g => g[0] === id)[1]; $('go').disabled = true;
+  const stage = $('stage'); stage.style.display = 'block'; $('hud').style.display = 'block'; $('hud').textContent = 'loading ' + name + '...';
+  const fr = document.createElement('iframe'); fr.allow = 'autoplay; gamepad; fullscreen'; stage.appendChild(fr); fr.src = `games/${id}.html?v=${Date.now()}`;
+  await new Promise(r => { fr.onload = r; setTimeout(r, 25000); }); await new Promise(r => setTimeout(r, 3500));
+  const w = fr.contentWindow, d = fr.contentDocument; let err = '';
+  try { const b = d.getElementById('cta'); if (b) b.click(); } catch (e) { err = e.message; }
+  await new Promise(r => setTimeout(r, 3500));
+  const dts = []; const SECS = 15, t0 = performance.now(); let last = t0; const keys = ['w', 'd', 'w', 'a'];
+  const key = (k, down) => { try { if (w.__padInject) w.__padInject({ type: 'key', k, down }); } catch (_) {} };
+  let ki = 0, held = null; const tick = now => { dts.push(now - last); last = now; const el = (now - t0) / 1000;
+    if (Math.floor(el * 2) !== ki) { ki = Math.floor(el * 2); if (held) key(held, false); held = keys[ki % 4]; key(held, true); if (ki % 4 === 1) { key(' ', true); setTimeout(() => key(' ', false), 120); } }
+    const recent = dts.slice(-30); const avg = recent.reduce((a, b) => a + b, 0) / recent.length; $('hud').textContent = `${name}  ${(1000 / avg).toFixed(0)} fps   ${Math.max(0, SECS - el).toFixed(0)}s`;
+    if (el < SECS) requestAnimationFrame(tick); else finish(); };
+  const canvas = d.querySelector('canvas'); const buf = canvas ? `${canvas.width}x${canvas.height}` : '?';
+  requestAnimationFrame(tick);
+  function finish() { if (held) key(held, false); stage.style.display = 'none'; stage.innerHTML = ''; $('hud').style.display = 'none'; $('go').disabled = false;
+    const use = dts.slice(8), avg = use.reduce((a, b) => a + b, 0) / use.length, p95 = pct(use, .95), p99 = pct(use, .99), jank = use.filter(x => x > 33.4).length / use.length * 100, fps = 1000 / avg;
+    const verdict = p95 <= 20 ? ['smooth', 'ok'] : p95 <= 34 ? ['playable', 'warn'] : ['too heavy: needs a phone quality tier', 'bad'];
+    const card = document.createElement('div'); card.className = 'card'; card.innerHTML = `<b>${name}</b> <span class="pill ${verdict[1]}">${verdict[0]}</span>
+      <table><tr><td>Average</td><td>${fps.toFixed(1)} fps</td></tr><tr><td>Frame time p50 / p95 / p99</td><td>${pct(use, .5).toFixed(1)} / ${p95.toFixed(1)} / ${p99.toFixed(1)} ms</td></tr><tr><td>Slow frames (&gt; 33 ms)</td><td>${jank.toFixed(1)}%</td></tr><tr><td>Game render buffer</td><td>${buf}</td></tr><tr><td>Device</td><td class="small">${esc(DEV.gpu)} · ${DEV.cores} threads · ${DEV.dpr}x · ${new Date().toLocaleTimeString()}</td></tr></table>${err ? '<div class="small dim">note: ' + esc(err) + '</div>' : ''}`;
+    card.appendChild(spark(use)); $('results').prepend(card); window.__lastBench = { name, fps, p95, p99, jank, buf }; }
+}
+$('go').onclick = run;
+</script>
+</body>
+</html>
