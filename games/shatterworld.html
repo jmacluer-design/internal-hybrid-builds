@@ -70,7 +70,7 @@
 <body>
 <canvas id="gl"></canvas>
 <div id="hud" class="hidden">
-  <div id="hudL"><div class="act" id="actName">ACT I &middot; GOLDEN VALLEY</div><div id="shards"></div><div id="coins"><i></i><span id="coinN">0</span></div></div>
+  <div id="hudL"><div class="act" id="actName">ACT I &middot; GOLDEN VALLEY</div><div id="shards"></div><div class="act" id="shardDist" style="font-size:clamp(9px,1.1vw,12px);opacity:.85"></div><div id="coins"><i></i><span id="coinN">0</span></div></div>
   <div id="hudR"><b id="timeN">0:00</b><br><span id="qTag">HIGH</span> &nbsp;<span id="muteTag"></span></div>
   <svg id="hp" viewBox="-50 -50 100 100"></svg>
   <div id="toast"></div>
@@ -97,7 +97,7 @@
   </div>
 </div>
 <div id="dead" class="ovl hidden"><h1 id="deadT">TRY AGAIN</h1><div id="deadS"></div><button id="cta2">RETRY</button></div>
-<div id="pause" class="ovl hidden"><div>PAUSED</div><small>click or press Start to resume</small></div>
+<div id="pause" class="ovl hidden"><div>PAUSED</div><small>click or press Start to resume</small><button id="toMenuBtn" style="margin-top:14px;font:inherit;letter-spacing:.2em;font-size:12px;color:#eaf6ff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:.4em 1.4em;cursor:pointer">BACK TO MENU</button></div>
 <div id="boot">SHATTERWORLD</div>
 <script type="module">
 // ============================================================================
@@ -131,7 +131,7 @@ const TUNING = {
   wallKick: { vy: 19.8, push: 7.6, window: 0.2 }, wallSlide: 4.0,
   pound: { hang: 0.2, speed: 15.9, radius: 6.5 }, dive: { add: 4.8, cap: 15.3, vy: 3.0, slide: 0.55 },
   punch: { time: 0.26, reach: 1.7 },
-  radius: 0.4, height: 1.7, stepUp: 0.4, slopeMax: 1.3,
+  radius: 0.4, height: 1.7, stepUp: 0.4, stepUpBlock: 1.06, slopeMax: 1.3,
   hp: 3, invuln: 1.7, coinHeal: 100,
   cam: { dist: 7.2, distWide: 16, height: 1.45, pitch: 0.24, fov: 62, fovWide: 52, fovKick: 11, collide: 0.3, sens: 0.0023, padRate: 2.6 },
   shatter: { localR: 24, localSpeed: 26, healDelay: 1.15, healSpeed: 24, worldSpeed: 52, band: 9, slowmo: 0.2, plinth: 3.6 },
@@ -181,13 +181,15 @@ const $ = id => document.getElementById(id);
 // ---------------------------------------------------------------------------
 // input state (contract globals)
 // ---------------------------------------------------------------------------
-const keys = new Set();
-let padFireDown = false, padPlaceDown = false; const padLookV = { x: 0, y: 0 };
+const latch = new Set(); // keys pressed since the last frame (so a quick tap between two slow frames is never lost)
+class KeySet extends Set { add(k) { if (!super.has(k)) latch.add(k); return super.add(k); } }
+const keys = new KeySet();
+let placeLatch = false, padFireDown = false, padPlaceDown = false; const padLookV = { x: 0, y: 0 };
 let mouseFire = false, mousePlace = false, lookDX = 0, lookDY = 0;
 const edge = { fire: false, place: false, jump: false, z: false, e: false, j: false, q: false, m: false, p: false }; // pressed-this-frame latches
 let locked = false, plFailed = false;
 function padFire(down) { if (down === undefined) { edge.fire = true; } else { padFireDown = !!down; if (down) edge.fire = true; } }
-function padPlace(down) { if (down === undefined) { edge.place = true; } else padPlaceDown = !!down; }
+function padPlace(down) { if (down === undefined) { edge.place = true; placeLatch = true; } else { padPlaceDown = !!down; if (down) placeLatch = true; } }
 function padLook(dx, dy) { padLookV.x = Math.abs(dx) < 0.12 ? 0 : dx; padLookV.y = Math.abs(dy) < 0.12 ? 0 : dy; }
 function padMenu() { if (G.state === 'play') pauseGame(); else if (G.state === 'pause') resumeGame(); else if (G.state === 'dead') {} else toMenu(); }
 
@@ -195,9 +197,9 @@ function padMenu() { if (G.state === 'play') pauseGame(); else if (G.state === '
 // renderer + quality tiers
 // ---------------------------------------------------------------------------
 const QUALITY = {
-  high:   { pr: 2,   shadow: 2048, bloom: 1, bloomRes: 1,   msaa: 4, cap: 48000, grass: 110000, water: 2, god: 1, trees: 1,    tex: 1024 },
-  medium: { pr: 1.5, shadow: 1024, bloom: 1, bloomRes: 0.5, msaa: 0, cap: 30000, grass: 55000,  water: 1, god: 1, trees: 0.75, tex: 1024 },
-  low:    { pr: 1,   shadow: 0,    bloom: 0, bloomRes: 0.5, msaa: 0, cap: 14000, grass: 20000,  water: 0, god: 0, trees: 0.5,  tex: 512 },
+  high:   { pr: 2,   shadow: 2048, bloom: 1, bloomRes: 1,   msaa: 4, cap: 48000, grass: 110000, water: 2, god: 1, trees: 1,    tex: 1024, lite: 0 },
+  medium: { pr: 1.5, shadow: 1024, bloom: 1, bloomRes: 0.5, msaa: 0, cap: 30000, grass: 55000,  water: 1, god: 1, trees: 0.75, tex: 1024, lite: 0 },
+  low:    { pr: 1,   shadow: 0,    bloom: 0, bloomRes: 0.5, msaa: 0, cap: 14000, grass: 9000,   water: 0, god: 0, trees: 0.4,  tex: 512, lite: 1 },
 };
 const QORDER = ['high', 'medium', 'low'];
 let qName = 'high';
@@ -245,6 +247,7 @@ scene.fog = new THREE.FogExp2(0xe9c99a, 0.0062);
 // shared shader uniforms + GLSL library: the voxel-morph field uVox(x) is a function of distance to the shockwave wavefront
 // ---------------------------------------------------------------------------
 const U = {
+  lite: { value: 0 },
   time: { value: 0 },
   wave: { value: new THREE.Vector4(0, 0, -1, -1) },   // centre x, centre z, R1 (voxelise front), R2 (heal front)
   waveB: { value: new THREE.Vector4(9, 0, 0, 0) },     // band width, ring glow, flat-look amount, -
@@ -516,7 +519,7 @@ function buildTerrainGeo() {
 const terrMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.94, metalness: 0, side: THREE.DoubleSide });
 terrMat.customProgramCacheKey = () => 'terr1';
 terrMat.onBeforeCompile = sh => {
-  Object.assign(sh.uniforms, { uHS: { value: texHS }, uQH: { value: texQH }, uDrop: { value: texDrop }, uCol: { value: texCol }, uNm: { value: texNm }, uNoise: { value: NOISE }, uWave: U.wave, uWaveB: U.waveB });
+  Object.assign(sh.uniforms, { uHS: { value: texHS }, uQH: { value: texQH }, uDrop: { value: texDrop }, uCol: { value: texCol }, uNm: { value: texNm }, uNoise: { value: NOISE }, uWave: U.wave, uWaveB: U.waveB, uLite: U.lite });
   sh.vertexShader = sh.vertexShader
     .replace('#include <common>', `#include <common>
 uniform sampler2D uHS; uniform sampler2D uQH; uniform sampler2D uDrop; ${GLSL.vox}
@@ -547,7 +550,7 @@ vec3 transformed;
 }`);
   sh.fragmentShader = sh.fragmentShader
     .replace('#include <common>', `#include <common>
-uniform sampler2D uCol; uniform sampler2D uNm; ${GLSL.noiseFn} ${GLSL.vox}
+uniform sampler2D uCol; uniform sampler2D uNm; uniform float uLite; ${GLSL.noiseFn} ${GLSL.vox}
 varying vec3 vWP; varying float vVoxT; varying float vDr; varying float vWallT; varying float vWallB;
 flat varying float vKind; flat varying vec2 vOwner; flat varying vec3 vWN;`)
     .replace('#include <map_fragment>', `
@@ -557,10 +560,11 @@ vec2 uvw = (vWP.xz + 64.0) / 128.0;
 vec4 nmS = texture(uNm, uvw);
 vec2 nxz = nmS.rg * 2.0 - 1.0;
 vec3 nSm = normalize(vec3(nxz.x, sqrt(max(1.0 - dot(nxz, nxz), 0.0001)), nxz.y));
-float d1 = nz(vWP.xz * 0.23, 0), d2 = nz(vWP.xz * 1.31, 1), d3 = nz(vWP.xz * 5.7, 2);
+float d1 = 0.5, d2 = nz(vWP.xz * 1.31, 1), d3 = 0.5;
+if (uLite < 0.5) { d1 = nz(vWP.xz * 0.23, 0); d3 = nz(vWP.xz * 5.7, 2); }
 vec3 aSm = texture(uCol, uvw).rgb * (0.80 + 0.46 * (d1 * 0.4 + d2 * 0.35 + d3 * 0.25));
 // fine micro-normal from the detail noise (grass tufts / pebbles read as relief even when blurry)
-{ float e = 0.012; float gx = nz(vWP.xz * 1.31 + vec2(e, 0.), 1) - nz(vWP.xz * 1.31 - vec2(e, 0.), 1); float gz = nz(vWP.xz * 1.31 + vec2(0., e), 1) - nz(vWP.xz * 1.31 - vec2(0., e), 1);
+if (uLite < 0.5) { float e = 0.012; float gx = nz(vWP.xz * 1.31 + vec2(e, 0.), 1) - nz(vWP.xz * 1.31 - vec2(e, 0.), 1); float gz = nz(vWP.xz * 1.31 + vec2(0., e), 1) - nz(vWP.xz * 1.31 - vec2(0., e), 1);
   float gx2 = nz(vWP.xz * 5.7 + vec2(e, 0.), 2) - nz(vWP.xz * 5.7 - vec2(e, 0.), 2); float gz2 = nz(vWP.xz * 5.7 + vec2(0., e), 2) - nz(vWP.xz * 5.7 - vec2(0., e), 2);
   nSm = normalize(nSm + vec3(-(gx * 1.4 + gx2 * 1.1), 0.0, -(gz * 1.4 + gz2 * 1.1)) * 1.6); }
 vec3 colT = aSm;
@@ -593,7 +597,10 @@ diffuseColor.rgb *= colT;`)
     .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vox, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.8, 0.42) * ringAt(vWP.xz) * 0.45;
 #include <opaque_fragment>`);
 };
-const terrain = new THREE.Mesh(buildTerrainGeo(), terrMat);
+const geoFull = buildTerrainGeo();
+const geoTop = (() => { const g = new THREE.BufferGeometry(); for (const n of ['position', 'normal', 'aCell', 'aV']) g.setAttribute(n, geoFull.getAttribute(n)); const idx = new Uint32Array(GRID * GRID * 6); let k = 0; for (let c = 0; c < GRID * GRID; c++) { const b = c * 12; idx[k++] = b; idx[k++] = b + 1; idx[k++] = b + 2; idx[k++] = b + 2; idx[k++] = b + 1; idx[k++] = b + 3; } g.setIndex(new THREE.BufferAttribute(idx, 1)); g.boundingSphere = geoFull.boundingSphere; g.boundingBox = geoFull.boundingBox; return g; })();
+const terrain = new THREE.Mesh(geoTop, terrMat); // skirts only exist (and are only drawn) while the voxel morph is active
+function updateTerrainGeo() { const want = (WV.R1 >= 0 || dropActive || collapsing || (typeof SH !== 'undefined' && SH.on)) ? geoFull : geoTop; if (terrain.geometry !== want) terrain.geometry = want; }
 terrain.frustumCulled = false; terrain.receiveShadow = true; terrain.castShadow = false;
 scene.add(terrain);
 
@@ -628,12 +635,12 @@ vec3 skyBase(vec3 d){
 }`;
 const skyMat = new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
-  uniforms: { uZen: { value: ATM.zen }, uMid: { value: ATM.mid }, uHor: { value: ATM.hor }, uGnd: { value: ATM.gnd }, uSunDir: U.sunDir, uSunCol: U.sunCol, uTime: U.time, uCloud: { value: 0.5 }, uCloudLit: { value: ATM.cloudLit }, uCloudSh: { value: ATM.cloudSh }, uStars: { value: 0 }, uSkyVox: { value: 0 }, uNoise: { value: NOISE }, uNeb: { value: new THREE.Color(0xff3fb0) } },
+  uniforms: { uZen: { value: ATM.zen }, uMid: { value: ATM.mid }, uHor: { value: ATM.hor }, uGnd: { value: ATM.gnd }, uSunDir: U.sunDir, uSunCol: U.sunCol, uTime: U.time, uCloud: { value: 0.5 }, uCloudLit: { value: ATM.cloudLit }, uCloudSh: { value: ATM.cloudSh }, uStars: { value: 0 }, uSkyVox: { value: 0 }, uNoise: { value: NOISE }, uLite: U.lite, uNeb: { value: new THREE.Color(0xff3fb0) } },
   vertexShader: `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }`,
   fragmentShader: `${GLSL.skyBase} ${GLSL.noiseFn} ${GLSL.vox}
-uniform float uTime; uniform float uCloud; uniform vec3 uCloudLit; uniform vec3 uCloudSh; uniform float uStars; uniform float uSkyVox; uniform vec3 uNeb;
+uniform float uTime; uniform float uCloud; uniform vec3 uCloudLit; uniform vec3 uCloudSh; uniform float uStars; uniform float uSkyVox; uniform vec3 uNeb; uniform float uLite;
 varying vec3 vDir;
-float cl(vec2 p){ return nz(p, 0) * 0.5 + nz(p * 2.13 + 3.7, 1) * 0.27 + nz(p * 4.4 + 9.1, 2) * 0.15 + nz(p * 9.7 + 1.3, 3) * 0.08; }
+float cl(vec2 p){ if (uLite > 0.5) return nz(p, 0) * 0.62 + nz(p * 2.6 + 3.7, 1) * 0.38; return nz(p, 0) * 0.5 + nz(p * 2.13 + 3.7, 1) * 0.27 + nz(p * 4.4 + 9.1, 2) * 0.15 + nz(p * 9.7 + 1.3, 3) * 0.08; }
 void main(){
   vec3 d = normalize(vDir);
   if (uSkyVox > 0.001) { float n = mix(900.0, 36.0, pow(uSkyVox, 0.7)); d = normalize(floor(d * n + 0.5) / n); }
@@ -646,7 +653,7 @@ void main(){
     vec2 uv = d.xz / (d.y + 0.16) * 0.42 + vec2(uTime * 0.006, uTime * 0.0025);
     float c = cl(uv); float cov = 1.0 - uCloud;
     float dens = smoothstep(cov, cov + 0.22, c);
-    float c2 = cl(uv + uSunDir.xz * 0.045 / (d.y + 0.3));
+    float c2 = uLite > 0.5 ? c - 0.04 : cl(uv + uSunDir.xz * 0.045 / (d.y + 0.3));
     float lit = clamp((c - c2) * 4.5 + 0.62, 0.0, 1.0);
     vec3 cc = mix(uCloudSh, uCloudLit, lit);
     float sd = max(dot(d, uSunDir), 0.0);
@@ -682,11 +689,11 @@ const pmrem = new THREE.PMREMGenerator(renderer); let envRT = null;
 const envScene = new THREE.Scene(); const envSky = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), skyMat); envScene.add(envSky);
 function updateEnv() {
   const prev = skyMat.uniforms.uSkyVox.value; skyMat.uniforms.uSkyVox.value = 0;
-  const rt = pmrem.fromScene(envScene, 0.02, 1, 500); if (envRT) envRT.dispose(); envRT = rt; scene.environment = rt.texture; skyMat.uniforms.uSkyVox.value = prev;
+  const rt = pmrem.fromScene(envScene, 0.02, 1, 500); if (envRT) envRT.dispose(); envRT = rt; scene.environment = Q.lite ? null : rt.texture; skyMat.uniforms.uSkyVox.value = prev; applyAtmosphere();
 }
 function applyAtmosphere() {
   U.sunCol.value.copy(ATM.sun).multiplyScalar(1.0);
-  sun.color.copy(ATM.sun); sun.intensity = ATM.sunI; hemi.color.copy(ATM.hemiS); hemi.groundColor.copy(ATM.hemiG); hemi.intensity = ATM.hemiI;
+  sun.color.copy(ATM.sun); sun.intensity = ATM.sunI; hemi.color.copy(ATM.hemiS); hemi.groundColor.copy(ATM.hemiG); hemi.intensity = ATM.hemiI * (Q.lite ? 2.1 : 1); if (envRT) scene.environment = Q.lite ? null : envRT.texture;
   scene.fog.color.copy(ATM.fog); scene.fog.density = ATM.fogD; skyMat.uniforms.uCloud.value = ATM.cloud; skyMat.uniforms.uStars.value = ATM.stars;
   scene.environmentIntensity = ATM.env; renderer.toneMappingExposure = ATM.exp;
 }
@@ -715,9 +722,9 @@ void main(){
   float t = uTime; vec2 fl = vec2(0.0, 1.0);
   vec2 q1 = p * 0.11 + fl * t * 0.045, q2 = p * 0.27 + vec2(0.5, 1.0) * t * 0.07, q3 = p * vec2(0.9, 0.35) + fl * t * 0.16;
   float e = 0.004;
-  float h0 = nz(q1, 0) + nz(q2, 1) * 0.6 + (uQ > 1.5 ? nz(q3, 2) * 0.35 : 0.0);
-  float hx = nz(q1 + vec2(e, 0.), 0) + nz(q2 + vec2(e, 0.), 1) * 0.6 + (uQ > 1.5 ? nz(q3 + vec2(e, 0.), 2) * 0.35 : 0.0);
-  float hz = nz(q1 + vec2(0., e), 0) + nz(q2 + vec2(0., e), 1) * 0.6 + (uQ > 1.5 ? nz(q3 + vec2(0., e), 2) * 0.35 : 0.0);
+  float h0 = nz(q1, 0) + (uQ > 0.5 ? nz(q2, 1) * 0.6 : 0.0) + (uQ > 1.5 ? nz(q3, 2) * 0.35 : 0.0);
+  float hx = nz(q1 + vec2(e, 0.), 0) + (uQ > 0.5 ? nz(q2 + vec2(e, 0.), 1) * 0.6 : 0.0) + (uQ > 1.5 ? nz(q3 + vec2(e, 0.), 2) * 0.35 : 0.0);
+  float hz = nz(q1 + vec2(0., e), 0) + (uQ > 0.5 ? nz(q2 + vec2(0., e), 1) * 0.6 : 0.0) + (uQ > 1.5 ? nz(q3 + vec2(0., e), 2) * 0.35 : 0.0);
   vec3 N = normalize(vec3(-(hx - h0) / e * 0.012, 1.0, -(hz - h0) / e * 0.012));
   vec3 V = normalize(cameraPosition - vWP);
   vec3 R = reflect(-V, N); R.y = abs(R.y) + 0.02;
@@ -786,7 +793,7 @@ function buildComposer() {
   composer.addPass(new OutputPass());
 }
 function applyQuality(name, silent) {
-  if (!QUALITY[name]) return; qName = name; Q = QUALITY[name];
+  if (!QUALITY[name]) return; if (window.__qdbg) console.log('applyQuality ' + name + ' ' + new Error().stack.split('\n').slice(1, 4).join(' | ')); qName = name; Q = QUALITY[name];
   try { localStorage.setItem('sw_q', name); } catch (e) { }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.pr) * qScale); renderer.setSize(W, H, false);
   buildComposer(); configureShadow();
@@ -834,7 +841,7 @@ function boxesIn(x0, z0, x1, z1, fn) {
 
 // ---- grass ------------------------------------------------------------------------------------------------------------
 const GRASS_MAX = 120000, FIELD = 64;
-const grassUniforms = { uHW: { value: texHW }, uCol: { value: texCol }, uNm: { value: texNm }, uNoise: { value: NOISE }, uHero: U.hero, uFieldC: { value: new THREE.Vector2() }, uTime: U.time, uBladeScale: { value: 1 }, uWave: U.wave, uWaveB: U.waveB, uSunDir: U.sunDir, uSunCol: U.sunCol, uGrassOn: { value: 1 } };
+const grassUniforms = { uHW: { value: texHW }, uCol: { value: texCol }, uNm: { value: texNm }, uNoise: { value: NOISE }, uHero: U.hero, uFieldC: { value: new THREE.Vector2() }, uTime: U.time, uBladeScale: { value: 1 }, uWave: U.wave, uWaveB: U.waveB, uSunDir: U.sunDir, uSunCol: U.sunCol, uGrassOn: { value: 1 }, uLite: U.lite };
 function makeGrassGeo() {
   const g = new THREE.InstancedBufferGeometry();
   const P = [-1, 0, 1, 0, -0.86, 0.34, 0.86, 0.34, -0.58, 0.67, 0.58, 0.67, 0, 1], pos = new Float32Array(7 * 3);
@@ -846,12 +853,13 @@ function makeGrassGeo() {
   return g;
 }
 const grassMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88, metalness: 0, side: THREE.DoubleSide });
-grassMat.customProgramCacheKey = () => 'grass1';
-grassMat.onBeforeCompile = sh => {
+const grassMatLite = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+grassMat.customProgramCacheKey = () => 'grass1'; grassMatLite.customProgramCacheKey = () => 'grass1L';
+const grassPatch = sh => {
   Object.assign(sh.uniforms, grassUniforms);
   sh.vertexShader = sh.vertexShader
     .replace('#include <common>', `#include <common>
-attribute vec4 aOff; uniform sampler2D uHW; uniform sampler2D uCol; uniform sampler2D uNm; uniform vec3 uHero; uniform vec2 uFieldC; uniform float uTime; uniform float uBladeScale; uniform float uGrassOn;
+attribute vec4 aOff; uniform sampler2D uHW; uniform sampler2D uCol; uniform sampler2D uNm; uniform vec3 uHero; uniform vec2 uFieldC; uniform float uTime; uniform float uBladeScale; uniform float uGrassOn; uniform float uLite;
 ${GLSL.noiseFn} ${GLSL.vox}
 varying vec3 vWP; varying float vT; varying vec3 vGC;`)
     .replace('#include <beginnormal_vertex>', `vec3 objectNormal = vec3(0.0, 1.0, 0.0);`)
@@ -865,7 +873,7 @@ float gmask = textureLod(uNm, uvw, 0.0).b;
 float dens = gmask * (1.0 - smoothstep(14.0, 31.0, dist) * 0.97) * mix(1.0, 0.0, smoothstep(0.1, 0.55, vox)) * uGrassOn;
 float keep = step(aOff.w, dens + 0.02) * step(0.02, dens);
 float gh = textureLod(uHW, (gp + 64.5) / 129.0, 0.0).r;
-float clump = 0.7 + 0.7 * nz(gp * 0.09, 0);
+float clump = uLite > 0.5 ? 1.0 : 0.7 + 0.7 * nz(gp * 0.09, 0);
 float hgt = (0.2 + 0.34 * fract(aOff.z * 7.13)) * clump * keep * mix(1.0, 1.25, uBladeScale - 1.0);
 float ang = aOff.z * 6.2831;
 vec2 dv = vec2(cos(ang), sin(ang));
@@ -890,6 +898,7 @@ normal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);`)
     .replace('#include <opaque_fragment>', `{ vec3 vd = normalize(cameraPosition - vWP); float bl = pow(max(dot(vd, -uSunDir), 0.0), 2.2); outgoingLight += diffuseColor.rgb * uSunCol * bl * 1.1 * (0.2 + vT); }
 #include <opaque_fragment>`);
 };
+grassMat.onBeforeCompile = grassPatch; grassMatLite.onBeforeCompile = grassPatch;
 const grass = new THREE.Mesh(makeGrassGeo(), grassMat); grass.frustumCulled = false; grass.receiveShadow = true; scene.add(grass);
 
 // ---- flowers (billboard heads on stems), patchy clusters --------------------------------------------------------------
@@ -947,7 +956,7 @@ void main(){
 }`,
 });
 const flowers = new THREE.Mesh(makeFlowerGeo(), flowerMat); flowers.frustumCulled = false; scene.add(flowers);
-function onGrassQuality() { grass.geometry.instanceCount = Q.grass; flowers.geometry.instanceCount = Math.round(Q.grass * 0.16); grassUniforms.uBladeScale.value = Q.grass < 30000 ? 1.5 : Q.grass < 70000 ? 1.18 : 1; }
+function onGrassQuality() { grass.material = Q.lite ? grassMatLite : grassMat; grass.geometry.instanceCount = Q.grass; flowers.geometry.instanceCount = Math.round(Q.grass * 0.16); grassUniforms.uBladeScale.value = Q.grass < 30000 ? 1.5 : Q.grass < 70000 ? 1.18 : 1; }
 
 // ============================================================================
 // TREES (oak / golden maple / birch / pine), ROCKS - instanced, vertex-painted, soft canopies; every one has a voxel template
@@ -1000,21 +1009,21 @@ const TREE_SPEC = {
   birch: { trunk: { h: 4.6, r0: 0.17, r1: 0.09 }, blobs: [[0, 5.4, 0, 1.3, 1.25, 1.3], [0.8, 4.7, 0.3, 0.95, 0.9, 0.95], [-0.7, 4.9, -0.3, 1.0, 0.9, 1.0], [0, 6.3, 0, 0.8, 0.8, 0.8]], top: [0.78, 0.86, 0.36], bot: [0.32, 0.52, 0.14], bark: [0.86, 0.85, 0.8], cell: 0.7, band: true },
   pine: { trunk: { h: 1.8, r0: 0.3, r1: 0.18 }, cones: [[1.4, 2.0, 2.5], [2.5, 1.7, 2.4], [3.6, 1.4, 2.3], [4.7, 1.1, 2.1], [5.7, 0.8, 1.9], [6.6, 0.5, 1.5]], top: [0.32, 0.54, 0.3], bot: [0.07, 0.23, 0.16], bark: [0.25, 0.17, 0.11], cell: 0.8 },
 };
-function buildTreeGeo(type) {
+function buildTreeGeo(type, detail = 2) {
   const S = TREE_SPEC[type], parts = [trunkGeo(S.trunk.h, S.trunk.r0, S.trunk.r1, S.bark, S.band)];
-  if (S.blobs) S.blobs.forEach((b, i) => parts.push(blobGeo(b[0], b[1], b[2], b[3], b[4], b[5], i * 7.3 + type.length, S.top, S.bot, 0.2)));
+  if (S.blobs) S.blobs.forEach((b, i) => parts.push(blobGeo(b[0], b[1], b[2], b[3], b[4], b[5], i * 7.3 + type.length, S.top, S.bot, 0.2, detail)));
   if (S.cones) S.cones.forEach((c, i) => parts.push(coneGeo(c[0], c[1], c[2], i * 3.1, S.top, S.bot)));
   return mergeGeometries(parts);
 }
 const foliageMat = patchVox(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0, side: THREE.DoubleSide }), { cs: 0.8, leaf: true });
 const barkMat = foliageMat; // single material: vertex colours carry bark + leaves
-const TREES = []; const TREE_MESH = {}; const TREE_CAP = { oak: 56, maple: 18, birch: 40, pine: 120 };
+const TREES = []; const TREE_MESH = {}; const TREE_GEO = {}; const TREE_CAP = { oak: 56, maple: 18, birch: 40, pine: 120 };
 function minDistOK(grid, x, z, d) { const cx = Math.floor(x / 6), cz = Math.floor(z / 6); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const a = grid.get((cx + i) * 4096 + (cz + j)); if (a) for (const q of a) if (Math.hypot(q[0] - x, q[1] - z) < Math.max(d, q[2])) return false; } return true; }
 function nearSite(x, z, pad) { for (const k in SITES) { const s = SITES[k]; if (s.r0 > 0 && Math.hypot(x - s.x, z - s.z) < s.r0 + pad) return true; } return Math.hypot(x - 12.2, z - 2) < 13 || Math.hypot(x - 43, z - 12) < 7; }
 function placeTrees() {
   const r = mulberry(31337), grid = new Map(), dummy = new THREE.Object3D(), col = new THREE.Color();
   for (const type of Object.keys(TREE_CAP)) {
-    const mesh = new THREE.InstancedMesh(buildTreeGeo(type), foliageMat, TREE_CAP[type]); mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.count = 0; TREE_MESH[type] = mesh; scene.add(mesh);
+    TREE_GEO[type] = { hi: buildTreeGeo(type, 2), lo: buildTreeGeo(type, 1) }; const mesh = new THREE.InstancedMesh(TREE_GEO[type].hi, foliageMat, TREE_CAP[type]); mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.count = 0; TREE_MESH[type] = mesh; scene.add(mesh);
     let placed = 0, tries = 0; const spacing = type === 'pine' ? 3.2 : type === 'birch' ? 3.0 : 6.0;
     while (placed < TREE_CAP[type] && tries++ < 30000) {
       const x = (r() * 2 - 1) * 61, z = (r() * 2 - 1) * 61, h = HT(x, z), sl = terrSlope(x, z), d = Math.abs(x - riverX(z));
@@ -1043,7 +1052,7 @@ function setTreeVisible(t, vis) {
   mesh.instanceMatrix.needsUpdate = true; t.alive = vis; if (t.box) t.box.on = vis;
 }
 // quality: draw only a fraction of each species
-function onTreeQuality() { for (const type in TREE_MESH) TREE_MESH[type].count = Math.min(TREE_MESH[type].instanceMatrix.count, Math.ceil(TREE_CAP[type] * Q.trees)); }
+function onTreeQuality() { for (const type in TREE_MESH) TREE_MESH[type].geometry = Q.lite ? TREE_GEO[type].lo : TREE_GEO[type].hi; for (const type in TREE_MESH) TREE_MESH[type].count = Math.min(TREE_MESH[type].instanceMatrix.count, Math.ceil(TREE_CAP[type] * Q.trees)); }
 
 // ---- rocks -----------------------------------------------------------------------------------------------------------
 function rockGeo(seed, sx, sy, sz) {
@@ -1072,7 +1081,7 @@ function placeRocks() {
     const idx = m.count++; m.setMatrixAt(idx, dummy.matrix);
     const rk = { x, y: h, z, s, vi, idx, mesh: m, alive: true, box: null, rot: dummy.rotation.y }; if (s > 1.5) rk.box = addBoxCol(x - s * 0.62, h - 0.2, z - s * 0.62, x + s * 0.62, h + s * 0.78, z + s * 0.62, 'rock', rk); ROCKS.push(rk);
   }
-  meshes.forEach(m => m.instanceMatrix.needsUpdate = true);
+  meshes.forEach(m => { m.instanceMatrix.needsUpdate = true; act1Objects.push(m); });
 }
 function setRockVisible(rk, vis) { if (vis) { const d = new THREE.Object3D(); d.position.set(rk.x, rk.y - 0.12 * rk.s, rk.z); d.rotation.y = rk.rot; d.scale.setScalar(rk.s); d.updateMatrix(); rk.mesh.setMatrixAt(rk.idx, d.matrix); } else rk.mesh.setMatrixAt(rk.idx, _hid); rk.mesh.instanceMatrix.needsUpdate = true; rk.alive = vis; if (rk.box) rk.box.on = vis; }
 
@@ -1208,7 +1217,7 @@ function buildFarMountains() {
 // ============================================================================
 const outlineMat = new THREE.MeshBasicMaterial({ color: 0x14080a, side: THREE.BackSide, fog: true });
 const hv = hex => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.52, metalness: 0, emissive: hex, emissiveIntensity: 0.1 });
-const SPH = new THREE.SphereGeometry(1, 20, 14), CYL = new THREE.CylinderGeometry(1, 1, 1, 14, 1), HEMI = new THREE.SphereGeometry(1, 20, 10, 0, TAU, 0, PI / 2);
+const SPH = new THREE.SphereGeometry(1, 16, 12), CYL = new THREE.CylinderGeometry(1, 1, 1, 14, 1), HEMI = new THREE.SphereGeometry(1, 20, 10, 0, TAU, 0, PI / 2);
 function part(parent, geo, mat, x, y, z, sx, sy, sz, outline = 0.06) {
   const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; parent.add(m);
   if (outline) { const o = new THREE.Mesh(geo, outlineMat); o.position.copy(m.position); o.scale.set(sx + outline, sy + outline, sz + outline); o.renderOrder = -1; parent.add(o); }
@@ -1314,7 +1323,7 @@ function _cbFloor(b) { if (b.y1 <= _fy + 0.01 && b.y1 > _fb && _fx > b.x0 && _fx
 // ============================================================================
 const P = {
   x: -24, y: 0, gy: 0, z: -46, vx: 0, vy: 0, vz: 0, yaw: 0.6, grounded: false, groundedT: 0, act: 'ground', actT: 0, h: TUNING.height, size: 1,
-  jumpBuf: 0, zBuf: 0, fireBuf: 0, chainN: 0, chainT: 0, landT: 9, jumpHeld: false, airKind: 'jump', wallT: 0, wnx: 0, wnz: 0, kickCd: 0,
+  stepOff: 0, jumpBuf: 0, zBuf: 0, fireBuf: 0, chainN: 0, chainT: 0, landT: 9, jumpHeld: false, airKind: 'jump', wallT: 0, wnx: 0, wnz: 0, kickCd: 0,
   invuln: 0, hurtT: 0, hp: TUNING.hp, big: false, poundT: 0, diveT: 0, punchT: 0, punchAlt: 0, crouch: false, speed: 0, wade: false, inLowG: false,
   stats: { jumps: 0, punches: 0, dives: 0, pounds: 0, flips: 0, kicks: 0 }, dead: false, frozen: 0, skid: false, flipT: 0, flipKind: '', prevY: 0, step: 0, onPlat: null, victory: 0, talk: 0, bounceT: 0,
 };
@@ -1325,11 +1334,12 @@ function pollInput(dt) {
   const k = keys, up = k.has('w') || k.has('arrowup'), dn = k.has('s') || k.has('arrowdown'), lf = k.has('a') || k.has('arrowleft'), rt = k.has('d') || k.has('arrowright');
   INP.ix = (rt ? 1 : 0) - (lf ? 1 : 0); INP.iz = (up ? 1 : 0) - (dn ? 1 : 0);
   const m = Math.hypot(INP.ix, INP.iz); INP.mag = m ? 1 : 0; if (m > 1) { INP.ix /= m; INP.iz /= m; }
-  const jumpNow = k.has(' '), zNow = k.has('z'), fireNow = mouseFire || padFireDown, placeNow = mousePlace || padPlaceDown;
-  INP.jump = jumpNow; INP.crouch = zNow; INP.run = k.has('shift'); INP.place = placeNow; INP.fire = fireNow;
-  if (jumpNow && !_pk.jump) P.jumpBuf = TUNING.buffer; if (zNow && !_pk.z) P.zBuf = 0.18; if ((fireNow && !_pk.fire) || edge.fire) { P.fireBuf = 0.16; edge.fire = false; }
-  if (k.has('e') && !_pk.e) edge.e = true; if (k.has('j') && !_pk.j) edge.j = true; if (k.has('q') && !_pk.q) edge.q = true; if (k.has('m') && !_pk.m) edge.m = true; if (k.has('p') && !_pk.p) edge.p = true;
+  const jumpNow = k.has(' '), zNow = k.has('z'), fireNow = mouseFire || padFireDown, placeNow = mousePlace || padPlaceDown || placeLatch;
+  INP.jump = jumpNow || latch.has(' '); INP.crouch = zNow; INP.run = k.has('shift'); INP.place = placeNow; INP.fire = fireNow;
+  if ((jumpNow && !_pk.jump) || latch.has(' ')) P.jumpBuf = TUNING.buffer; if ((zNow && !_pk.z) || latch.has('z')) P.zBuf = 0.18; if ((fireNow && !_pk.fire) || edge.fire) { P.fireBuf = 0.16; edge.fire = false; }
+  for (const key of ['e', 'j', 'q', 'm', 'p']) if ((k.has(key) && !_pk[key]) || latch.has(key)) edge[key] = true;
   _pk.jump = jumpNow; _pk.z = zNow; _pk.e = k.has('e'); _pk.j = k.has('j'); _pk.q = k.has('q'); _pk.m = k.has('m'); _pk.p = k.has('p'); _pk.fire = fireNow;
+  latch.clear(); placeLatch = false;
 }
 function heroH() { return P.crouch || P.act === 'slide' ? 1.0 * P.size : TUNING.height * P.size; }
 function heroGround() { return P.grounded; }
@@ -1447,8 +1457,9 @@ function moveHero(dt) {
     if (!scan(nx, gy, nz, h)) { P.x = nx; P.z = nz; continue; }
     const rise = S.top - gy, dist = Math.abs(d);
     const okHF = S.topHF < -1e8 || S.topHF - gy <= T.slopeMax * dist + 0.03;
-    if (rise <= T.stepUp && okHF && (P.grounded || P.vy <= 0.5)) {
-      const ny = S.top + 0.0005; if (!scan(nx, ny, nz, h)) { P.x = nx; P.z = nz; gy = ny; P.step++; continue; }
+    const lim = S.topO > -1e8 && P.grounded ? T.stepUpBlock : T.stepUp; // whole-block steps are climbed automatically while running on the ground
+    if (rise <= lim && okHF && (P.grounded || P.vy <= 0.5)) {
+      const ny = S.top + 0.0005; if (!scan(nx, ny, nz, h)) { P.stepOff += ny - gy; P.x = nx; P.z = nz; gy = ny; P.step++; continue; }
     }
     // wall
     if (ax === 0) { P.wnx = Math.sign(-d) || 1; P.wnz = 0; } else { P.wnx = 0; P.wnz = Math.sign(-d) || 1; }
@@ -1508,6 +1519,7 @@ function updateCamera(dt, rdt) {
     camera.position.set(cx, Math.max(gy + 1.9, P.y + 1.8) + Math.sin(t * 0.21) * 0.2, cz); CAM.look.set(hx - 3.2, P.y + 2.5, hz + 2.2); camera.lookAt(CAM.look);
     camera.fov = damp(camera.fov, 46, 3, rdt); camera.updateProjectionMatrix(); return;
   }
+  if (CAM.free) { camera.position.set(...CAM.free.pos); CAM.look.set(...CAM.free.look); camera.up.set(0, 1, 0); camera.lookAt(CAM.look); camera.fov = CAM.free.fov || 55; camera.updateProjectionMatrix(); return; }
   const manual = lookDX !== 0 || lookDY !== 0 || padLookV.x !== 0 || padLookV.y !== 0;
   if (manual) { CAM.yaw -= lookDX * T.sens + padLookV.x * T.padRate * rdt; CAM.pitch += lookDY * T.sens * 0.9 + padLookV.y * T.padRate * 0.7 * rdt; CAM.idle = 0; lookDX = lookDY = 0; }
   CAM.pitch = clamp(CAM.pitch, -0.3, 1.3);
@@ -1578,7 +1590,8 @@ function updateHeroVisual(dt, rdt) {
   if (P.talk > 0 && g && !P.crouch) { t.hy = Math.sin(v.t * 2) * 0.2; }
   if (act !== 'flip') { if (act !== 'pound') h.pose.spin = damp(h.pose.spin, 0, 18, rdt); if (act !== 'long' && act !== 'dive' && act !== 'slide') { if (Math.abs(h.pose.pitch) > 0.4 && Math.abs(h.pose.pitch) > PI) h.pose.pitch = 0; } }
   poseTo(h, t, rdt, k); applyPose(h, rdt);
-  h.root.position.set(P.x, P.y, P.z); h.root.rotation.set(0, v.yaw, GF < 0 ? PI : 0);
+  P.stepOff *= Math.exp(-14 * rdt); if (Math.abs(P.stepOff) < 0.002) P.stepOff = 0;
+  h.root.position.set(P.x, P.y - (GF > 0 ? 1 : -1) * P.stepOff, P.z); h.root.rotation.set(0, v.yaw, GF < 0 ? PI : 0);
   const tgtS = (P.big ? 1.26 : 1) * h.S; P.size = damp(P.size, P.big ? 1.26 : 1, 6, rdt); h.root.scale.setScalar(h.S * P.size);
   h.root.visible = !(P.invuln > 0 && Math.floor(v.t * 18) % 2 === 0 && P.hurtT <= 0.0001 && P.invuln < 1.5);
   h.mats.red.emissiveIntensity = h.mats.blue.emissiveIntensity = 0.1 + (P.invuln > 0 ? 0.15 : 0);
@@ -1886,7 +1899,7 @@ let act1Visible = true;
 function setAct1Visible(v) {
   act1Visible = v; terrain.visible = v; water.visible = v; grass.visible = v; flowers.visible = v;
   for (const k in TREE_MESH) TREE_MESH[k].visible = v; scene.traverse(o => { if (o.userData.act1) o.visible = v; });
-  act1Objects.forEach(o => o.visible = v); FAR.forEach(m => m.visible = v);
+  act1Objects.forEach(o => o.visible = v); FAR.forEach(m => m.visible = v); for (const p of PIECES) p.mesh.visible = v && p.alive;
 }
 const act1Objects = [];
 function updateDrops(dt) {
@@ -2103,8 +2116,8 @@ function buildAct3(O, plinthR) {
   const L = mkLevel(3, O), vb = L.vb; L.cellGroup = new Map();
   const MG = vb.addPal(0.92, 0.16, 0.62), TL = vb.addPal(0.1, 0.78, 0.8), PU = vb.addPal(0.22, 0.1, 0.38), PU2 = vb.addPal(0.34, 0.16, 0.55), CRM = vb.addPal(1, 0.86, 0.94), RV = vb.addPal(0.2, 1, 0.9, 10.9), RV2 = vb.addPal(1, 0.3, 0.8, 10.9),
     CV = vb.addPal(0.75, 0.35, 1, 0.8), CV2 = vb.addPal(0.2, 0.95, 0.95, 0.85), CV3 = vb.addPal(1, 0.35, 0.75, 0.85), PD = vb.addPal(1, 0.9, 0.4, 0.95), PAD = vb.addPal(0.5, 1, 0.9, 0.95), PP = vb.addPal(0.16, 0.72, 0.32), PL = vb.addPal(0.55, 0.96, 0.58), GD = vb.addPal(1, 0.82, 0.3, 0.6), WD = vb.addPal(0.5, 0.35, 0.55), WL = vb.addPal(0.14, 0.07, 0.24);
-  const wide = Q.cap >= 30000, mid = Q.cap >= 20000, len = wide ? 86 : mid ? 70 : 56, hw = wide ? 19 : mid ? 16 : 12, H = wide ? 30 : mid ? 26 : 22; // canyon length, half width, ceiling height
-  L.canyon = { len, hw, H };
+  const wide = Q.cap >= 30000, mid = Q.cap >= 20000, len = wide ? 60 : mid ? 54 : 48, hw = wide ? 19 : mid ? 16 : 12, H = wide ? 30 : mid ? 26 : 22; // canyon length, half width, ceiling height
+  L.canyon = { len, hw, H }; L.filter = (x, y, z) => Math.abs(z) <= hw + 3 && y >= -3 && y <= H + 1 && x > -13 && x < len + 2;
   const noise = (x, z) => 0.5 * n3(x * 0.07 + 3, 1, z * 0.07) + 0.3 * n3(x * 0.16, 7, z * 0.16 + 5) + 0.2 * n3(x * 0.4, 3, z * 0.4);
   const riverZ = x => 5 * Math.sin(x * 0.07) + 2 * Math.sin(x * 0.19 + 1);
   for (let x = -12; x <= len; x++) {
@@ -2169,7 +2182,7 @@ function rebuildWorld() {
   const O = { x: Math.floor(SH.cx), y: Math.round(SH.cy), z: Math.floor(SH.cz) };
   if (to === 2) LV = buildAct2(O, T.plinth); else if (to === 3) LV = buildAct3(O, T.plinth); else LV = null;
   if (!LV) return;
-  const vb = LV.vb, surf = vb.surface(), n = surf.n;
+  const vb = LV.vb, surf = vb.surface(LV.filter), n = surf.n;
   // fresh collision grid (filled as cubes arrive); the plinth region is solid immediately so the hero never loses footing
   const grid = new Uint8Array(GX * GY * GZ); VG.on = true; VG.ox = O.x - GOX; VG.oy = O.y - GOY; VG.oz = O.z - GOZ; VG.nx = GX; VG.ny = GY; VG.nz = GZ; VG.data = grid; WC.hf = false;
   for (const b of BOXES) b.on = false; LV.colliders = []; DISCS.length = 0;
@@ -2496,7 +2509,7 @@ function hurtHero(sx, sz) {
 const NPC = { x: 0, y: 0, z: 0, active: false, line: 0, lines: [], talkT: 0, near: false, ph: 0 };
 function updateNPC(dt, t) {
   twin.root.visible = NPC.active; if (!NPC.active) return;
-  const dx = P.x - NPC.x, dz = P.z - NPC.z, d = Math.hypot(dx, dz); NPC.near = d < 3.6 && G.state === 'play';
+  const dx = P.x - NPC.x, dz = P.z - NPC.z, d = Math.hypot(dx, dz); NPC.near = d < 3.6 && G.state === 'play'; if (NPC.near && NPC.talkT <= 0 && !PROMPT) PROMPT = 'Press E to talk';
   const want = d < 8 ? Math.atan2(dx, dz) : (NPC.base || 0); NPC.yaw = (NPC.yaw === undefined ? want : NPC.yaw) + angDiff(NPC.yaw === undefined ? want : NPC.yaw, want) * Math.min(1, dt * 5);
   const f = floorAt(NPC.x, NPC.z, NPC.y + 1.5); if (f > -1e8) NPC.y = f;
   twin.root.position.set(NPC.x, NPC.y, NPC.z); twin.root.rotation.y = NPC.yaw; NPC.ph += dt;
@@ -2516,15 +2529,15 @@ const lowgMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   }` });
-let warpT = 0, warpTarget = null;
+let warpT = 0, warpTarget = null, PROMPT = '';
 function updatePipesPads(dt) {
   P.inLowG = false;
-  if (!LV) return; const prompt = $('prompt'); let msg = '';
+  if (!LV) return; let msg = '';
   for (const lg of LV.lowg) { if (Math.hypot(P.x - lg.x, P.y - lg.y, P.z - lg.z) < lg.r) P.inLowG = true; }
   if (warpT > 0) { warpT -= dt; if (warpT <= 0.25 && warpTarget) { const w = warpTarget; warpTarget = null; setHeroPos(w.x, w.y, w.z); P.yaw = 0; CAM.yaw = P.yaw; camShake(0.4); sfx('pipe'); G.flash = 0.35; } if (warpT > 0.25) { P.vx = P.vz = 0; P.vy = 0; hero.root.scale.y *= 1; } }
   else for (const p of LV.pipes) { if (Math.hypot(P.x - p.x, P.z - p.z) < 1.9 && Math.abs(P.y - p.y) < 0.7 && P.grounded) { msg = 'Crouch (Z) to enter the pipe'; if (INP.crouch) { const to = LV.pipes.find(q => q.id === p.to); if (to) { warpT = 0.7; warpTarget = { x: to.x, y: to.y + 0.05, z: to.z }; sfx('pipe'); P.frozen = 0.7; } } } }
   for (const pd of LV.pads) { if (Math.hypot(P.x - pd.x, P.z - pd.z) < 1.7 && Math.abs((GF > 0 ? P.y : P.y) - pd.y) < 1.0 && P.grounded) { msg = 'Press E to flip gravity'; if (edge.e) { edge.e = false; flipGravity(); } } }
-  if (msg) { prompt.textContent = msg; prompt.classList.add('on'); } else prompt.classList.remove('on');
+  if (msg) PROMPT = msg;
 }
 function flipGravity() {
   const h = heroH();
@@ -2740,7 +2753,7 @@ function loadAct(n, pos) {
   }
 }
 function instantBuild(L) {
-  const vb = L.vb, surf = vb.surface(), O = L.O; const grid = new Uint8Array(GX * GY * GZ); VG.on = true; VG.ox = O.x - GOX; VG.oy = O.y - GOY; VG.oz = O.z - GOZ; VG.nx = GX; VG.ny = GY; VG.nz = GZ; VG.data = grid;
+  const vb = L.vb, surf = vb.surface(L.filter), O = L.O; const grid = new Uint8Array(GX * GY * GZ); VG.on = true; VG.ox = O.x - GOX; VG.oy = O.y - GOY; VG.oz = O.z - GOZ; VG.nx = GX; VG.ny = GY; VG.nz = GZ; VG.data = grid;
   L.surf = surf; L.n = surf.n;
   for (let i = 0; i < surf.n; i++) { const k = allocCube(); if (k < 0) break; const x = surf.x[i], y = surf.y[i], z = surf.z[i], p = surf.p[i], col = jit(vb.pal[p], x, y, z, 0.06); setCubeTransform(k, O.x + x + 0.5, O.y + y + 0.5, O.z + z + 0.5, 1, col[0], col[1], col[2]); C.tx[k] = C.x[k]; C.ty[k] = C.y[k]; C.tz[k] = C.z[k]; C.tr[k] = col[0]; C.tg[k] = col[1]; C.tb[k] = col[2]; C.tgl[k] = vb.palFx[p]; C.glow[k] = vb.palFx[p]; C.st[k] = ST.SET; C.owner[k] = -1; setCubeAO(k, surf.a[i], surf.b[i]); const kk = levelCellKey(x, y, z); C.grp[k] = L.cellGroup.get(kk) ?? -1; if (C.grp[k] >= 0) L.groups[C.grp[k]].cubes.push(k); writeCube(k); }
   // collision comes from the full grid (every solid cell)
@@ -2820,7 +2833,7 @@ function requestLock() { try { const p = canvas.requestPointerLock && canvas.req
 document.addEventListener('pointerlockchange', () => { const was = locked; locked = document.pointerLockElement === canvas; if (was && !locked && G.state === 'play') pauseGame(); });
 document.addEventListener('pointerlockerror', () => { plFailed = true; locked = false; });
 function beginGame() {
-  audioInit(); if (!G.started) { G.started = true; startRun(); } else if (G.state === 'menu') { startRun(); }
+  edge.e = edge.j = edge.q = edge.m = edge.p = edge.fire = edge.place = false; audioInit(); if (!G.started) { G.started = true; startRun(); } else if (G.state === 'menu') { startRun(); }
   $('menu').classList.add('hidden'); $('hud').classList.remove('hidden'); G.state = 'play'; updateHUD(); updateBestLine(); requestLock(); sfx('click'); toast('Collect the Sun Shards', 3000);
 }
 function pauseGame() { if (G.state !== 'play') return; G.state = 'pause'; $('pause').classList.remove('hidden'); keys.clear(); mouseFire = mousePlace = false; document.exitPointerLock && document.exitPointerLock(); }
@@ -2835,18 +2848,18 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys.delete(k); });
 addEventListener('blur', () => { keys.clear(); mouseFire = mousePlace = false; });
-addEventListener('mousedown', e => { if (G.state === 'pause') { resumeGame(); return; } if (G.state !== 'play') return; if (e.button === 0) { mouseFire = true; edge.fire = true; } else if (e.button === 2) mousePlace = true; audioInit(); if (!locked && !plFailed && document.pointerLockElement !== canvas) requestLock(); });
+addEventListener('mousedown', e => { if (G.state === 'pause') { if (e.target.id !== 'toMenuBtn') resumeGame(); return; } if (G.state !== 'play') return; if (e.button === 0) { mouseFire = true; edge.fire = true; } else if (e.button === 2) { mousePlace = true; placeLatch = true; } audioInit(); if (!locked && !plFailed && document.pointerLockElement !== canvas) requestLock(); });
 addEventListener('mouseup', e => { if (e.button === 0) mouseFire = false; else if (e.button === 2) mousePlace = false; });
 addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('mousemove', e => { if (G.state !== 'play') return; if (locked || plFailed) { lookDX += e.movementX || 0; lookDY += e.movementY || 0; } });
 $('cta').addEventListener('click', e => { e.stopPropagation(); beginGame(); });
 $('cta2').addEventListener('click', e => { e.stopPropagation(); audioInit(); if (G.won) restartAll(); else retry(); });
-$('pause').addEventListener('click', () => resumeGame());
+$('pause').addEventListener('click', e => { if (e.target.id === 'toMenuBtn') { toMenu(); return; } resumeGame(); });
 document.querySelectorAll('.qrow button').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); applyQuality(b.dataset.q); }));
 $('menu').addEventListener('pointerdown', () => audioInit());
 
 // ---- main loop -------------------------------------------------------------------------------------------------------------------------
-let acc = 0, lastT = performance.now(), frameMs = [], qCheckT = 0, frameCount = 0;
+let shardHudT = 0, acc = 0, lastT = performance.now(), frameMs = [], qCheckT = 0, frameCount = 0;
 const STEP = TUNING.step;
 function frame(rdt, doRender) {
   frameCount++; const playing = G.state === 'play' || G.state === 'menu' && false;
@@ -2857,16 +2870,18 @@ function frame(rdt, doRender) {
   G.slow += (1 - G.slow) * Math.min(1, rdt * (G.trans ? 0.55 : 1.1)); let sdt = rdt * G.slow;
   if (G.hitstop > 0) { G.hitstop -= rdt; sdt *= 0.04; }
   if (G.state === 'play') {
-    G.t += rdt; acc = Math.min(acc + sdt, 0.1);
+    G.t += rdt; acc = Math.min(acc + sdt, 0.25);
     while (acc >= STEP) { if (!G.finale) stepHero(STEP); updateEnemies(STEP, U.time.value); updatePowerups(STEP); acc -= STEP; }
     if (G.coinComboT > 0) { G.coinComboT -= rdt; if (G.coinComboT <= 0) G.coinCombo = 0; }
     // death
     if (!P.dead) { const killY = LV ? LV.deathY + LV.O.y : -28; if (P.y < killY && !(GF < 0 && P.y < killY + 200 && P.y > -killY)) killHero('fall'); if (GF < 0 && LV && P.y > LV.O.y + 90) killHero('fall'); if (G.act === 1 && !WC.hf && !LV && P.y < -20) killHero('fall'); }
-    doRewind(sdt); updateCoins(sdt, U.time.value); updateShards(sdt, U.time.value); updateBlocks(sdt); updateNPC(sdt, U.time.value); updatePipesPads(sdt); updateRotators(sdt);
+    PROMPT = ''; doRewind(sdt); updateCoins(sdt, U.time.value); updateShards(sdt, U.time.value); updateBlocks(sdt); updateNPC(sdt, U.time.value); updatePipesPads(sdt); updateRotators(sdt);
+    const pe = $('prompt'); if (PROMPT) { pe.textContent = PROMPT; pe.classList.add('on'); } else pe.classList.remove('on');
+    shardHudT -= rdt; if (shardHudT <= 0) { shardHudT = 0.25; let best = 1e9, bs = null; for (const s of SHARDS) if (!s.got) { const d = Math.hypot(s.x - P.x, s.y - P.y, s.z - P.z); if (d < best) { best = d; bs = s; } } $('shardDist').textContent = bs ? 'NEXT SHARD ' + Math.round(best) + ' m' : ''; }
   } else if (G.state === 'menu') { updateNPC(rdt, U.time.value); updateShards(rdt, U.time.value); updateCoins(rdt, U.time.value); acc = 0; }
   U.time.value += rdt;
   if (SH.on) { if (SH.kind === 'local') updateLocalShatter(rdt); else if (SH.kind === 'world') updateWorldShatter(rdt); else if (SH.kind === 'pulse') updatePulse(rdt); else if (SH.kind === 'finale') updateFinale(rdt); }
-  updateDrops(sdt); updateCubes(Math.min(sdt, 1 / 20), rdt, U.time.value); updateParticles(sdt); updateStructures(sdt, U.time.value); updateMotes(U.time.value);
+  updateDrops(sdt); updateTerrainGeo(); updateCubes(Math.min(sdt, 1 / 20), rdt, U.time.value); updateParticles(sdt); updateStructures(sdt, U.time.value); updateMotes(U.time.value);
   updateHeroVisual(sdt, rdt); updateCamera(sdt, rdt);
   // shared uniforms
   U.hero.value.set(P.x, P.y, P.z); grassUniforms.uFieldC.value.set(P.x, P.z); sky.position.copy(camera.position); updateSun(P.x, P.y, P.z);
@@ -2889,15 +2904,15 @@ function perfMonitor(real) { // auto-downgrade: avg frame time over 3 s > 26 ms,
   if (perfT >= TUNING.autoDowngradeWindow) { const avg = frameMs.reduce((a, b) => a + b, 0) / frameMs.length; frameMs.length = 0; perfT = 0; if (avg > TUNING.autoDowngradeMs && real < 2) worse(); }
 }
 function loop(now) { requestAnimationFrame(loop); if (window.__paused) { lastT = now; return; } const real = (now - lastT) / 1000, rdt = Math.min(0.1, real); lastT = now; if (rdt <= 0) return; frame(rdt, true); perfMonitor(real); }
-function onQualityChanged() { onGrassQuality(); onTreeQuality(); updateHUD(); }
+function onQualityChanged() { U.lite.value = Q.lite; onGrassQuality(); onTreeQuality(); updateHUD(); }
 
 // ---- debug / test hooks ---------------------------------------------------------------------------------------------------------------
-window.__dbg = () => ({ stats: P.stats, rewinds: G.rewinds || 0, speed: P.speed, crouch: P.crouch, camWide: CAM.wide, talk: NPC.talkT > 0, npcNear: NPC.near, qScale, state: G.state, act: G.act, pos: [P.x, P.y, P.z], vel: [P.vx, P.vy, P.vz], hp: P.hp, big: P.big, score: G.score, coins: G.coins, shards: G.shards, totalShards: G.totalShards, grounded: P.grounded, pact: P.act, yaw: P.yaw, camYaw: CAM.yaw, camPitch: CAM.pitch, quality: qName, vox: voxAtCPU(P.x, P.z), cubes: cubeLive, trans: G.trans ? G.trans.kind : null, shk: SH.on ? SH.kind : null, wave: [WV.R1, WV.R2], gf: GF, muted, time: G.t, rewinding, deaths: G.deaths, fps: frameMs.length, locked, chain: P.chainN, wallT: P.wallT, invuln: P.invuln, nan: [P.x, P.y, P.z, P.vx, P.vy, P.vz, CAM.yaw, CAM.pitch].some(v => !Number.isFinite(v)) });
+window.__dbg = () => ({ frames: frameCount, stats: P.stats, rewinds: G.rewinds || 0, speed: P.speed, crouch: P.crouch, camWide: CAM.wide, talk: NPC.talkT > 0, npcNear: NPC.near, qScale, state: G.state, act: G.act, pos: [P.x, P.y, P.z], vel: [P.vx, P.vy, P.vz], hp: P.hp, big: P.big, score: G.score, coins: G.coins, shards: G.shards, totalShards: G.totalShards, grounded: P.grounded, pact: P.act, yaw: P.yaw, camYaw: CAM.yaw, camPitch: CAM.pitch, quality: qName, vox: voxAtCPU(P.x, P.z), cubes: cubeLive, trans: G.trans ? G.trans.kind : null, shk: SH.on ? SH.kind : null, wave: [WV.R1, WV.R2], gf: GF, muted, time: G.t, rewinding, deaths: G.deaths, fps: frameMs.length, locked, chain: P.chainN, wallT: P.wallT, invuln: P.invuln, nan: [P.x, P.y, P.z, P.vx, P.vy, P.vz, CAM.yaw, CAM.pitch].some(v => !Number.isFinite(v)) });
 Object.assign(window.__game, {
   advance(sec, doRender = false) { const n = Math.round(sec * 60); for (let i = 0; i < n; i++) frame(1 / 60, doRender && i === n - 1); },
   teleport(x, y, z) { setHeroPos(x, y, z); }, setQuality(q) { applyQuality(q, true); }, collect(i) { const s = SHARDS.filter(s => !s.got)[i || 0]; if (s) collectShard(s); return !!s; }, shards: () => SHARDS.map(s => [s.x, s.y, s.z, s.got, s.final]),
   loadAct(n) { if (!G.started) { G.started = true; } G.ck = G.ck || { act: 1 }; loadAct(n); resetHero(LV ? { x: LV.O.x + LV.start.x, y: LV.O.y + LV.start.y, z: LV.O.z + LV.start.z } : G.ck.pos || { x: SITES.spawn.x, y: SITE_H.spawn, z: SITES.spawn.z }); }, level: () => LV, SH: () => SH, G, P, CAM, C, TREES, ROCKS,
-  camera, hfGround, HT, render() { renderFrame(); }, local(x, z) { startLocalShatter(x ?? P.x, z ?? P.z, TUNING.shatter.localR); }, world() { const s = SHARDS.find(s => s.final); startWorldShatter(G.act, G.act + 1, s ? s.x : P.x, s ? floorAt(s.x, s.z, s.y) : P.y, s ? s.z : P.z); },
+  scene, grass, flowers, terrain, water, sky, hero, TREE_MESH, FAR, passes(b, g2) { if (bloomPass) bloomPass.enabled = !!b; if (gradePass) gradePass.enabled = !!g2; }, setScale(v) { qScale = v; onResize(); buildComposer(); }, camera, hfGround, HT, render() { renderFrame(); }, local(x, z) { startLocalShatter(x ?? P.x, z ?? P.z, TUNING.shatter.localR); }, world() { const s = SHARDS.find(s => s.final); startWorldShatter(G.act, G.act + 1, s ? s.x : P.x, s ? floorAt(s.x, s.z, s.y) : P.y, s ? s.z : P.z); },
   pause(v) { window.__paused = !!v; }, wave(o) { Object.assign(WV, o); syncWave(); }, flip() { flipGravity(); }, hurt() { hurtHero(P.x + 1, P.z); }, kill() { killHero('hits'); },
 });
 
@@ -2910,7 +2925,8 @@ function detectSoftware() {
 function bootGame() {
   // software-only GL (headless / very old devices): start on the lightest tier at reduced resolution unless the player chose one
   let chosen = false; try { chosen = !!new URLSearchParams(location.search).get('q') || !!localStorage.getItem('sw_q'); } catch (e) { }
-  if (!chosen && detectSoftware()) { qName = 'low'; Q = QUALITY.low; qScale = 0.6; }
+  if (!chosen && detectSoftware()) { qName = 'low'; Q = QUALITY.low; qScale = 0.7; }
+  else if (!chosen && matchMedia && matchMedia('(pointer:coarse)').matches) { qName = 'medium'; Q = QUALITY.medium; } // tablets / TV browsers start balanced
   onResize(); applyQuality(qName, true);
   placeTrees(); placeRocks(); buildStructures(); buildFarMountains(); ACT1_BOXES = BOXES.slice();
   onQualityChanged(); drawLogo(); setMuted(muted); updateBestLine();

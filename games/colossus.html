@@ -960,7 +960,7 @@ function makeRuin(kind, x, z, r, h, seed, opts){
     }
     yy += dh;
   }
-  const colTop = ruin.top - (kind === 'obelisk' ? 0.5 : 4.5);
+  const colTop = kind === 'obelisk' ? ruin.top - dh * 0.5 - 1.0 : ruin.top - 4.5;
   ruin.col = addCyl(x, z, kind === 'obelisk' ? r * 0.96 * 0.78 : r * 0.96, y0, colTop, ruin); ruin.colFull = colTop;
   RUINS.push(ruin);
   // long soft shadow streak
@@ -1023,6 +1023,36 @@ const ARCHES = [];
   SAFE_SPOTS.push({ x: SPAWN.x, z: SPAWN.z });
   for (const m of OUTCROPS.slice(0, 8)) SAFE_SPOTS.push({ x: m.x, z: m.z });
   for (const a of [0.3, 1.2, 2.2, 3.1, 4.1, 5.2]) SAFE_SPOTS.push({ x: Math.cos(a) * 156, z: Math.sin(a) * 156 });
+})();
+
+// scattered rubble, boulders (with sphere colliders: perches and swing anchors) and dry grass clumps
+(function scatterProps(){
+  const R = mulberry32(555), rocks = [], grass = [];
+  const tooClose = (x, z, d) => Math.hypot(x - TITAN_START.x, z - TITAN_START.z) < 14 || Math.hypot(x - SPAWN.x, z - SPAWN.z) < 6;
+  for (let i = 0; i < 520; i++) {
+    const a = R() * TAU, r = Math.sqrt(R()) * 170, x = Math.cos(a) * r, z = Math.sin(a) * r; if (tooClose(x, z)) continue;
+    const sz = 0.35 + Math.pow(R(), 3) * 1.5, g = new THREE.IcosahedronGeometry(1, 0);
+    paintGeo(g, (px, py, pz, nx, ny, nz, o) => { const k = 0.62 + 0.4 * hash2((px * 9) | 0, (pz * 7 + py * 5) | 0, 3); o[0] = k; o[1] = k * 0.97; o[2] = k * 0.9; if (ny > 0.5) { o[0] *= 0.85; o[1] *= 1.0; o[2] *= 0.75; } });
+    rocks.push({ g, m: mat4(x, hAt(x, z) + sz * 0.15, z, R() * 3, R() * 3, R() * 3, sz, sz * (0.5 + R() * 0.4), sz * (0.7 + R() * 0.5)) });
+  }
+  for (let i = 0; i < 16; i++) {
+    let x, z, tries = 0; do { const a = R() * TAU, r = 30 + Math.sqrt(R()) * 125; x = Math.cos(a) * r; z = Math.sin(a) * r; } while (tries++ < 20 && (tooClose(x, z) || RUINS.some(q => Math.hypot(q.x - x, q.z - z) < 12)));
+    const sz = 3 + R() * 3.2, g = new THREE.IcosahedronGeometry(1, 1);
+    const pp = g.attributes.position; for (let k = 0; k < pp.count; k++) { const px = pp.getX(k), py = pp.getY(k), pz = pp.getZ(k), n = 1 + (hash2((px * 5) | 0, (py * 5 + pz * 3) | 0, 7) - 0.5) * 0.28; pp.setXYZ(k, px * n, py * n, pz * n); }
+    g.computeVertexNormals(); paintGeo(g, (px, py, pz, nx, ny, nz, o) => { const k = 0.7 + 0.35 * fbm(px * 1.5 + i, pz * 1.5, 2, i); o[0] = k; o[1] = k * 0.98; o[2] = k * 0.92; if (ny > 0.45) { const m = smooth(0.4, 0.8, fbm(px * 2 + i, pz * 2 + 4, 2, i + 3)); o[0] = lerp(o[0], 0.5, m * 0.7); o[1] = lerp(o[1], 0.82, m * 0.7); o[2] = lerp(o[2], 0.4, m * 0.7); } });
+    const cy = hAt(x, z) + sz * 0.55; rocks.push({ g, m: mat4(x, cy, z, R() * 6, R() * 6, R() * 6, sz, sz * 0.82, sz) });
+    const c = new Col(K_CAP, 'static', 'boulder'); c.ax = c.bx = x; c.ay = c.by = cy; c.az = c.bz = z; c.r = sz * 0.8; colBounds(c);
+    const sh = makeBlob(sz * 2.6, sz * 2.6 + 4, 0.35); placeBlob(sh, x + SHADOW_DIR.x * sz * 0.8, z + SHADOW_DIR.z * sz * 0.8, Math.atan2(SHADOW_DIR.x, SHADOW_DIR.z), 0.1);
+  }
+  scene.add(new THREE.Mesh(mergeGeos(rocks), MAT.stone));
+  for (let i = 0; i < 480; i++) {
+    const a = R() * TAU, r = Math.sqrt(R()) * 175, cx = Math.cos(a) * r, cz = Math.sin(a) * r; if (tooClose(cx, cz) || fbm(cx * 0.03 + 7, cz * 0.03, 2, 5) < 0.42) continue;
+    const n = 3 + (R() * 5 | 0);
+    for (let k = 0; k < n; k++) { const x = cx + (R() - 0.5) * 4, z = cz + (R() - 0.5) * 4, h = 0.9 + R() * 1.6, c = new THREE.ConeGeometry(0.2 + R() * 0.12, h, 4, 1); c.translate(0, h / 2, 0);
+      paintGeo(c, (px, py, pz, nx, ny, nz, o) => { const t = py / h; o[0] = lerp(0.35, 0.78, t); o[1] = lerp(0.42, 0.7, t); o[2] = lerp(0.2, 0.36, t); });
+      grass.push({ g: c, m: mat4(x, hAt(x, z) - 0.05, z, (R() - 0.5) * 0.5, R() * 3, (R() - 0.5) * 0.5, 1, 1, 1) }); }
+  }
+  scene.add(new THREE.Mesh(mergeGeos(grass), MAT.moss));
 })();
 
 // glowing ground glyphs
@@ -1294,7 +1324,7 @@ const TI = {
   x: TITAN_START.x, z: TITAN_START.z, yaw: 0, speed: 0, ph: 0, prevPh: 0, groundY: 0, state: 'sleep', st: 0, cd: 4, last: '', phase: 0, hp: 9, torn: 0,
   wpActive: -1, wpDelay: 0, eyes: 0.15, sp: 1, side: 'L', ev: 0, thrash: 0, awake: false, clingT: 0, hitCd: 0, grab: null,
   gx: 0, gy: 0, gz: 0, slamX: 0, slamZ: 0, stompX: 0, stompZ: 0, swatH0: 0, swatH1: 0, laserDir: 1, laserT: 0, deadT: 0, dying: false, dead: false, roarT: 0, glow: 0, kneeling: 0, sweepYaw0: 0,
-  palmX: 0, palmY: 0, palmZ: 0, lastAttackT: 0,
+  palmX: 0, palmY: 0, palmZ: 0, lastAttackT: 0, swatHp: 0, swatY0: 0,
 };
 const IKA = { L: { w: 0, tw: 0, x: 0, y: 0, z: 0, px: 0, py: -1, pz: 0 }, R: { w: 0, tw: 0, x: 0, y: 0, z: 0, px: 0, py: -1, pz: 0 } };
 const PH = [
@@ -1414,12 +1444,14 @@ function beginAttack(k){
   TI.last = k; const rel = playerRelAngle(); TI.side = rel >= 0 ? 'L' : 'R'; TI.lastAttackT = 0; TI.ev = 0;
   setTState(k); TI.st = 0;
   if (k === 'laser') { TI.laserDir = rel >= 0 ? -1 : 1; TI.sweepYaw0 = TI.yaw; TI.laserT = 0; }
+  if (k === 'swat') { TI.swatHp = Math.atan2(pos[0] - TI.x, pos[2] - TI.z); TI.swatY0 = TI.yaw; }
   if (k === 'grab') { TI.gx = pos[0]; TI.gz = pos[2]; TI.gy = 2; }
   const names = { stomp: 'STOMP', swat: 'SWEEP', slam: 'SLAM', grab: 'GRAB', shake: 'SHAKE OFF', laser: 'EYE BEAM' };
   warnText(names[k] || k.toUpperCase()); sfx.warn(k);
 }
 function dofRates(r){ for (const k of DOF_KEYS) RT[k] = r; }
 
+const SW = { hip: 1.5, knee: 2.9, spx: 1.3, alpha: 0.42 };
 const ATKS = {
   stomp: { dur: 2.8, tick(t, dt){
     const S = TI.side, O = S === 'L' ? 'R' : 'L', s = S === 'L' ? 1 : -1, up = ramp(t, 0, 1.12), fall = ramp(t, 1.12, 1.26), lift = up * (1 - fall), rec = ramp(t, 1.6, 2.6);
@@ -1432,20 +1464,23 @@ const ATKS = {
     if (t > 0.1 && t < 1.3) { telPlace(telRing, TI.stompX || TI.x, TI.stompZ || TI.z, TUNING.titan.stompDmgR * (1.2 - 0.2 * ramp(t, 0.9, 1.25))); telPlace(telDisc, TI.stompX || TI.x, TI.stompZ || TI.z, TUNING.titan.stompDmgR); }
     if (t >= 1.22 && !(TI.ev & 2)) { TI.ev |= 2; footPos(S, _fp); impactStomp(_fp.x, _fp.z); telRing.visible = telDisc.visible = false; }
   } },
-  swat: { dur: 2.7, tick(t, dt){
-    const S = TI.side, O = S === 'L' ? 'R' : 'L', s = S === 'L' ? 1 : -1, w = ramp(t, 0, 1.0), kk = ramp(t, 1.0, 1.42), rec = ramp(t, 1.65, 2.55), hold = w * (1 - rec);
-    legPose('L', -0.9 * hold, 0.07 + 1.8 * hold); legPose('R', -0.9 * hold, 0.07 + 1.8 * hold);
-    Zs('spX', 0.78 * hold); Zs('spY', s * (0.95 * w - 2.55 * kk) * (1 - rec), kk > 0 && kk < 1 ? 16 : 7);
-    Zs('sh' + S + 'z', s * (1.22 * hold) + REST['sh' + S + 'z'] * (1 - hold)); Zs('sh' + S + 'x', 0.0, 10); Zs('el' + S + 'x', (-0.95 * w * (1 - kk) - 0.12 * kk) * (1 - rec) - 0.18 * rec, 9);
-    Zs('curl' + S, 0.9 * w * (1 - kk) + 0.2, 10); Zs('sh' + O + 'x', -0.45 * hold); Zs('sh' + O + 'z', (-s) * -0.0 + (-s) * 0.4 * hold * -1 * 0 + (s > 0 ? -0.5 : 0.5) * hold);
-    Zs('hdY', -s * 0.35 * w * (1 - rec)); Zs('hdX', 0.2 * hold);
-    const hot = t > 1.02 && t < 1.52; tl(armCols(S), hot ? 2 : (t > 0.1 && t < 1.02 ? 1 : 0));
-    if (t > 0.2 && t < 1.7) {
-      const yawS = TI.yaw + s * (Math.PI / 2 + 0.95), yawE = TI.yaw + s * (Math.PI / 2 - 1.6); const a0 = Math.min(yawS, yawE), a1 = Math.max(yawS, yawE);
-      telArc.geometry.dispose(); telArc.geometry = new THREE.RingGeometry(10, 54, 28, 1, a0 - Math.PI / 2, a1 - a0); telPlace(telArc, TI.x, TI.z, 1); telArc.material.opacity = 0.14 + 0.12 * Math.sin(t * 14);
+  swat: { dur: 2.8, tick(t, dt){
+    const S = TI.side, O = S === 'L' ? 'R' : 'L', s = S === 'L' ? 1 : -1, d = -s, w = ramp(t, 0, 1.0), kk = ramp(t, 1.0, 1.55), rec = ramp(t, 1.8, 2.7), hold = w * (1 - rec);
+    // body spin carries the arm round the player (a low horizontal sweep: jump it or swing over it)
+    const hp = TI.swatHp, yS = TI.swatY0 + angDiff(TI.swatY0, hp - d * 0.9 - s * Math.PI / 2), yE = yS + 1.8 * d;
+    TI.yaw = t < 1.0 ? lerp(TI.swatY0, yS, w) : lerp(yS, yE, kk);
+    legPose('L', -SW.hip * hold, 0.07 + SW.knee * hold, 8); legPose('R', -SW.hip * hold, 0.07 + SW.knee * hold, 8);
+    Zs('spX', SW.spx * hold, 8);
+    Zs('sh' + S + 'z', s * (lerp(1.2, SW.alpha, kk) * w) * (1 - rec) + REST['sh' + S + 'z'] * (1 - hold), 12); Zs('sh' + S + 'x', -0.1 * hold, 10);
+    Zs('el' + S + 'x', (-0.95 * w * (1 - kk) - 0.12 * kk) * (1 - rec) - 0.2 * rec, 12); Zs('curl' + S, 0.9 * w * (1 - kk) + 0.2, 10);
+    Zs('sh' + O + 'x', -0.5 * hold); Zs('sh' + O + 'z', s * -0.5 * hold + REST['sh' + O + 'z'] * (1 - hold)); Zs('hdX', 0.35 * hold); Zs('hdY', 0.0);
+    const hot = t > 1.0 && t < 1.6; tl(armCols(S), hot ? 2 : (t > 0.15 && t <= 1.0 ? 1 : 0));
+    if (t > 0.2 && t < 1.8) {
+      const aS0 = hp - d * 0.9, aE0 = hp + d * 0.9, a0 = Math.min(aS0, aE0), a1 = Math.max(aS0, aE0);
+      if (!(TI.ev & 4)) { TI.ev |= 4; telArc.geometry.dispose(); telArc.geometry = new THREE.RingGeometry(14, 52, 28, 1, a0 - Math.PI / 2, a1 - a0); } telPlace(telArc, TI.x, TI.z, 1); telArc.material.opacity = 0.14 + 0.12 * Math.sin(t * 14);
     } else telArc.visible = false;
     if (t > 1.0 && !(TI.ev & 1)) { TI.ev |= 1; sfx.whoosh(0.8, TI.x, TI.z); }
-    if (t > 1.1 && t < 1.55) smashRuinsWith(armCols(S));
+    if (t > 1.1 && t < 1.6) smashRuinsWith(armCols(S));
   } },
   slam: { dur: 3.6, tick(t, dt){
     const up = ramp(t, 0, 1.4), down = ramp(t, 1.46, 1.64), rec = ramp(t, 2.0, 3.2), hold = (1 - rec);
@@ -1752,9 +1787,11 @@ function activateNextWP(){
   const w = WPS[idx]; w.active = true; w.grp.visible = true; w.hp = 100; w.charge = 0; TI.wpActive = idx; TI.wpDelay = 0; wpWorld(w);
   popup('SIGIL REVEALED: ' + w.name, '#7fe9ff'); sfx.reveal();
 }
+const wpBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 1.0, 80, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x7fe9ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+wpBeam.visible = false; wpBeam.renderOrder = 6; scene.add(wpBeam);
 function updateWeakPoints(dt){
   if (TI.wpDelay > 0 && TI.wpActive < 0) { TI.wpDelay -= dt; if (TI.wpDelay <= 0 && !TI.dying) activateNextWP(); }
-  const t = performance.now() * 0.001;
+  const t = performance.now() * 0.001; const aw = activeWP(); wpBeam.visible = !!aw && gstate !== 'menu'; if (aw) { wpBeam.position.set(aw.wp.x, aw.wp.y + 40, aw.wp.z); wpBeam.material.opacity = 0.14 + 0.1 * Math.sin(t * 4); }
   for (const w of WPS) {
     wpWorld(w);
     if (w.active) {
@@ -1970,11 +2007,11 @@ function findZipTarget(){
   aimDir(_ad); const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, chest = pos[1] + 0.4;
   ZT2.ok = false; ZT2.kind = 'none'; ZT2.ledge = false; ZT2.ru = null;
   const S = P.sw;
-  if (S.on && S.anc.valid) { const a = S.anc; ZT2.ok = true; ZT2.kind = 'anchor'; ZT2.col = a.col; ZT2.x = a.wx; ZT2.y = a.wy; ZT2.z = a.wz; ZT2.nx = a.nx; ZT2.ny = a.ny; ZT2.nz = a.nz; ZT2.anc = a; if (a.col && a.col.owner && a.col.owner.drums) zipLedge(a.col.owner, pos[0], pos[2], ZT2); return true; }
+  if (S.on && S.anc.valid) { const a = S.anc; ZT2.ok = true; ZT2.kind = 'anchor'; ZT2.col = a.col; ZT2.x = a.wx; ZT2.y = a.wy; ZT2.z = a.wz; ZT2.nx = a.nx; ZT2.ny = a.ny; ZT2.nz = a.nz; ZT2.anc = a; if (a.col && a.col.owner && a.col.owner.drums && a.col.owner.kind === 'pillar') zipLedge(a.col.owner, pos[0], pos[2], ZT2); return true; }
   if (castRay(cx, cy, cz, _ad[0], _ad[1], _ad[2], ZIP.range + cam.dist, 0, null)) {
     const hx = RH.x, hy = RH.y, hz = RH.z, col = RH.col, dp = Math.hypot(hx - pos[0], hy - chest, hz - pos[2]);
     if (dp > 5 && dp <= ZIP.range + 8) {
-      if (col && col.owner && col.owner.drums && col.owner.col.y1 - hy <= ZIP.ledgeMax) { ZT2.kind = 'direct'; return zipLedge(col.owner, pos[0], pos[2], ZT2); }
+      if (col && col.owner && col.owner.drums && col.owner.kind === 'pillar' && col.owner.col.y1 - hy <= ZIP.ledgeMax) { ZT2.kind = 'direct'; return zipLedge(col.owner, pos[0], pos[2], ZT2); }
       if (col && col.tag === 'titan') { const wp = activeWP(); ZT2.ok = true; ZT2.kind = 'direct'; ZT2.col = col; ZT2.x = hx + RH.nx * 0.9; ZT2.y = hy + RH.ny * 0.9; ZT2.z = hz + RH.nz * 0.9; ZT2.nx = RH.nx; ZT2.ny = RH.ny; ZT2.nz = RH.nz; ZT2.anc = null; return true; }
       if (col && col.kind === K_OBB) { ZT2.ok = true; ZT2.kind = 'direct'; ZT2.col = col; ZT2.x = hx + RH.nx * 1.4; ZT2.y = hy + RH.ny * 1.4 + (RH.ny > 0.5 ? 1.2 : 0); ZT2.z = hz + RH.nz * 1.4; ZT2.nx = RH.nx; ZT2.ny = RH.ny; ZT2.nz = RH.nz; ZT2.anc = null; return true; }
       if (!col && RH.ny > 0.5) { ZT2.ok = true; ZT2.kind = 'direct'; ZT2.col = null; ZT2.x = hx; ZT2.y = hy + HH + 0.6; ZT2.z = hz; ZT2.nx = 0; ZT2.ny = 1; ZT2.nz = 0; ZT2.anc = null; return true; }
@@ -1983,7 +2020,7 @@ function findZipTarget(){
   // assist: nearest pillar top in a cone around the aim, preferring the ones slightly above
   let best = -1e9, bru = null;
   for (const ru of RUINS) {
-    if (ru.col.y1 < ru.y0 + 14) continue; const tx = ru.x - pos[0], tz = ru.z - pos[2], ty = ru.col.y1 - chest, d = Math.hypot(tx, ty, tz); if (d < 12 || d > ZIP.range) continue;
+    if (ru.kind !== 'pillar' || ru.col.y1 < ru.y0 + 14) continue; const tx = ru.x - pos[0], tz = ru.z - pos[2], ty = ru.col.y1 - chest, d = Math.hypot(tx, ty, tz); if (d < 12 || d > ZIP.range) continue;
     const cs = (tx * _ad[0] + ty * _ad[1] + tz * _ad[2]) / d; if (cs < Math.cos(22 * DEG)) continue; if (ru.col.y1 - pos[1] > ZIP.ledgeMax || ru.col.y1 < pos[1] - 6) continue;
     const sc = cs * 30 - Math.abs(d - 50) * 0.2 + (ty > 0 ? 4 : -6); if (sc > best) { best = sc; bru = ru; }
   }
@@ -2310,7 +2347,7 @@ function titanContact(dt){
   const R = PR + CL.skin; _tc.c = null; _tc.d = 1e9;
   for (let i = 0; i < TCOLS.length; i++) {
     const c = TCOLS[i]; if (!c.alive) continue; const bx = pos[0] - c.bsx, by = pos[1] - c.bsy, bz = pos[2] - c.bsz, rr = c.bsr + R + 1.4; if (bx * bx + by * by + bz * bz > rr * rr) continue;
-    for (let s = 0; s < 2; s++) { const d = colDist(c, pos[0], pos[1] + (s ? 0.4 : -0.4), pos[2]); if (d < R && d < _tc.d) { _tc.d = d; _tc.c = c; _tc.nx = CD.nx; _tc.ny = CD.ny; _tc.nz = CD.nz; _tc.sx = CD.sx; _tc.sy = CD.sy; _tc.sz = CD.sz; } }
+    const Rc = c.hot ? R + 1.4 : R; for (let s = 0; s < 2; s++) { const d = colDist(c, pos[0], pos[1] + (s ? 0.4 : -0.4), pos[2]); if (d < Rc && d < _tc.d) { _tc.d = d; _tc.c = c; _tc.nx = CD.nx; _tc.ny = CD.ny; _tc.nz = CD.nz; _tc.sx = CD.sx; _tc.sy = CD.sy; _tc.sz = CD.sz; } }
   }
   const c = _tc.c; if (!c) return;
   if (c.hot) { if (P.invuln <= 0) { hurtPlayer(1, _tc.nx, 0.5, _tc.nz, 'limb', 26); } }
@@ -2322,7 +2359,7 @@ function titanContact(dt){
 function diveHit(c){
   const sp = Math.hypot(vel[0], vel[1], vel[2]), wp = activeWP();
   cam.shake = Math.max(cam.shake, 0.5); cam.fovKick = 12; fxBurst(_tc.sx, _tc.sy, _tc.sz, 30, 16, 1, 0.9, 0.7, 0.6, 1.8, 10); sfx.divehit(); hitStopT = Math.max(hitStopT, 0.07);
-  if (wp && sp > DIVE.impactMin) { const d = Math.hypot(_tc.sx - wp.wp.x, _tc.sy - wp.wp.y, _tc.sz - wp.wp.z); if (d < wp.r + 3.2) { wp.hp -= YK.diveDmg; stats.dives++; if (wp.hp <= 0) { tearWP(wp, 'dive'); return; } } }
+  if (wp && sp > DIVE.impactMin) { const d = Math.hypot(_tc.sx - wp.wp.x, _tc.sy - wp.wp.y, _tc.sz - wp.wp.z); if (d < wp.r + 5.2) { wp.hp -= YK.diveDmg; stats.dives++; if (wp.hp <= 0) { tearWP(wp, 'dive'); return; } } }
   popup('DIVE IMPACT', '#ffd58a');
 }
 
@@ -2990,7 +3027,7 @@ function padFire(down){
 }
 function padPlace(down){ if (down === undefined || down) { INP.zipLatch = true; if (gstate === 'dead' && performance.now() - endedAt > 900) startGame(); } }
 function padLook(dx, dy){ INP.padLookX = Math.abs(dx) < 0.12 ? 0 : dx; INP.padLookY = Math.abs(dy) < 0.12 ? 0 : dy; }
-function padMenu(){ if (gstate === 'playing') pauseGame(); else if (gstate === 'paused') goMenu(); else goMenu(); }
+function padMenu(){ goMenu(); }
 
 // ============================================================================
 //  main loop (fixed 120 Hz physics, interpolated render)
@@ -3066,6 +3103,8 @@ G_.clingTo = (name) => { const c = CN[name]; if (!c) return false; colFromBone(c
 G_.P = P; G_.TI = TI; G_.cam_ = cam; G_.WPS = WPS; G_.CN = CN; G_.RUINS = RUINS; G_.stats = stats; G_.run = run; G_.hAt = hAt; G_.keys = keys;
 G_.ray = (ox, oy, oz, dx, dy, dz, m) => { const ok = castRay(ox, oy, oz, dx, dy, dz, m || 200, 0, null); return ok ? { t: RH.t, col: RH.col ? RH.col.name : 'terrain', x: RH.x, y: RH.y, z: RH.z } : null; };
 G_.setHP = n => { P.hp = n; };
+G_.probe = (atk, p, secs) => { let best = 1e9, bn = '', bt = 0; TI.awake = true; if (TI.state === 'sleep') setTState('walk'); TI.cd = 1e9; beginAttack(atk); const n = Math.round(secs / STEP); for (let i = 0; i < n; i++) { titanTick(STEP); for (const c of TCOLS) if (c.hot) { const d = colDist(c, p[0], p[1], p[2]); if (d < best) { best = d; bn = c.name; bt = TI.st; } } } return { best, bn, bt }; }; G_.SW = SW;
+G_.sample = (atk, names, secs, step) => { const out = []; TI.awake = true; if (TI.state === 'sleep') setTState('walk'); TI.cd = 1e9; beginAttack(atk); const n = Math.round(secs / STEP), k = Math.round((step || 0.1) / STEP); for (let i = 0; i < n; i++) { titanTick(STEP); if (i % k === 0) out.push({ t: +TI.st.toFixed(2), st: TI.state, y: +TI.yaw.toFixed(2), c: names.map(nm => { const c = CN[nm]; return [c.bsx - TI.x, c.bsy, c.bsz - TI.z, c.hot ? 1 : 0].map(v => +v.toFixed(1)); }) }); } return out; };
 G_.anch = () => { const ok = findSwingAnchor(); const w = activeWP(); aimDir(_ad); return { ok, kind: ANCH.kind, a: [ANCH.x, ANCH.y, ANCH.z], wp: ANCH.wp ? ANCH.wp.id : null, cam: [camera.position.x, camera.position.y, camera.position.z], aim: [_ad[0], _ad[1], _ad[2]], active: w ? w.id : null, wpPos: w ? [w.wp.x, w.wp.y, w.wp.z] : null, snap: w ? !!wpSnap(null, camera.position.x, camera.position.y, camera.position.z, _ad[0], _ad[1], _ad[2], ASSIST.wpSnapDeg) : null }; };
 G_.grabNow = () => { if (P.state !== 'grabbed') { TI.awake = true; beginAttack('grab'); } };
 G_.mash = () => { P.grab.prog = 1; };
@@ -3109,6 +3148,70 @@ G_.scene = scene; G_.fogLayers = fogLayers; G_.shaftGroup = shaftGroup; G_.THREE
   }
   poll();
 })();
+// <gamepad-shim>
+// gamepad shim v1: standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
+// Pasted verbatim inside each game's module <script> (needs the contract globals: keys, padFire, padPlace, padLook, padMenu).
+// Mapping (Xbox name / PlayStation name):
+//   left stick = WASD   right stick = look   A/Cross = jump   X/Square = J   B/Circle = Z   Y/Triangle = E
+//   RT/R2 = primary (fire)   LT/L2 = secondary (ADS / place / zip)   LB/L1 = Q   RB/R1 and L3 = Shift   R3 = Q
+//   D-pad = arrow keys   Start/Options = confirm on menu screens, pause/back-to-menu in game   Select/Create = back to menu
+// Browser quirk: the pad is invisible to the page until you press any button once.
+(function(){
+  if(!navigator.getGamepads) return;
+  const DZ=0.16, held=new Set(), was={};
+  const toast=(()=>{ let el,t; return msg=>{
+    if(!el){ el=document.createElement('div');
+      el.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;padding:7px 14px;border-radius:8px;'+
+        'background:rgba(10,12,20,.86);color:#cfe;font:12px ui-monospace,monospace;border:1px solid #3a5;pointer-events:none;transition:opacity .4s;';
+      document.body.appendChild(el); }
+    el.textContent=msg; el.style.opacity=1; clearTimeout(t); t=setTimeout(()=>{ el.style.opacity=0; },2600); }; })();
+  const setKey=(k,on)=>{ if(on){ if(!held.has(k)){ held.add(k); keys.add(k); } } else if(held.has(k)){ held.delete(k); keys.delete(k); } };
+  const axisKeys=(neg,pos,v)=>{ setKey(neg, held.has(neg)? v<-0.22 : v<-0.38); setKey(pos, held.has(pos)? v>0.22 : v>0.38); };
+  const shown=el=>{ if(!el) return false; const s=getComputedStyle(el);
+    return s.display!=='none'&&s.visibility!=='hidden'&&+s.opacity>0.01&&el.getClientRects().length>0; };
+  const click=id=>{ const el=document.getElementById(id); if(shown(el)){ el.click(); return true; } return false; };
+  const edge=(name,on,down,up)=>{ if(on&&!was[name]){ was[name]=1; down&&down(); } else if(!on&&was[name]){ was[name]=0; up&&up(); } };
+  const call=(f,...a)=>{ if(typeof f==='function') f(...a); };
+  const pick=()=>{ for(const g of navigator.getGamepads()) if(g&&g.connected) return g; return null; };
+  let lookLive=false;
+  function releaseAll(){ [...held].forEach(k=>setKey(k,false)); Object.keys(was).forEach(k=>{ if(was[k]) edge(k,false,null,()=>{}); });
+    if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+    if(typeof padFire==='function') padFire(false); if(typeof padPlace==='function') padPlace(false); }
+  addEventListener('gamepadconnected',e=>toast('controller connected: '+String(e.gamepad.id).replace(/\s*\(.*$/,'').slice(0,42)));
+  addEventListener('gamepaddisconnected',()=>{ releaseAll(); toast('controller disconnected'); });
+  addEventListener('blur',releaseAll);
+  window.__rumble=(strong,weak,ms)=>{ const g=pick(), a=g&&g.vibrationActuator;
+    if(a&&a.playEffect) a.playEffect('dual-rumble',{duration:ms||80,strongMagnitude:strong||0,weakMagnitude:weak||0}).catch(()=>{}); };
+  window.__gpDbg=()=>({ connected:!!pick(), held:[...held] });
+  function frame(){
+    const g=pick();
+    if(g){
+      const b=i=>{ const x=g.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+      // sticks (radial deadzone)
+      const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ) return [0,0]; const s=(Math.min(m,1)-DZ)/(1-DZ)/m; return [x*s,y*s]; };
+      const [lx,ly]=dz(g.axes[0]||0,g.axes[1]||0);
+      axisKeys('a','d',lx); axisKeys('w','s',ly);
+      const [rx,ry]=dz(g.axes[2]||0,g.axes[3]||0);
+      const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+      if(rx||ry){ lookLive=true; call(typeof padLook==='function'?padLook:null,cv(rx),cv(ry)); }
+      else if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+      // face / shoulder buttons -> keys
+      setKey(' ',b(0)); setKey('z',b(1)); setKey('j',b(2)); setKey('e',b(3));
+      setKey('q',b(4)||b(11)); setKey('shift',b(5)||b(10));
+      setKey('arrowup',b(12)); setKey('arrowdown',b(13)); setKey('arrowleft',b(14)); setKey('arrowright',b(15));
+      // triggers -> primary / secondary
+      edge('rt',b(7),()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); },()=>call(typeof padFire==='function'?padFire:null,false));
+      edge('lt',b(6),()=>call(typeof padPlace==='function'?padPlace:null,true),()=>call(typeof padPlace==='function'?padPlace:null,false));
+      // A also confirms on start / retry screens; Start confirms there, pauses in game
+      edge('a',b(0),()=>{ if(!click('cta')) click('cta2'); });
+      edge('start',b(9),()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); });
+      edge('select',b(8),()=>call(typeof padMenu==='function'?padMenu:null));
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+// </gamepad-shim>
 </script>
 </body>
 </html>
