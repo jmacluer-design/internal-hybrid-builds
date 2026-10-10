@@ -69,13 +69,13 @@ export class Pool {
 }
 
 // ---------------------------------------------------------------------------------------------------------------- procedural geometry
-function colorize(g, hex, emit = 0, fol = 0) {
+export function colorize(g, hex, emit = 0, fol = 0) {
   const c = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3), e = new Float32Array(n).fill(emit), f = new Float32Array(n).fill(fol);
   for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
   g.setAttribute('color', new THREE.BufferAttribute(a, 3)); g.setAttribute('aEmit', new THREE.BufferAttribute(e, 1)); g.setAttribute('aFol', new THREE.BufferAttribute(f, 1)); return g;
 }
-const strip = g => { g = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color', 'aEmit', 'aFol'].includes(k)) g.deleteAttribute(k); if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2)); return g; };
-const T = (g, x, y, z) => g.translate(x, y, z);
+export const strip = g => { g = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color', 'aEmit', 'aFol'].includes(k)) g.deleteAttribute(k); if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2)); return g; };
+export const T = (g, x, y, z) => g.translate(x, y, z);
 
 export function unitBox() { const g = new THREE.BoxGeometry(1, 1, 1); g.translate(0, 0.5, 0); return g; }
 export function gableGeo(wallFrac = 0.72) {
@@ -98,7 +98,7 @@ export function gableGeo(wallFrac = 0.72) {
 export function treeBroadGeo() { // unit tree: 1 m tall, authored so scale = height
   const parts = [];
   parts.push(colorize(strip(T(new THREE.CylinderGeometry(0.035, 0.05, 0.46, 6), 0, 0.23, 0)), 0x5a4030));
-  const blob = (x, y, z, r, c) => { const g = strip(new THREE.IcosahedronGeometry(r, 1)); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const k = 1 + (hash2(Math.round(p.getX(i) * 100), Math.round(p.getY(i) * 100), Math.round(p.getZ(i) * 100)) - 0.5) * 0.22; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.9, p.getZ(i) * k); } g.translate(x, y, z); g.computeVertexNormals(); return colorize(g, c, 0, 1); };
+  const blob = (x, y, z, r, c) => { const g = strip(new THREE.IcosahedronGeometry(r, 0)); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const k = 1 + (hash2(Math.round(p.getX(i) * 100), Math.round(p.getY(i) * 100), Math.round(p.getZ(i) * 100)) - 0.5) * 0.22; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.9, p.getZ(i) * k); } g.translate(x, y, z); g.computeVertexNormals(); return colorize(g, c, 0, 1); };
   parts.push(blob(0, 0.66, 0, 0.3, 0x3f6a2c), blob(0.17, 0.52, 0.06, 0.2, 0x4a7a32), blob(-0.15, 0.55, -0.08, 0.21, 0x366028), blob(0.02, 0.84, 0.03, 0.2, 0x55843a));
   return mergeGeometries(parts);
 }

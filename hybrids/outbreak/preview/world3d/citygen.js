@@ -213,7 +213,7 @@ export class City {
     const bushG = new THREE.IcosahedronGeometry(1, 1); { const p = bushG.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, Math.max(p.getY(i) * 0.75, -0.2) + 0.2); bushG.computeVertexNormals(); }
     add('bush', [{ geometry: bushG, material: new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }) }], Math.ceil(pc * 1.2), { params: false });
     // trees: GLB broadleaf near the camera (2 parts), simple procedural ones beyond; pines always procedural
-    const treeParts = M && M.has('props') ? bake(M.scene('props'), { filter: o => o.parent && o.parent.name === 'tree', height: 1 }) : [];
+    const treeParts = M && M.has('props') ? bake(M.scene('props'), { filter: o => /^tree/.test(o.name), height: 1 }) : [];
     if (treeParts.length >= 2 && tier.treesGlb > 0) {
       treeParts.sort((a, b) => a.geometry.boundingBox.max.y - b.geometry.boundingBox.max.y);
       const parts = treeParts.map((p, i) => ({ geometry: p.geometry, material: makeVertexMaterialFlat(i === 0 ? 0x5a4331 : 0x4d7a35, i === 1) }));
@@ -227,7 +227,7 @@ export class City {
       const parts = bake(M.scene(n), { height: h }).map(p => ({ geometry: p.geometry, material: patchTowerMaterial(p.material) }));
       if (parts.length) add('tower' + 'ABCD'[i], parts, P.tower);
     });
-    if (M && M.has('ruin')) add('ruinGlb', bake(M.scene('ruin'), { height: 1 }).map(p => ({ geometry: p.geometry, material: patchPlain(p.material) })), Math.min(40, P.ruin * 2), { params: false });
+    if (M && M.has('ruin')) add('ruinGlb', bake(M.scene('ruin'), { height: 1 }).map(p => ({ geometry: p.geometry, material: patchPlain(p.material) })), Math.min(16, P.ruin), { params: false });
     // lamp light pools on the ground (additive decals)
     const quad = new THREE.PlaneGeometry(1, 1).rotateX(-PI / 2);
     const gm = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uNight: U.night, uLamps: U.lamps }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; vec4 p = instanceMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * viewMatrix * modelMatrix * p; }',

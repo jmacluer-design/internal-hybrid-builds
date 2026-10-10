@@ -48,7 +48,7 @@ export class WorldGen {
   heightAt(x, z) {
     const urb = clamp(this.density(x, z) * 2.4, 0, 1);
     const macro = fbm2(x * 0.0011 + 3.1, z * 0.0011 - 1.7, 4, this.sx);
-    let hills = Math.max((macro - 0.40) * 2.1, -0.25);
+    let hills = Math.max((macro - 0.40) * 2.1, 0);
     hills += (fbm2(x * 0.006 - 7, z * 0.006 + 2, 3, this.sx + 5) - 0.5) * 0.22;
     let h = hills * 52 * (1 - urb);
     const u = (-x - z) / 1.4142; // towards the north-west: the harbour
@@ -69,11 +69,12 @@ export class WorldGen {
       const [a, b] = k.split(',').map(Number), A = pts[a], B = pts[b];
       const len = Math.hypot(B.x - A.x, B.z - A.z), n = Math.max(6, Math.ceil(len / 28));
       const nx = -(B.z - A.z) / len, nz = (B.x - A.x) / len, bend = (r() - 0.5) * len * 0.16, ph = r() * 6;
-      const line = [];
+      let line = [];
       for (let i = 0; i <= n; i++) {
         const t = i / n, off = Math.sin(t * PI) * bend + Math.sin(t * 9 + ph) * 5;
         line.push({ x: lerp(A.x, B.x, t) + nx * off, z: lerp(A.z, B.z, t) + nz * off });
       }
+      line = line.filter(p => Math.hypot(p.x, p.z) > this.compoundR + 8); if (line.length < 3) continue; // roads stop at the colony fence
       this.hwList.push(line);
       for (const p of line) { const ck = Math.floor(p.x / 40) * 4096 + Math.floor(p.z / 40); (this.hwPts.get(ck) || this.hwPts.set(ck, []).get(ck)).push(p); }
     }
@@ -180,7 +181,7 @@ export function makeTerrainMaterial(gen) {
       g *= uSeason.rgb; g *= 0.82 + 0.36 * micro;
       vec3 c = mix(g, dirt, smoothstep(0.62, 0.8, fbm3(p * 0.012 + 4.0)) * 0.55);
       c = mix(c, rock, smoothstep(0.32, 0.55, slope));
-      c = mix(c, sand, smoothstep(2.6, 0.2, vWP.y) * 0.9);
+      float coast = smoothstep(1290.0, 1420.0, (-vWP.x - vWP.z) * 0.70711) * smoothstep(5.0, 0.0, vWP.y); c = mix(c, sand, coast * 0.9);
       float urb = 0.0;
       ${dc.map((d, i) => `{ vec4 q = ${d}; float t = length(p - q.xy) / q.z; urb = max(urb, (1.0 - smoothstep(0.15, 1.15, t)) * q.w); }`).join('\n      ')}
       vec3 paved = vec3(0.30, 0.30, 0.31) * (0.86 + 0.3 * vn(p * 0.8)); paved = mix(paved, paved * 0.8, smoothstep(0.4, 0.8, vn(p * 0.09)));
