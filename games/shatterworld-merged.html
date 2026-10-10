@@ -250,7 +250,7 @@
       <div><kbd>Z + SPACE</kbd> long jump / backflip</div><div><kbd>E</kbd> talk / flip pad</div><div><kbd>Q</kbd> recentre camera</div>
       <div><kbd>MOUSE</kbd> look</div><div><kbd>J</kbd> camera mode</div><div><kbd>M</kbd> mute &nbsp; <kbd>P</kbd> quality</div>
       <div class="wide"><kbd>CONTROLLER</kbd> L-stick move, R-stick look, A jump, RT punch/dive, LT hold = rewind, X = J camera, B = Z crouch/pound, Y = E, LB/R3 = Q, RB/L3 = Shift, Start = confirm / pause</div>
-      <div class="wide"><kbd>VR TOUCH</kbd> L-stick move (relative to your head), R-stick snap-turn the table 30&deg;, A jump, B crouch / pound, trigger punch / dive, grip (hold) REWIND, X table size (hold = recentre), Y tap pause, <b>Y hold (0.4 s) inventory &amp; perks</b>, L-stick click sprint, R-stick click talk / flip pad. In the inventory / perk pick the sticks move the cursor, A equip / pick, B back, X salvage (twice), Y lock (hold = close), grips switch tab, trigger clicks what the laser points at. A Bluetooth pad works in VR too.</div>
+      <div class="wide"><kbd>VR TOUCH</kbd> L-stick move (relative to your head), R-stick snap-turn the table 30&deg;, A jump, B crouch / pound, trigger punch / dive, grip (hold) REWIND, X table size (hold = recentre), Y tap pause, Y HOLD (0.4 s) inventory &amp; perks, L-stick click sprint, R-stick click talk / flip pad. In the inventory / perk pick the sticks move the cursor, A equip / pick, B back, X salvage (twice), Y lock (hold = close), grips switch tab, trigger clicks what the laser points at. A Bluetooth pad works in VR too.</div>
     </div>
     <div id="rpgMenu"></div>
     <div class="qrow">QUALITY <button data-q="high">HIGH</button><button data-q="medium">MEDIUM</button><button data-q="low">LOW</button></div>
@@ -280,6 +280,8 @@
 // SHATTERWORLD - a realistic valley that shatters into blocks and rebuilds as stranger worlds.
 // All art is procedural, all sound is WebAudio. three.js r169 + postprocessing addons only.
 // This build adds WebXR (Quest Browser first, PC-VR via desktop Chrome): see the "WEBXR / VR" block + TUNING.vr. Flat play (keyboard/mouse, Xbox/PS pad, phone pad) is unchanged.
+// MERGED BUILD = base + RPG layer (<rpg-core>, <rpg-game>: loot, perks, rifts; UI state object is RUI) + VR layer (UI = the VR panels) + the <vr-rpg> block that mirrors the RPG overlays
+// into world-space panels (inventory / perk pick / HUD strip / plates / haptics) and trims RPG objects for the diorama (distance cull, beam cap, single-pass additive materials).
 // ============================================================================
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -332,9 +334,11 @@ const TUNING = {
     blinkDist: 4, blinkTime: 0.35,  // a hero teleport (respawn / pipe) bigger than this in one frame blinks to black instead of sliding the table
     fbScale: 0.9, foveation: 1,     // XR framebuffer scale (0.85-1.0; picked by estimated cost, NOT measured on a headset) and fixed foveation
     // ---- RPG layer in VR (see the <vr-rpg> block): diorama limits + panel sizes. (world m) = world metres, the rest real metres
-    rpgVis: 30,                     // (world m) enemies / chests / crates / auras further than this from the hero are not drawn (the fog hides them at the table rim anyway)
-    rpgBeamMax: 4, rpgBeamK: 0.4,   // at most 4 light beams (loot / chest / elite) drawn at once, at 40% of their flat-play height
-    rpgPlates: 6, rpgPlateVis: 40, rpgPlateW: 5.4, rpgPlateY: 2.6, // pool of 3D name plates (rare+ loot, act chests, elites), reach (world m), width (world m), height above the thing (world m)
+    rpgVis: 22,                     // (world m) enemies / chests / crates / auras further than this from the hero are not drawn (the table rim is at 17.5 m, the fog hides what is beyond)
+    rpgOutline: 11,                 // (world m) enemy toon outlines (a second mesh each) are only drawn this close to the hero, for elites / guardians and the nearest few
+    rpgLootMax: 6,                  // gold piles / shards / common items drawn at once (rare+ items always)
+    rpgBeamMax: 3, rpgBeamK: 0.4,   // at most 3 light beams (loot / chest / elite) drawn at once, at 40% of their flat-play height
+    rpgPlates: 4, rpgPlateVis: 40, rpgPlateK: 0.5, rpgPlateMin: 0.13, rpgPlateMax: 0.55, rpgPlateY: 2.4, // pool of 3D name plates (rare+ loot, act chests, elites): reach (world m), width = K x distance to the eye (constant angular size, ~28 deg) clamped to [min, max] (REAL m: a Sprite's size is added in view space, i.e. unscaled by the rig), height above the thing (world m)
     rpgPanelW: 1.5,                 // inventory / perk panel width (m); 2048 x 1280 canvas, ~66 deg wide at 1.15 m, text >= 34 px (= 28 px of a 1024 canvas at the same angular size on the 1.15 m menu panel)
   },
 };
@@ -3587,7 +3591,7 @@ function vrActions(rdt) {
   if (vrCfg.snap) { if (VR.snapArmed) { if (Math.abs(rx) > VRT.snapOn) { VR.yaw -= Math.sign(rx) * VRT.snapDeg * PI / 180; VR.snapArmed = false; VR.turns++; vrHaptic(1, 0.12, 12); } } else if (Math.abs(rx) < VRT.snapOff) VR.snapArmed = true; }
   else { const m = Math.abs(rx); if (m > VRT.stickDead) VR.yaw -= Math.sign(rx) * (m - VRT.stickDead) / (1 - VRT.stickDead) * VRT.smoothDegPerSec * PI / 180 * rdt; VR.snapArmed = true; }
 }
-function vrUiMode() { return G.state === 'menu' ? 'start' : G.state === 'pause' ? 'pause' : G.state === 'dead' ? (G.won ? 'win' : 'lose') : G.state === 'inv' ? 'inv' : G.state === 'perk' ? 'perk' : 'none'; }
+function vrUiMode() { return G.state === 'menu' ? 'start' : G.state === 'pause' ? 'pause' : G.state === 'dead' ? (G.won || (RIFT && RIFT.won) ? 'win' : 'lose') : G.state === 'inv' ? 'inv' : G.state === 'perk' ? 'perk' : 'none'; }
 function vrUiOpen(mode) {
   UI.mode = mode; UI.hot[0] = UI.hot[1] = -1; UI.hotKey = -1; const on = mode !== 'none', rpm = mode === 'inv' || mode === 'perk'; UI.main.mesh.visible = on && !rpm; UI.how.mesh.visible = on && (mode === 'start' || mode === 'pause'); UI.rp.mesh.visible = rpm; RV.hotId[0] = RV.hotId[1] = ''; RV.rep.dir = 0; if (!on) return;
   if (rpm) { // the big RPG panel sits where you are looking, level with the horizon so the table below stays visible; it never follows the head afterwards
@@ -3728,7 +3732,7 @@ function vrDbg() {
   const inp = [];
   for (let h = 0; h < 2; h++) { const X = XI[h]; inp.push({ hand: h ? 'right' : 'left', has: X.has, isHand: X.hand, axes: [+X.ax.toFixed(2), +X.ay.toFixed(2)], trig: +X.trig.toFixed(2), grip: +X.grip.toFixed(2), a: X.b4, b: X.b5, stick: X.stick }); }
   const r = renderer.info.render;
-  return { supported: VR.supported, presenting: VR.presenting, mode: VR.mode, snapDeg: vrCfg.snap ? VRT.snapDeg : 0, scale: VR.S, size: vrCfg.size, rigYawDeg: +(VR.yaw * 180 / PI).toFixed(3), rigPos: [rig.position.x, rig.position.y, rig.position.z], frames: VR.frames, turns: VR.turns, haptics: VR.haptics, ui: UI.mode, tier: Q.vr ? qName : null, features: VR.sessionFeatures, fade: VR.fade, avgMs: +VR.avgMs.toFixed(1), draw: { calls: r.calls, triangles: r.triangles }, inputs: inp, rpg: { rp: !!UI.rp && UI.rp.mesh.visible, hud: !!UI.hudP && UI.hudP.mesh.visible, hot: RV.hotId.slice(), btns: RV.btns.length, plates: RV.nPlates, beams: RV.nBeams, haps: RV.hapSeq, hapPlayed: RV.hapPlayed, yHold: +RV.yHold.toFixed(2), banner: RV.ban.on && performance.now() < RV.ban.until } };
+  return { supported: VR.supported, presenting: VR.presenting, mode: VR.mode, snapDeg: vrCfg.snap ? VRT.snapDeg : 0, scale: VR.S, size: vrCfg.size, rigYawDeg: +(VR.yaw * 180 / PI).toFixed(3), rigPos: [rig.position.x, rig.position.y, rig.position.z], frames: VR.frames, turns: VR.turns, haptics: VR.haptics, ui: UI.mode, tier: Q.vr ? qName : null, features: VR.sessionFeatures, fade: VR.fade, avgMs: +VR.avgMs.toFixed(1), draw: { calls: r.calls, triangles: r.triangles }, inputs: inp, rpg: { rp: !!UI.rp && UI.rp.mesh.visible, hud: !!UI.hudP && UI.hudP.mesh.visible, hot: RV.hotId.slice(), btns: RV.btns.length, plates: RV.nPlates, beams: RV.nBeams, haps: RV.hapSeq, hapPlayed: RV.hapPlayed, yHold: +RV.yHold.toFixed(2), banner: RV.ban.on && performance.now() < RV.ban.until, bannerSeq: RV.ban.seq, bannerText: RV.ban.h } };
 }
 
 // <rpg-core> =================================================================================================================
@@ -4231,7 +4235,7 @@ function rpgSigil(canvas, glyph, color = '#ffd66b') {
 
 // ---- 3D fx pools: expanding rings, cube chunks, hit sparks -------------------------------------------------------------------------------------------------
 const RFX_RING_GEO = new THREE.RingGeometry(0.9, 1, 64).rotateX(-PI / 2), RFX_DISC_GEO = new THREE.CircleGeometry(1, 48).rotateX(-PI / 2), RING_POOL = [];
-for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(RFX_RING_GEO, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide })); m.visible = false; m.frustumCulled = false; m.renderOrder = 18; scene.add(m); RING_POOL.push({ m, t: 0, dur: 1, r0: 1, r1: 1, op: 1, on: false, fade: 1.2 }); }
+for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(RFX_RING_GEO, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide, forceSinglePass: true })); m.visible = false; m.frustumCulled = false; m.renderOrder = 18; scene.add(m); RING_POOL.push({ m, t: 0, dur: 1, r0: 1, r1: 1, op: 1, on: false, fade: 1.2 }); }
 let ringNext = 0;
 function fxRing(x, y, z, r0, r1, dur, color = 0xffd66b, op = 0.9, disc = false) {
   const r = RING_POOL[ringNext++ % RING_POOL.length]; r.on = true; r.t = 0; r.dur = dur; r.r0 = r0; r.r1 = r1; r.op = op; r.fade = disc ? 1.0 : 1.3; r.m.geometry = disc ? RFX_DISC_GEO : RFX_RING_GEO; r.m.material.color.set(color); r.m.position.set(x, y + 0.06, z); r.m.visible = true; r.m.scale.set(r0, 1, r0); return r;
@@ -4244,7 +4248,7 @@ for (let i = 0; i < NCHUNK; i++) { _chD.scale.set(0, 0, 0); _chD.updateMatrix();
 function fxChunks(x, y, z, n, color, size = 0.22, speed = 5, gy = null) {
   _chC.set(color); const g = gy == null ? y - 0.6 : gy;
   for (let k = 0; k < n; k++) { const i = chunkNext++ % NCHUNK, a = Math.random() * TAU, sp = speed * (0.35 + Math.random() * 0.8); CH.x[i] = x; CH.y[i] = y; CH.z[i] = z; CH.vx[i] = Math.cos(a) * sp; CH.vz[i] = Math.sin(a) * sp; CH.vy[i] = 2 + Math.random() * speed * 0.9; CH.s[i] = size * (0.6 + Math.random() * 0.8); CH.life[i] = CH.max[i] = 0.9 + Math.random() * 0.7; CH.gy[i] = g; CH.rx[i] = Math.random() * 6; CH.ry[i] = Math.random() * 6; const v = 0.8 + Math.random() * 0.4; chunkMesh.setColorAt(i, _chC.clone().multiplyScalar(v)); }
-  chunkMesh.instanceColor.needsUpdate = true;
+  chunkMesh.instanceColor.needsUpdate = true; chunkMesh.visible = true;
 }
 function updateChunks(dt) {
   let any = false;
@@ -4255,7 +4259,7 @@ function updateChunks(dt) {
     _chD.position.set(CH.x[i], CH.y[i], CH.z[i]); _chD.rotation.set(CH.rx[i], CH.ry[i], 0); _chD.scale.set(sc, sc, sc); _chD.updateMatrix(); chunkMesh.setMatrixAt(i, _chD.matrix);
     if (CH.life[i] <= 0) { _chD.scale.set(0, 0, 0); _chD.updateMatrix(); chunkMesh.setMatrixAt(i, _chD.matrix); }
   }
-  if (any) chunkMesh.instanceMatrix.needsUpdate = true;
+  if (any) chunkMesh.instanceMatrix.needsUpdate = true; chunkMesh.visible = any; // an idle chunk pool costs no draw call
 }
 function fxBolt(x0, y0, z0, x1, y1, z1, color = 0x9fe8ff) { const n = Math.max(3, Math.min(9, Math.round(Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 0.9))); for (let i = 0; i <= n; i++) { const t = i / n, j = i === 0 || i === n ? 0 : 0.35; puff(x0 + (x1 - x0) * t + (Math.random() - 0.5) * j, y0 + (y1 - y0) * t + (Math.random() - 0.5) * j, z0 + (z1 - z0) * t + (Math.random() - 0.5) * j, 1, 0.45, color, 0.3, 0, 0.3); } sparkBurst(x1, y1, z1, 4, color, 3); }
 const _pv = new THREE.Vector3();
@@ -4271,7 +4275,7 @@ function rpgBanner(h, p, leg) { const b = $('rpgBanner'); $('rpgBanH').textConte
 
 // ---- loot on the ground: items (rarity beams + plates), gold piles, shard dust ------------------------------------------------------------------------------
 const LOOT = [], LOOT_MAT = RPG_RARITY_COL.map((c, i) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: i === 0 ? 0.25 : 0.9, roughness: 0.35, metalness: 0.3 }));
-const LOOT_BEAM = RPG_RARITY_COL.map((c, i) => { const m = beamMat.clone(); m.uniforms.uTime = U.time; m.uniforms.uCol = { value: new THREE.Color(c).multiplyScalar(i === 3 ? 0.62 : 0.5) }; return m; }); // dimmed: the shader doubles it and additive blending over a bright sky would wash every rarity out to white
+const LOOT_BEAM = RPG_RARITY_COL.map((c, i) => { const m = beamMat.clone(); m.uniforms.uTime = U.time; m.uniforms.uCol = { value: new THREE.Color(c).multiplyScalar(i === 3 ? 0.62 : 0.5) }; m.forceSinglePass = true; return m; }); // dimmed: the shader doubles it and additive blending over a bright sky would wash every rarity out to white
 const LOOT_GEO = { gem: new THREE.OctahedronGeometry(0.3, 0), box: new THREE.BoxGeometry(0.34, 0.34, 0.34), beam: new THREE.CylinderGeometry(0.2, 0.42, 1, 12, 1, true).translate(0, 0.5, 0), coin: new THREE.CylinderGeometry(0.2, 0.2, 0.06, 14).rotateZ(PI / 2), dust: new THREE.OctahedronGeometry(0.17, 0) };
 const GOLD_MAT = new THREE.MeshStandardMaterial({ color: 0xffc830, metalness: 0.85, roughness: 0.28, emissive: 0xffa000, emissiveIntensity: 0.55 }), DUST_MAT = new THREE.MeshStandardMaterial({ color: 0x53e0d0, emissive: 0x53e0d0, emissiveIntensity: 0.9, roughness: 0.3 });
 const BEAM_H = [0, 7, 14, 42];
@@ -4427,10 +4431,10 @@ function rpgDecorate(e, o = {}) {
 }
 function rpgAura(e) {
   const R = e.rpg, c = R.aff.length ? hexNum(RPG_MAFFIX[R.aff[0]].col) : 0xffb15e, g = new THREE.Group(); e.aura = g; e.mesh.add(g); g.scale.setScalar(1 / (e.mesh.scale.x || 1));
-  const ring = new THREE.Mesh(AURA_GEO, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide })); ring.scale.setScalar(R.tier === 'guardian' ? 2.4 : 1.35); ring.position.y = 0.05; ring.renderOrder = 17; g.add(ring);
+  const ring = new THREE.Mesh(AURA_GEO, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide, forceSinglePass: true })); ring.scale.setScalar(R.tier === 'guardian' ? 2.4 : 1.35); ring.position.y = 0.05; ring.renderOrder = 17; g.add(ring);
   g.userData.orbs = R.aff.map((id, i) => { const o = new THREE.Mesh(ORB_GEO, new THREE.MeshBasicMaterial({ color: hexNum(RPG_MAFFIX[id].col), fog: false })); o.scale.setScalar(0.1); g.add(o); return o; });
   if (R.aff.includes('shielded')) { const sh = new THREE.Mesh(SHELL_GEO, new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); sh.scale.set(0.95, 1.05, 0.95); sh.position.y = 0.55; g.add(sh); g.userData.shell = sh; }
-  if (R.aff.includes('frozen')) { const fr = new THREE.Mesh(FROST_GEO, new THREE.MeshBasicMaterial({ color: 0x9cf3ff, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide })); fr.scale.setScalar(5.2); /* the aura group cancels the mesh scale, so this is metres */ fr.position.y = 0.08; fr.renderOrder = 16; g.add(fr); g.userData.frost = fr; }
+  if (R.aff.includes('frozen')) { const fr = new THREE.Mesh(FROST_GEO, new THREE.MeshBasicMaterial({ color: 0x9cf3ff, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide, forceSinglePass: true })); fr.scale.setScalar(5.2); /* the aura group cancels the mesh scale, so this is metres */ fr.position.y = 0.08; fr.renderOrder = 16; g.add(fr); g.userData.frost = fr; }
   if (R.tier === 'guardian' || R.tier === 'elite') { const b = new THREE.Mesh(LOOT_GEO.beam, LOOT_BEAM[R.tier === 'guardian' ? 3 : 2]); b.scale.set(1.4, R.tier === 'guardian' ? 26 : 9, 1.4); b.position.y = 0.4; b.frustumCulled = false; g.add(b); g.userData.beam = b; g.userData.beamH = b.scale.y; }
 }
 
@@ -4561,7 +4565,7 @@ function rpgEnemiesTick(dt) {
     R.showT = Math.max(0, R.showT - dt); if (e.flinch > 0) { e.flinch -= dt; if (e.flinch <= 0 && e.state !== 'shell' && e.state !== 'crouch' && e.state !== 'charge' && e.state !== 'leap') e.body.scale.y = 1; }
     if (Math.abs(e.kbx) + Math.abs(e.kbz) > 0.15 && e.state !== 'leap') { const nx = e.x + e.kbx * dt, nz = e.z + e.kbz * dt, f = floorAt(nx, nz, e.y + 0.7); if (f > -1e8 && f > e.y - 0.9) { e.x = nx; e.z = nz; } const k = Math.exp(-9 * dt); e.kbx *= k; e.kbz *= k; }
     const dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz), near = Math.abs(P.y - e.y) < 4.5, alive = !P.dead;
-    if (e.aura) { const u = e.aura.userData; e.aura.visible = true; const orbs = u.orbs; for (let i = 0; i < orbs.length; i++) { if (VR.presenting) { orbs[i].visible = false; continue; } orbs[i].visible = true; const a = t * 2 + i * TAU / orbs.length; const orr = 0.7 + (e.mesh.scale.x || 1) * 0.5; orbs[i].position.set(Math.cos(a) * orr, 0.9 + (e.mesh.scale.y || 1) * 0.35 + Math.sin(t * 3 + i) * 0.12, Math.sin(a) * orr); } if (u.shell) u.shell.visible = R.shield > 0; if (u.frost) u.frost.rotation.y = t * 0.4; }
+    if (e.aura) { const u = e.aura.userData; e.aura.visible = true; const orbs = u.orbs; for (let i = 0; i < orbs.length; i++) { if (VR.presenting) { orbs[i].visible = false; continue; } orbs[i].visible = true; const a = t * 2 + i * TAU / orbs.length; const orr = 0.7 + (e.mesh.scale.x || 1) * 0.5; orbs[i].position.set(Math.cos(a) * orr, 0.9 + (e.mesh.scale.y || 1) * 0.35 + Math.sin(t * 3 + i) * 0.12, Math.sin(a) * orr); } if (u.shell) u.shell.visible = R.shield > 0 && !VR.presenting; if (u.frost) { u.frost.rotation.y = t * 0.4; u.frost.visible = !VR.presenting; } }
     if (R.shieldMax > 0 && R.shield < R.shieldMax && RT.t > R.shieldT) R.shield = Math.min(R.shieldMax, R.shield + R.maxhp * 0.12 * dt);
     if (R.aff.includes('frozen') && d < 5.2 && near && alive) RT.chillWant = Math.max(RT.chillWant, 0.35);
     if (e.state === 'walk' && alive) {
@@ -5121,9 +5125,9 @@ rpgLoad(); RT.S = null; RT.runDiff = RP.diff; rpgRecalc(); RT.hp = RT.max; RT.rw
 // ====================================================================================================================
 const RV = {
   open: false, dirty: true, hotId: ['', ''], btns: [], armedOn: false, pkPage: 0,
-  ban: { on: false, h: '', p: '', leg: false, until: 0 }, log: [{ t: '', c: '', until: 0 }, { t: '', c: '', until: 0 }], logSeq: 0,
+  ban: { on: false, h: '', p: '', leg: false, until: 0, seq: 0 }, log: [{ t: '', c: '', until: 0 }, { t: '', c: '', until: 0 }], logSeq: 0,
   ws: { hp: -1, mx: -1, sh: -1, xp: -1, lv: -1, rw: -1, rwm: -1, gold: -1, buf: -1, rl: -2, rp: -2, big: -1, t: -1, coins: -1, shards: -1, score: -1, nsd: -9 }, hs: { rl: -2, rp: -2, ph: -2, bh: -2, ban: -1, log: -1, key: -1 },
-  plates: [], cand: [], selN: 0, putN: 0, plateT: 0, nPlates: 0, nBeams: 0, rep: { dir: 0, t: 0 }, hap: [], hapSeq: 0, hapPlayed: 0, cullT: 0, yHold: 0, yFr: 0, scratch: null,
+  plates: [], cand: [], selN: 0, putN: 0, plateT: 0, nPlates: 0, nBeams: 0, rep: { dir: 0, t: 0 }, hap: [], hapSeq: 0, hapPlayed: 0, cullT: 0, yHold: 0, yFr: 0, drawT: 0, scratch: null, st: [],
 };
 const RV_PERKS_PER_PAGE = 8;
 
@@ -5139,8 +5143,9 @@ function vrHapPlay(h, pat) {
   const now = performance.now(), n = pat.length / 3; RV.hapSeq++;
   for (let k = 0; k < n; k++) { let s = null; for (let i = 0; i < RV.hap.length; i++) if (!RV.hap[i].on) { s = RV.hap[i]; break; } if (!s) return; s.on = true; s.t = now + pat[k * 3]; s.h = h; s.a = pat[k * 3 + 1]; s.ms = pat[k * 3 + 2]; }
 }
-function vrHapTick() {
-  const now = performance.now(); for (let i = 0; i < RV.hap.length; i++) { const s = RV.hap[i]; if (s.on && now >= s.t) { s.on = false; vrHaptic(s.h, s.a, s.ms); RV.hapPlayed++; } }
+function vrHapTick() { // one due step per frame, earliest first: vrHaptic() drops pulses closer than 22 ms, so on a slow frame the steps of a pattern must not all fire at once
+  const now = performance.now(); let b = null; for (let i = 0; i < RV.hap.length; i++) { const s = RV.hap[i]; if (s.on && now >= s.t && (b === null || s.t < b.t)) b = s; }
+  if (b !== null) { b.on = false; vrHaptic(b.h, b.a, b.ms); RV.hapPlayed++; }
 }
 function vrRsfxHaptic(name, a) { // called from rsfx() while presenting (every RPG event that has a sound also gets a feel)
   switch (name) {
@@ -5176,7 +5181,7 @@ function vrRsfxHaptic(name, a) { // called from rsfx() while presenting (every R
 // ---- hooks into the RPG layer (function re-binding, the technique the RPG layer itself uses on the original game) ------------------------------------------------------------
 const _rpgRenderInv = rpgRenderInv; rpgRenderInv = function () { if (VR.presenting) { RV.dirty = true; return; } _rpgRenderInv(); }; // the DOM grid / tooltip HTML is not built while the headset shows the panel
 const _renderPerks = renderPerks; renderPerks = function () { if (VR.presenting) { RV.dirty = true; return; } _renderPerks(); };
-const _rpgBanner = rpgBanner; rpgBanner = function (h, p, leg) { _rpgBanner(h, p, leg); if (VR.presenting) { const b = RV.ban; b.on = true; b.h = h; b.p = p || ''; b.leg = !!leg; b.until = performance.now() + 3400; } };
+const _rpgBanner = rpgBanner; rpgBanner = function (h, p, leg) { _rpgBanner(h, p, leg); if (VR.presenting) { const b = RV.ban; b.on = true; b.seq++; b.h = h; b.p = p || ''; b.leg = !!leg; b.until = performance.now() + 3400; } };
 const _rpgLogLine = rpgLogLine; rpgLogLine = function (txt, col) { _rpgLogLine(txt, col); if (VR.presenting) { const l = RV.log, a = l[0]; l[0] = l[1]; l[1] = a; a.t = txt; a.c = col || '#eaf6ff'; a.until = performance.now() + 4600; RV.logSeq++; } };
 
 // ---- canvas helpers ------------------------------------------------------------------------------------------------------------------------------------
@@ -5438,7 +5443,7 @@ function vrDrawHud(now) {
 function vrRpgBuildPlates() {
   for (let i = 0; i < VRT.rpgPlates; i++) {
     const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = false; tex.minFilter = THREE.LinearFilter;
-    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, toneMapped: false })); spr.scale.set(VRT.rpgPlateW, VRT.rpgPlateW / 4, 1); spr.renderOrder = 40; spr.visible = false; scene.add(spr);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, toneMapped: false })); spr.scale.set(3, 0.75, 1); spr.renderOrder = 40; spr.visible = false; scene.add(spr);
     RV.plates.push({ spr, cv, ctx: cv.getContext('2d'), tex, ref: null, kind: 0, hp: -2, seed: -1 }); RV.cand.push({ ref: null, kind: 0, d2: 0 });
   }
 }
@@ -5468,27 +5473,38 @@ function vrRpgPlates(rdt) {
     if (pl.kind === 1) { if (LOOT.indexOf(r) < 0) { pl.ref = null; pl.spr.visible = false; continue; } if (pl.seed !== r.item.seed) { pl.seed = r.item.seed; vrDrawPlate(pl, rpgItemName(r.item), 'ilvl ' + r.item.ilvl + ' ' + RPG_SLOT_LABEL[r.item.slot], RPG_RARITY_COL[r.rar], -1); } pl.spr.position.set(r.x, r.y + VRT.rpgPlateY, r.z); }
     else if (pl.kind === 2) { if (r.open) { pl.ref = null; pl.spr.visible = false; continue; } if (pl.seed !== 1) { pl.seed = 1; vrDrawPlate(pl, 'ACT CHEST', 'open it for loot', RPG_RARITY_COL[2], -1); } pl.spr.position.set(r.x, r.y + VRT.rpgPlateY, r.z); }
     else { const R = r.rpg; if (!r.alive || !R || r.state === 'dead' || r.state === 'squash') { pl.ref = null; pl.spr.visible = false; continue; } const hb = Math.ceil(clamp(R.hp / R.maxhp, 0, 1) * 10); if (pl.seed !== R.lvl || pl.hp !== hb) { pl.seed = R.lvl; pl.hp = hb; vrDrawPlate(pl, R.name, 'Lv ' + R.lvl + ' ' + R.tier.toUpperCase(), R.col, hb / 10); } pl.spr.position.set(r.x, r.y + VRT.rpgPlateY * (r.mesh.scale.y || 1) * 0.9 + 1.2, r.z); }
+    const q = pl.spr.position, dx = q.x - CP.x, dy = q.y - CP.y, dz = q.z - CP.z, w = clamp(Math.sqrt(dx * dx + dy * dy + dz * dz) / VR.S * VRT.rpgPlateK, VRT.rpgPlateMin, VRT.rpgPlateMax); pl.spr.scale.set(w, w * 0.25, 1); // the eye can be a few cm from a plate on the near side of the table: keep its angular size constant
+    for (let j = 0; j < i; j++) { const o = RV.plates[j]; if (o.ref === null) continue; const p = o.spr.position, hh = o.spr.scale.y * VR.S; if (Math.abs(p.x - q.x) < 3 && Math.abs(p.z - q.z) < 3 && Math.abs(p.y - q.y) < hh * 1.05) q.y = p.y + hh * 1.1; } // plates of loot that dropped on the same spot stack instead of overlapping
     pl.spr.visible = pl.kind === 3 ? r.mesh.visible : pl.kind === 2 ? r.g.visible : true; if (pl.spr.visible) shown++;
   }
   RV.nPlates = shown;
 }
 
 // ---- diorama limits for RPG objects: distance cull, beam cap + shortening, aura trimming ----------------------------------------------------------------------------------
+function vrRpgWalk(root, mode, on) { // closure-free walk over a model: mode 0 = toon outline meshes visible, 1 = merged meshes cast shadows (iterative: no allocation)
+  const st = RV.st; let n = 0; st[n++] = root;
+  while (n > 0) { const o = st[--n], ud = o.userData; if (ud) { if (mode === 0) { if (ud.vrO) ud.vrO.visible = on; } else if (ud.vrM) ud.vrM.castShadow = on; } const ch = o.children; for (let i = 0; i < ch.length; i++) st[n++] = ch[i]; }
+}
+function vrRpgOutline(root, on) { vrRpgWalk(root, 0, on); }
+function vrRpgShadow(root, on) { vrRpgWalk(root, 1, on); } // enemies / chests do not cast into the small VR shadow map (one draw call each saved)
 function vrRpgCull(rdt) {
-  RV.cullT -= rdt; if (RV.cullT > 0) return; RV.cullT = 0.1; const R2 = VRT.rpgVis * VRT.rpgVis, px = P.x, pz = P.z, bm = VRT.rpgBeamMax, bk = VRT.rpgBeamK; let nb = 0;
+  RV.cullT -= rdt; if (RV.cullT > 0) return; RV.cullT = 0.1; const R2 = VRT.rpgVis * VRT.rpgVis, O2 = VRT.rpgOutline * VRT.rpgOutline, px = P.x, pz = P.z, bm = VRT.rpgBeamMax, bk = VRT.rpgBeamK; let nb = 0;
   for (let i = 0; i < ENEMIES.length; i++) {
-    const e = ENEMIES[i]; if (!e.alive) continue; const dx = e.x - px, dz = e.z - pz, v = dx * dx + dz * dz < R2 || (RIFT && e === RIFT.guardian); if (e.mesh.visible !== v) e.mesh.visible = v;
+    const e = ENEMIES[i]; if (!e.alive) continue; const dx = e.x - px, dz = e.z - pz, d2 = dx * dx + dz * dz, v = d2 < R2 || (RIFT !== null && e === RIFT.guardian); if (e.mesh.visible !== v) e.mesh.visible = v;
+    if (v) { const ol = d2 < (e.vrOut ? O2 * 1.6 : O2) || (e.rpg !== undefined && e.rpg.tier !== 'normal'); if (e.vrOut !== ol) { e.vrOut = ol; vrRpgOutline(e.mesh, ol); } if (!e.vrSh) { e.vrSh = true; vrRpgShadow(e.mesh, false); } } // toon outline = a second mesh per enemy: only close up
     if (v && e.aura) { const u = e.aura.userData; if (u.beam) { const on = nb < bm; if (u.beam.visible !== on) u.beam.visible = on; if (on) { nb++; u.beam.scale.y = u.beamH * bk; } } }
   }
-  for (let i = 0; i < CHESTS.length; i++) { const k = CHESTS[i], dx = k.x - px, dz = k.z - pz, v = dx * dx + dz * dz < R2; if (k.g.visible !== v) k.g.visible = v; if (k.beam) { const on = v && nb < bm; if (k.beam.visible !== on) k.beam.visible = on; if (on) { nb++; k.beam.scale.y = 34 * bk; } } }
-  for (let i = 0; i < CRATES.length; i++) { const k = CRATES[i]; if (!k.alive) continue; const dx = k.x - px, dz = k.z - pz, v = dx * dx + dz * dz < R2; if (k.m.visible !== v) k.m.visible = v; }
-  for (let i = 0; i < LOOT.length; i++) { const L = LOOT[i]; if (!L.beam) continue; const dx = L.x - px, dz = L.z - pz, on = dx * dx + dz * dz < R2 * 1.5 && nb < bm; if (L.beam.visible !== on) L.beam.visible = on; if (on) { nb++; L.beam.scale.y = BEAM_H[L.rar] * bk; } }
+  for (let i = 0; i < CHESTS.length; i++) { const k = CHESTS[i], dx = k.x - px, dz = k.z - pz, v = dx * dx + dz * dz < R2; if (k.g.visible !== v) k.g.visible = v; if (!k.vrSh) { k.vrSh = true; vrRpgShadow(k.g, false); } if (k.beam) { const on = v && nb < bm; if (k.beam.visible !== on) k.beam.visible = on; if (on) { nb++; k.beam.scale.y = 34 * bk; } } }
+  for (let i = 0; i < CRATES.length; i++) { const k = CRATES[i]; if (!k.alive) continue; const dx = k.x - px, dz = k.z - pz, v = dx * dx + dz * dz < R2; if (k.m.visible !== v) k.m.visible = v; if (k.m.castShadow) k.m.castShadow = false; }
+  let nl = 0, nr = 0; // gold piles / shards / common items: only the newest few are drawn (pickup still works for all of them); rare+ items: the newest 6 (their name plates / beams stay)
+  for (let i = LOOT.length - 1; i >= 0; i--) { const L = LOOT[i], dx = L.x - px, dz = L.z - pz, d2 = dx * dx + dz * dz; let v; if (L.kind !== 'item' || L.rar < 2) { v = d2 < R2 * 1.5 && nl < VRT.rpgLootMax; if (v) nl++; } else { v = nr < 6; if (v) nr++; } if (L.g.visible !== v) L.g.visible = v;
+    if (L.beam) { const on = v && d2 < R2 * 1.5 && nb < bm; if (L.beam.visible !== on) L.beam.visible = on; if (on) { nb++; L.beam.scale.y = BEAM_H[L.rar] * bk; } } }
   RV.nBeams = nb;
 }
 function vrRpgRestore() { // leaving VR: everything the diorama limits hid comes back
-  for (const e of ENEMIES) { if (e.alive) e.mesh.visible = true; if (e.aura) { const u = e.aura.userData; if (u.orbs) for (const o of u.orbs) o.visible = true; if (u.beam) { u.beam.visible = true; u.beam.scale.y = u.beamH; } } }
-  for (const k of CHESTS) { k.g.visible = true; if (k.beam) { k.beam.visible = true; k.beam.scale.y = 34; } } for (const k of CRATES) if (k.alive) k.m.visible = true;
-  for (const L of LOOT) if (L.beam) { L.beam.visible = true; L.beam.scale.y = BEAM_H[L.rar]; }
+  for (const e of ENEMIES) { e.vrOut = undefined; if (e.vrSh) { e.vrSh = false; vrRpgShadow(e.mesh, true); } if (e.alive) e.mesh.visible = true; if (e.aura) { const u = e.aura.userData; if (u.orbs) for (const o of u.orbs) o.visible = true; if (u.beam) { u.beam.visible = true; u.beam.scale.y = u.beamH; } } }
+  for (const k of CHESTS) { k.g.visible = true; if (k.vrSh) { k.vrSh = false; vrRpgShadow(k.g, true); } if (k.beam) { k.beam.visible = true; k.beam.scale.y = 34; } } for (const k of CRATES) if (k.alive) { k.m.visible = true; k.m.castShadow = true; }
+  for (const L of LOOT) { L.g.visible = true; if (L.beam) { L.beam.visible = true; L.beam.scale.y = BEAM_H[L.rar]; } }
   for (const pl of RV.plates) { pl.ref = null; pl.spr.visible = false; } RV.nPlates = 0; if (UI.hudP) UI.hudP.mesh.visible = false; if (UI.rp) UI.rp.mesh.visible = false;
   if (RUI.open) rpgRenderInv(); if (PK.open) renderPerks();
 }
@@ -5501,7 +5517,7 @@ function vrRpgPre(rdt) {
 }
 function vrRpgRenderPrep() {
   const now = performance.now();
-  if (UI.rp.mesh.visible && RV.dirty) vrDrawRp();
+  if (UI.rp.mesh.visible && RV.dirty && now - RV.drawT >= 70) { RV.drawT = now; vrDrawRp(); } // a 2048 x 1280 redraw + mipmapped upload: at most ~14 per second (hover highlights, cursor moves)
   const want = UI.mode === 'none' && vrHudWant(now) ? 1 : 0; if (want && vrHudSig(now)) vrDrawHud(now);
   const p = UI.hudP; vrPlacePanel(p, VR.hpx + Math.sin(VR.capAng) * 1.1, Math.max(0.5, VR.hpy - 0.17), VR.hpz + Math.cos(VR.capAng) * 1.1, VR.hpx, VR.hpz);
   p.mat.opacity += (want - p.mat.opacity) * 0.25; p.mesh.visible = p.mat.opacity > 0.02; if (!want && !p.mesh.visible) RV.hs.rl = -3;
