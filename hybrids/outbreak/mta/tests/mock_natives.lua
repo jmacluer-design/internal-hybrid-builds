@@ -210,13 +210,35 @@ return function(Mock, K)
 		N.giveWeapon = function(ped, id, ammo, current)
 			el(ped, "giveWeapon", PEDLIKE)
 			ped.weapons[id] = (ped.weapons[id] or 0) + (ammo or 30)
-			if current then ped.current_weapon = id end
+			if current then
+				ped.current_weapon = id
+				-- the weapon slot of the SA weapon ids (melee 1, pistols 2, shotguns 3, submachine guns 4, assault rifles 5, rifles 6, heavy 7, thrown 8, special 9)
+				local slot = 0
+				if id >= 1 and id <= 9 then slot = 1 elseif id >= 22 and id <= 24 then slot = 2 elseif id >= 25 and id <= 27 then slot = 3 elseif id == 28 or id == 29 or id == 32 then slot = 4
+				elseif id == 30 or id == 31 then slot = 5 elseif id == 33 or id == 34 then slot = 6 elseif id >= 35 and id <= 38 then slot = 7 elseif id >= 16 and id <= 18 then slot = 8 end
+				ped.weapon_slot = slot
+			end
 			return true
 		end
 		N.getPedWeapon = function(ped) return el(ped, "getPedWeapon", PEDLIKE).current_weapon or 0 end
 		N.setElementSyncer = function(ped, player, persist)
 			el(ped, "setElementSyncer", PEDONLY)
 			ped.syncer = player or nil
+			return true
+		end
+		-- server: who syncs the ped. MTA hands a ped to the nearest player that has it streamed in (m.auto_syncer = false turns that off), setElementSyncer(ped, player) overrides it
+		N.getElementSyncer = function(ped)
+			el(ped, "getElementSyncer", PEDONLY)
+			if ped.syncer ~= nil then return ped.syncer or false end
+			if m.auto_syncer ~= false and m.player and streamed_in(ped) then return m.player end
+			return false
+		end
+		N.setPedVoice = function(ped, vtype, vname) el(ped, "setPedVoice", PEDLIKE).voice = { vtype, vname }; ped.voice_sets = (ped.voice_sets or 0) + 1; return true end
+		N.setPedWeaponSlot = function(ped, slot)
+			el(ped, "setPedWeaponSlot", PEDLIKE)
+			if type(slot) ~= "number" then error("Bad argument @ 'setPedWeaponSlot' [Expected number]", 2) end
+			ped.weapon_slot = slot
+			ped.slot_sets = (ped.slot_sets or 0) + 1
 			return true
 		end
 		N.isElementSyncer = function(ped)
@@ -448,6 +470,20 @@ return function(Mock, K)
 			return false
 		end
 
+		-- client: line of sight. Only the tests' wall rectangles (m.walls, x1 y1 x2 y2) block it, and only when the "buildings" flag is set, like the real call's first flag
+		N.isLineOfSightClear = function(x1, y1, z1, x2, y2, z2, buildings, vehicles, players, objects)
+			for _, v in ipairs({ x1, y1, z1, x2, y2, z2 }) do if type(v) ~= "number" then error("Bad argument @ 'isLineOfSightClear' [Expected number]", 2) end end
+			if not buildings then return true end
+			local len = math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+			local steps = math.max(1, math.floor(len * 2))
+			for i = 0, steps do
+				local t = i / steps
+				local px, py = x1 + (x2 - x1) * t, y1 + (y2 - y1) * t
+				for _, w in ipairs(m.walls or {}) do if px >= w[1] and px <= w[3] and py >= w[2] and py <= w[4] then return false end end
+			end
+			return true
+		end
+
 		-- ------------------------------------------------------------------------------------------------------------ client: the CEF browser
 		local function make_browser(w, h, is_local, transparent)
 			local b = m:new_element("webbrowser", { mine = true, created_by = "client", is_local = is_local, transparent = transparent, created = false, ready = false, loading = false, paused = false, url = nil,
@@ -575,6 +611,11 @@ return function(Mock, K)
 		for _, e in pairs(self.els) do
 			if e.type == "ped" and not e.destroyed and not e.dead and e.mine then
 				local streamed = self.player and dist2(e, self.player) <= STREAM
+				if (streamed and true or false) ~= (e.was_streamed or false) then
+					e.was_streamed = streamed and true or false
+					local cl = self.sides.client
+					if cl and cl.started then self:trigger(cl, streamed and "onClientElementStreamIn" or "onClientElementStreamOut", e) end
+				end
 				local syncer_ok
 				if e.syncer ~= nil then syncer_ok = (e.syncer == self.player) else syncer_ok = self.auto_syncer ~= false end
 				if streamed and syncer_ok and not e.frozen then
@@ -610,6 +651,10 @@ return function(Mock, K)
 	function Mock:damage_ped(e, amount, killer)
 		e.health = e.health - amount
 		if e.health <= 0 then self:wasted(e, killer, 22, 3, false) end
+	end
+	-- the client event for damage to a ped; returns false when a handler cancelled it
+	function Mock:ped_damage_event(ped, attacker, weapon, bodypart, loss)
+		return self:trigger(self.sides.client, "onClientPedDamage", ped, attacker, weapon or 0, bodypart or 3, loss or 5)
 	end
 	function Mock:player_fire(weapon)
 		local cl = self.sides.client

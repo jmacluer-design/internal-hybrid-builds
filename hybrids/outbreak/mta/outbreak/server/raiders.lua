@@ -62,7 +62,7 @@ function Rd.spawn_step()
 			if ped then
 				local weapons = weapon_list(g.faction)
 				local w = weapons[math.random(1, #weapons)]
-				giveWeapon(ped, w, config.weapon_ammo.raider, true)
+				Peds.give_weapon(ped, w, config.weapon_ammo.raider, true)
 				g.peds[ped] = { ped = ped, born = now, weapon = w, ranged = is_ranged(w) }
 				g.alive, g.pending = g.alive + 1, g.pending - 1
 				Rd.stats.spawned = Rd.stats.spawned + 1

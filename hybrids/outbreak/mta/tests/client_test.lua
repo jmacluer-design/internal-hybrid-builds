@@ -509,12 +509,23 @@ T.test("survival: damage the GAME dealt (fall, bullet, explosion, fire, melee) i
 end)
 
 -- ------------------------------------------------------------------------------------------------------------------------ the ped driver
+-- (the rules are slothbot's, see client/driver.lua and THIRD_PARTY.md: the tests pin each of them)
 local function new_ped(m, x, y)
 	local ped = m.sides.server.env.createPed(7, x, y, H.Mock.terrain(x, y) + 1.0)
 	ped.syncer = m.player
+	ped.data.ob = "zombie" -- one of ours (what server/peds.lua sets)
 	return ped
 end
 local function drive(m, intent) m:send_remote("client", NET.drive, m.resourceRoot, nil, m.player, { intent }); m:step(150) end
+-- value: a number (clamped into the asked range) or a function(a, b) -> number
+local function force_random(m, value)
+	m.sides.client.env.math.random = function(a, b)
+		if a == nil then return 0.5 end
+		local v = type(value) == "function" and value(a, b) or value
+		return math.max(a, math.min(b or a, v))
+	end
+end
+local function dist(a, b) return math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2) end
 
 T.test("driver: a go intent turns the ped toward the target, holds forwards (walk / jog / sprint by speed) and clears the controls on arrival; stop clears at once", function()
 	local m = H.boot({})
@@ -525,7 +536,7 @@ T.test("driver: a go intent turns the ped toward the target, holds forwards (wal
 	T.eq(ped.controls.forwards, true); T.eq(ped.controls.walk, true); T.falsy(ped.controls.sprint)
 	T.near(ped.rz, 0, 1.0, "facing north (+y)")
 	m:step(3000)
-	T.gt(ped.y, o.y + 14, "walked north")
+	T.gt(ped.y, o.y + 14, "walked north (and was not taken for stuck while walking: " .. mods(m).Driver.stats.stuck .. " stuck checks)")
 	drive(m, { ped = ped, m = "go", x = o.x - 20, y = ped.y, s = 3, r = 1.5 })
 	T.eq(ped.controls.sprint, true); T.falsy(ped.controls.walk)
 	T.near(ped.rz, 90, 2.0, "facing west: rotation 90 turns left from north")
@@ -545,7 +556,27 @@ T.test("driver: a go intent turns the ped toward the target, holds forwards (wal
 	m:stop()
 end)
 
-T.test("driver: intents come over the network and are validated: non-tables, destroyed or non-ped elements, unknown modes, NaN coordinates, bad targets are ignored; peds that are dead, not streamed in or not synced by this client are not driven", function()
+T.test("driver: the same order again (the server refreshes a chase every second) keeps the running state; a different order replaces it", function()
+	local m = H.boot({})
+	local D = mods(m).Driver
+	local o = origin(m)
+	m:player_move_to(o.x, o.y)
+	local z, target = new_ped(m, o.x + 20, o.y), new_ped(m, o.x + 20, o.y + 40)
+	drive(m, { ped = z, m = "attack", x = target.x, y = target.y, tgt = target, s = 2, r = 1.0 })
+	local first = D.intents[z]
+	first.swing_t = 12345; first.seen = { x = 1, y = 2, z = 3 }
+	drive(m, { ped = z, m = "attack", x = target.x + 3, y = target.y, tgt = target, s = 3, r = 1.0 })
+	T.eq(D.intents[z], first, "same mode and target: the same intent table")
+	T.eq(first.swing_t, 12345); T.eq(first.s, 3); T.near(first.x, target.x + 3, 0.01)
+	local count = D.count
+	drive(m, { ped = z, m = "go", x = o.x, y = o.y, s = 2, r = 1.0 })
+	T.ne(D.intents[z], first, "another mode: a new intent")
+	T.eq(D.count, count, "(and the ped is still counted once)")
+	clean(m, "driver refresh")
+	m:stop()
+end)
+
+T.test("driver: intents come over the network and are validated: non-tables, destroyed or non-ped elements, unknown modes, NaN coordinates, bad targets are ignored; dead or not streamed-in peds are not driven; a ped synced by another client still gets its control states", function()
 	local m = H.boot({})
 	local D = mods(m).Driver
 	local o = origin(m)
@@ -563,16 +594,13 @@ T.test("driver: intents come over the network and are validated: non-tables, des
 	m:send_remote("client", NET.drive, m.player, nil, m.player, { { ped = ped, m = "go", x = o.x, y = o.y + 30, s = 2 } })
 	m:step(200)
 	T.eq(D.intents[ped], nil, "a drive event whose source is not the resource root is dropped")
-	-- not synced by this client / not streamed in / dead
 	drive(m, { ped = ped, m = "go", x = o.x, y = o.y + 30, s = 2 })
 	T.truthy(D.intents[ped])
-	ped.controls = {} -- (the first step already ran for the legitimate case)
-	ped.syncer = m:add_player("Other")
-	local before = D.stats.not_syncer
-	m:step(500)
-	T.gt(D.stats.not_syncer, before, "control states of a ped we do not sync are not set")
-	T.falsy(ped.controls.forwards)
-	ped.syncer = m.player
+	-- slothbot sets the control states on every client that has the ped; only the syncer's take effect on the movement, so there is no syncer check
+	local synced_elsewhere = new_ped(m, o.x + 8, o.y)
+	synced_elsewhere.syncer = m:add_player("Other")
+	drive(m, { ped = synced_elsewhere, m = "go", x = o.x, y = o.y + 30, s = 2 })
+	T.eq(synced_elsewhere.controls.forwards, true, "a ped another client syncs still gets its control states")
 	ped.x = o.x + 5000
 	ped.controls = {}
 	m:step(500)
@@ -592,7 +620,7 @@ T.test("driver: intents come over the network and are validated: non-tables, des
 	m:stop()
 end)
 
-T.test("driver: wander picks headings and pauses; attack closes in and, for ranged intents, aims and fires in bursts; flee runs; aim holds a target", function()
+T.test("driver: wander picks headings and pauses; a ranged attack walks to its weapon's firing distance, stands, aims and fires in that weapon's bursts; flee runs; aim holds a target", function()
 	local m = H.boot({})
 	local D = mods(m).Driver
 	local o = origin(m)
@@ -605,34 +633,100 @@ T.test("driver: wander picks headings and pauses; attack closes in and, for rang
 	for _ in pairs(headings) do n = n + 1 end
 	T.gt(n, 2, "it turns to different headings over time")
 	T.gt(w.walked or 0, 5, "and walks")
-	-- ranged attack
+	-- ranged attack with a pistol (slot 2: stands still within 14 m, engages within 35 m, bursts of 2.1 to 5.5 s)
 	local shooter, target = new_ped(m, o.x + 40, o.y), new_ped(m, o.x + 40, o.y + 30)
+	m.sides.server.env.giveWeapon(shooter, 22, 100, true)
+	T.eq(shooter.weapon_slot, 2)
 	drive(m, { ped = shooter, m = "attack", x = target.x, y = target.y, tgt = target, ranged = true, s = 2, r = 12.0 })
-	T.eq(ped_aim_set, nil)
-	T.truthy(shooter.aim and math.abs(shooter.aim.y - (target.y)) < 1.0, "aimed at the target")
-	T.eq(shooter.controls.aim_weapon, true)
-	local fired = 0
-	for _ = 1, 30 do m:step(100); if shooter.controls.fire then fired = fired + 1 end end
-	T.gt(fired, 3); T.lt(fired, 27, "fire comes in bursts, not held down")
-	-- closes in to the stop radius and holds
-	m:wait_until(function() return math.sqrt((shooter.x - target.x) ^ 2 + (shooter.y - target.y) ^ 2) <= 13.0 end, 20000)
+	T.truthy(shooter.aim and math.abs(shooter.aim.y - target.y) < 1.5, "aimed at the target (setPedAimTarget)")
+	local fired, longest, run = 0, 0, 0
+	for _ = 1, 200 do
+		m:step(100)
+		if shooter.controls.fire then fired = fired + 1; run = run + 1; longest = math.max(longest, run) else run = 0 end
+	end
+	T.gt(fired, 5, "it fired")
+	T.ge(longest, 18, "in a burst of at least about 2 s (" .. longest .. " steps)")
+	T.lt(fired, 190, "with pauses between the bursts")
+	T.gt(D.stats.shots, 0)
+	-- it stopped at the slot's distance (14 m), not at the intent's radius
+	m:wait_until(function() return dist(shooter, target) <= 14.5 end, 20000)
 	m:step(1000)
-	T.falsy(shooter.controls.forwards, "stopped at its firing distance")
-	-- melee attack walks right up to the target
-	local melee = new_ped(m, o.x + 60, o.y)
-	drive(m, { ped = melee, m = "attack", x = target.x, y = target.y, tgt = target, ranged = false, s = 2, r = 1.5 })
-	m:step(500)
-	T.eq(melee.controls.forwards, true)
-	T.falsy(melee.controls.aim_weapon)
+	T.falsy(shooter.controls.forwards, "stopped to shoot at 14 m")
+	T.le(dist(shooter, target), 14.5)
+	T.gt(dist(shooter, target), 10.0, "(not at the intent's 12 m radius: the weapon slot decides)")
 	-- flee: sprint away, finishes at the target point
 	local f = new_ped(m, o.x, o.y + 60)
 	drive(m, { ped = f, m = "flee", x = o.x - 40, y = o.y + 60, s = 3, r = 2 })
 	T.eq(f.controls.sprint, true)
 	-- aim: holds a target without walking
 	local a = new_ped(m, o.x + 80, o.y)
-	drive(m, { ped = a, m = "aim", x = o.x + 80, y = o.y + 10 })
-	T.eq(a.controls.aim_weapon, true); T.falsy(a.controls.forwards)
+	local t2 = new_ped(m, o.x + 80, o.y + 10)
+	drive(m, { ped = a, m = "aim", tgt = t2 })
+	T.falsy(a.controls.forwards); T.truthy(a.aim and math.abs(a.aim.y - t2.y) < 1.0)
 	clean(m, "driver modes")
+	m:stop()
+end)
+
+T.test("driver: the melee swing is slothbot's: within 2 m the ped stands still and jabs (fire on at 0, 800, 1400 ms for 300 ms each), walks on at 2000 ms and swings again at 2300 ms", function()
+	local m = H.boot({})
+	local D = mods(m).Driver
+	-- the pure timeline
+	for _, c in ipairs({ { 0, true, true }, { 299, true, true }, { 300, false, true }, { 799, false, true }, { 800, true, true }, { 1100, false, true }, { 1399, false, true }, { 1400, true, true }, { 1700, false, true },
+		{ 1999, false, true }, { 2000, false, false }, { 2299, false, false } }) do
+		local fire, hold = D.swing_state(c[1])
+		T.eq(fire, c[2], "fire at " .. c[1] .. " ms"); T.eq(hold, c[3], "standing still at " .. c[1] .. " ms")
+	end
+	local o = origin(m)
+	m:player_move_to(o.x, o.y)
+	local z, target = new_ped(m, o.x + 20, o.y), new_ped(m, o.x + 20, o.y + 1.2)
+	drive(m, { ped = z, m = "attack", x = target.x, y = target.y, tgt = target, s = 2, r = 1.0 })
+	local fires, forwards, walked_at_1800 = {}, {}, nil
+	for i = 1, 60 do
+		m:step(50)
+		fires[#fires + 1] = z.controls.fire and true or false
+		forwards[#forwards + 1] = z.controls.forwards and true or false
+		if i == 36 then walked_at_1800 = z.walked end
+	end
+	T.gt(D.stats.swings, 0, "a swing started")
+	local jabs, was = 0, false
+	for _, f in ipairs(fires) do if f and not was then jabs = jabs + 1 end was = f end
+	T.ge(jabs, 3, "three jabs in about 3 s (" .. jabs .. ")")
+	local still = 0
+	for i = 1, 36 do if not forwards[i] then still = still + 1 end end
+	T.ge(still, 30, "standing still while it jabs (" .. still .. " of the first 36 steps)")
+	T.eq(walked_at_1800, nil, "and it did not walk into the target while jabbing")
+	clean(m, "swing")
+	m:stop()
+end)
+
+T.test("driver: chasing a target it can see it faces it; behind a wall it runs to the spot it last saw it at, and gives up there", function()
+	local m = H.boot({})
+	local D = mods(m).Driver
+	local o = origin(m)
+	m:player_move_to(o.x, o.y)
+	local z, target = new_ped(m, o.x + 20, o.y), new_ped(m, o.x + 20, o.y + 40)
+	drive(m, { ped = z, m = "attack", x = target.x, y = target.y, tgt = target, s = 2, r = 1.0 })
+	m:step(900)
+	T.near(z.rz, 0, 3.0, "facing the target (north) while it is in sight")
+	local it = D.intents[z]
+	T.truthy(it and it.seen and math.abs(it.seen.y - target.y) < 0.5, "it remembers where it saw it")
+	local seen_y = it.seen.y
+	-- walls come between them (one in front of the zombie, one behind the last seen spot), the target walks off behind the far one
+	m.walls = { { o.x + 10, o.y + 20, o.x + 30, o.y + 21 }, { o.x + 10, o.y + 50, o.x + 30, o.y + 51 } }
+	m:step(700)
+	T.truthy(D.stats.los_blocked > 0, "the line of sight is blocked")
+	target.x, target.y = o.x + 20, o.y + 80
+	m:step(1000)
+	T.near(it.seen.y, seen_y, 0.5, "it still remembers the OLD spot, not the target's new one")
+	T.near(z.rz, 0, 3.0, "and keeps facing it")
+	-- standing at the last seen spot with nobody in sight: gives up (the server sends a new order if it still wants the chase)
+	z.x, z.y = o.x + 20, seen_y - 3.0
+	z.controls = {}
+	m:step(1500)
+	T.eq(D.intents[z], nil, "gave up at the last seen spot")
+	T.gt(D.stats.gave_up, 0)
+	T.falsy(z.controls.forwards)
+	clean(m, "line of sight")
 	m:stop()
 end)
 
@@ -642,13 +736,145 @@ T.test("driver: a ped that is blocked by a wall jumps and side-steps (the stuck 
 	local o = origin(m)
 	m:player_move_to(o.x, o.y)
 	m.walls = { { o.x + 5, o.y + 14, o.x + 9, o.y + 16 } } -- a thin wall across the way, 4 m wide
-	local ped = new_ped(m, o.x + 7, o.y + 5)
+	-- the dice: a turn (roll 13 of 13) to the east (heading 270), which is how a real ped gets around a short wall
+	force_random(m, function(a, b) if b == 13 then return 13 end if b == 360 then return 270 end return a end)
+	local ped = new_ped(m, o.x + 7, o.y + 11)
 	drive(m, { ped = ped, m = "go", x = o.x + 7, y = o.y + 30, s = 2, r = 1.5 })
-	m:step(6000)
+	m:step(9000)
 	T.gt(D.stats.stuck, 0, "the stuck detector fired")
-	T.gt(ped.jumps or 0, 0, "it jumped")
-	T.gt(ped.y, o.y + 16, "and got around the wall after the side-step (y " .. string.format("%.1f", ped.y - o.y) .. ")")
+	T.gt(ped.y, o.y + 16, "and got around the wall after the turn (y " .. string.format("%.1f", ped.y - o.y) .. ")")
 	clean(m, "stuck")
+	m:stop()
+end)
+
+T.test("driver: what a stuck ped does is slothbot's die: seeing its target it only jumps; otherwise 1 in 7 gives up, 2-3 jump, 4-7 turn to a random heading and walk on for 1.2 s (1 in 13 / 5 in 13 / 7 in 13 when walking to a point)", function()
+	local m = H.boot({})
+	local D = mods(m).Driver
+	local env = m.sides.client.env
+	for roll = 1, 7 do
+		force_random(m, roll)
+		T.eq(D.stuck_decision(false, 7), (roll == 1) and "give_up" or (roll < 4 and "jump" or "turn"), "roll " .. roll .. " of 7")
+	end
+	for roll = 1, 13 do
+		force_random(m, roll)
+		T.eq(D.stuck_decision(false, 13), (roll == 1) and "give_up" or (roll < 7 and "jump" or "turn"), "roll " .. roll .. " of 13")
+	end
+	force_random(m, 1)
+	T.eq(D.stuck_decision(true, 7), "jump", "a visible target: always a jump")
+	-- the whole path in the world: blocked and told to turn: the heading changes and the ped holds it for 1.2 s
+	force_random(m, function(a, b) if b == 13 then return 13 end return 200 end)
+	local o = origin(m)
+	m:player_move_to(o.x, o.y)
+	m.walls = { { o.x - 50, o.y + 14, o.x + 50, o.y + 16 } }
+	local ped = new_ped(m, o.x, o.y + 12)
+	drive(m, { ped = ped, m = "go", x = o.x, y = o.y + 30, s = 2, r = 1.5 })
+	m:step(2500)
+	T.gt(D.stats.stuck, 0)
+	local it = D.intents[ped]
+	T.truthy(it and it.hold_until and it.hold_until > 0, "a random turn was taken and is being walked off")
+	T.near(ped.rz, 200, 2.0, "the heading is the rolled angle")
+	clean(m, "stuck dice")
+	m:stop()
+end)
+
+T.test("driver: a jump with a melee or heavy weapon in hand swaps to fists for 850 ms first (the jump does not work otherwise); the jump control is released after 800 ms", function()
+	local m = H.boot({})
+	local D = mods(m).Driver
+	local o = origin(m)
+	m:player_move_to(o.x, o.y)
+	m.walls = { { o.x - 50, o.y + 14, o.x + 50, o.y + 16 } }
+	local ped = new_ped(m, o.x, o.y + 12)
+	m.sides.server.env.giveWeapon(ped, 5, 1, true) -- a baseball bat: slot 1
+	T.eq(ped.weapon_slot, 1)
+	force_random(m, 2) -- a roll that jumps
+	drive(m, { ped = ped, m = "go", x = o.x, y = o.y + 30, s = 2, r = 1.5 })
+	local swapped, restored, jump_on, jump_off = false, false, nil, nil
+	for _ = 1, 100 do
+		m:step(50)
+		if ped.weapon_slot == 0 then swapped = true end
+		if swapped and ped.weapon_slot == 1 then restored = true end
+		if ped.controls.jump and not jump_on then
+			jump_on = m.t
+			ped.x, ped.y = o.x + 80, o.y + 22 -- free of the wall now: no second stuck check re-triggers the jump
+		end
+		if jump_on and not ped.controls.jump and not jump_off then jump_off = m.t end
+	end
+	T.truthy(swapped, "fists in hand for the jump")
+	T.truthy(restored, "the bat is back afterwards")
+	T.truthy(jump_on and jump_off and jump_off - jump_on >= 750 and jump_off - jump_on <= 1000, "jump held about 800 ms (" .. tostring(jump_off and jump_on and (jump_off - jump_on)) .. ")")
+	clean(m, "jump slot")
+	m:stop()
+end)
+
+T.test("driver: a ped of ours that streams in loses nothing: its controls are re-asserted, its voice is silenced, and an armed one asks the server for its weapon again (never more than 5 times)", function()
+	local m = H.boot({})
+	local D = mods(m).Driver
+	local o = origin(m)
+	m:player_move_to(o.x, o.y)
+	local Peds = H.sreq(m, "server.peds")
+	local ped = Peds.create("raider", { 100 }, o.x + 30, o.y, 0.0, "r1")
+	T.truthy(ped)
+	Peds.give_weapon(ped, 22, 50, true)
+	T.eq(ped.data.ob, "raider"); T.eq(ped.data.obw, 22)
+	m:step(300) -- streamed in at the start
+	T.truthy(ped.voice and ped.voice[1] == "PED_TYPE_DISABLED", "setPedVoice(ped, PED_TYPE_DISABLED)")
+	local base = D.stats.stream_in
+	T.ge(base, 1)
+	local asks = #m:sent("server", NET.stream)
+	T.ge(asks, 1, "the client asked for the weapon")
+	m:step(500)
+	T.gt(ped.weapons[22], 50, "and the server gave it again (ammo went up)")
+	-- out and in again: another ask, controls re-asserted
+	drive(m, { ped = ped, m = "go", x = o.x, y = o.y + 80, s = 2, r = 1.5 })
+	T.eq(ped.controls.forwards, true)
+	for _ = 1, 8 do
+		m:player_move_to(o.x + 5000, o.y); m:step(200)
+		ped.controls = {}
+		m:player_move_to(o.x, o.y); m:step(300)
+	end
+	T.eq(ped.controls.forwards, true, "after each stream-in the control states are set again")
+	T.le(ped.weapons[22], 50 * 7, "the weapon was given again at most 5 times (" .. tostring(ped.weapons[22]) .. " ammo)")
+	-- something that is not ours streaming in is left alone
+	local other = m.sides.server.env.createPed(7, o.x + 10, o.y, 3.0)
+	local before = D.stats.stream_in
+	m:player_move_to(o.x + 5000, o.y); m:step(200); m:player_move_to(o.x, o.y); m:step(300)
+	T.eq(other.voice, nil, "a ped without our tag is not touched")
+	clean(m, "stream in")
+	m:stop()
+end)
+
+T.test("driver: damage rules: a zombie's fists never hurt (the server scripts that damage), the player hitting a zombie reports it once a second, nobody else's hits are reported", function()
+	local m = H.boot({})
+	local D = mods(m).Driver
+	local o = origin(m)
+	m:player_move_to(o.x, o.y)
+	local z1, z2 = new_ped(m, o.x + 10, o.y), new_ped(m, o.x + 12, o.y)
+	local colonist = new_ped(m, o.x + 14, o.y); colonist.data.ob = "colonist"
+	T.falsy(m:ped_damage_event(colonist, z1, 0, 3, 10), "a zombie punching one of ours is cancelled")
+	T.falsy(m:ped_damage_event(z2, z1, 0, 3, 10), "and so is a zombie hitting a zombie")
+	T.eq(#m:sent("server", NET.hit), 0)
+	T.truthy(m:ped_damage_event(z1, m.player, 22, 3, 10), "the player's bullet is not cancelled")
+	m:step(200)
+	T.eq(#m:sent("server", NET.hit), 1, "and is reported")
+	T.truthy(m:ped_damage_event(z1, m.player, 22, 3, 10))
+	m:step(200)
+	T.eq(#m:sent("server", NET.hit), 1, "not again within a second")
+	m:step(1000)
+	m:ped_damage_event(z1, m.player, 22, 3, 10)
+	m:step(200)
+	T.eq(#m:sent("server", NET.hit), 2, "but a second later it is")
+	m:ped_damage_event(colonist, m.player, 22, 3, 10)
+	local stranger = new_ped(m, o.x + 3, o.y); stranger.data.ob = nil
+	m:ped_damage_event(stranger, m.player, 22, 3, 10)
+	m:step(200)
+	T.eq(#m:sent("server", NET.hit), 2, "hits on colonists and on peds that are not ours are not reported")
+	-- the same rule on the player: a zombie's fist does not reach the sim through onClientPlayerDamage
+	local dmgs = function() return m:in_events("player_damage") end
+	local n = #dmgs()
+	T.falsy(m:trigger(m.sides.client, "onClientPlayerDamage", m.player, z1, 0, 3, 10), "cancelled")
+	m:step(300)
+	T.eq(#dmgs(), n, "and not reported as the game's damage")
+	clean(m, "damage rules")
 	m:stop()
 end)
 

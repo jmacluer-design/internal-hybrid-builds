@@ -33,7 +33,7 @@ local function mat_total(w)
 end
 
 -- ------------------------------------------------------------------------------------------------------------------------ colonists
-T.test("colonists: one ped per sim colonist, tagged, in range of origin + sim position, health full, the owner's client is their syncer", function()
+T.test("colonists: one ped per sim colonist, tagged, in range of origin + sim position, health full, the owner's client is their controller (MTA picks the syncer, we never force it)", function()
 	local m = H.boot({})
 	local w = H.world(m)
 	local peds = of_kind(m, "colonist")
@@ -48,7 +48,9 @@ T.test("colonists: one ped per sim colonist, tagged, in range of origin + sim po
 	for _, p in ipairs(peds) do
 		T.truthy(p.data["ob:cid"] and p.data["ob:cid"]:match("^c%d+$"), "tagged with the colonist id")
 		T.eq(p.health, 100)
-		T.eq(p.syncer, m.player, "setElementSyncer(ped, owner)")
+		T.eq(p.syncer, nil, "no syncer is forced (setElementSyncer is not used)")
+		T.eq(mods(m).Peds.list[p].controller, m.player, "the controller is the owner (getElementSyncer, else the nearest player)")
+		T.eq(p.data.ob, "colonist", "tagged for the client")
 		T.truthy(p.model >= 3 and p.model <= 312)
 		T.truthy(p.synced)
 	end
@@ -198,7 +200,10 @@ T.test("hordes: a horde near the player materializes as exactly the sim's number
 		T.ge(math.sqrt((p.x - m.player.x) ^ 2 + (p.y - m.player.y) ^ 2), cfg.spawn_min_dist - 1.0, "never spawned in the player's face")
 		T.truthy(p.walk_style, "walking style set")
 		T.truthy(p.health >= 40 and p.health <= 176)
-		T.eq(p.syncer, m.player)
+		T.eq(p.syncer, nil, "no forced syncer")
+		T.eq(p.data.ob, "zombie", "tagged for the client")
+		T.eq(mods(m).Peds.list[p].controller, m.player)
+		T.truthy(sctx(m).config.peds.zombie_models and (function() for _, id in ipairs(sctx(m).config.peds.zombie_models) do if id == p.model then return true end end for _, id in ipairs(sctx(m).config.peds.brute_models) do if id == p.model then return true end end end)(), "a model from the DayZ skin list")
 	end
 	local times = {}
 	for _, p in ipairs(z) do times[p.created_t] = (times[p.created_t] or 0) + 1 end
@@ -306,7 +311,10 @@ T.test("hordes: with max_materialized at 60 the sim never asks for more than 60 
 end)
 
 T.test("hordes: createPed failing (the engine refuses) or invalid models never spin or raise: failures are counted, the group is not lost", function()
-	local m = H.boot({ invalid_ped_models = { [78] = true, [79] = true, [134] = true, [135] = true, [137] = true, [212] = true, [230] = true, [200] = true, [160] = true } })
+	local invalid = {}
+	for _, id in ipairs(require("shared.mta_config").peds.zombie_models) do if id ~= 162 then invalid[id] = true end end
+	invalid[200] = true
+	local m = H.boot({ invalid_ped_models = invalid })
 	player_at_base(m)
 	H.host(m):debug("horde", { n = 12, dist = 100 })
 	m:step(8000)
@@ -360,7 +368,9 @@ T.test("hordes: zombies notice, chase and bite the player: stance sets the detec
 	m:step(4000)
 	T.gt(Z.stats.attacks, 0)
 	T.lt(host.survival.c.hp, hp0, "the bite reached the survival body")
-	T.truthy(zed.anim and zed.anim.block == "FIGHT_B", "the swing animation plays")
+	T.gt(H.creq(m, "client.driver").stats.swings, 0, "the client driver swung its fists (the visible half of the attack)")
+	local d = H.creq(m, "client.driver").intents[zed]
+	T.truthy(d == nil or (d.m == "attack" and d.tgt == m.player), "the chase is an attack intent on the player element")
 	zed.x, zed.y = m.player.x + 300, m.player.y -- out of reach: no further bites while the HUD push catches up
 	m:step(1500)
 	T.near(m.player.health, host.survival:effects().health * 100, 3, "and the owner's ped health follows it")
@@ -371,6 +381,146 @@ T.test("hordes: zombies notice, chase and bite the player: stance sets the detec
 	m:step(200)
 	clean(m, "bite")
 	m:stop()
+end)
+
+T.test("slothbot rules on the server: a hit zombie turns on the player; outbreak:hit and outbreak:stream take only the owner, source == resourceRoot, our own peds, and are rate limited", function()
+	local m = H.boot({})
+	local host = H.host(m)
+	player_at_base(m)
+	host:debug("horde", { n = 10, dist = 110 })
+	m:step(7000)
+	local Z = mods(m).Zombies
+	local z = of_kind(m, "zombie")
+	T.gt(#z, 2)
+	local zed, bystander = z[1], z[2]
+	-- far away and wandering: not chasing
+	zed.x, zed.y = m.player.x + 70, m.player.y
+	bystander.x, bystander.y = m.player.x - 200, m.player.y
+	m:step(1500)
+	local function rec_of(ped) for _, g in pairs(Z.groups) do if g.peds[ped] then return g.peds[ped] end end end
+	T.ne(rec_of(zed).state, "chase")
+	local Net = H.sreq(m, "server.net")
+	local rejected = Net.stats.rejected
+	-- spoofing first: another player, a wrong source, something that is not a zombie, garbage
+	local other = m:add_player("Other")
+	m:send_remote("server", NET.hit, m.resourceRoot, other, nil, zed)
+	m:send_remote("server", NET.hit, zed, m.player, nil, zed)
+	m:send_remote("server", NET.hit, m.resourceRoot, m.player, nil, m.player)
+	m:send_remote("server", NET.hit, m.resourceRoot, m.player, nil, of_kind(m, "colonist")[1])
+	m:send_remote("server", NET.hit, m.resourceRoot, m.player, nil, "x")
+	m:step(300)
+	T.eq(Net.stats.rejected - rejected, 5, "five spoofed hits rejected")
+	T.ne(rec_of(zed).state, "chase", "none of them did anything")
+	-- the real one
+	m:send_remote("server", NET.hit, m.resourceRoot, m.player, nil, zed)
+	m:step(300)
+	T.eq(rec_of(zed).state, "chase", "the zombie the player hit is chasing the player")
+	T.eq(Z.stats.alerted, 1)
+	local last = H.sreq(m, "server.peds").sent[zed]
+	T.truthy(last and last.i.m == "attack" and last.i.tgt == m.player, "as an attack intent on the player element")
+	T.ne(rec_of(bystander).state, "chase", "and nobody else")
+	-- in colony view the player ped is not hunted, a hit does nothing
+	local z3 = z[3]
+	H.sreq(m, "server.ctx").colony_mode = true
+	m:send_remote("server", NET.hit, m.resourceRoot, m.player, nil, z3)
+	m:step(300)
+	T.ne(rec_of(z3).state, "chase", "in colony view the anchor ped is not a target")
+	H.sreq(m, "server.ctx").colony_mode = false
+	clean(m, "hit")
+	m:stop()
+end)
+
+T.test("armed peds: weapons are given through Peds.give_weapon (remembered, tagged), a streamed-in ped gets its weapon back after 300 ms at most 5 times, spoofed requests do nothing", function()
+	local m = H.boot({})
+	local o = origin(m)
+	local Peds = H.sreq(m, "server.peds")
+	local Net = H.sreq(m, "server.net")
+	m:player_move_to(o.x, o.y)
+	local ped = Peds.create("raider", { 100 }, o.x + 20, o.y, 0.0, "r9")
+	T.truthy(ped)
+	Peds.give_weapon(ped, 22, 40, true)
+	T.eq(ped.weapons[22], 40); T.eq(ped.current_weapon, 22); T.eq(ped.data.obw, 22); T.eq(Peds.list[ped].weapon.id, 22)
+	local civilian = m.sides.server.env.createPed(7, o.x + 5, o.y, 3.0) -- not ours
+	local other = m:add_player("Other")
+	m:step(1000) -- the client streamed the ped in and has already asked once
+	local base = ped.weapons[22]
+	T.eq(base, 80, "the real client's own request gave the weapon once more")
+	local rejected = Net.stats.rejected
+	m:send_remote("server", NET.stream, m.resourceRoot, other, nil, ped)
+	m:send_remote("server", NET.stream, ped, m.player, nil, ped)
+	m:send_remote("server", NET.stream, m.resourceRoot, m.player, nil, civilian)
+	m:send_remote("server", NET.stream, m.resourceRoot, m.player, nil, 42)
+	m:step(600)
+	T.eq(Net.stats.rejected - rejected, 4)
+	T.eq(ped.weapons[22], base, "nothing was given for the spoofed requests")
+	for i = 1, 7 do
+		m:send_remote("server", NET.stream, m.resourceRoot, m.player, nil, ped)
+		m:step(100)
+		if i == 1 then T.eq(ped.weapons[22], base, "not before the 300 ms delay") end
+		m:step(400)
+	end
+	T.eq(ped.weapons[22], 40 * 6, "given again at most 5 times in all, then no more (ammo " .. tostring(ped.weapons[22]) .. ")")
+	-- colonists and raiders really go through it
+	local armed = 0
+	for _, c in ipairs(of_kind(m, "colonist")) do if Peds.list[c].weapon then armed = armed + 1; T.eq(c.data.obw, Peds.list[c].weapon.id) end end
+	m:stop()
+end)
+
+T.test("controllers: MTA picks the syncer and we read it; without a syncer the nearest player is the controller; nothing ever calls setElementSyncer", function()
+	local m = H.boot({})
+	local o = origin(m)
+	local Peds = H.sreq(m, "server.peds")
+	m:player_move_to(o.x, o.y)
+	local near = Peds.create("zombie", { 100 }, o.x + 10, o.y, 0.0, "t1")
+	T.eq(Peds.list[near].controller, m.player, "the auto-assigned syncer (the player has it streamed in)")
+	m.auto_syncer = false -- MTA has not given the ped to anybody yet
+	local second = m:add_player("Second")
+	second.x, second.y, second.z = o.x + 400, o.y, 50
+	local far_from_both = Peds.create("zombie", { 100 }, o.x + 395, o.y, 0.0, "t2")
+	T.eq(Peds.list[far_from_both].controller, second, "no syncer: the nearest player")
+	T.eq(far_from_both.syncer, nil, "and the syncer is not forced")
+	T.eq(near.syncer, nil)
+	T.eq(Peds.syncer_count(), 0, "no ped has a syncer while auto assignment is off")
+	m.auto_syncer = true
+	T.ge(Peds.syncer_count(), 1)
+	clean(m, "controllers")
+	m:stop()
+end)
+
+T.test("/outbreak_spawn (the real-server test hook): creates zombies through the real spawn path up to max_materialized, reads back model / tag / syncer from the elements, refuses beyond the cap, restart leaves nothing", function()
+	local m = H.boot({ settings = { max_materialized = "20" } })
+	local Peds = H.sreq(m, "server.peds")
+	local Z = H.sreq(m, "server.zombies")
+	T.eq(sctx(m).scfg.max_materialized, 20)
+	m.chat = {}
+	m:command("server", m.console, "outbreak_spawn", "12", "runner")
+	local line = m.log[#m.log] or ""
+	local chat = table.concat((function() local t = {} for _, l in ipairs(m.log) do t[#t + 1] = l end return t end)(), "\n")
+	T.truthy(chat:find("spawned 12 of 12 requested (ok): test zombies 12 | models in config 12/12, tagged 12/12, alive 12/12", 1, true), chat)
+	T.eq(#of_kind(m, "zombie"), 12)
+	for _, p in ipairs(of_kind(m, "zombie")) do T.eq(p.data.ob, "zombie"); T.truthy(p.walk_style); T.eq(p.syncer, nil) end
+	-- the cap: 100 requested, only 8 more fit under max_materialized = 20
+	m:command("server", m.console, "outbreak_spawn", "100")
+	chat = table.concat(m.log, "\n")
+	T.truthy(chat:find("spawned 8 of 100 requested (hostile cap)", 1, true), chat)
+	T.eq(Z.alive_total(), 20)
+	T.le(Peds.n, sctx(m).cfg.max_peds)
+	-- the sim does not hear about them (no horde id), and killing one reports nothing to it
+	local out = #m:out_events()
+	local victim = of_kind(m, "zombie")[1]
+	m:damage_ped(victim, 500)
+	m:step(500)
+	T.eq(Z.alive_total(), 19)
+	for _, e in ipairs(m:out_events("ped_died")) do T.ne(e.id, "debug") end
+	m:command("server", m.console, "outbreak_peds")
+	T.truthy(table.concat(m.log, "\n"):find("zombies 19", 1, true), "outbreak_peds shows them")
+	-- a reset (new game / restart) removes them all
+	H.host(m):new_game(5, "calm", nil)
+	m:step(9000) -- (the corpse of the one that died is swept after its 8 s)
+	T.eq(#of_kind(m, "zombie"), 0, "none left after a new game")
+	clean(m, "spawn hook")
+	m:stop()
+	T.eq(#m:live("ped"), 0)
 end)
 
 T.test("hordes: in colony view the player ped (a camera anchor) is not hunted; the dead go after colonists instead", function()

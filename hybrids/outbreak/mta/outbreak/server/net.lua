@@ -120,7 +120,7 @@ function Net.register()
 			return
 		end
 		ctx.owner = player
-		Peds.set_syncer_all(player)
+		Peds.assign_all()
 		World.join_team(player)
 		if scfg.spawn_player and (isPedDead(player) or not ctx.spawned) then World.spawn_owner(player); ctx.spawned = true end
 		greet(player)
@@ -159,6 +159,23 @@ function Net.register()
 		if name == "screens" and type(data) == "table" then ctx.colony_mode = data.colony == true end -- in colony view the player ped is only a camera anchor
 		local ok, err = pcall(ctx.host.ui_action, ctx.host, name, data)
 		if not ok then ctx.log("error", "ui_action " .. name .. " failed: " .. tostring(err)) end
+	end)
+
+	-- one of our armed peds streamed in on the owner's client: give its weapon again (slothbot "StreamWeapon"); the ped must be one of ours, the sender the owner, the source the resource root
+	addEvent(NET.stream, true)
+	addEventHandler(NET.stream, resourceRoot, function(ped)
+		if not from_owner() then return end
+		if not isElement(ped) or not Peds.owns(ped) then return reject("stream: not one of our peds") end
+		Peds.restore_weapon(ped)
+	end)
+
+	-- the player hit one of our zombies: it turns on the player (slothbot aidamage). Same trust rules; a token bucket stops a flood
+	addEvent(NET.hit, true)
+	addEventHandler(NET.hit, resourceRoot, function(ped)
+		if not from_owner() then return end
+		if not isElement(ped) or Peds.kind_of(ped) ~= "zombie" then return reject("hit: not one of our zombies") end
+		if not ui_token() then return end
+		Zombies.on_hit(ped)
 	end)
 
 	addEventHandler(NET.ground, resourceRoot, function(list)

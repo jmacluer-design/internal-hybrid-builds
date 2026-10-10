@@ -84,9 +84,32 @@ function Cmd.register()
 	command("outbreak_audit", "item conservation check", function(p) local ok, rep = host():debug("audit", {}); reply(p, ok and "audit OK" or ("audit FAILED: " .. table.concat(rep.problems or {}, "; "))) end)
 	command("outbreak_peds", "ped / object budget and counters", function(p)
 		local ps = Peds.stats
-		reply(p, string.format("peds %d/%d (pool guard %d, ped elements %d) zombies %d pending %d raiders %d colonists %d | objects %d/%d | created %d refused cap %d pool %d | ground samples %d reseated %d",
+		reply(p, string.format("peds %d/%d (pool guard %d, ped elements %d) zombies %d pending %d raiders %d colonists %d | objects %d/%d | created %d refused cap %d pool %d | ground samples %d reseated %d | syncers %d",
 			Peds.n, ctx.cfg.max_peds, ctx.cfg.pool_guard, #getElementsByType("ped"), Zombies.alive_total(), Zombies.pending_total(), Raiders.alive_total(), Colonists.ped_count(),
-			Buildings.count(), ctx.cfg.max_objects, ps.created, ps.refused_cap, ps.refused_pool, Ground.stats.samples, Ground.stats.reseated))
+			Buildings.count(), ctx.cfg.max_objects, ps.created, ps.refused_cap, ps.refused_pool, Ground.stats.samples, Ground.stats.reseated, Peds.syncer_count()))
+	end)
+	-- a test hook, not gameplay: a real server with no client connected has no observer, so the sim never materializes a horde there and the ped code would go unexercised. This creates
+	-- zombies around the base through the real spawn path (caps, pool guard, model check) and reads back from the ENGINE what it made: model, tag, syncer
+	command("outbreak_spawn", "outbreak_spawn [n] [walker|runner|brute|screamer]  create n test zombies at the base (never more than max_materialized hostile peds)", function(p, a)
+		local n = math.max(1, math.min(200, math.floor(tonumber(a[1]) or 10)))
+		local room = math.max(0, ctx.scfg.max_materialized - (Zombies.alive_total() + Raiders.alive_total()))
+		local made, refused = Zombies.debug_spawn(math.min(n, room), a[2])
+		local models = {}
+		for _, id in ipairs(ctx.cfg.zombie_models) do models[id] = true end
+		for _, id in ipairs(ctx.cfg.brute_models) do models[id] = true end
+		local all, model_ok, tagged, no_syncer, health_ok = 0, 0, 0, 0, 0
+		for ped, rec in pairs(Peds.list) do
+			if rec.kind == "zombie" and rec.tag == "debug" and isElement(ped) then
+				all = all + 1
+				if models[getElementModel(ped)] then model_ok = model_ok + 1 end
+				if getElementData(ped, "ob") == "zombie" then tagged = tagged + 1 end
+				if not isElement(getElementSyncer(ped)) then no_syncer = no_syncer + 1 end
+				if getElementHealth(ped) > 0 then health_ok = health_ok + 1 end
+			end
+		end
+		reply(p, string.format("spawned %d of %d requested (%s): test zombies %d | models in config %d/%d, tagged %d/%d, alive %d/%d, syncer-less %d/%d | hostile peds %d of %d | ped elements %d",
+			made, n, refused or ((made < n) and "hostile cap" or "ok"), all, model_ok, all, tagged, all, health_ok, all, no_syncer, all,
+			Zombies.alive_total() + Raiders.alive_total(), ctx.scfg.max_materialized, #getElementsByType("ped")))
 	end)
 	command("outbreak_selftest", "rerun the Lua determinism self-test", function(p)
 		local ok, r = Selftest.check()

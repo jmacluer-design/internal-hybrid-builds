@@ -45,7 +45,7 @@ end
 
 local function equip(e)
 	local w = e.weapon and config.weapons[e.weapon]
-	if w and e.ped then giveWeapon(e.ped, w, config.weapon_ammo.colonist, e.drafted and true or false) end
+	if w and e.ped then Peds.give_weapon(e.ped, w, config.weapon_ammo.colonist, e.drafted and true or false) end
 end
 
 function C.ensure_ped(e)

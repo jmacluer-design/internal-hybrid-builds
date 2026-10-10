@@ -109,7 +109,7 @@ T.test("restart: a new server on the same files loads the colony and rebuilds th
 	m2:step(500)
 	T.eq(ctx.owner, newcomer, "a new owner may take over once the old one is gone")
 	T.truthy(newcomer.spawned, "and is spawned at the base")
-	for ped in pairs(Peds.list) do T.eq(ped.syncer, newcomer, "the new owner's client became the syncer") end
+	for ped, rec in pairs(Peds.list) do T.eq(rec.controller, newcomer, "the new owner's client is the controller of every ped") end
 	m2:stop()
 	T.eq(#m2:live(), 0)
 end)

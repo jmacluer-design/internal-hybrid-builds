@@ -65,7 +65,10 @@ C.peds = {
 	snap_max_ms = 60000,
 	-- movement speeds the client driver understands: 0 stand, 1 walk, 2 jog, 3 sprint
 	-- models: SA skin ids (UNVERIFIED appearances; getValidPedModels() filters invalid ids at start). No story characters (0, 1, 2, 265-272, 290-299).
-	zombie_models = { 78, 79, 134, 135, 137, 212, 230, 200, 160, 162 },
+	-- the skin ids that MTA DayZ's zombies wear on public servers (all standard SA skins), minus 56 which the colonists wear
+	-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/DayZ/tables/table_zombies.lua (ZombiePedSkins)
+	zombie_models = { 67, 68, 69, 70, 92, 97, 105, 107, 108, 126, 127, 128, 152, 162, 167, 188, 195, 209, 212, 229, 230, 258, 264, 277, 280 },
+	-- END BORROWED-PRIVATE
 	brute_models = { 162, 200 },
 	colonist_models = { 26, 27, 20, 44, 46, 47, 48, 54, 19, 56 },
 	faction_models = {
@@ -153,9 +156,10 @@ C.client = {
 	grid = 2.0,                -- blueprint placement snap (sim units)
 	noise_min_gap_ms = 700,
 	drive_ms = 100,            -- ped driver step (client-side locomotion, see client/driver.lua)
+	turn_ms = 700,             -- a chasing / walking ped re-faces its target this often (slothbot: 700 ms)
 	ground_ms = 1000,          -- ground sample step
 	ground_batch = 12,
-	stuck_ms = 1200,
+	stuck_ms = 600,            -- a ped that moved less than a metre in this time is stuck (slothbot checks every 600 ms)
 }
 
 -- resource settings -> where they land. `get(name, default)` is supplied by the caller (the server wraps MTA's get(), the tests pass a table).

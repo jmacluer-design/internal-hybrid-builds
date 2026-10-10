@@ -3,13 +3,15 @@
 -- (cfg.max_peds hard cap + the ped-element guard in server/peds.lua) and never creates more than allowed. Locomotion and the swing animation are executed by the owner's client
 -- (client/driver.lua) from the intents this module sends through server/peds.lua; damage is scripted here (the same model as the FiveM adapter: range + cooldown) and fed to the sim.
 --
--- borrowed: see THIRD_PARTY.md. Per source:
+-- WARNING: blocks marked BORROWED-PRIVATE come from repositories WITHOUT a licence (private use only: never share this resource with them in it; mta/tools/list_private_blocks.sh lists them).
+-- Sources (mta/THIRD_PARTY.md has one row per block):
+--   NullSystemWorks/mtadayz (slothbot sbserver.lua + DayZ handlers/zombies, also bundled in mta-resources/deadwalkers/slothbot): the way MTA zombies really work: ordinary peds created by the
+--     server, a server loop that decides (chase the target, give up, get stuck, die), a client that executes (client/driver.lua), the player hitting a zombie turns it on the player, a dead
+--     zombie leaves a corpse that is deleted later, the skin list that is known to be valid. Ported here as: spawn_one + Peds.create, chase(), Z.on_hit, report_death, zombie_models.
 --   TitansProductions/TP-Advanced-Zombies (Apache-2.0): distance based detection (crouching 10 / walking 35 / sprinting 45 m, +15 for a fast vehicle), the chase-the-target loop,
 --     the melee attack cadence; the numbers are in shared/mta_config.lua. Changed here: decisions run on the MTA server, perception uses the owner's speed (the server has no
---     getPedMoveState), the attack is scripted damage plus an animation.
+--     getPedMoveState), the attack is scripted damage (the sim is authoritative), the swing is the client's.
 --   Blumlaut/RottenV (MIT): corpses linger a few seconds, then are deleted; walker / runner / brute / screamer presets (adapted numbers).
---   NullSystemWorks/mtadayz + mta-resources/deadwalkers (custom / no licence: REFERENCE ONLY, nothing copied): read to learn that MTA zombies are ordinary peds whose syncer client sets
---     control states, that they use setPedWalkingStyle / setPedAnimation for the shamble, and which animation names work. Everything below is written fresh.
 -- Written here: group bookkeeping, spawn queue with backoff, batching of the think loop, noise investigation, colonist targets, sim reporting.
 local ctx = require("server.ctx")
 local Peds = require("server.peds")
@@ -19,7 +21,6 @@ local Z = { groups = {}, order = {}, cursor = 1, flat = {}, stats = { spawned = 
 local cfg = ctx.cfg
 local KINDS = ctx.config.zombie_kinds
 local KIND_ORDER = { "walker", "runner", "brute", "screamer" }
-local anims = ctx.config.anims
 
 local function dist3(ax, ay, az, bx, by, bz)
 	local dx, dy, dz = ax - bx, ay - by, (az or 0.0) - (bz or 0.0)
@@ -195,17 +196,19 @@ end
 -- a zombie that has noticed something moves one speed step faster than it shambles (walker 1 -> 2, runner 2 -> 3)
 local function hunt_speed(kind) return math.min(3, KINDS[kind].speed + 1) end
 
+-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/slothbot/sbserver.lua (setBotChase / chase_move: the ped's status becomes "chasing" with an ELEMENT as its target;
+-- the client side then faces it while it is in sight and runs to the last seen spot when it is not: client/driver.lua)
 local function chase(z, target, tx, ty)
 	z.state, z.target, z.last_task = "chase", target, getTickCount()
-	Peds.drive(z.ped, { m = "go", x = tx, y = ty, s = hunt_speed(z.kind), r = 1.0 })
+	Peds.drive(z.ped, { m = "attack", x = tx, y = ty, tgt = target, s = hunt_speed(z.kind), r = 1.0 })
 end
+-- END BORROWED-PRIVATE
 
 local function attack(z, target, now)
 	local k = KINDS[z.kind]
 	z.last_attack = now
 	Z.stats.attacks = Z.stats.attacks + 1
-	local a = anims.attack
-	if a then setPedAnimation(z.ped, a[1], a[2], 500, false, false, false, false) end
+	-- (the visible swing is the client driver's: fire jabs while the zombie stands in reach; the damage is scripted here and the engine's own fist damage is cancelled there)
 	local dmg = math.random(k.dmg[1], k.dmg[2])
 	local kind = (math.random() < 0.3) and "bite" or "scratch"
 	if target.kind == "player" then
@@ -220,7 +223,7 @@ local function report_death(g, z, killer)
 	if not g.peds[z.ped] then return end
 	Z.stats.killed = Z.stats.killed + 1
 	local cause = (killer ~= nil and killer == ctx.owner) and "player" or "other"
-	Net.event({ type = "ped_died", id = g.id, zkind = z.kind, cause = cause })
+	if not g.debug then Net.event({ type = "ped_died", id = g.id, zkind = z.kind, cause = cause }) end
 	g.peds[z.ped] = nil
 	g.alive = g.alive - 1
 	Peds.corpse(z.ped)
@@ -233,6 +236,39 @@ function Z.on_wasted(ped, killer)
 	local z = g and g.peds[ped]
 	if z then report_death(g, z, killer) end
 	return true
+end
+
+-- the player hit a zombie (the client reports it, server/net.lua validates): it turns on the player, whatever it was doing
+-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/slothbot/sbclient.lua (aidamage: "when the ped gets hit, will switch its target to the player who shot it") and sbserver.lua (onBotFindEnemy -> assigntarget -> status "chasing")
+function Z.on_hit(ped)
+	local rec = Peds.list[ped]
+	if not rec or rec.kind ~= "zombie" then return false end
+	local g = Z.groups[rec.tag]
+	local z = g and g.peds[ped]
+	if not z or not isElement(ped) or isPedDead(ped) then return false end
+	Z.update_player()
+	if not PI.alive then return false end
+	chase(z, ctx.owner_el(), PI.x, PI.y)
+	Z.stats.alerted = (Z.stats.alerted or 0) + 1
+	Peds.flush_drive()
+	return true
+end
+-- END BORROWED-PRIVATE
+
+-- test hook for /outbreak_spawn: a real server without a client has no observer, so the sim never materializes a horde there. Creates up to n zombies of one kind around the base through
+-- the same spawn code (cap, pool guard, models) in a group the sim does not know ("debug": no sim events for it)
+function Z.debug_spawn(n, kind)
+	kind = KINDS[kind] and kind or "walker"
+	local g = group_of("debug")
+	g.debug = true
+	if not g.center then local x, y, z = ctx.to_game(0.0, 0.0, 0.0); g.center = { x = x, y = y, z = z } end
+	local made, refused = 0, nil
+	for _ = 1, n do
+		local ok, why = spawn_one(g, kind)
+		if not ok then refused = why; break end
+		made = made + 1
+	end
+	return made, refused
 end
 
 -- one decision step over a batch of zombies (round robin so the cost stays flat with 60 peds)
@@ -338,7 +374,7 @@ function Z.report()
 	local now = getTickCount()
 	for _, id in ipairs(Z.order) do
 		local g = Z.groups[id]
-		if g.alive > 0 and now - g.last_report >= 5000 then
+		if g.alive > 0 and not g.debug and now - g.last_report >= 5000 then
 			g.last_report = now
 			local sx, sy, n = 0.0, 0.0, 0
 			for ped in pairs(g.peds) do

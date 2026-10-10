@@ -6,8 +6,8 @@
 -- client that syncs it (that is how the DayZ gamemodes' "slothbot" works: the server decides, the syncer client executes). So the server brain (server/zombies.lua, raiders.lua,
 -- colonists.lua) decides what a ped should do and sends small intents { ped, m = mode, x, y, ... } to the owner's client (outbreak:drive), which runs client/driver.lua.
 --
--- borrowed: see THIRD_PARTY.md. The cap / budget bookkeeping follows the FiveM adapter's client/pool.lua (own code); the idea "server decides, syncer client moves the ped" is read from
--- NullSystemWorks/mtadayz slothbot (custom licence: reference only, nothing copied).
+-- The cap / budget bookkeeping follows the FiveM adapter's client/pool.lua (own code). The "server decides, the client that syncs the ped moves it" split, the controller lookup and the weapon
+-- re-give are slothbot's (BORROWED-PRIVATE blocks below: unlicensed upstream, private use only, see THIRD_PARTY.md).
 local ctx = require("server.ctx")
 local NET = require("shared.mta_net")
 local Ground = require("server.ground")
@@ -65,8 +65,8 @@ function Peds.create(kind, models, x, y, rot, tag)
 	Peds.n = Peds.n + 1
 	Peds.stats.created = Peds.stats.created + 1
 	Ground.track(ped, 1.0)
-	local owner = ctx.owner_el()
-	if owner then setElementSyncer(ped, owner, true) end -- the owner's client drives every ped (UNVERIFIED: see README)
+	setElementData(ped, "ob", kind) -- the client recognises our peds by this (stream-in, damage rules): slothbot marks its bots with element data the same way
+	Peds.assign_controller(ped)
 	return ped
 end
 
@@ -77,14 +77,66 @@ function Peds.destroy(ped)
 	if isElement(ped) then destroyElement(ped) end
 end
 
--- the owner joined after some peds already existed (the starting colonists are created before any player is there): make the owner's client the syncer of all of them
-function Peds.set_syncer_all(owner)
+-- which client controls a ped: MTA picks the syncer itself (the nearest player that has the ped streamed in), so we READ it and only fall back to the nearest player while nobody syncs it
+-- yet. We never force a syncer (setElementSyncer): slothbot does not either, and a forced one is lost as soon as the player is out of range (wiki).
+-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/slothbot/sbserver.lua (assigncontroller: getElementSyncer, else the closest player)
+function Peds.assign_controller(ped)
+	local rec = Peds.list[ped]
+	if not rec or not isElement(ped) then return nil end
+	local syncer = getElementSyncer(ped)
+	if isElement(syncer) then rec.controller = syncer; return syncer end
+	local px, py, pz = getElementPosition(ped)
+	local best, best_d
+	for _, player in ipairs(getElementsByType("player")) do
+		local x, y, z = getElementPosition(player)
+		local d = (x - px) ^ 2 + (y - py) ^ 2 + (z - pz) ^ 2
+		if not best_d or d < best_d then best, best_d = player, d end
+	end
+	rec.controller = best
+	return best
+end
+-- END BORROWED-PRIVATE
+
+-- the owner joined after some peds already existed (the starting colonists are created before any player is there)
+function Peds.assign_all()
 	local n = 0
 	for ped in pairs(Peds.list) do
-		if isElement(ped) and setElementSyncer(ped, owner, true) then n = n + 1 end
+		if isElement(ped) and Peds.assign_controller(ped) then n = n + 1 end
 	end
 	return n
 end
+
+-- how many of our peds MTA has a syncer for right now (shown by /outbreak_peds: 0 is normal with nobody connected)
+function Peds.syncer_count()
+	local n = 0
+	for ped in pairs(Peds.list) do
+		if isElement(ped) and isElement(getElementSyncer(ped)) then n = n + 1 end
+	end
+	return n
+end
+
+-- weapons: giveWeapon is remembered so it can be given again; a ped that streams out and in loses all but one bullet for the player's client, so the client asks (outbreak:stream)
+-- and the server gives the weapon again after 300 ms (at most 5 times per ped: giveWeapon adds ammo)
+-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/slothbot/sbserver.lua (SetBotWeapon / "StreamWeapon": setTimer(giveWeapon, 300, 1, ped, weapon, ammo, true); element data "BotWeapon")
+function Peds.give_weapon(ped, weapon, ammo, current)
+	local rec = Peds.list[ped]
+	if not rec or not isElement(ped) then return false end
+	rec.weapon = { id = weapon, ammo = ammo, current = current ~= false, regives = 0 }
+	setElementData(ped, "obw", weapon)
+	return giveWeapon(ped, weapon, ammo, current ~= false)
+end
+
+function Peds.restore_weapon(ped)
+	local rec = Peds.list[ped]
+	local w = rec and rec.weapon
+	if not w or w.regives >= 5 then return false end
+	w.regives = w.regives + 1
+	ctx.after(300, function()
+		if isElement(ped) and Peds.list[ped] then giveWeapon(ped, w.id, w.ammo, w.current) end
+	end)
+	return true
+end
+-- END BORROWED-PRIVATE
 
 function Peds.owns(ped) return Peds.list[ped] ~= nil end
 function Peds.kind_of(ped) local r = Peds.list[ped]; return r and r.kind end

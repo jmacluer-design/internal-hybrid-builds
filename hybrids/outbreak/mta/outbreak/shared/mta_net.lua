@@ -20,12 +20,14 @@ local N = {
 	order = P.NET.order,
 	ui_action = P.NET.ui_action,
 	ground = "outbreak:ground",   -- { {x, y, z}, ... } ground height samples
+	stream = "outbreak:stream",   -- ped element: one of our armed peds streamed in on the client, give its weapon again (slothbot "StreamWeapon")
+	hit = "outbreak:hit",         -- ped element: the player hit one of our zombies, it turns on the player (slothbot aidamage)
 	-- browser -> client Lua (a LOCAL event: addEvent(name, false); the source is always the browser element)
 	browser = "outbreak:ui",
 }
 
 N.TO_CLIENT = { N.hello, N.events, N.state, N.hud, N.clock, N.catalog, N.ui_msg, N.drive }
-N.TO_SERVER = { N.ready, N.inbound, N.order, N.ui_action, N.ground }
+N.TO_SERVER = { N.ready, N.inbound, N.order, N.ui_action, N.ground, N.stream, N.hit }
 
 -- the server's `send(topic, payload)` is called with P.NET topics; this maps them to the wire name (only ui differs)
 function N.wire(topic)
