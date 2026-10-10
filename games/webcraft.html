@@ -126,10 +126,19 @@
   #newbest{ color:var(--gold); letter-spacing:.2em; font-weight:800; min-height:1.3em; font-size:clamp(11px,1.9vmin,15px); }
   .loading{ color:var(--dim); font-family:var(--mono); letter-spacing:.14em; font-size:clamp(10px,1.6vmin,13px); }
   .pausecard{ text-align:center; width:min(520px,100%); }
+  .menurow{ display:flex; align-items:center; gap:1.2em; flex-wrap:wrap; }
   @media (max-height:520px){
-    .lead{ margin:.4em 0 .5em; } .grid{ margin-bottom:.5em; } .modes{ margin-bottom:.5em; }
-    .grid{ grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); }
-    .padline{ margin-bottom:.5em; }
+    .card{ padding:8px 14px 0; }
+    h1.logo{ font-size:clamp(24px,9vh,40px); display:inline-block; }
+    .tag{ display:inline-block; margin:0 0 0 .8em; font-size:11px; letter-spacing:.2em; }
+    .lead{ display:none; }
+    .modes{ margin:.5em 0 .5em; gap:6px; } .mode{ padding:.35em .7em; font-size:11px; } .mode small{ display:none; }
+    .grid{ grid-template-columns:repeat(3,1fr); gap:0 1em; margin:.1em 0 .4em; }
+    .grid .k{ font-size:10px; padding:.1em 0; gap:.5em; } kbd{ min-width:4.6em; font-size:9.5px; padding:.08em .3em; }
+    .padline{ font-size:9.5px; line-height:1.35; margin:0 0 .35em; }
+    .menurow{ position:sticky; bottom:0; padding:6px 0 8px; background:linear-gradient(180deg,rgba(8,8,24,0),rgba(8,8,24,.96) 28%); }
+    button.cta{ font-size:15px; padding:.45em 1.4em; }
+    .loading{ display:none; }
   }
 </style>
 </head>
@@ -190,7 +199,7 @@
     </div>
     <p class="padline"><b>CONTROLLER (Xbox / PlayStation):</b> left stick move · right stick look · A jump · <b>RT hold = swing</b> · LT zip · B dive · X yank · Y = E (zip) · RB / L3 sprint · LB / R3 respawn · D-pad = arrows · Start = confirm / back to menu.</p>
     <p class="padline"><b>PHONE PAD:</b> left stick = WASD · right stick = look · JUMP = Space · fire (hold) = swing · place = zip · Z = dive · J = yank · shift = sprint · menu = back here.</p>
-    <div class="row">
+    <div class="menurow">
       <button class="cta" id="cta" type="button">BUILDING CITY...</button>
       <div class="best" id="bestLine"></div>
     </div>
@@ -253,7 +262,7 @@ const TUNING = {
   cam:    { sens: 0.0022, padRate: 2.6, dist: 6.6, distSpeed: 0.05, shoulder: 0.95, height: 0.35, lead: 0.085,
             fovBase: 68, fovMax: 96, fovSpeedLo: 10, fovSpeedHi: 68, followH: 15, followV: 10, pitchMin: -1.25, pitchMax: 1.4 },
   game:   { startTime: 90, beaconBonus: 22, beacons: 12, streetPenalty: 4, respawnPenaltyR: 5, captureR: 7.5, freeStreetPenalty: 0 },
-  score:  { beacon: 500, speedK: 8, airPerSec: 12, nearMiss: 80, chainK: 0.4, timeK: 15 },
+  score:  { beacon: 1500, speedK: 15, airPerSec: 6, nearMiss: 120, chainK: 0.25, chainCap: 6, chainBeacon: 60, timeK: 20 },   // flow multiplier = 1 + chain*chainK, capped at chainCap
 };
 
 const WS = TUNING.world.size, WH = TUNING.world.height;
@@ -654,7 +663,9 @@ function genWorld(){
   for (const s of city.spots) {
     if (!s.top || s.y < 50 || s.y > 88) continue;
     let taller = 0; for (const b of bl) { const d = Math.hypot((b.x0 + b.x1) / 2 - s.x, (b.z0 + b.z1) / 2 - s.z); if (d < 95 && d > 14 && b.h > s.y + 14) taller++; }
-    const sc = taller * 10 - Math.hypot(s.x - mid, s.z - mid) * 0.35; if (sc > bs) { bs = sc; best = s; }
+    let open = 0; for (let a = 0; a < 8; a++) { const dx = Math.cos(a * Math.PI / 4), dz = Math.sin(a * Math.PI / 4); let free = true; for (let t = 4; t <= 28; t += 2) { if (getV(Math.floor(s.x + dx * t), s.y + 2, Math.floor(s.z + dz * t))) { free = false; break; } } if (free) open++; }
+    if (open < 4) continue;
+    const sc = taller * 10 + open * 6 - Math.hypot(s.x - mid, s.z - mid) * 0.35; if (sc > bs) { bs = sc; best = s; }
   }
   if (!best) for (const s of city.spots) { if (!s.top) continue; const sc = s.y - Math.hypot(s.x - mid, s.z - mid) * 0.5; if (sc > bs) { bs = sc; best = s; } }
   city.start = best || { x: mid, y: 90, z: mid };
@@ -1399,9 +1410,8 @@ function endDive(auto){
 // ---- walls ----
 const WALLDIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 function wallProbe(dxn, dzn){                    // dir (dxn,dzn) points INTO the wall
-  const reach = HW + 0.16; let cnt = 0;
-  for (const dy of [-0.55, 0.05, 0.75]) if (getV(Math.floor(pos[0] + dxn * reach), Math.floor(pos[1] + dy), Math.floor(pos[2] + dzn * reach))) cnt++;
-  return cnt;
+  const reach = HW + 0.16, x = Math.floor(pos[0] + dxn * reach), z = Math.floor(pos[2] + dzn * reach);
+  return (getV(x, Math.floor(pos[1] - 0.55), z) ? 1 : 0) + (getV(x, Math.floor(pos[1] + 0.05), z) ? 1 : 0) + (getV(x, Math.floor(pos[1] + 0.75), z) ? 1 : 0);
 }
 function findWall(){
   const fx0 = -Math.sin(cam.yaw), fz0 = -Math.cos(cam.yaw); let best = -1, bd = 0.32;
@@ -1603,7 +1613,7 @@ function nearestRoofSpot(x, z, minH){
   let best = null, bs = 1e9;
   for (const s of city.spots) {
     if (s.y < (minH || 24)) continue;
-    const sc = Math.hypot(s.x - x, s.z - z) - s.y * 0.25; if (sc < bs) { bs = sc; best = s; }
+    const sc = Math.hypot(s.x - x, s.z - z) - s.y * 0.1; if (sc < bs) { bs = sc; best = s; }
   }
   return best || city.start;
 }
@@ -1705,7 +1715,7 @@ const HERO = {};
     return { hp, kn };
   }
   const aL = arm(1), aR = arm(-1), lL = leg(1), lR = leg(-1);
-  Object.assign(HERO, { root, rig, torso, head, aL, aR, lL, lR });
+  Object.assign(HERO, { root, rig, torso, head, aL, aR, lL, lR, mats: [RED, DRED, BLUE, BLK, EYE] });
   HERO.cur = { tx: 0, tz: 0, hx: 0, sLx: 0, sLz: 0, eLx: 0, sRx: 0, sRz: 0, eRx: 0, hLx: 0, hLz: 0, kLx: 0, hRx: 0, hRz: 0, kRx: 0 };
   HERO.yaw = 0; HERO.tilt = 0; HERO.roll = 0; HERO.spin = 0; HERO.aimQ = new THREE.Quaternion(); HERO.hand = new THREE.Vector3(); HERO.t = 0;
   HERO.prevHeading = 0; HERO.aimW = 0;
@@ -1716,6 +1726,11 @@ const HERO = {};
 })();
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _DOWN = new THREE.Vector3(0, -1, 0);
 
+function setHeroOpacity(o){
+  const tr = o < 0.99;
+  for (const m of HERO.mats) { if (m.transparent !== tr) { m.transparent = tr; m.needsUpdate = true; } m.opacity = o; }
+  HERO.blob.visible = HERO.blob.visible && o > 0.05;
+}
 function aimArm(arm, wx, wy, wz, k){
   HERO.torso.updateWorldMatrix(true, false);
   _v1.set(wx, wy, wz); HERO.torso.worldToLocal(_v1);
@@ -2048,13 +2063,18 @@ function resetRun(){
   beacons = planBeacons(); beaconIdx = 0; setBeaconVis();
   P.bestChain = 0; P.chain = 0; P.wallRuns = 0;
   const s = city.start; placePlayer(s.x, s.y + HH + 0.05, s.z);
-  const b = beacons[0]; cam.yaw = Math.atan2(-(b.x - s.x), -(b.z - s.z)); cam.pitch = 0.12; cam.fov = TUNING.cam.fovBase;
+  const b = beacons[0], byaw = Math.atan2(-(b.x - s.x), -(b.z - s.z)); let bestYaw = byaw, bsc = -1e9;
+  for (let k = 0; k < 24; k++) {                       // face the most open direction nearest the first beacon
+    const yw = k * TAU / 24, dx = -Math.sin(yw), dz = -Math.cos(yw), free = raycast(s.x, s.y + 2, s.z, dx, 0, dz, 40, _rh2) ? _rh2.t : 40;
+    const sc = free + 26 * Math.cos(angDiff(yw, byaw)); if (sc > bsc) { bsc = sc; bestYaw = yw; }
+  }
+  cam.yaw = bestYaw; cam.pitch = 0.16; cam.fov = TUNING.cam.fovBase;
   HERO.yaw = cam.yaw + Math.PI; P.heading = HERO.yaw; HERO.prevHeading = P.heading;
   camInit = false; INP.mouseFire = INP.padFire = false; keys.clear();
   $('combo').textContent = ''; $('comboBox').classList.remove('on');
 }
 function comboPulse(){
-  const n = P.chain; run.combo = 1 + n * SCORE.chainK; run.comboT = 3.2;
+  const n = P.chain; run.combo = Math.min(SCORE.chainCap, 1 + n * SCORE.chainK); run.comboT = 3.2;
   $('combo').textContent = 'CHAIN x' + n; $('comboSub').textContent = 'FLOW x' + run.combo.toFixed(1); $('comboBox').classList.add('on');
   run.score += 25 * n * run.combo; sfx.combo(n);
   const c = $('combo'); c.style.transform = 'scale(1.25)'; setTimeout(() => { c.style.transform = ''; }, 90);
@@ -2066,7 +2086,7 @@ function onNearMiss(d){
 }
 function collectBeacon(){
   const b = beacons[beaconIdx]; if (!b) return;
-  const pts = Math.round(SCORE.beacon + P.speed * SCORE.speedK + P.chain * 40);
+  const pts = Math.round(SCORE.beacon + P.speed * SCORE.speedK + Math.min(P.chain, 12) * SCORE.chainBeacon);
   run.score += pts; run.beacons++;
   if (run.mode === 'run') run.timeLeft += GAME.beaconBonus;
   popup('BEACON ' + run.beacons + '/' + GAME.beacons + '  +' + pts, '#5dffb0'); if (run.mode === 'run') setTimeout(() => popup('+' + GAME.beaconBonus + ' s', '#ffd27a'), 180);
@@ -2239,9 +2259,10 @@ function updateCamera(dt, rx, ry, rz){
   let wx = -dx * want + rxv * sh, wy = -dy * want + C.height - cam.dip, wz = -dz * want + rzv * sh;
   const wl = Math.hypot(wx, wy, wz);
   let allowed = wl;
-  if (raycast(camFocus.x, camFocus.y, camFocus.z, wx / wl, wy / wl, wz / wl, wl + 0.5, _rh2)) allowed = Math.max(0.9, Math.min(wl, _rh2.t - 0.45));
+  if (raycast(camFocus.x, camFocus.y, camFocus.z, wx / wl, wy / wl, wz / wl, wl + 0.5, _rh2)) allowed = Math.max(1.3, Math.min(wl, _rh2.t - 0.45));
   if (allowed < camLen) camLen = allowed; else camLen += (allowed - camLen) * damp(4, dt);
   const k = camLen / wl;
+  const fade = smooth(1.8, 4.2, camLen); if (Math.abs(fade - (cam.heroFade === undefined ? 1 : cam.heroFade)) > 0.01) { cam.heroFade = fade; setHeroOpacity(fade); }
   let px = camFocus.x + wx * k, py = camFocus.y + wy * k, pz = camFocus.z + wz * k;
   if (cam.shake > 0.001) { const s = cam.shake * 0.35; px += (Math.random() - 0.5) * s; py += (Math.random() - 0.5) * s; pz += (Math.random() - 0.5) * s; cam.shake *= Math.exp(-8 * dt); }
   cam.dip *= Math.exp(-7 * dt);
@@ -2286,6 +2307,7 @@ function startGame(){
 function pauseGame(){
   if (gstate !== 'playing') return;
   gstate = 'paused'; $('pause').classList.remove('hidden'); keys.clear(); INP.mouseFire = INP.padFire = false; wantLock = false;
+  try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
 }
 function resumeGame(){
   if (gstate !== 'paused') return;
@@ -2403,7 +2425,7 @@ init();
 //  test / debug hooks
 // ============================================================================
 window.__dbg = () => ({
-  state: gstate, pstate: P.state, mode: run.mode, ready,
+  state: gstate, pstate: P.state, mode: run.mode, ready, hp: 100 /* no damage system: the street costs time, not health */,
   pos: [pos[0], pos[1], pos[2]], vel: [vel[0], vel[1], vel[2]], speed: P.speed, hSpeed: P.hSpeed, altitude: pos[1] - HH - 1,
   grounded: P.grounded, attached: P.sw.on, pending: P.sw.pending, rope: P.sw.on ? P.sw.L : 0, anchor: P.sw.on ? [P.sw.ax, P.sw.ay, P.sw.az] : null, anchorKind: P.sw.kind,
   zip: P.zip.on, dive: P.state === 'dive', wall: P.state === 'wall', roll: P.rollT > 0,

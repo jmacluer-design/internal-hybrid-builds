@@ -53,7 +53,7 @@ kbd{display:inline-block;min-width:1.7em;padding:.08em .5em;margin:0 .1em;border
 @keyframes toast{0%{opacity:0;transform:translate(-50%,10px) scale(.9)}12%{opacity:1;transform:translate(-50%,0) scale(1.06)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-14px)}}
 .ov{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;text-align:center}
 .ov.hidden{display:none}
-#menu{background:radial-gradient(ellipse at 50% 38%,rgba(10,14,24,.55),rgba(3,5,9,.93) 78%);overflow:auto}
+#menu{background:radial-gradient(ellipse at 50% 40%,rgba(8,12,22,.62),rgba(3,5,9,.82) 80%);overflow:auto}
 #menu .panel{width:min(880px,94vw);max-height:100%;padding:3.2vh 2vw;margin:auto}
 .eyebrow{font-size:clamp(10px,1.8vmin,14px);letter-spacing:.5em;text-indent:.5em;color:var(--dim)}
 #menu h1{margin:.3vh 0 0;font-weight:400;font-size:clamp(44px,12vmin,120px);letter-spacing:.2em;text-indent:.2em;line-height:1.02;
@@ -121,6 +121,8 @@ button.cta:hover,button.cta:focus-visible{transform:translateY(-1px);box-shadow:
       <div><b>Grab / Throw</b> <kbd>Right Click</kbd> <span>or <kbd>K</kbd>. Pick up bombs, or a kneeling boss's tail, and throw or swing.</span></div>
       <div><b>Camera</b> <kbd>Mouse</kbd> <span>click to capture the pointer; <kbd>Q</kbd> snaps behind you</span></div>
       <div><b>Interact</b> <kbd>E</kbd> <span>or click at the fog gate. <kbd>M</kbd> mute, <kbd>Esc</kbd> pause.</span></div>
+      <h3>Controller</h3>
+      <div style="grid-column:1/-1"><b>Sticks</b> <span>left move, right look</span> &nbsp; <b>A</b> <span>jump</span> &nbsp; <b>RT</b> <span>punch / dive</span> &nbsp; <b>LT</b> <span>grab / throw</span> &nbsp; <b>B</b> <span>crouch / ground-pound</span> &nbsp; <b>X</b> <span>punch (J)</span> &nbsp; <b>Y</b> <span>interact (E)</span> &nbsp; <b>LB / R3</b> <span>recenter</span> &nbsp; <b>RB / L3</b> <span>creep</span> &nbsp; <b>Start</b> <span>confirm / pause</span></div>
       <h3>Phone pad</h3>
       <div style="grid-column:1/-1"><b>Left stick</b> <span>WASD</span> &nbsp; <b>Right stick</b> <span>look</span> &nbsp; <b>JUMP</b> <span>Space</span> &nbsp; <b>Z</b> <span>crouch / pound</span> &nbsp; <b>FIRE</b> <span>punch / dive</span> &nbsp; <b>ALT</b> <span>grab / throw</span> &nbsp; <b>J</b> <span>punch</span> &nbsp; <b>Q</b> <span>recenter</span> &nbsp; <b>E</b> <span>interact</span></div>
       <h3>The fight</h3>
@@ -173,13 +175,13 @@ const TUNING = {
     hurtLock: 0.42, invul: 1.8, voidY: -4.5
   },
   boss: {
-    hp: 2200, phase2At: 0.5, scale: 0.85, radius: 2.3, topStand: 8.2, topKneel: 4.0,
+    hp: 3400, phase2At: 0.5, scale: 0.85, radius: 2.3, topStand: 8.2, topKneel: 4.0,
     walk: 3.2, walk2: 4.3, turn: 1.5, turn2: 2.3,
     kneelFor: 6.0, staggerMax: 100, staggerHold: 3.5, staggerDecay: 7, kneelGrace: 5.0
   },
   dmg: { punch: 12, kick: 20, slideKick: 18, dive: 22, poundShock: 26, poundCrit: 170, plunge: 70,
          bombThrown: 130, impThrown: 90, swingBomb: 140, thrownBomb: 240, thrownWall: 100, thrownPillar: 80 },
-  stagger: { punch: 5, kick: 9, slideKick: 9, dive: 11, poundShock: 14, plunge: 35, bomb: 30, imp: 18, crash: 34 }
+  stagger: { punch: 4, kick: 8, slideKick: 8, dive: 10, poundShock: 12, plunge: 35, bomb: 30, imp: 18, crash: 34 }
 };
 const HT = TUNING.hero, BT = TUNING.boss;
 
@@ -419,7 +421,7 @@ function groundAt(x, z, y) {
 function insideSolid(x, y, z, m) {
   for (let i = 0; i < solids.length; i++) {
     const s = solids[i]; if (!s.on || y > s.top + m || y < -2) continue;
-    if (s.t === 0) { const dx = x - s.x, dz = z - s.z, rr = s.r + m; if (dx * dx + dz * dz < rr * rr) return true; }
+    if (s.t === 0) { const dx = x - s.x, dz = z - s.z, rr = s.r + m + (s.kind === 'boss' ? 1.4 : 0); if (dx * dx + dz * dz < rr * rr) return true; }
     else { const dx = x - s.x, dz = z - s.z, lx = dx * s.c + dz * s.s, lz = -dx * s.s + dz * s.c; if (Math.abs(lx) < s.hx + m && Math.abs(lz) < s.hz + m) return true; }
   }
   return false;
@@ -1265,18 +1267,20 @@ function throwHeld() {
 function startSwing() {
   B.state = 'swung'; B.t = 0; B.swingW = 2.4; B.keepKneel = B.kneelT; bossSolid.on = false;
   H.yaw = Math.atan2(B.x - H.x, B.z - H.z); H.vx = H.vz = 0; setAct('swing'); H.spinW = 2.4; B.yaw = H.yaw;
-  SFX.grab(); toast('TAIL SWING'); setHint('Fire / Right-click to throw.  Aim at the bombs.', 5);
+  H.swingMk = getMarker('lane'); SFX.grab(); toast('TAIL SWING'); setHint('Fire / Right-click to throw.  Aim at the bombs.', 5);
 }
 function swingStep(dt) {
   const dirSign = I.rawX > 0 ? -1 : 1;
   H.spinW = Math.min(11, H.spinW + 5.2 * dt); B.swingW = H.spinW;
   H.yaw += dirSign * H.spinW * dt; B.yaw = H.yaw;
   H.vx = H.vz = 0;
+  if (H.swingMk) setMarker(H.swingMk, B.x + Math.sin(H.yaw) * 15, B.z + Math.cos(H.yaw) * 15, H.yaw, 1.8, 30, [.4, 1, .9], .4 + .15 * Math.sin(game.clock * 14), .1);
   if (H.actT > 0.5 && (I.bufFire > 0 || I.bufPlace > 0 || H.actT > 6)) { releaseSwing(); return; }
   if (Math.random() < .5) spawnP(H.x + Math.sin(H.yaw) * 3, .3, H.z + Math.cos(H.yaw) * 3, 0, 1, 0, .4, .35, .5, .48, .45);
 }
+function freeSwingMk() { if (H.swingMk) { freeMarker(H.swingMk); H.swingMk = null; } }
 function releaseSwing() {
-  I.bufFire = 0; I.bufPlace = 0;
+  freeSwingMk(); I.bufFire = 0; I.bufPlace = 0;
   const sp = clamp(14 + H.spinW * 2.4, 16, 34); B.state = 'thrown'; B.t = 0; B.tvx = Math.sin(H.yaw) * sp; B.tvz = Math.cos(H.yaw) * sp; B.yaw = H.yaw; B.hitCd = 0;
   setAct('throw'); SFX.throwIt(); SFX.groan(); shakeAmt = Math.max(shakeAmt, .5); toast('THROWN');
 }
@@ -1430,7 +1434,8 @@ function criticalHit() {
 /* ---------- damage, death, respawn ---------- */
 function hurtHero(w, sx, sz, kind) {
   if (H.inv > 0 || H.dead || game.state !== 'fight') return false;
-  H.hp = Math.max(0, H.hp - w); game.dmgTaken += w; H.inv = HT.invul; H.lastHit = kind || '';
+  const w2 = Math.min(w, H.hp); H.hp = Math.max(0, H.hp - w); game.dmgTaken += w2; H.inv = HT.invul;
+  if (H.act === 'swing') dropSwing(); H.lastHit = kind || '';
   SFX.hurt(); shakeAmt = Math.max(shakeAmt, .8); hitStop = Math.max(hitStop, .07);
   const h = $('hurt'); h.style.opacity = 1; setTimeout(() => { h.style.opacity = 0; }, 140);
   pieHurt();
@@ -1442,16 +1447,17 @@ function hurtHero(w, sx, sz, kind) {
   return true;
 }
 function healHero(n) { const before = H.hp; H.hp = Math.min(8, H.hp + n); if (H.hp > before) { H.healFlash = .6; pieHurt(true); } }
+function dropSwing() { freeSwingMk(); if (B.state === 'swung') { B.tvx = B.tvz = 0; B.state = 'thrown'; B.t = 0; B.hitCd = 0; } }
 function killHero() {
-  H.dead = true; H.deadT = 0; H.grounded = false; H.vy = 8; H.vx *= .3; H.vz *= .3; setAct('dead'); game.deaths++; game.ts = 0.45; SFX.died(); setMusic('death');
+  dropSwing(); H.dead = true; H.deadT = 0; H.grounded = false; H.vy = 8; H.vx *= .3; H.vz *= .3; setAct('dead'); game.deaths++; game.ts = 0.45; SFX.died(); setMusic('death');
   shakeAmt = 1.2; if (H.held) { H.held.state = 'armed'; H.held = null; }
   clearBossAttack(true);
 }
 function deadStep(dt) {
   H.deadT += dt; H.vy -= HT.gravity * dt; H.x += H.vx * dt; H.z += H.vz * dt; H.vx *= .98; H.vz *= .98;
   const g = groundAt(H.x, H.z, H.y); H.y += H.vy * dt; if (H.y <= g) { H.y = g; H.vy = 0; H.vx *= .6; H.vz *= .6; H.grounded = true; }
-  if (H.deadT > 0.9) game.ts = Math.min(1, game.ts + dt * 0.3);
-  if (H.deadT > 2.0 && game.state === 'fight') showEnd(false);
+  if (H.deadT > 0.5) game.ts = Math.min(1, game.ts + dt * 3);
+  if (H.deadT > 1.7 && game.state === 'fight') showEnd(false);
 }
 function voidFall() {
   SFX.hurt(); sparkBurst(H.x, -3, H.z, 16, 8, fireCol); burst(H.x, -4, H.z, 14, { speed: 8, life: .8, size: .6, col: fireCol, up: 6, grav: 14 });
@@ -1641,7 +1647,7 @@ function sweepAtk(low) {
     } else if (a.stage === 1) {
       sweepSheet.material.uniforms.uA.value = 1.0;
       if (!H.dead) {
-        const dx = H.x - B.x, dz = H.z - B.z, d = hyp(dx, dz), rel = H.y - baseH(H.x, H.z), hh = I.zHeld && H.grounded ? HT.crouchHeight : HT.height;
+        const dx = H.x - B.x, dz = H.z - B.z, d = hyp(dx, dz), rel = H.y - baseH(H.x, H.z), hh = H.grounded && (H.act === 'crouch' || H.act === 'crouchslide') ? HT.crouchHeight : HT.height;
         if (d < a.R + HT.radius && Math.abs(wrapPi(Math.atan2(dx, dz) - a.yaw)) < 80 * Math.PI / 180 && rel < y1 && rel + hh > y0 && !(H.y > 6 && rel > 5)) hurtHero(2, B.x, B.z, low ? 'sweepLow' : 'sweepHigh');
       }
       if (a.t >= a.act) { a.stage = 2; a.t = 0; sweepSheet.visible = false; }
@@ -1823,7 +1829,7 @@ function roarStep(dt) {
 }
 function dyingStep(dt) {
   setPose('dying', 2.6); B.eye = Math.max(0, 1 - B.t / 3.5);
-  if (B.t > 1.2 && game.ts < 1) game.ts = Math.min(1, game.ts + dt * .5);
+  if (B.t > .6 && game.ts < 1) game.ts = Math.min(1, game.ts + dt * 2);
   if (Math.random() < .5) { burst(B.x + RR(-2, 2), 3 + RR(0, 3), B.z + RR(-2, 2), 3, { speed: 4, up: 3, life: 1.3, size: .5, col: [1, .6, .2], grav: -2 }); }
   if (B.t > 4.4 && game.state === 'fight') winGame();
 }
@@ -2208,7 +2214,7 @@ function saveRun(extra) {
 
 /* ---------- world reset ---------- */
 function resetWorld(mode) {
-  clearMarkers(); for (const r of rings) { r.on = false; r.g.visible = false; }
+  clearMarkers(); H.swingMk = null; for (const r of rings) { r.on = false; r.g.visible = false; }
   for (const o of orbs) { o.on = false; o.g.visible = false; o.mk = null; }
   for (const b of bombs) { b.on = false; b.g.visible = false; b.mk = null; }
   for (const p of pickups) { p.on = false; p.g.visible = false; }
@@ -2276,7 +2282,7 @@ function retry() {
   $('dead').classList.add('hidden'); $('dead').classList.remove('show'); $('menu').classList.add('hidden');
   resumeAudio(); requestLock(); resetWorld('retry'); showHud(true); startIntro(true); setHint('', 0);
 }
-function pause() { if (game.paused) return; game.paused = true; $('pause').classList.remove('hidden'); }
+function pause() { if (game.paused) return; game.paused = true; exitLock(); $('pause').classList.remove('hidden'); }
 function resumeGame() { if (!game.paused || game.menuPaused) return; game.paused = false; $('pause').classList.add('hidden'); requestLock(); resumeAudio(); }
 function requestLock() {
   try { const p = canvas.requestPointerLock && canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { locked = false; lockFailed = true; }); } catch (e) { locked = false; lockFailed = true; }
@@ -2305,6 +2311,10 @@ window.addEventListener('keydown', e => {
   if (k === 'm' && !e.repeat) { setMuted(!muted); resumeAudio(); return; }
   if (k === 'escape' && !e.repeat) { if (['gate', 'intro', 'entering', 'fight'].includes(game.state) && !game.paused) pause(); else if (game.paused && !game.menuPaused) resumeGame(); return; }
   if (k === 'p' && !e.repeat && ['gate', 'intro', 'entering', 'fight'].includes(game.state)) { if (game.paused && !game.menuPaused) resumeGame(); else pause(); return; }
+  if (!e.repeat && !keys.has(k)) { // edge here too, so a tap shorter than one frame is never lost
+    if (k === ' ') { I.bufJump = HT.buffer; pv.j = true; } else if (k === 'z') { I.bufZ = 0.14; pv.z = true; } else if (k === 'j') { I.bufFire = 0.18; pv.f = true; }
+    else if (k === 'k') { I.bufPlace = 0.18; pv.p = true; } else if (k === 'e') { I.ePress = true; pv.e = true; } else if (k === 'q') { I.qPress = true; pv.q = true; }
+  }
   keys.add(k); resumeAudio();
 });
 window.addEventListener('keyup', e => { const k = (e.key || '').toLowerCase(); keys.delete(k); });
@@ -2368,15 +2378,18 @@ function frame(now) {
   } else { I.ePress = false; }
   if (!game.paused) { updateCamera(dt); updateVisuals(dt); } else updateCamera(0);
   updateHUD(dt);
-  renderer.render(scene, camera);
+  // graceful degradation: when the GPU cannot keep up (software rendering, weak iGPU), keep input + simulation at full rate and draw less often
+  if (lastRenderAt > 0) { const gap = now - lastRenderAt; if (gap > 45) skipUntil = now + Math.min(700, gap * 1.4); else if (gap < 30) skipUntil = 0; lastRenderAt = 0; }
+  if (now >= skipUntil) { renderer.render(scene, camera); lastRenderAt = now; }
 }
+let lastRenderAt = 0, skipUntil = 0;
 
 /* ---------- debug / test API ---------- */
 window.__dbg = () => {
   const r = v => Math.round(v * 1000) / 1000;
   return {
     state: game.state, paused: game.paused, act: H.act, grounded: H.grounded, anim: Array.from(cu).map(r), pos: [r(H.x), r(H.y), r(H.z)], vel: [r(H.vx), r(H.vy), r(H.vz)], yaw: r(H.yaw),
-    speed: r(hyp(H.vx, H.vz)), hp: H.hp, coins: H.coins, score: Math.round(Math.max(0, (1 - B.hp / B.max) * 1000)), chain: H.chain, chainT: r(H.chainT), lastJump: H.lastJump, wallKicks: H.kicks,
+    speed: r(hyp(H.vx, H.vz)), hp: H.hp, coins: H.coins, score: Math.round(Math.max(0, (1 - B.hp / B.max) * 1000)), chain: H.chain, chainT: r(H.chainT), wall: r(Math.max(0, H.wallT)), lastJump: H.lastJump, wallKicks: H.kicks,
     crouch: H.act === 'crouch' || H.act === 'crouchslide', held: H.held ? H.held.kind : null, inv: r(H.inv), combo: H.combo,
     cam: { yaw: r(cam.yaw), pitch: r(cam.pitch), fov: r(camera.fov), dist: r(cam.curDist) },
     boss: { hp: Math.round(B.hp), max: B.max, phase: B.phase, state: B.state, atk: B.atk ? B.atk.id : null, stage: B.atk ? B.atk.stage : null, stagger: r(B.stagger), kneelT: r(B.kneelT), pos: [r(B.x), r(B.z)], yaw: r(B.yaw) },
@@ -2386,10 +2399,10 @@ window.__dbg = () => {
 };
 Object.assign(window.__game, {
   id: 'souls64',
-  tp(x, z, y) { H.x = x; H.z = z; H.y = y != null ? y : Math.max(0, groundAt(x, z, 30)); H.vx = H.vy = H.vz = 0; H.grounded = y == null; },
+  tp(x, z, y) { H.x = x; H.z = z; H.y = y != null ? y : Math.max(0, groundAt(x, z, 30)); H.vx = H.vy = H.vz = 0; H.grounded = y == null; if (y != null) setAct('fall'); },
   setBossHp(v) { B.hp = clamp(v, 1, B.max); }, setHp(v) { H.hp = clamp(v, 0, 8); },
   stagger() { if (B.state === 'idle' || B.state === 'attack') { B.stagger = BT.staggerMax; bossStaggerAdd(1); } },
-  attack(id) { if (B.state === 'idle') { startAttack(id); } }, boss: B, hero: H, state: game,
+  cam, attack(id) { if (B.state === 'idle') { startAttack(id); } }, boss: B, hero: H, state: game,
   skipIntro() { if (game.state === 'intro') { game.introT = 4.3; B.state = 'idle'; B.eye = 1; bossSolid.walk = false; bossSolid.top = BT.topStand; } },
   killHero() { if (game.state === 'fight') { H.inv = 0; hurtHero(99, B.x, B.z, 'test'); } }, killBoss() { B.hp = 1; B.phase = 2; bossDamage(5, 0, 'test'); },
   step(sec) { pollInput(); const n = Math.round(sec / TUNING.step); for (let i = 0; i < n; i++) { if (hitStop > 0) { hitStop -= TUNING.step; continue; } simStep(TUNING.step * 1); } I.ePress = false; },

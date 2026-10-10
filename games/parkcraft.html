@@ -80,7 +80,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:var(--bg);overflo
 
 /* ---- overlays ---- */
 .overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;pointer-events:auto;overflow:auto;
-  background:radial-gradient(ellipse at 50% 30%,rgba(60,24,96,.55),rgba(8,6,28,.9) 70%);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);}
+  background:radial-gradient(ellipse at 50% 30%,rgba(60,24,96,.62),rgba(8,6,28,.93) 72%);}
 .panel{width:min(980px,94vw);max-height:100%;padding:clamp(10px,2.6vh,26px) clamp(14px,3vw,34px);text-align:center;}
 .logo{font-size:clamp(34px,10.5vh,92px);font-weight:900;letter-spacing:clamp(3px,1vw,10px);line-height:.95;color:#fff;
   text-shadow:0 clamp(3px,.8vh,7px) 0 #b8326e,0 clamp(6px,1.6vh,14px) 0 #3b1a73,0 0 40px rgba(46,230,255,.35);}
@@ -928,10 +928,16 @@ function buildStarter() {
    SCENE: renderer, sky, ground (canvas textures), lights, props
    ===================================================================== */
 const stageEl = $('stage');
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+// software GL (SwiftShader / llvmpipe) or ?lq  => low quality: no shadow map, no MSAA, blob shadow instead.  ?hq forces full quality.
+const LQ = (() => { try {
+  if (/[?&]hq\b/.test(location.search)) return false; if (/[?&]lq\b/.test(location.search)) return true;
+  const c = document.createElement('canvas'), gl = c.getContext('webgl'); if (!gl) return false; const e = gl.getExtension('WEBGL_debug_renderer_info');
+  return !!e && /swiftshader|llvmpipe|software|softpipe/i.test(String(gl.getParameter(e.UNMASKED_RENDERER_WEBGL))); } catch (e) { return false; } })();
+const LQ_SCALE = (() => { const m = /[?&]lqs=([0-9.]+)/.exec(location.search); return m ? clamp(+m[1], 0.2, 1) : 0.75; })();      // software GL renders at 75% resolution (override: ?lqs=0.5)
+const renderer = new THREE.WebGLRenderer({ antialias: !LQ, powerPreference: 'high-performance', preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = !LQ; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stageEl.insertBefore(renderer.domElement, $('hud'));
 const canvas = renderer.domElement;
 const scene = new THREE.Scene();
@@ -940,7 +946,7 @@ scene.fog = new THREE.Fog(FOG_COL, 60, 230);
 const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 900);
 function onResize() {
   const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); renderer.setSize(w, h, false);
+  renderer.setPixelRatio(LQ ? Math.min(1, (window.devicePixelRatio || 1)) * LQ_SCALE : Math.min(2, window.devicePixelRatio || 1)); renderer.setSize(w, h, false);
   canvas.style.width = '100%'; canvas.style.height = '100%';
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
@@ -950,7 +956,7 @@ window.addEventListener('resize', onResize); onResize();
 const hemi = new THREE.HemisphereLight(0xc9b4ff, 0x5a4470, 1.05); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe2bd, 2.2);
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, -0.4).normalize();
-sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+sun.castShadow = !LQ; sun.shadow.mapSize.set(2048, 2048);
 const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 160;
 sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.05; sun.shadow.radius = 2.5;
 scene.add(sun); scene.add(sun.target);
@@ -1011,7 +1017,7 @@ function makeParkTexture() {
   rect(6, 8, 13, 17, 0.12, 'rgba(155,116,230,0.8)');                               // spine zone
   ring(-24, -30, 4, 0.14, 'rgba(255,255,255,0.35)'); ring(26, 28, 3.4, 0.14, 'rgba(255,255,255,0.35)');
   for (let i = 0; i < 9; i++) { g.fillStyle = i % 2 ? 'rgba(255,210,61,0.8)' : 'rgba(30,25,60,0.9)'; g.fillRect(W(24 + i * 0.7), Zp(-30), 0.7 * U, 5 * U); }
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); return t;
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = LQ ? 1 : Math.min(8, renderer.capabilities.getMaxAnisotropy()); return t;
 }
 {
   const gm = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, HALF * 2), new THREE.MeshLambertMaterial({ map: makeParkTexture() }));
@@ -1019,7 +1025,7 @@ function makeParkTexture() {
   const ac = document.createElement('canvas'); ac.width = ac.height = 128; const g = ac.getContext('2d'), rr = mulberry(9);
   g.fillStyle = '#383a52'; g.fillRect(0, 0, 128, 128); for (let i = 0; i < 900; i++) { g.fillStyle = rr() > .5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.12)'; g.fillRect(rr() * 128, rr() * 128, 2, 2); }
   g.strokeStyle = 'rgba(15,12,40,.5)'; g.lineWidth = 2; g.strokeRect(0, 0, 128, 128);
-  const at = new THREE.CanvasTexture(ac); at.colorSpace = THREE.SRGBColorSpace; at.wrapS = at.wrapT = THREE.RepeatWrapping; at.repeat.set(120, 120); at.anisotropy = 4;
+  const at = new THREE.CanvasTexture(ac); at.colorSpace = THREE.SRGBColorSpace; at.wrapS = at.wrapT = THREE.RepeatWrapping; at.repeat.set(120, 120); at.anisotropy = LQ ? 1 : 4;
   const am = new THREE.Mesh(new THREE.PlaneGeometry(960, 960), new THREE.MeshLambertMaterial({ map: at }));
   am.rotation.x = -PI / 2; am.position.y = -0.02; am.receiveShadow = true; scene.add(am);
 }
@@ -1169,6 +1175,10 @@ function placeBone(m, ax, ay, az, bx, by, bz, tx, tz) {
   m.position.set((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2); _v.set(dx / len, dy / len, dz / len); m.quaternion.setFromUnitVectors(_UP, _v); m.scale.set(tx, len, tz);
 }
 function placeBasis(m, cx, cy, cz, xa, ya, za, sx, sy, sz) { _mm.makeBasis(xa, ya, za); m.quaternion.setFromRotationMatrix(_mm); m.position.set(cx, cy, cz); m.scale.set(sx, sy, sz); }
+const blob = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 31);
+  gr.addColorStop(0, 'rgba(10,0,30,0.85)'); gr.addColorStop(0.55, 'rgba(10,0,30,0.45)'); gr.addColorStop(1, 'rgba(10,0,30,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  m.rotation.x = -PI / 2; m.renderOrder = 2; m.visible = false; scene.add(m); return m; })();
 const _tbx = new THREE.Vector3(), _tby = new THREE.Vector3(), _tbz = new THREE.Vector3();
 const lookF = new THREE.Vector3(0, 0, 1);       // facing used to orient the head / shoes
 const shoeQ = new THREE.Quaternion();
@@ -2042,10 +2052,10 @@ function simStep(dt) {
   if (parkDirty) { parkSaveT -= dt; if (parkSaveT <= 0) saveParkNow(); }
 }
 function advance(now) {
-  let dt = (now - lastNow) / 1000; lastNow = now; if (!(dt > 0)) return; if (dt > 0.1) dt = 0.1;
+  let dt = (now - lastNow) / 1000; lastNow = now; if (!(dt > 0)) return; if (dt > 0.25) dt = 0.25;
   acc += dt; let n = 0;
-  while (acc >= T.DT && n < 24) { simStep(T.DT); acc -= T.DT; n++; }
-  if (acc > T.DT * 4) acc = 0;
+  while (acc >= T.DT && n < 40) { simStep(T.DT); acc -= T.DT; n++; }
+  if (acc > T.DT * 6) acc = 0;
 }
 setInterval(() => advance(performance.now()), 5);
 
@@ -2080,6 +2090,9 @@ function renderFrame() {
   skyGroup.position.copy(camera.position); updateSun(fx, fy, fz);
   updatePoseWorld(dtr);
   skGroup.visible = true;
+  if (!sun.castShadow && sk.mode !== 'bail') { const gh = groundAt(sk.x, sk.z, sk.y + 0.3).h, hh = Math.max(0, sk.y - gh); blob.visible = true; blob.position.set(sk.x, gh + 0.03, sk.z); blob.scale.setScalar(1 + hh * 0.12); blob.material.opacity = clamp(1 - hh * 0.22, 0.25, 1); blob.rotation.z = -sk.yaw; }
+  else if (!sun.castShadow) { blob.visible = true; blob.position.set(RG.p[6], groundAt(RG.p[6], RG.p[8], RG.p[7] + 0.3).h + 0.03, RG.p[8]); blob.scale.setScalar(1.6); blob.material.opacity = 0.8; }
+  else blob.visible = false;
   // build ghost
   if (state === 'play' && mode === 'build') {
     rebuildGhost(); updateAim();
@@ -2101,7 +2114,7 @@ function frame() { advance(performance.now()); renderFrame(); requestAnimationFr
    DEBUG / TEST HOOKS
    ===================================================================== */
 window.__dbg = () => ({
-  state, mode, paused, locked: lockOn, mute: muted, freeride, fire: I.fire, place: I.place, btn: { l: btn.l, r: btn.r },
+  lq: LQ, state, mode, paused, locked: lockOn, mute: muted, freeride, fire: I.fire, place: I.place, btn: { l: btn.l, r: btn.r },
   pos: [sk.x, sk.y, sk.z], vel: sk.mode === 'ground' ? [sk.tx * sk.spd, sk.ty * sk.spd, sk.tz * sk.spd] : [sk.vx, sk.vy, sk.vz], speed: sk.mode === 'ground' ? Math.abs(sk.spd) : Math.hypot(sk.vx, sk.vz), spd: sk.spd,
   yaw: sk.yaw, sk: sk.mode, airT: sk.airT, charge: sk.charge, pushing: sk.pushT > 0, braking: !!sk.braking, steer: sk.steer,
   manual: sk.man, manBal: sk.manBal, manT: sk.manT, grind: sk.mode === 'grind' ? { name: sk.grName, bal: sk.grBal, t: sk.grTime, kind: sk.grKind, spd: sk.grSpd } : null,
@@ -2127,6 +2140,7 @@ Object.assign(window.__game, {
   setTime(t) { S.time = t; },
   addScore(n) { S.score += n; },
   flush() { flushWorld(); },
+  info() { const i = renderer.info; return { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, w: renderer.domElement.width, h: renderer.domElement.height, lq: LQ }; },
   freeze(b) { dbgFreeze = !!b; },
 });
 
@@ -2175,6 +2189,70 @@ requestAnimationFrame(frame);
   }
   poll();
 })();
+// <gamepad-shim>
+// gamepad shim v1: standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
+// Pasted verbatim inside each game's module <script> (needs the contract globals: keys, padFire, padPlace, padLook, padMenu).
+// Mapping (Xbox name / PlayStation name):
+//   left stick = WASD   right stick = look   A/Cross = jump   X/Square = J   B/Circle = Z   Y/Triangle = E
+//   RT/R2 = primary (fire)   LT/L2 = secondary (ADS / place / zip)   LB/L1 = Q   RB/R1 and L3 = Shift   R3 = Q
+//   D-pad = arrow keys   Start/Options = confirm on menu screens, pause/back-to-menu in game   Select/Create = back to menu
+// Browser quirk: the pad is invisible to the page until you press any button once.
+(function(){
+  if(!navigator.getGamepads) return;
+  const DZ=0.16, held=new Set(), was={};
+  const toast=(()=>{ let el,t; return msg=>{
+    if(!el){ el=document.createElement('div');
+      el.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;padding:7px 14px;border-radius:8px;'+
+        'background:rgba(10,12,20,.86);color:#cfe;font:12px ui-monospace,monospace;border:1px solid #3a5;pointer-events:none;transition:opacity .4s;';
+      document.body.appendChild(el); }
+    el.textContent=msg; el.style.opacity=1; clearTimeout(t); t=setTimeout(()=>{ el.style.opacity=0; },2600); }; })();
+  const setKey=(k,on)=>{ if(on){ if(!held.has(k)){ held.add(k); keys.add(k); } } else if(held.has(k)){ held.delete(k); keys.delete(k); } };
+  const axisKeys=(neg,pos,v)=>{ setKey(neg, held.has(neg)? v<-0.22 : v<-0.38); setKey(pos, held.has(pos)? v>0.22 : v>0.38); };
+  const shown=el=>{ if(!el) return false; const s=getComputedStyle(el);
+    return s.display!=='none'&&s.visibility!=='hidden'&&+s.opacity>0.01&&el.getClientRects().length>0; };
+  const click=id=>{ const el=document.getElementById(id); if(shown(el)){ el.click(); return true; } return false; };
+  const edge=(name,on,down,up)=>{ if(on&&!was[name]){ was[name]=1; down&&down(); } else if(!on&&was[name]){ was[name]=0; up&&up(); } };
+  const call=(f,...a)=>{ if(typeof f==='function') f(...a); };
+  const pick=()=>{ for(const g of navigator.getGamepads()) if(g&&g.connected) return g; return null; };
+  let lookLive=false;
+  function releaseAll(){ [...held].forEach(k=>setKey(k,false)); Object.keys(was).forEach(k=>{ if(was[k]) edge(k,false,null,()=>{}); });
+    if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+    if(typeof padFire==='function') padFire(false); if(typeof padPlace==='function') padPlace(false); }
+  addEventListener('gamepadconnected',e=>toast('controller connected: '+String(e.gamepad.id).replace(/\s*\(.*$/,'').slice(0,42)));
+  addEventListener('gamepaddisconnected',()=>{ releaseAll(); toast('controller disconnected'); });
+  addEventListener('blur',releaseAll);
+  window.__rumble=(strong,weak,ms)=>{ const g=pick(), a=g&&g.vibrationActuator;
+    if(a&&a.playEffect) a.playEffect('dual-rumble',{duration:ms||80,strongMagnitude:strong||0,weakMagnitude:weak||0}).catch(()=>{}); };
+  window.__gpDbg=()=>({ connected:!!pick(), held:[...held] });
+  function frame(){
+    const g=pick();
+    if(g){
+      const b=i=>{ const x=g.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+      // sticks (radial deadzone)
+      const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ) return [0,0]; const s=(Math.min(m,1)-DZ)/(1-DZ)/m; return [x*s,y*s]; };
+      const [lx,ly]=dz(g.axes[0]||0,g.axes[1]||0);
+      axisKeys('a','d',lx); axisKeys('w','s',ly);
+      const [rx,ry]=dz(g.axes[2]||0,g.axes[3]||0);
+      const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+      if(rx||ry){ lookLive=true; call(typeof padLook==='function'?padLook:null,cv(rx),cv(ry)); }
+      else if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+      // face / shoulder buttons -> keys
+      setKey(' ',b(0)); setKey('z',b(1)); setKey('j',b(2)); setKey('e',b(3));
+      setKey('q',b(4)||b(11)); setKey('shift',b(5)||b(10));
+      setKey('arrowup',b(12)); setKey('arrowdown',b(13)); setKey('arrowleft',b(14)); setKey('arrowright',b(15));
+      // triggers -> primary / secondary
+      edge('rt',b(7),()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); },()=>call(typeof padFire==='function'?padFire:null,false));
+      edge('lt',b(6),()=>call(typeof padPlace==='function'?padPlace:null,true),()=>call(typeof padPlace==='function'?padPlace:null,false));
+      // A also confirms on start / retry screens; Start confirms there, pauses in game
+      edge('a',b(0),()=>{ if(!click('cta')) click('cta2'); });
+      edge('start',b(9),()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); });
+      edge('select',b(8),()=>call(typeof padMenu==='function'?padMenu:null));
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+// </gamepad-shim>
 </script>
 </body>
 </html>

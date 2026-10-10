@@ -108,7 +108,7 @@
 
   /* ---------- overlays ---------- */
   .ov{ position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; overflow:auto; pointer-events:auto;
-    background:linear-gradient(100deg, rgba(5,8,12,.88) 0%, rgba(5,8,12,.66) 46%, rgba(5,8,12,.34) 100%); padding:calc(var(--u)*2); }
+    background:linear-gradient(100deg, rgba(5,8,12,.8) 0%, rgba(5,8,12,.5) 46%, rgba(5,8,12,.16) 100%); padding:calc(var(--u)*2); }
   #menu .wrap{ display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.35fr); gap:calc(var(--u)*4); width:min(100%, calc(var(--u)*118)); align-items:center; margin:auto; }
   .logo{ font-family:Impact,"Arial Black","Haettenschweiler",sans-serif; font-weight:900; line-height:.86; letter-spacing:.02em; text-transform:uppercase; }
   .logo span{ display:block; font-size:calc(var(--u)*9.6); }
@@ -833,15 +833,17 @@ function cullChunks(camx, camy, camz, far) {
 let worldSeed = 1;
 function terrainHeight(x, z, seed) {
   const n1 = fbm2(x * 0.011, z * 0.011, 5, seed), n2 = fbm2(x * 0.032 + 50, z * 0.032 + 90, 3, seed + 7);
-  let h = 25.5 + (n1 - 0.5) * 62 + (n2 - 0.5) * 9;
+  const dx0 = (x - 63.5) / 64, dz0 = (z - 63.5) / 64, d0 = Math.sqrt(dx0 * dx0 + dz0 * dz0);
+  let h = 26 + (n1 - 0.5) * 56 + (n2 - 0.5) * 9 + 7 * (1 - smoothstep(0, 0.75, d0));
   const m = Math.max(0, fbm2(x * 0.0085 + 300, z * 0.0085 + 300, 4, seed + 3) - 0.5);
   h += m * m * 300;
+  h = lerp(h, Math.max(h, 24.5), 1 - smoothstep(0.22, 0.5, d0));      // guaranteed dry land core around the spawn
   const dx = (x - 63.5) / 64, dz = (z - 63.5) / 64, d = Math.sqrt(dx * dx + dz * dz), edge = smoothstep(0.6, 1.02, d);
   h = h * (1 - edge) + 12 * edge;
   return Math.max(2, Math.min(WY - 12, Math.floor(h)));
 }
 const HGT = new Int16Array(WX * WZ);
-let spawnPoint = { x: 64.5, y: 40, z: 64.5 };
+let spawnPoint = { x: 64.5, y: 40, z: 64.5 }, spawnFallback = false;
 function genWorld(seed) {
   worldSeed = seed; world.fill(0);
   const rng = mulberry32(seed * 7919 + 13);
@@ -896,16 +898,24 @@ function genWorld(seed) {
       }
     }
   }
-  // spawn point: spiral out from the middle to find a calm grass patch
+  // spawn point: spiral out from the middle to find a calm, tree-free grass patch (three passes, strictest first)
   let sp = null;
-  for (let r = 0; r < 58 && !sp; r++) for (let a = 0; a < Math.max(1, r * 6) && !sp; a++) {
-    const x = Math.round(64 + Math.cos(a / Math.max(1, r * 6) * 6.283) * r), z = Math.round(64 + Math.sin(a / Math.max(1, r * 6) * 6.283) * r);
-    const h = HGT[x + z * WX]; if (h < SEA + 3 || h > 36 || world[x + WX * (z + WZ * h)] !== B.GRASS) continue;
-    let ok = true; for (let dz = -3; dz <= 3 && ok; dz++) for (let dx = -3; dx <= 3; dx++) { const hh = HGT[(x + dx) + (z + dz) * WX]; if (Math.abs(hh - h) > 1 || world[(x + dx) + WX * ((z + dz) + WZ * (hh + 1))] !== 0) { ok = false; break; } }
-    if (ok) { for (let dy = 1; dy <= 6 && ok; dy++) for (let dz = -6; dz <= 6 && ok; dz++) for (let dx = -6; dx <= 6; dx++) { const q = getBlock(x + dx, h + dy, z + dz); if (q === B.LEAVES || q === B.LOG) { ok = false; break; } } }
-    if (ok) sp = { x: x + 0.5, y: h + 1, z: z + 0.5 };
+  for (let pass = 0; pass < 3 && !sp; pass++) {
+    const maxH = pass === 0 ? 36 : 50, clear = pass < 2 ? 6 : 3;
+    for (let r = 0; r < 58 && !sp; r++) for (let a = 0; a < Math.max(1, r * 6) && !sp; a++) {
+      const x = Math.round(64 + Math.cos(a / Math.max(1, r * 6) * 6.283) * r), z = Math.round(64 + Math.sin(a / Math.max(1, r * 6) * 6.283) * r);
+      const h = HGT[x + z * WX]; if (h < SEA + 3 || h > maxH || world[x + WX * (z + WZ * h)] !== B.GRASS) continue;
+      let ok = true; for (let dz = -3; dz <= 3 && ok; dz++) for (let dx = -3; dx <= 3; dx++) { const hh = HGT[(x + dx) + (z + dz) * WX]; if (Math.abs(hh - h) > 1 || world[(x + dx) + WX * ((z + dz) + WZ * (hh + 1))] !== 0) { ok = false; break; } }
+      if (ok) { for (let dy = 1; dy <= 6 && ok; dy++) for (let dz = -clear; dz <= clear && ok; dz++) for (let dx = -clear; dx <= clear; dx++) { const q = getBlock(x + dx, h + dy, z + dz); if (q === B.LEAVES || q === B.LOG) { ok = false; break; } } }
+      if (ok) sp = { x: x + 0.5, y: h + 1, z: z + 0.5 };
+    }
   }
-  if (!sp) { const h = HGT[64 + 64 * WX]; for (let y = h + 1; y <= h + 3; y++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) world[(64 + dx) + WX * ((64 + dz) + WZ * y)] = 0; sp = { x: 64.5, y: Math.max(h, SEA) + 1, z: 64.5 }; }
+  spawnFallback = !sp;
+  if (!sp) { // last resort: flatten a small grass pad at the local height so the run always starts on dry ground
+    const top = Math.max(SEA + 3, HGT[64 + 64 * WX]);
+    for (let dz = -5; dz <= 5; dz++) for (let dx = -5; dx <= 5; dx++) { if (dx * dx + dz * dz > 30) continue; for (let y = 0; y < WY; y++) world[(64 + dx) + WX * ((64 + dz) + WZ * y)] = y < top - 3 ? B.STONE : y < top ? B.DIRT : y === top ? B.GRASS : 0; }
+    sp = { x: 64.5, y: top + 1, z: 64.5 };
+  }
   spawnPoint = sp;
   // TNT stacks: a few near spawn so the chain reaction is discoverable early, the rest scattered
   const tnt = (x, z, hgt) => { const h = HGT[x + z * WX]; if (x < 3 || z < 3 || x >= WX - 3 || z >= WZ - 3 || h <= SEA + 1) return; const t = world[x + WX * (z + WZ * h)]; if (t !== B.GRASS && t !== B.STONE) return; for (let y = 1; y <= hgt; y++) if (world[x + WX * (z + WZ * (h + y))] === 0) world[x + WX * (z + WZ * (h + y))] = B.TNT; };
@@ -1165,7 +1175,7 @@ function addArms(g, gripZ, gripY, foreZ, foreY) {
   vlimb(L, 0.0, foreY, foreZ, -0.2, foreY - 0.1, foreZ + 0.34, 0.06, MAT.sleeve); vbox(L, 0.062, 0.05, 0.1, 0, foreY + 0.005, foreZ, MAT.glove);
   g.add(R); g.add(L); return { R, L };
 }
-function finishGun(M) { M.g.scale.setScalar(M.scale); M.ads = [0, -M.sight[0] * M.scale, -0.2 - M.sight[1] * M.scale]; return M; }
+function finishGun(M) { M.g.scale.setScalar(M.scale); M.ads = [0, -M.sight[0] * M.scale, -(M.adsDist || 0.22) - M.sight[1] * M.scale]; return M; }
 function buildAR() {
   const g = new THREE.Group();
   vbox(g, 0.052, 0.078, 0.3, 0, 0.02, -0.02, MAT.metal);
@@ -1189,14 +1199,14 @@ function buildSMG() {
   vbox(g, 0.04, 0.016, 0.2, 0, 0.064, -0.01, MAT.metal2);
   vbox(g, 0.046, 0.05, 0.14, 0, 0.012, -0.19, MAT.metal);
   vcyl(g, 0.016, 0.16, 0, 0.016, -0.34, MAT.black); vcyl(g, 0.0085, 0.05, 0, 0.016, -0.26, MAT.steel);
-  vbox(g, 0.036, 0.04, 0.05, 0, 0.088, -0.0, MAT.black); vbox(g, 0.028, 0.026, 0.004, 0, 0.09, 0.025, MAT.dot); vbox(g, 0.004, 0.02, 0.004, 0, 0.09, -0.005, MAT.dot);
+  vbox(g, 0.036, 0.006, 0.05, 0, 0.108, 0, MAT.black); vbox(g, 0.036, 0.006, 0.05, 0, 0.07, 0, MAT.black); vbox(g, 0.006, 0.04, 0.05, -0.015, 0.089, 0, MAT.black); vbox(g, 0.006, 0.04, 0.05, 0.015, 0.089, 0, MAT.black); vbox(g, 0.036, 0.012, 0.014, 0, 0.066, 0, MAT.metal2); vbox(g, 0.003, 0.003, 0.003, 0, 0.089, -0.02, MAT.dot);
   vbox(g, 0.005, 0.03, 0.005, 0, 0.083, -0.2, MAT.black); vbox(g, 0.014, 0.012, 0.014, 0, 0.066, -0.2, MAT.metal2);
   const mag = vbox(g, 0.028, 0.15, 0.04, 0, -0.1, -0.04, MAT.metal, 0.04);
   vbox(g, 0.028, 0.085, 0.036, 0, -0.07, 0.07, MAT.poly, 0.32);
   vbox(g, 0.006, 0.01, 0.12, 0, 0.012, 0.18, MAT.metal2); vbox(g, 0.04, 0.05, 0.015, 0, 0.0, 0.245, MAT.black);
   const bolt = vbox(g, 0.012, 0.014, 0.03, 0.028, 0.034, -0.03, MAT.black);
   const arms = addArms(g, 0.07, -0.082, -0.2, -0.03);
-  return finishGun({ g, mag, bolt, arms, muzzle: [0, 0.016, -0.43], eject: [0.028, 0.034, -0.02], sight: [0.09, 0.0], hip: [0.19, -0.2, -0.5], scale: 0.62 });
+  return finishGun({ g, mag, bolt, arms, muzzle: [0, 0.016, -0.43], eject: [0.028, 0.034, -0.02], sight: [0.089, 0.0], adsDist: 0.2, hip: [0.19, -0.2, -0.5], scale: 0.62 });
 }
 function buildSniper() {
   const g = new THREE.Group();
@@ -1369,7 +1379,7 @@ function hurtPlayer(dmg, ax, az, kind) {
   pl.hp -= dmg; pl.hurtT = 0; pl.shake = Math.min(1, pl.shake + dmg / 60);
   hud.flash = Math.min(1, 0.35 + dmg / 45); hitstop = Math.max(hitstop, 0.045);
   if (ax !== undefined) { pl.lastDmgX = ax; pl.lastDmgZ = az; const dx = ax - pl.x, dz = az - pl.z; const fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw), rx = Math.cos(pl.yaw), rz = -Math.sin(pl.yaw); dmgInd.push({ ang: Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz), t: 1.4 }); if (dmgInd.length > 4) dmgInd.shift(); }
-  sfx.hurt(dmg);
+  sfx.hurt(dmg); if (window.__rumble) window.__rumble(clamp(dmg / 40, 0.2, 1), 0.4, 140);
   if (pl.hp <= 0) { pl.hp = 0; onPlayerDeath(kind); }
 }
 function knockPlayer(dx, dz, power, up) {
@@ -1520,7 +1530,7 @@ function shoot(g) {
   if (g === 'sniper') { gs.bolt = 1.0; }
   // brass
   vmToWorld(VM[g].g, VM[g].eject[0], VM[g].eject[1], VM[g].eject[2], 0.8, _ejw);
-  spawnP(_ejw.x, _ejw.y, _ejw.z, AIM.rx * rand(1.6, 2.8) + AIM.ux * rand(1.2, 2.2), AIM.ry * 2 + AIM.uy * rand(1.2, 2.4), AIM.rz * rand(1.6, 2.8) + AIM.uz * rand(1.2, 2.2), 1.6, 0.035, 0.95, 0.72, 0.25, 18, 0.45);
+  spawnP(_ejw.x, _ejw.y, _ejw.z, AIM.rx * rand(1.6, 2.8) + AIM.ux * rand(1.2, 2.2), AIM.ry * 2 + AIM.uy * rand(1.2, 2.4), AIM.rz * rand(1.6, 2.8) + AIM.uz * rand(1.2, 2.2), 1.6, 0.024, 0.95, 0.72, 0.25, 18, 0.45);
   const mw = vmToWorld(VM[g].g, VM[g].muzzle[0], VM[g].muzzle[1], VM[g].muzzle[2], 1.0, _mzw);
   flashLight(0, mw.x, mw.y, mw.z, 0.9);
   puff(mw.x, mw.y, mw.z, 2, 0.5, 0.5, 0.5, 0.6, 0.06, 0.35);
@@ -1673,8 +1683,9 @@ function updateViewmodel(dt) {
     const o = g === 'hand' ? handPivot : nadePivot, ox0 = 0.2, oy0 = -0.42, oz0 = -0.05;
     const sp = pl.swing > 0 ? Math.sin(pl.swing * Math.PI) : 0;
     let tt = 0; if (g === 'nade' && pl.throwAnim > 0) { pl.throwAnim = Math.max(0, pl.throwAnim - dt * 2.6); tt = Math.sin((1 - pl.throwAnim) * Math.PI); }
-    o.position.set(ox0 + vmS.sx * 0.4 + Math.sin(pl.bobT * 2.3) * 0.012 * bs, oy0 + (Math.abs(Math.cos(pl.bobT * 2.3)) - 0.5) * -0.014 * bs + vmS.sy * 0.3 - dip * 0.35 - pl.landDip * 0.5 - sb * 0.08 - tt * 0.02, oz0 - sp * 0.05 - tt * 0.1 + pl.vmKick * 0.02);
-    o.rotation.set(0.12 - sp * 0.85 + tt * 0.9 - sb * 0.3, -sp * 0.25 + sb * 0.2, sp * 0.12);
+    o.position.set(ox0 + vmS.sx * 0.4 + Math.sin(pl.bobT * 2.3) * 0.012 * bs, oy0 + (Math.abs(Math.cos(pl.bobT * 2.3)) - 0.5) * -0.014 * bs + vmS.sy * 0.3 - dip * 0.35 - pl.landDip * 0.5 - sb * 0.08 - tt * 0.02, oz0 - sp * 0.15 - tt * 0.1 + pl.vmKick * 0.02);
+    o.position.y += sp * 0.05;
+    o.rotation.set(0.12 + sp * 0.22 + tt * 0.9 - sb * 0.3, sp * 0.22 + sb * 0.2, -sp * 0.1);
     if (g === 'hand') { const id = (slot && slot.id) || 0; if (id !== vmS.heldId) { vmS.heldId = id; heldBlock.visible = !!id; if (id) heldBlock.geometry = blockCubeGeom(id); } }
     flashG.visible = false; vmFlashLight.intensity = 0;
     vmRoot.updateMatrixWorld(true);
@@ -2127,12 +2138,14 @@ function explode(x, y, z, r, o) {
       if (drp < 14 && rnd() < 0.12 && BLK[id].drop) { drp++; spawnDrop(bx + 0.5, by + 0.5, bz + 0.5, BLK[id].drop, rand(-4, 4), rand(2, 6), rand(-4, 4)); }
     }
   }
+  window.__game.lastBlast = { x, y, z, r, removed, t: simTime };
   // fire + smoke + flash
   spawnP(x, y, z, 0, 0, 0, 0.09, r * 1.25, 1, 0.95, 0.7, 0, 0);
   for (let i = 0; i < 26; i++) { const a = rnd() * 6.28, e = rnd() * 3.14 - 1.57, sp = rand(3, 9) * (r / 4), c = rnd(); spawnP(x, y, z, Math.cos(a) * Math.cos(e) * sp, Math.sin(e) * sp + 1, Math.sin(a) * Math.cos(e) * sp, rand(0.3, 0.7), rand(0.2, 0.5) * (r / 4 + 0.3), 1, 0.35 + c * 0.5, 0.08 + c * 0.1, 0, 0); }
   for (let i = 0; i < 18; i++) { const a = rnd() * 6.28, sp = rand(0.5, 3.5) * (r / 4), g = 0.3 + rnd() * 0.3; spawnP(x + rand(-1, 1), y + rand(-0.5, 1), z + rand(-1, 1), Math.cos(a) * sp, rand(0.5, 3), Math.sin(a) * sp, rand(0.9, 1.7), rand(0.25, 0.6) * (r / 4 + 0.3), g, g, g, -0.8, 0); }
   flashLight(1, x, y, z, 1.7); sfx.explosion(x, y, z, r / 4 + 0.3);
   const pd = Math.hypot(pl.x - x, pl.y + 1 - y, pl.z - z);
+  if (window.__rumble && pd < 26) window.__rumble(clamp(1.2 - pd / 22, 0.2, 1), 0.7, 170);
   pl.shake = Math.min(1, pl.shake + clamp(1.3 - pd * 0.07, 0, 1) * (r / 4)); hitstop = Math.max(hitstop, pd < 22 ? 0.06 : 0);
   const reach = r * 1.8;
   for (let i = mobs.length - 1; i >= 0; i--) {
@@ -2188,7 +2201,7 @@ function awardStreak(n) {
   hudStreakDirty = true;
 }
 let strike = null;
-const strikeMat = new THREE.MeshBasicMaterial({ color: 0xff3a2a, transparent: true, opacity: 0.32, depthWrite: false, fog: false });
+const strikeMat = new THREE.MeshBasicMaterial({ color: 0xff3a2a, transparent: true, opacity: 0.38, depthWrite: false, fog: false });
 function useStrike() {
   if (!pl.alive || state !== 'playing') return;
   if (strike) { toast('AIRSTRIKE INBOUND'); return; }
@@ -2199,7 +2212,7 @@ function useStrike() {
   else { tx = pl.x + AIM.fx * 50; tz = pl.z + AIM.fz * 50; tx = clamp(tx, 4, WX - 4); tz = clamp(tz, 4, WZ - 4); ty = groundYAt(Math.floor(tx), Math.floor(tz), WY - 1); }
   pl.strikes--; hudStreakDirty = true;
   const dl = Math.hypot(AIM.fx, AIM.fz) || 1, dx = AIM.fx / dl, dz = AIM.fz / dl;
-  const marker = new THREE.Group(), beam = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 46, 10, 1, true), strikeMat), ring = new THREE.Mesh(new THREE.RingGeometry(2.4, 3.0, 28), new THREE.MeshBasicMaterial({ color: 0xff3a2a, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+  const marker = new THREE.Group(), beam = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 46, 12, 1, true), strikeMat), ring = new THREE.Mesh(new THREE.RingGeometry(2.4, 3.0, 28), new THREE.MeshBasicMaterial({ color: 0xff3a2a, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false, fog: false }));
   beam.position.y = 23; ring.rotation.x = -Math.PI / 2; ring.position.y = 0.1; marker.add(beam, ring); marker.position.set(tx, ty, tz); scene.add(marker);
   const jet = new THREE.Group(), jm = new THREE.MeshLambertMaterial({ color: 0x30343a });
   { const f = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 12), jm), w2 = new THREE.Mesh(new THREE.BoxGeometry(11, 0.25, 3.2), jm), t = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.2, 1.6), jm), fin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2, 1.8), jm); w2.position.z = 1; t.position.z = 5; fin.position.set(0, 1.1, 5); jet.add(f, w2, t, fin); jet.scale.setScalar(1.3); }
@@ -2484,6 +2497,7 @@ function frame(now) {
       if (!locked && !lockFailed && !everLocked && performance.now() - lockReqAt > 900 && lockReqAt > 0) lockFailed = true;   // lock never answered (touch / TV): play with pad look
     }
     let sdt = dt; if (hitstop > 0) { hitstop -= dt; sdt = dt * 0.1; }
+    if (window.__game.freeze) sdt = 0;      // test hook: hold the simulation still for a screenshot
     accum += sdt; let n = 0;
     while (accum >= TUNING.step && n < 12) { simTick(TUNING.step); accum -= TUNING.step; n++; }
     if (n >= 12) accum = 0;
@@ -2533,6 +2547,8 @@ window.__dbg = () => {
 };
 Object.assign(window.__game, {
   sfx,
+  vm() { const M = VM[vmS.shown]; return M ? { shown: vmS.shown, pos: M.g.position.toArray(), rot: [M.g.rotation.x, M.g.rotation.y, M.g.rotation.z], vis: M.g.visible, mag: M.mag.visible, magY: M.mag.position.y, rootVis: vmRoot.visible, sb: pl.sprintBlend, swap: pl.swapT } : { shown: vmS.shown, rootVis: vmRoot.visible }; },
+  regen(seed) { newWorld(seed); return { spawn: spawnPoint, fallback: spawnFallback }; },
   explode(x, y, z, r) { explode(x, y, z, r, { playerDmg: 0, mobDmg: 0 }); },
   spawnMob(type, dist = 8, ang = 0) { const a = pl.yaw + ang, x = pl.x - Math.sin(a) * dist, z = pl.z - Math.cos(a) * dist; const y = groundYAt(Math.floor(x), Math.floor(z), pl.y + 10); const m = spawnMob(type, x, y + 0.01, z); m.alert = 8; m.lastX = pl.x; m.lastZ = pl.z; return mobs.indexOf(m); },
   addKills(n) { for (let i = 0; i < n; i++) onKill({ type: 'zombie' }, false, W.ar); },
