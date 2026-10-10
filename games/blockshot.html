@@ -642,7 +642,7 @@ function buildAtlas() {
     return stonePx(tile, x, y);
   });
   ore(T.COAL, [30, 30, 34]); ore(T.IRON, [216, 168, 130]); ore(T.GOLD, [246, 208, 50]);
-  paint(T.WATER, (x, y) => { const n = vnoise2(x * 0.5, y * 0.5, 5); const v = (n - 0.5) * 40 + (jr(16, x, y) - 0.5) * 8; return [c255(44 + v * 0.4), c255(104 + v * 0.8), c255(214 + v * 0.6), 170]; });
+  paint(T.WATER, (x, y) => { const n = vnoise2(x * 0.5, y * 0.5, 5); const v = (n - 0.5) * 40 + (jr(16, x, y) - 0.5) * 8; return [c255(30 + v * 0.4), c255(86 + v * 0.8), c255(196 + v * 0.6), 205]; });
   atlasCanvas.getContext('2d').putImageData(aimg, 0, 0);
 }
 buildAtlas();
@@ -733,11 +733,11 @@ function injectLights(shader) {
   shader.uniforms.uL0 = lightUniforms.uL0; shader.uniforms.uL1 = lightUniforms.uL1;
   shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = position;');
   shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; uniform vec4 uL0; uniform vec4 uL1;')
-    .replace('#include <opaque_fragment>', '#include <opaque_fragment>\n{ vec3 d0 = vWP - uL0.xyz; vec3 d1 = vWP - uL1.xyz; float a = uL0.w / (1.0 + dot(d0,d0) * 0.07) + uL1.w / (1.0 + dot(d1,d1) * 0.02); gl_FragColor.rgb += vec3(1.0, 0.72, 0.4) * a * (0.35 + gl_FragColor.rgb); }');
+    .replace('#include <opaque_fragment>', '#include <opaque_fragment>\n{ vec3 d0 = vWP - uL0.xyz; vec3 d1 = vWP - uL1.xyz; float a = uL0.w / (1.0 + dot(d0,d0) * 0.12) + uL1.w / (1.0 + dot(d1,d1) * 0.05); gl_FragColor.rgb += vec3(1.0, 0.72, 0.4) * a * (0.15 + gl_FragColor.rgb * 0.6); }');
 }
 const terrainMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true });
 terrainMat.onBeforeCompile = injectLights;
-const waterMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, transparent: true, opacity: 0.72, depthWrite: false });
+const waterMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, transparent: true, opacity: 0.88, depthWrite: false });
 waterMat.onBeforeCompile = injectLights;
 
 function mkGeom(P, C, U, I, nv, ni) {
@@ -1020,7 +1020,7 @@ function updateSky(tod) {
   const c = [0, 1, 2].map(i => lerp(lerp(SKY_NIGHT[i], SKY_DAY[i], dayAmt), SKY_DUSK[i], dusk));
   skyColor.setRGB(c[0], c[1], c[2]); scene.fog.color.copy(skyColor);
   scene.fog.far = lerp(TUNING.world.nightFogFar, TUNING.world.fogFar, dayAmt); scene.fog.near = lerp(14, TUNING.world.fogNear, dayAmt);
-  const lum = 0.2 + 0.8 * dayAmt; S.lum = lum;
+  const lum = 0.27 + 0.73 * dayAmt; S.lum = lum;
   const nt = 1 - dayAmt, r = lum * (1 + dusk * 0.2) * (1 - nt * 0.18), g = lum * (1 - dusk * 0.02) * (1 - nt * 0.04), b = lum * (1 - dusk * 0.25) * (1 + nt * 0.4);
   S.tint[0] = r; S.tint[1] = g; S.tint[2] = b;
   terrainMat.color.setRGB(Math.min(1, r), Math.min(1, g), Math.min(1, b)); waterMat.color.copy(terrainMat.color);
@@ -1105,7 +1105,7 @@ function updateTracers(dt) {
     if (tail >= t.D - 0.01) { t.on = false; t.m.visible = false; continue; }
     const len = Math.max(0.05, head - tail), mid = (head + tail) / 2, m = t.m;
     m.position.set(t.sx + t.dx * mid, t.sy + t.dy * mid, t.sz + t.dz * mid);
-    m.scale.set(0.022, 0.022, len); m.lookAt(t.sx + t.dx * head, t.sy + t.dy * head, t.sz + t.dz * head);
+    m.scale.set(0.014, 0.014, len); m.lookAt(t.sx + t.dx * head, t.sy + t.dy * head, t.sz + t.dz * head);
     m.material.opacity = 0.9 * (1 - tail / t.D * 0.4);
   }
 }
@@ -1517,7 +1517,7 @@ function shoot(g) {
   vmToWorld(VM[g].g, VM[g].eject[0], VM[g].eject[1], VM[g].eject[2], 0.8, _ejw);
   spawnP(_ejw.x, _ejw.y, _ejw.z, AIM.rx * rand(1.6, 2.8) + AIM.ux * rand(1.2, 2.2), AIM.ry * 2 + AIM.uy * rand(1.2, 2.4), AIM.rz * rand(1.6, 2.8) + AIM.uz * rand(1.2, 2.2), 1.6, 0.035, 0.95, 0.72, 0.25, 18, 0.45);
   const mw = vmToWorld(VM[g].g, VM[g].muzzle[0], VM[g].muzzle[1], VM[g].muzzle[2], 1.0, _mzw);
-  flashLight(0, mw.x, mw.y, mw.z, 1.6);
+  flashLight(0, mw.x, mw.y, mw.z, 0.9);
   puff(mw.x, mw.y, mw.z, 2, 0.5, 0.5, 0.5, 0.6, 0.06, 0.35);
 }
 function weaponTick(dt) {
@@ -2124,9 +2124,9 @@ function explode(x, y, z, r, o) {
   }
   // fire + smoke + flash
   spawnP(x, y, z, 0, 0, 0, 0.09, r * 1.25, 1, 0.95, 0.7, 0, 0);
-  for (let i = 0; i < 26; i++) { const a = rnd() * 6.28, e = rnd() * 3.14 - 1.57, sp = rand(3, 9) * (r / 4), c = rnd(); spawnP(x, y, z, Math.cos(a) * Math.cos(e) * sp, Math.sin(e) * sp + 1, Math.sin(a) * Math.cos(e) * sp, rand(0.35, 0.8), rand(0.35, 0.8) * (r / 4 + 0.3), 1, 0.35 + c * 0.5, 0.08 + c * 0.1, 0, 0); }
-  for (let i = 0; i < 22; i++) { const a = rnd() * 6.28, sp = rand(0.5, 3.5) * (r / 4), g = 0.18 + rnd() * 0.16; spawnP(x + rand(-1, 1), y + rand(-0.5, 1), z + rand(-1, 1), Math.cos(a) * sp, rand(0.5, 3), Math.sin(a) * sp, rand(0.9, 1.8), rand(0.5, 1.1) * (r / 4 + 0.3), g, g, g, -0.8, 0); }
-  flashLight(1, x, y, z, 5); sfx.explosion(x, y, z, r / 4 + 0.3);
+  for (let i = 0; i < 26; i++) { const a = rnd() * 6.28, e = rnd() * 3.14 - 1.57, sp = rand(3, 9) * (r / 4), c = rnd(); spawnP(x, y, z, Math.cos(a) * Math.cos(e) * sp, Math.sin(e) * sp + 1, Math.sin(a) * Math.cos(e) * sp, rand(0.3, 0.7), rand(0.2, 0.5) * (r / 4 + 0.3), 1, 0.35 + c * 0.5, 0.08 + c * 0.1, 0, 0); }
+  for (let i = 0; i < 18; i++) { const a = rnd() * 6.28, sp = rand(0.5, 3.5) * (r / 4), g = 0.3 + rnd() * 0.3; spawnP(x + rand(-1, 1), y + rand(-0.5, 1), z + rand(-1, 1), Math.cos(a) * sp, rand(0.5, 3), Math.sin(a) * sp, rand(0.9, 1.7), rand(0.25, 0.6) * (r / 4 + 0.3), g, g, g, -0.8, 0); }
+  flashLight(1, x, y, z, 1.7); sfx.explosion(x, y, z, r / 4 + 0.3);
   const pd = Math.hypot(pl.x - x, pl.y + 1 - y, pl.z - z);
   pl.shake = Math.min(1, pl.shake + clamp(1.3 - pd * 0.07, 0, 1) * (r / 4)); hitstop = Math.max(hitstop, pd < 22 ? 0.06 : 0);
   const reach = r * 1.8;

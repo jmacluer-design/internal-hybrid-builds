@@ -1262,7 +1262,7 @@ const sk = {
 const cam = { x: 0, y: 5, z: 20, yaw: 0, off: 0, offIdle: 9, pOff: 0, fov: 62, lx: 0, ly: 1, lz: 0, shake: 0, init: false };
 const fly = { x: 0, y: 8, z: 12, yaw: PI, pitch: -0.5, boost: 0 };
 const U = { flashT: 0, popCount: 0 };      // misc ui timers
-let simTime = 0;
+let simTime = 0, hitStop = 0, stateSince = 0;
 
 function spawnPoint() {
   const p = pieceList.find(q => q.def.shape === 'pad');
@@ -1296,7 +1296,7 @@ function bankCombo() {
   const total = Math.round(combo.pts * combo.mult); if (total <= 0) { resetCombo(); return; }
   S.score += total; if (total > S.bestCombo) { S.bestCombo = total; S.newBest = true; }
   popup('BANKED +' + fmt(total), 'ok'); SFX.bank(total); sparkBurst(sk.x, sk.y + 1, sk.z, 26, 6, 1, 0.85, 0.3, 0.9);
-  resetCombo(); saveStats();
+  const nb = S.newBest; resetCombo(); if (nb) { S.newBest = false; saveStats(); }
 }
 function loseCombo(why) { if (combo.pts > 0) popup('COMBO LOST', 'b'); resetCombo(); }
 function saveStats() {
@@ -1312,7 +1312,7 @@ function saveStats() {
 function startBail(why) {
   if (sk.mode === 'bail' || sk.invuln > 0 && why === 'wall') return;
   S.bails++; loseCombo(); SFX.bail();
-  updatePoseWorld(0); startRagdoll();
+  updatePoseWorld(0); startRagdoll(); hitStop = 0.09;
   sk.mode = 'bail'; sk.bailT = 0; sk.man = false; sk.charge = 0; cam.shake = 0.9; U.flashT = 1; sk.pushT = 0;
   showBail();
 }
@@ -1407,7 +1407,7 @@ function groundStep(dt) {
     else if (okZ && !okX) { nx = sk.x; slideWall(dt, 0, nz - sk.z); }
     else {
       nx = sk.x; nz = sk.z; ny = sk.y;
-      if (sk.wallCd <= 0) { const hit = aspd; sk.wallCd = 0.25; SFX.bonk(); cam.shake = Math.max(cam.shake, clamp(hit / 12, 0.1, 0.7)); sparksAt(sk.x, sk.y + 0.3, sk.z, 8, 1, 0.9, 0.6);
+      if (sk.wallCd <= 0) { const hit = aspd; sk.wallCd = 0.25; SFX.bonk(); cam.shake = Math.max(cam.shake, clamp(hit / 12, 0.1, 0.7)); if (hit > 5) hitStop = 0.05; sparksAt(sk.x, sk.y + 0.3, sk.z, 8, 1, 0.9, 0.6);
         if (hit > T.WALL_BONK && sk.invuln <= 0) { startBail('wall'); return; } sk.spd = -sk.spd * 0.25; }
     }
   }
@@ -1629,6 +1629,7 @@ function land(g) {
   SFX.land(q, vn);
   if (vn > 5) { sparkBurst(sk.x, sk.y + 0.05, sk.z, Math.min(14, 4 + vn), 2.5 + vn * 0.1, 0.85, 0.85, 0.95, 0.35, 0.3); cam.shake = Math.max(cam.shake, clamp(vn / 28, 0, 0.5)); }
   if (q === 'sloppy') cam.shake = Math.max(cam.shake, 0.35);
+  if (q === 'perfect') hitStop = 0.04;
   sk.safeT = 0.2;
   if (sk.bufOllie > 0) { sk.bufOllie = 0; computeTangent(); sk.charge = Math.max(sk.charge, 0.3); doOllie(); }   // early-pressed ollie fires on touchdown
 }
@@ -1798,7 +1799,7 @@ function setModeUI() {
   const b = mode === 'build' && state === 'play';
   H.vMode.textContent = b ? 'BUILD' : 'RIDE'; H.vModeHint.textContent = b ? 'E ride' : 'E build'; H.modeBadge.classList.toggle('build', b);
   H.cross.classList.toggle('hidden', !b); H.hotbar.classList.toggle('hidden', !b); H.buildInfo.classList.toggle('hidden', !b);
-  H.combo.classList.toggle('hidden', b); H.meter.classList.add('hidden');
+  H.combo.classList.toggle('hidden', b); H.meter.classList.add('hidden'); H.spdBar.classList.toggle('hidden', b);
 }
 function updateHUD(dt) {
   if (U.flashT > 0) { U.flashT = 0; }
@@ -1951,13 +1952,13 @@ function startSession() {
 function endSession() {
   if (state !== 'play') return;
   if (combo.pts > 0 && sk.mode !== 'bail') bankCombo(); else resetCombo();
-  state = 'dead'; saveStats(); setModeUI();
+  state = 'dead'; stateSince = simTime; saveStats(); setModeUI();
   $('dScore').textContent = fmt(S.score); $('dCombo').textContent = fmt(S.bestCombo); $('dTricks').textContent = String(S.tricks); $('dBails').textContent = String(S.bails);
   $('finalLine').textContent = S.score >= S.best && S.score > 0 ? 'NEW BEST SESSION' : 'best session ' + fmt(S.best);
   setOverlay('dead'); SFX.over(); releaseLock();
 }
 function toMenu() {
-  state = 'menu'; mode = 'ride'; paused = false; setOverlay('menu'); setModeUI(); releaseLock(); refreshBest();
+  state = 'menu'; stateSince = simTime; mode = 'ride'; paused = false; setOverlay('menu'); setModeUI(); releaseLock(); refreshBest();
   sk.charge = 0; combo.active = false; resetCombo();
 }
 function refreshBest() { setHTML(H.bestLine, 'bl', 'BEST SESSION <b>' + fmt(S.best) + '</b> &middot; BEST COMBO <b>' + fmt(S.bestCombo) + '</b>'); }
@@ -2015,7 +2016,7 @@ addEventListener('wheel', e => { if (state === 'play' && mode === 'build' && !pa
 $('cta').addEventListener('click', function () { this.blur(); startSession(); });
 $('cta2').addEventListener('click', function () { this.blur(); startSession(); });
 $('cta3').addEventListener('click', function () { this.blur(); toMenu(); });
-$('resetPark').addEventListener('click', function () { this.blur(); buildStarter(); saveParkNow(); resetCones(); toast('starter park restored'); });
+$('resetPark').addEventListener('click', function () { this.blur(); buildStarter(); saveParkNow(); resetCones(); respawnAtSpawn(); const b = this; b.textContent = 'starter park restored'; setTimeout(() => { b.textContent = 'reset park to starter'; }, 1800); });
 window.addEventListener('beforeunload', () => { if (parkDirty) saveParkNow(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { keys.clear(); if (parkDirty) saveParkNow(); } });
 
@@ -2026,6 +2027,8 @@ let lastNow = performance.now(), acc = 0, attractT = 0, frameN = 0, dbgFreeze = 
 function simStep(dt) {
   simTime += dt; readInput();
   if (dbgFreeze) { lookDX = lookDY = 0; return; }
+  if (state !== 'play') { if (I.fireP || I.spDn || I.ePress || I.jP) { if (simTime - stateSince > 1.0) { startSession(); return; } } }
+  if (hitStop > 0) { hitStop -= dt; I.fireP = I.placeP = 0; stepParticles(dt); return; }
   if (state === 'play' && !paused) {
     if (I.ePress) toggleMode();
     if (mode === 'ride') rideStep(dt); else buildStep(dt);
@@ -2128,7 +2131,7 @@ Object.assign(window.__game, {
 loadBest();
 if (!loadPark()) buildStarter();
 flushWorld(); flushWorld(); flushWorld(); flushWorld(); flushWorld(); flushWorld();
-buildHotbar(); resetCones(); respawnAtSpawn(); refreshBest(); setModeUI();
+buildHotbar(); resetCones(); respawnAtSpawn(); refreshBest(); setModeUI(); setOverlay('menu');
 for (let i = 0; i < 6; i++) flushWorld();
 requestAnimationFrame(frame);
 
