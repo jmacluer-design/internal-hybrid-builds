@@ -1,0 +1,99 @@
+-- server/commands.lua : the /outbreak_* admin and debug commands (addCommandHandler). A command is allowed for the server console, for the colony owner when the owner_admin setting is on,
+-- and for any player whose ACL group has the right command.<name> (see README "ACL"). They are registered unrestricted at the engine level (restricted = false) so the owner shortcut
+-- works; the check below is the only gate. Written here (the FiveM adapter's command list on MTA functions). Nothing borrowed.
+local ctx = require("server.ctx")
+local Zombies = require("server.zombies")
+local Raiders = require("server.raiders")
+local Colonists = require("server.colonists")
+local Peds = require("server.peds")
+local Buildings = require("server.buildings")
+local Ground = require("server.ground")
+local Selftest = require("shared.selftest")
+
+local Cmd = { list = {}, stats = { run = 0, denied = 0, failed = 0 } }
+
+local function reply(player, text)
+	if player and isElement(player) and getElementType(player) == "player" then outputChatBox("[outbreak] " .. text, player)
+	else outputServerLog("[outbreak] " .. text) end
+end
+
+local function allowed(player, name)
+	if not player or not isElement(player) then return true end
+	if getElementType(player) == "console" then return true end
+	if ctx.scfg.owner_admin and player == ctx.owner then return true end
+	return hasObjectPermissionTo(player, "command." .. name, false) and true or false
+end
+
+local function command(name, help, fn)
+	Cmd.list[#Cmd.list + 1] = { name = name, help = help }
+	addCommandHandler(name, function(player, _, a1, a2, a3)
+		if not allowed(player, name) then
+			Cmd.stats.denied = Cmd.stats.denied + 1
+			reply(player, "not allowed (give the player's ACL group the right command." .. name .. ", or use the server console)")
+			return
+		end
+		Cmd.stats.run = Cmd.stats.run + 1
+		local ok, err = pcall(fn, player, { a1, a2, a3 })
+		if not ok then Cmd.stats.failed = Cmd.stats.failed + 1; reply(player, name .. " failed: " .. tostring(err)) end
+	end, false)
+end
+
+-- fast-forward in slices: MTA aborts a script that runs for more than a few seconds without returning, so a 40-day jump is spread over timers (120 sim minutes per slice)
+local ff = nil
+local function ff_step()
+	if not ff or not ctx.host or not ctx.host.world then ff = nil; return end
+	local chunk = math.min(120, ff.left)
+	local ok, n = ctx.host:debug("fast_forward", { minutes = chunk })
+	ff.left = ff.left - (ok and chunk or ff.left)
+	if ff.left > 0 and ctx.running and not ctx.host.world.s.over then
+		ctx.after(50, ff_step)
+	else
+		reply(ff.player, string.format("fast-forward done (%d minutes)", ff.total - ff.left))
+		ff = nil
+	end
+end
+
+function Cmd.register()
+	local function host() return ctx.host end
+
+	command("outbreak_status", "show the colony status", function(p)
+		local st = host():status()
+		if not st.world then return reply(p, "no world") end
+		reply(p, string.format("%s day %d seed %d %s | colonists %d hordes %d (live %d) raids %d buildings %d | speed %s scale %.0f | hash %s | owner %s",
+			st.time, st.day, st.seed, st.profile, st.colonists, st.hordes, st.materialized, st.raids, st.buildings, st.paused and "paused" or tostring(st.speed), st.scale, st.hash,
+			ctx.owner and getPlayerName(ctx.owner) or "none"))
+	end)
+	command("outbreak_save", "save now", function(p) local ok, why = host():save_game("command"); reply(p, ok and ("saved to slot " .. tostring(why)) or ("save failed: " .. tostring(why))) end)
+	command("outbreak_load", "load the latest save", function(p) local ok, why = host():load_game(); reply(p, ok and ("loaded slot " .. tostring(why)) or ("load failed: " .. tostring(why))) end)
+	command("outbreak_new", "outbreak_new [seed] [calm|escalating|chaos]", function(p, a) reply(p, tostring(host():new_game(tonumber(a[1]), a[2], nil))) end)
+	command("outbreak_pause", "toggle the clock", function(p) host():ui_action("toggle_pause", {}); reply(p, host().paused and "paused" or "running") end)
+	command("outbreak_speed", "outbreak_speed 0|1|2|4|8|16", function(p, a) reply(p, tostring(host():ui_action("set_speed", { speed = tonumber(a[1]) }))) end)
+	command("outbreak_profile", "outbreak_profile calm|escalating|chaos", function(p, a) host():on_order({ id = "colony", kind = "set_profile", target = a[1] }); reply(p, "profile requested: " .. tostring(a[1])) end)
+	command("outbreak_horde", "outbreak_horde [size] [distance]", function(p, a) local ok, r = host():debug("horde", { n = tonumber(a[1]) or 20, dist = tonumber(a[2]) or 200 }); reply(p, tostring(ok) .. " " .. tostring(r)) end)
+	command("outbreak_event", "outbreak_event <director event id>", function(p, a) local ok, r = host():debug("event", { id = a[1] }); reply(p, tostring(ok) .. " " .. tostring(r)) end)
+	command("outbreak_give", "outbreak_give <item id> [n]", function(p, a) local ok, r = host():debug("give", { item = a[1], n = tonumber(a[2]) or 1 }); reply(p, tostring(ok) .. " " .. tostring(r or "")) end)
+	command("outbreak_day", "outbreak_day <hour> [minute] [day]", function(p, a) local ok = host():debug("time_set", { hour = tonumber(a[1]) or 12, minute = tonumber(a[2]) or 0, day = tonumber(a[3]) }); reply(p, tostring(ok)) end)
+	command("outbreak_autopilot", "outbreak_autopilot on|off (the sim's own AI plays the colony)", function(p, a) local _, on = host():debug("autopilot", { on = a[1] ~= "off" }); reply(p, "autopilot " .. tostring(on)) end)
+	command("outbreak_ff", "outbreak_ff <minutes>  fast-forward the sim", function(p, a)
+		if ff then return reply(p, "a fast-forward is already running") end
+		local minutes = math.max(1, math.min(60 * 24 * 40, math.floor(tonumber(a[1]) or 60)))
+		ff = { left = minutes, total = minutes, player = p }
+		ff_step()
+	end)
+	command("outbreak_hash", "print the sim state hash", function(p) reply(p, host().world and host().world:hash() or "no world") end)
+	command("outbreak_audit", "item conservation check", function(p) local ok, rep = host():debug("audit", {}); reply(p, ok and "audit OK" or ("audit FAILED: " .. table.concat(rep.problems or {}, "; "))) end)
+	command("outbreak_peds", "ped / object budget and counters", function(p)
+		local ps = Peds.stats
+		reply(p, string.format("peds %d/%d (pool guard %d, ped elements %d) zombies %d pending %d raiders %d colonists %d | objects %d/%d | created %d refused cap %d pool %d | ground samples %d reseated %d",
+			Peds.n, ctx.cfg.max_peds, ctx.cfg.pool_guard, #getElementsByType("ped"), Zombies.alive_total(), Zombies.pending_total(), Raiders.alive_total(), Colonists.ped_count(),
+			Buildings.count(), ctx.cfg.max_objects, ps.created, ps.refused_cap, ps.refused_pool, Ground.stats.samples, Ground.stats.reseated))
+	end)
+	command("outbreak_selftest", "rerun the Lua determinism self-test", function(p)
+		local ok, r = Selftest.check()
+		reply(p, string.format("selftest %s: hash %s expected %s reload %s (%s ms)%s", ok and "OK" or "FAILED", tostring(r.hash), tostring(r.expected), tostring(r.reload_ok), tostring(r.ms), r.error and (" error: " .. r.error) or ""))
+	end)
+end
+
+function Cmd.cancel_ff() ff = nil end
+
+return Cmd

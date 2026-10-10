@@ -182,7 +182,7 @@ function C.apply(get)
 	p.pool_guard = U.clamp(math.floor(U.num(get("pool_guard", p.pool_guard), p.pool_guard)), 20, 140)
 	p.max_objects = U.clamp(math.floor(U.num(get("max_objects", p.max_objects), p.max_objects)), 20, 1100)
 	local o = U.parse_vec3(get("origin", ""))
-	if o then C.origin = o end
+	if o then C.origin.x, C.origin.y, C.origin.z = o.x, o.y, o.z end -- in place: other modules hold a reference to the table
 	C.client.ui_mode = (tostring(get("ui_mode", C.client.ui_mode)) == "dx") and "dx" or "gui"
 	return C
 end
