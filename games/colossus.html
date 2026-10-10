@@ -100,7 +100,7 @@
 
   /* ---------------- overlays ---------------- */
   .overlay{ position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; padding:max(8px,1.5vmin);
-    background:radial-gradient(ellipse at 50% 45%,rgba(20,26,28,.35),rgba(6,8,10,.86)); pointer-events:auto; font-family:var(--sans); }
+    background:radial-gradient(ellipse at 50% 45%,rgba(20,26,28,.18),rgba(6,8,10,.66)); pointer-events:auto; font-family:var(--sans); }
   .card{ width:min(960px,100%); max-height:100%; overflow:auto; padding:clamp(12px,2.6vmin,30px) clamp(14px,3vmin,36px);
     background:linear-gradient(165deg,rgba(18,24,26,.88),rgba(8,10,12,.92)); border:1px solid rgba(217,210,192,.22);
     box-shadow:0 0 0 1px rgba(0,0,0,.5),0 18px 60px rgba(0,0,0,.6),0 0 80px rgba(255,150,80,.08); position:relative; }
@@ -2861,7 +2861,7 @@ function updateCamera(dt, rx, ry, rz){
 }
 function menuCamera(t){
   const a = Math.sin(t * 0.07) * 0.75, r = 172;
-  camera.position.set(Math.sin(a) * r, 52 + Math.sin(t * 0.2) * 7, Math.cos(a) * r); camera.lookAt(TI.x * 0.5, 40, TI.z); camera.fov = 58; camera.updateProjectionMatrix(); camInit = false;
+  camera.position.set(Math.sin(a) * r, 84 + Math.sin(t * 0.2) * 6, Math.cos(a) * r); camera.lookAt(TI.x * 0.5, 40, TI.z); camera.fov = 58; camera.updateProjectionMatrix(); camInit = false;
 }
 function applyDebugCam(){ if (!DBGCAM) return false; camera.position.set(DBGCAM.x, DBGCAM.y, DBGCAM.z); camera.lookAt(DBGCAM.tx, DBGCAM.ty, DBGCAM.tz); if (DBGCAM.fov && camera.fov !== DBGCAM.fov) { camera.fov = DBGCAM.fov; camera.updateProjectionMatrix(); } return true; }
 
