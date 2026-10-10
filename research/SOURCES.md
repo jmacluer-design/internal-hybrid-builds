@@ -33,11 +33,25 @@ Shallow clones live OUTSIDE this repo (never committed). Re-pull with e.g.
 | [FWolfe/Zomboid-Modding-Guide](https://github.com/FWolfe/Zomboid-Modding-Guide) | 8d3a126 (2023-01-21) | none found (verify before reuse) | Older Zomboid modding guide, archived |
 | [cocolabs/pz-zdoc](https://github.com/cocolabs/pz-zdoc) | 7b87b08 (2021-03-20) | `LICENSE.txt` | ZomboidDoc: compiles an annotated Lua library from the modding API for IDE autocomplete |
 | [PZ-Wiki-Modding/PZ-API-Docs](https://github.com/PZ-Wiki-Modding/PZ-API-Docs) | 62e4651 (2026-09-24) | `LICENSE` | Compiled Project Zomboid modder API documentation |
+| [openfw-game/crawling-agony](https://github.com/openfw-game/crawling-agony) | f4df1c4 (2025-06-21) | MIT | Godot (Redot) "Project Zomboid-inspired" open-world survival; early (~700 lines GDScript): cars, multiplayer, world, systems; `gdd.md` design doc (mechanics, items, houses, zombies incl. blind zombies, survivor / militia events) |
+| [openfw-game/OpenLiberty](https://github.com/openfw-game/OpenLiberty) | be3f941 (2026-09-13) | MIT (per org page; no license file at root) | Godot open-world game that loads GTA-era 3D models and textures from your own game files |
+| [openfw-game/defy](https://github.com/openfw-game/defy) | d33cef1 (2025-06-21) | MIT | Godot open-world game inspired by the GTA series |
+| [openfw-game/apple-seed](https://github.com/openfw-game/apple-seed) | 742994c (2025-06-21) | MIT | Godot open-world game inspired by Attack on Titan |
+| [rwengine/openrw](https://github.com/rwengine/openrw) | 5c5f266 (2025-06-18) | GPL-3.0 (`COPYING`) | C++ re-implementation of GTA III (`rwcore`, `rwengine`, `rwgame`, `rwtools`, `rwviewer`); needs your own GTA III data |
+| [gta-reversed/gta-reversed](https://github.com/gta-reversed/gta-reversed) | b2cb365 (2026-10-08) | none found (verify) | GTA San Andreas reversed and re-implemented function by function as an injected DLL; reverse-engineered Rockstar code, keep local and never host or redistribute; needs your own game |
+| [citizenfx/fivem](https://github.com/citizenfx/fivem) | 0105063 (2026-10-09) | Rockstar Creator Platform License + LGPL for specific files (`LICENSE`, `LICENSES/`) | FiveM / RedM / FXServer source: native codegen to Lua / JS / C# / TypeScript bindings. 658 MB |
+| [Rexshack-RedM/rsg-core](https://github.com/Rexshack-RedM/rsg-core) | ea87dca (2026-10-08) | GPL-3.0 | RSG RedM framework core (Lua) for Red Dead Redemption 2 via RedM |
+| [IvessJohn/barking-irons](https://github.com/IvessJohn/barking-irons) | 04c5a51 (2022-04-02) | none found (verify) | 2D pixel-art western duel arcade shooter (open-sourced after cancellation) |
+| [codeByAlexff/garrys-redemption](https://github.com/codeByAlexff/garrys-redemption) | 4ada8a1 (2026-10-03) | `LICENSE` | Garry's Mod gameplay inside Red Dead Redemption 2 (overlay window, not in-frame) |
+| [mrborghini/libertycraft](https://github.com/mrborghini/libertycraft) | 3ae5306 (2026-10-09) | `LICENSE` | Minecraft inside GTA IV (fork of the SkyCraft bridge for a new host) |
+| [cyteon/GrandTheftMinecraft](https://github.com/cyteon/GrandTheftMinecraft) | 84cf1fc (2026-10-09) | `LICENSE` | Minecraft inside GTA V |
+| [Sm1jjj/PipeLinkLauncher](https://github.com/Sm1jjj/PipeLinkLauncher) | e0f3014 (2026-10-03) | `LICENSE` | GTA San Andreas host running Skate 3 and MW2 gameplay modes |
 
 ## Found, not pulled (verify before relying on)
 - Curated lists: [bobeff/open-source-games](https://github.com/bobeff/open-source-games) (Xonotic, Cube 2, Red Eclipse, Liblast, Surreal Engine, OpenGOAL, SRB2, OpenMW, Veloren, SuperTuxKart, Zelda TP decomp...)
 - GTA-style bases: OpenLiberty ([openfw-game](https://github.com/openfw-game), Godot, needs your GTA data), re3-gd, GTA7 (three.js vertical slice)
 - Diablo 2 / PoE: OpenDiablo2 (Go, GPL-3.0, archived 2021; successor [AbyssEngine](https://github.com/AbyssEngine), not playable), PoESkillTree (C#), poe-optimizer, poe2-toolkit (MIT, TypeScript passive-tree extraction), BYTEPATH (MIT arcade shooter with a huge skill tree). No open-source PoE clone game found.
+- GTA / Red Dead: re3 / reVC (reversed GTA III / Vice City) were DMCA'd; only forks remain, deliberately not pulled. ScriptHookRDR2 is closed source. Mice City, PigCity (GTA-like demos, source unconfirmed)
 - RimWorld / Project Zomboid: both are closed-source commercial games (no code to clone). Not pulled: DFHack (C++), noxfutura (Rust, Dwarf Fortress-like, stale), DwarfCorp-like browser sims (Colony Adventure, Pixel Colony: no confirmed public source)
 - Action-RPG candidates not pulled: Veloren (GPL-3.0, official source on GitLab), Loot Master (GPL-3.0, GitLab), OpenMW / Daggerfall Unity / OpenEnroth (engine remakes; large)
 - Swing prototype: GabrielGameDev/SpiderMan2DWebSwing (Unity, 2D; linked from its itch.io page, unopened)
