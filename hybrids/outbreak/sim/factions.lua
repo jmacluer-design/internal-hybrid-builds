@@ -267,7 +267,7 @@ function M.spawn_caravan(w, faction_id)
 	for i = 1, #s.caravans do if s.caravans[i].faction == faction_id then return nil, "already_here" end end
 	local c = { id = w:new_id("k"), faction = faction_id, t0 = s.t, leave_t = s.t + FT.caravan_stay, stock = items.new() }
 	local day = clock.day(s.t)
-	local bundle = loot.roll(w:rng("fac"), d.stock, { danger = 1, mult = 1 + day * 0.02 })
+	local bundle = loot.roll(w:rng("fac"), d.stock, { danger = 1, mult = 1 + day * FT.caravan_day_growth })
 	for _, id in ipairs(U.keys(bundle)) do w:create(c.stock, id, bundle[id], "caravan") end
 	s.caravans[#s.caravans + 1] = c
 	w:emit({ type = "caravan", phase = "arrive", id = c.id, faction = faction_id, name = d.name, leave_t = c.leave_t,

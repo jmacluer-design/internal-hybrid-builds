@@ -430,9 +430,10 @@ T.test("mood is always within 0..100 and reacts to needs and traits", function()
 	T.gt(mood.compute(h, 0, {}), mood.compute(fresh(43), 0, {}) + 5)
 	local loner = fresh(43, { traits = { "loner" } })
 	T.lt(mood.compute(loner, 0, { colonists = 20 }), mood.compute(loner, 0, { colonists = 2 }))
+	local mr = R.new(4444)
 	for _ = 1, 200 do
 		local x = fresh(44)
-		x.hunger, x.thirst = U.clamp(math.random(), 0, 1) * 100, 50
+		x.hunger, x.thirst = mr:float() * 100, 50
 		local m = mood.compute(x, 0, { colonists = 9 })
 		if m < 0 or m > 100 or m ~= m then T.truthy(false, "mood out of range") end
 	end

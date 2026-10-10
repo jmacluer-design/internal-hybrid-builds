@@ -52,8 +52,11 @@ TUNING.colonist = {
 	max_count = 40,
 	work_types = { "doctor", "guard", "build", "cook", "craft", "haul", "scavenge" }, -- tie-break order
 	default_priority = { doctor = 3, guard = 2, build = 3, cook = 3, craft = 3, haul = 3, scavenge = 3 },
-	schedule_default = "WWWWWWWWAAAAAAAAAAAAAAAA", -- overwritten per colonist; see colonist.default_schedule
 	sleep_hours = 8,
+	maim_walk_mult = 0.85,     -- walking speed multiplier per amputation
+	hurt_walk_below = 0.4, hurt_walk_mult = 0.8, -- limping when under this hp fraction
+	-- combat power: weapon power x (skill_base + skill_per_level x skill); fists use melee skill
+	combat = { unarmed = 1.2, unarmed_bonus = 1.5, skill_base = 0.5, skill_per_level = 0.1, dry_gun_score = 0.3 },
 }
 
 -- needs ----------------------------------------------------------------------------------------
@@ -103,12 +106,24 @@ TUNING.needs = {
 		cure_cap = 0.97,
 		amputate_base = 0.80, amputate_per_skill = 0.02, amputate_hp_cost = 22, amputate_pain = 45,
 		amputate_work_min = 25,
+		amputate_symptomatic_pen = 0.15, amputate_fail_hp_mult = 1.5, amputate_min = 0.05, amputate_max = 0.97,
+		fail_extend = 1.3,           -- a failed antibiotic course multiplies the time left by this
 		maim_speed = 0.9,            -- work speed multiplier per amputation
 		turn_delay = { 3, 12 },      -- minutes between death and reanimation
 	},
 	painkiller_pain = 40, painkiller_minutes = 240, painkiller_mood = 6,
 	bandage_stop = 0.9,        -- chance a bandage stops a wound
+	bandage_partial = 0.4,     -- a failed bandage still cuts the worst wound's bleed to this fraction
 	kit_stop = 1.0,
+	head_bite_to_arm = 0.5,    -- chance a bite rolled on the head lands on an arm instead (head bites are not amputable)
+	wound_scale = { per_hp = 15, min = 0.4, max = 2.5 }, -- bleed / pain scale = damage / per_hp, clamped
+	wound_heal_min = 2880,     -- a stopped wound leaves the list after this long (bites linked to an infection stay)
+	recover_margin = 8,        -- hp above downed_hp needed to get back up
+	-- work-speed penalties: speed *= 1 - (need - from) * k  for each need above its threshold
+	speed = { hunger_from = 50, hunger_k = 0.004, thirst_from = 50, thirst_k = 0.006, fatigue_from = 60, fatigue_k = 0.006,
+		pain_k = 0.004, terminal_mult = 0.45, hurt_below = 0.5, hurt_mult = 0.85, ceiling = 1.5 },
+	-- how activity changes the base rates
+	activity = { hunger_sleep = 0.55, hunger_rest = 0.75, hunger_work = 1.1, thirst_sleep = 0.6, rest_fatigue_frac = 0.35 },
 }
 
 -- mood -------------------------------------------------------------------------------------
@@ -132,6 +147,9 @@ TUNING.mood = {
 	break_cooldown = 480,
 	break_relief = 8,            -- thought value after a break ends
 	binge_items = 3,
+	major_binge_chance = 0.5,    -- major break: binge (if food exists) instead of refusing
+	extreme_wander = 0.6, extreme_binge = 0.2, -- extreme break kinds (the rest refuse)
+	extreme_duration_mult = 1.3,
 	wander_leave_chance = 0.08,  -- extreme break: chance the colonist never comes back
 	max_thoughts = 24,
 }
@@ -163,6 +181,10 @@ TUNING.world = {
 	refugee_items = { water_bottle = 1, canned_beans = 1 },
 	refugee_armed_chance = 0.3,
 	max_dead_kept = 40,
+	med_bed_heal = 1.8, med_bed_heal_unpowered = 1.3, -- regeneration multipliers while resting in a medical bed
+	secure_enclosure = 0.8,     -- enclosure at which the "walls hold" thought is granted each day
+	hurt_frac = 0.7,            -- colonists below this hp fraction count as hurt in reports
+	leave_grief = 0.5,          -- strength of the grief thought when a colonist leaves alive
 }
 
 -- director (storyteller) -----------------------------------------------------------------------------------
@@ -176,20 +198,23 @@ TUNING.director = {
 	start_grace_days = 1.0,      -- no events at all during the first day
 	log_cap = 160,
 	by_day_keep = 60,
+	surge_gap_mult = 0.25,       -- a surge shrinks the next threat gap to this fraction
+	radio_mult = 1.5,            -- a powered radio mast multiplies caravan / refugee weights
+	retry_minutes = 180,         -- an event that could not happen right now is retried after this long
 	profiles = {
 		calm = {
 			desc = "Long quiet stretches, small threats, more help arriving.",
-			mult0 = 0.50, mult1 = 0.60,               -- multiplier at day 1 / day 30 (linear in between)
+			mult0 = 0.50, mult1 = 1.15,               -- multiplier at day 1 / day 30 (linear in between)
 			threat_gap = { 1.3, 2.8 }, threat_gap_late = { 1.2, 2.6 }, -- days between threat-channel events (day 1 / day 30)
 			boon_gap = { 1.5, 3.0 },
-			spend_frac = { 0.45, 0.75 },
+			spend_frac = { 0.45, 0.80 },
 			surge_chance = 0,
 			weights = { horde_wave = 0.7, gang_raid = 0.5, infection_outbreak = 0.6, helicopter_flyover = 0.5, power_outage = 1.0, water_outage = 1.0,
 				storm = 1.2, caravan = 1.5, supply_drop = 0.8, refugee_arrival = 1.3 },
 		},
 		escalating = {
 			desc = "Gentle start, steadily rising pressure.",
-			mult0 = 0.55, mult1 = 1.9,
+			mult0 = 0.55, mult1 = 1.15,
 			threat_gap = { 1.8, 3.2 }, threat_gap_late = { 0.35, 0.85 },
 			boon_gap = { 2.0, 4.0 },
 			spend_frac = { 0.55, 0.85 },
@@ -199,7 +224,7 @@ TUNING.director = {
 		},
 		chaos = {
 			desc = "Relentless: short gaps, big spikes, little rest.",
-			mult0 = 1.4, mult1 = 2.1,
+			mult0 = 0.8, mult1 = 1.05,
 			threat_gap = { 0.25, 0.8 }, threat_gap_late = { 0.15, 0.55 },
 			boon_gap = { 3.0, 6.0 },
 			spend_frac = { 0.60, 0.95 },
@@ -235,6 +260,7 @@ TUNING.factions = {
 	gift_goodwill_per_value = 0.35, gift_goodwill_cap = 12,
 	truce_min_value = 25, truce_per_hostility = 0.5, truce_days = 3,
 	raid_log_keep = 20,
+	caravan_day_growth = 0.02,  -- caravan stock quantity multiplier = 1 + day x this
 }
 
 -- hordes (abstract groups on a coarse grid) -------------------------------------------------------------
@@ -267,6 +293,9 @@ TUNING.horde = {
 	min_size_to_keep = 3,
 	max_total = 900,           -- abstract zombies in the whole world
 	ambient_count = 6, ambient_size = { 4, 20 },
+	ambient_mix = { runner_min_size = 12, runner_chance = 0.35, runner_share = 0.12, brute_min_size = 25, brute_chance = 0.3 },
+	assault_leave_mult = 1.5,  -- an assaulting horde further than assault_radius x this gives up and wanders
+	base_pull_mult = 1.6,      -- drifting hordes within alert_radius x this may be drawn to the (noisy) base
 	spawn_dist = { 1500, 2200 }, -- waves appear this far from the base
 	alert_min_size = 8, alert_hold = 30,
 	-- composition of a wave by pacing/threat: shares of the point budget spent on each type
@@ -299,6 +328,9 @@ TUNING.expedition = {
 	cache_chance = 0.08, cache_rolls = 3,
 	vehicle_lost_if_wiped = 0.6,
 	vehicle_repair_per_min = 0.01,
+	risk_floor = 0.3, risk_cap = 0.95, -- crew skill never cuts risk below floor x base; any leg stays under the cap
+	ambush_spread = { 0.4, 1.0 },      -- fraction of the district's zombies met in one ambush
+	xp_shoot_mult = 0.5, xp_melee_mult = 0.3,
 	log_keep = 12,
 }
 
@@ -323,6 +355,19 @@ TUNING.jobs = {
 	medicate_cooldown = 600,   -- minutes before the same patient gets another antibiotic dose
 	binge_min = 20,
 	wander_radius = 160,
+	min_speed = 0.1,           -- floor on any worker speed
+	ban_min = 30,              -- a job that failed for a colonist is skipped for this long
+	sleep_max_min = 600,       -- longest single sleep
+	sched_sleep_fatigue = 20,  -- fatigue at which a scheduled sleep hour actually puts a colonist to bed
+	wake_day_fatigue = 45,     -- sleepers wake outside sleep hours once below this fatigue
+	sick_hp = 0.6,             -- under this hp fraction a colonist prefers a medical bed
+	rest_hp = 0.55,            -- under this hp fraction (or with symptoms) colonists rest instead of working
+	rest_done_hp = 0.85,       -- resting ends above this hp fraction
+	med_bed_pref = 400,        -- distance credit that makes sick colonists choose a medical bed
+	powered_craft_bonus = 1.25,
+	guard_xp = 0.15, repair_xp_mult = 0.6,
+	kit_bleed = 0.3, kit_wounds = 3, -- tending uses a first-aid kit instead of a bandage above these
+	feed_drink_bias = 1.3,
 	sign_up_minutes = 60,      -- how long an expedition waits for volunteers
 	fuel_reserve = 2,          -- generators are only refuelled while the stock holds more than this many cans (expeditions first)
 }
@@ -369,5 +414,11 @@ TUNING.combat = {
 	awake_factor = 0.55,      -- readiness of awake colonists who are working
 	sleep_factor = 0.30,      -- readiness of sleeping colonists
 	downed_factor = 0.0,
+	alarm_bonus = 1.3,        -- awake colonists' readiness multiplier while the base is on alert (capped at guard_factor)
+	barrier_enclosure_base = 0.4, -- barrier strength = defense x (this + (1 - this) x enclosure) x hp fraction left
+	raider_bullet_share = 0.7, -- share of raider hits that are bullets (the rest behave like melee scratches)
+	bite_enclosure_cut = 0.6, -- bite share is reduced by this x enclosure
+	breach_hp_frac = 0.25,    -- barrier counts as breached once this fraction of its hp is left
+	xp_shoot_mult = 0.5, xp_melee_mult = 0.4, -- kill xp: skills.xp_per_kill x this, shared among those who fought
 }
 return TUNING

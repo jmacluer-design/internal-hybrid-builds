@@ -159,13 +159,15 @@ function M.step(c, now, dt, env)
 	if level == "minor" then
 		kind = "refuse"
 	elseif level == "major" then
-		kind = (env.food_available and rng:chance(0.5)) and "binge" or "refuse"
+		kind = (env.food_available and rng:chance(MT.major_binge_chance)) and "binge" or "refuse"
 	else
 		local x = rng:float()
-		if x < 0.6 then kind = "wander" elseif x < 0.8 and env.food_available then kind = "binge" else kind = "refuse" end
+		if x < MT.extreme_wander then kind = "wander"
+		elseif x < MT.extreme_wander + MT.extreme_binge and env.food_available then kind = "binge"
+		else kind = "refuse" end
 	end
 	local mins = rng:int(MT.break_minutes[1], MT.break_minutes[2])
-	if level == "extreme" then mins = mins * 1.3 end
+	if level == "extreme" then mins = mins * MT.extreme_duration_mult end
 	c.mbreak = { kind = kind, level = level, until_t = now + math.floor(mins) }
 	return { { kind = "break_start", break_kind = kind, level = level } }
 end

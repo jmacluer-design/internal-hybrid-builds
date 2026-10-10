@@ -74,10 +74,10 @@ function M.risk(district, crew, night)
 	end
 	local avg = (n > 0) and lv / (n * 2) or 0
 	local f = 1 - X.skill_risk_cut * avg * 2
-	if f < 0.3 then f = 0.3 end
+	if f < X.risk_floor then f = X.risk_floor end
 	local p = base * f
 	if night then p = p * X.night_risk_mult end
-	return U.clamp(p, 0, 0.95)
+	return U.clamp(p, 0, X.risk_cap)
 end
 
 function M.crew_strength(crew)
@@ -194,7 +194,7 @@ function M.on_colonist_removed(w, c)
 end
 
 local function ambush_mix(rng, d)
-	local base = floor(d.zombies * X.zombies_per_danger * rng:range(0.4, 1.0) + 0.5)
+	local base = floor(d.zombies * X.zombies_per_danger * rng:range(X.ambush_spread[1], X.ambush_spread[2]) + 0.5)
 	if base < 2 then base = 2 end
 	local mix = { walker = base }
 	if d.danger >= 3 then mix.runner = floor(base * X.runner_share + rng:float()) end
@@ -241,8 +241,8 @@ local function ambush(w, x, where)
 	for i = 1, #crew do
 		local c = crew[i]
 		if not c.dead then
-			skills.add_xp(c, "shooting", kills * TUNING.skills.xp_per_kill * 0.5)
-			skills.add_xp(c, "melee", kills * TUNING.skills.xp_per_kill * 0.3)
+			skills.add_xp(c, "shooting", kills * TUNING.skills.xp_per_kill * X.xp_shoot_mult)
+			skills.add_xp(c, "melee", kills * TUNING.skills.xp_per_kill * X.xp_melee_mult)
 		end
 	end
 	for i = 1, #crew do w:process_vitals(crew[i]) end
@@ -263,7 +263,7 @@ local function roll_ambush(w, x, where)
 	local d = DISTRICTS[x.district]
 	local crew = crew_list(w, x)
 	local p = M.risk(d, crew, clock.is_night(w.s.t))
-	if x.mode == "foot" then p = U.min(0.95, p * X.foot.risk_mult) end
+	if x.mode == "foot" then p = U.min(X.risk_cap, p * X.foot.risk_mult) end
 	if not rng:chance(p) then return nil end
 	local res = ambush(w, x, where)
 	if res and res.outcome ~= "repelled" then

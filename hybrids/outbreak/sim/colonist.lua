@@ -48,8 +48,8 @@ end
 
 function M.walk_speed(c)
 	local s = CT.walk_speed
-	for _ = 1, c.maimed do s = s * 0.85 end
-	if c.hp < c.hp_max * 0.4 then s = s * 0.8 end
+	for _ = 1, c.maimed do s = s * CT.maim_walk_mult end
+	if c.hp < c.hp_max * CT.hurt_walk_below then s = s * CT.hurt_walk_mult end
 	return s
 end
 
@@ -123,7 +123,7 @@ function M.best_weapon(c)
 		if d.weapon then
 			local ok = true
 			if d.weapon.kind == "ranged" then ok = (c.inv.items[d.weapon.ammo] or 0) > 0 end
-			local score = d.weapon.power * (ok and 1 or 0.3)
+			local score = d.weapon.power * (ok and 1 or CT.combat.dry_gun_score)
 			if score > bscore then bscore = score; best = id; bdef = d; usable = ok end
 		end
 	end
@@ -134,16 +134,17 @@ end
 function M.combat_power(c, now)
 	if c.dead or c.downed then return 0, false, nil end
 	local id, d, usable = M.best_weapon(c)
-	local power, ranged, ammo = 1.2, false, nil
-	local melee_f = 0.5 + 0.1 * skills.level(c, "melee")
+	local K = CT.combat
+	local power, ranged, ammo = K.unarmed, false, nil
+	local melee_f = K.skill_base + K.skill_per_level * skills.level(c, "melee")
 	if d and d.weapon.kind == "ranged" and usable then
-		power = d.weapon.power * (0.5 + 0.1 * skills.level(c, "shooting"))
+		power = d.weapon.power * (K.skill_base + K.skill_per_level * skills.level(c, "shooting"))
 		ranged = true
 		ammo = d.weapon.ammo
 	elseif d and d.weapon.kind == "melee" then
 		power = d.weapon.power * melee_f
 	else
-		power = 1.2 * melee_f * 1.5
+		power = K.unarmed * melee_f * K.unarmed_bonus
 	end
 	power = power * traits.mul(c, "combat_power") * needs.work_speed(c, now)
 	return power, ranged, ammo

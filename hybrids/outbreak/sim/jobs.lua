@@ -121,7 +121,7 @@ local function zones(w) return w.s.zones end
 local function speed_of(w, c, skill)
 	local s = needs.work_speed(c, w.s.t) * (skill and skills.speed(c, skill) or 1)
 	if clock.is_night(w.s.t) then s = s * traits.mul(c, "work_speed_night") else s = s * traits.mul(c, "work_speed_day") end
-	if s < 0.1 then s = 0.1 end
+	if s < J.min_speed then s = J.min_speed end
 	return s
 end
 
@@ -261,7 +261,7 @@ ACT.repair = {
 		if not b or b.state ~= "built" then job.t = 0; return end
 		local sp = speed_of(w, c, "construction")
 		blueprints.repair(b, dt * J.repair_hp_per_min * sp)
-		skills.add_xp(c, "construction", dt * TUNING.skills.xp_per_work_min * 0.6)
+		skills.add_xp(c, "construction", dt * TUNING.skills.xp_per_work_min * J.repair_xp_mult)
 		if b.hp >= b.hp_max - 1e-6 then job.t = 0 end
 	end,
 	done = function(w, c, job, st)
@@ -381,7 +381,7 @@ end }
 
 ACT.guard = {
 	tick = function(w, c, job, st, dt)
-		skills.add_xp(c, "shooting", dt * 0.15)
+		skills.add_xp(c, "shooting", dt * J.guard_xp)
 		if not M.guard_needed(w) then job.t = 0 end
 	end,
 	done = function() return true end,
@@ -422,9 +422,9 @@ local function wake_check(w, c, job, st, dt)
 	if job.kind == "sleep" then
 		local sched = colonist.schedule_at(c, clock.hour(w.s.t))
 		if c.fatigue <= J.wake_fatigue then job.t = 0
-		elseif sched ~= "S" and c.fatigue <= 45 and c.fatigue < N.emergency_fatigue then job.t = 0 end
+		elseif sched ~= "S" and c.fatigue <= J.wake_day_fatigue and c.fatigue < N.emergency_fatigue then job.t = 0 end
 	else -- resting
-		local healed = c.hp >= c.hp_max * 0.85 and (c.inf.stage == "none" or c.inf.stage == "incubating")
+		local healed = c.hp >= c.hp_max * J.rest_done_hp and (c.inf.stage == "none" or c.inf.stage == "incubating")
 		if healed then job.t = 0 end
 	end
 end
@@ -528,7 +528,7 @@ local function end_job(w, c, how)
 	c.state = "idle"
 	if how == "failed" then
 		c.ban = c.ban or {}
-		c.ban[job.key] = w.s.t + 30
+		c.ban[job.key] = w.s.t + J.ban_min
 	end
 	c.reeval_t = w.s.t
 	c.report = true
@@ -672,13 +672,13 @@ end
 -- sleep (kind "sleep") or rest (kind "rest") in a free bed if there is one
 local function plan_sleep(w, c, class, kind)
 	local best, bd
-	local sick = c.hp < c.hp_max * 0.6 or c.inf.stage == "symptomatic" or c.inf.stage == "terminal"
+	local sick = c.hp < c.hp_max * J.sick_hp or c.inf.stage == "symptomatic" or c.inf.stage == "terminal"
 	local beds = blueprints.beds(w)
 	for i = 1, #beds do
 		local b = beds[i]
 		local med = BP[b.bp].tags.med_bed
 		if can_reserve(w, "bed:" .. b.id, 1) and (not med or sick) then
-			local d = U.dist(c.pos, b.pos) - ((med and sick) and 400 or 0)
+			local d = U.dist(c.pos, b.pos) - ((med and sick) and J.med_bed_pref or 0)
 			if not bd or d < bd then best, bd = b, d end
 		end
 	end
@@ -692,7 +692,7 @@ local function plan_sleep(w, c, class, kind)
 		data.q = J.floor_rest_quality
 	end
 	local job = new_job(kind, nil, class, kind .. ":" .. c.id, { kind = "bed", id = best and best.id or "floor" },
-		{ step(pos, 600, "sleep", data) }, data)
+		{ step(pos, J.sleep_max_min, "sleep", data) }, data)
 	job.caps[kind .. ":" .. c.id] = 1
 	if best then job.caps["bed:" .. best.id] = 1 end
 	return job
@@ -805,7 +805,7 @@ local function plan_make(w, c, d)
 		lastz = z
 	end
 	local sp = speed_of(w, c, r.skill)
-	if station.powered and BP[station.bp].power_use then sp = sp * 1.25 end
+	if station.powered and BP[station.bp].power_use then sp = sp * J.powered_craft_bonus end
 	steps[#steps + 1] = step(station.pos, r.work / sp, "make", { station = station.id, recipe = r.id })
 	local out_id = U.keys(r.outputs)[1]
 	local dest = stockpile.find_dest(zones(w), out_id, station.pos)
@@ -862,7 +862,7 @@ end
 local function plan_feed(w, c, d)
 	local p = w:colonist(d.data.patient)
 	if not p or p.dead or not p.downed then return nil end
-	local want_drink = p.thirst >= 50 and p.thirst * 1.3 >= p.hunger
+	local want_drink = p.thirst >= 50 and p.thirst * J.feed_drink_bias >= p.hunger
 	local steps = {}
 	if want_drink and grid.water_available(w) then
 		steps[1] = step(w:water_pos(), J.drink_min, "feed_tank", { patient = p.id })
@@ -1096,7 +1096,7 @@ function M.refresh(w)
 		if not p.dead and p.state ~= "away" then
 			local bleed = needs.bleeding(p)
 			if bleed > 0.0001 and have_bandage then
-				local item = (has_item(tot, "first_aid_kit") and (bleed > 0.3 or #p.wounds >= 3)) and "first_aid_kit" or (has_item(tot, "bandage") and "bandage" or "first_aid_kit")
+				local item = (has_item(tot, "first_aid_kit") and (bleed > J.kit_bleed or #p.wounds >= J.kit_wounds)) and "first_aid_kit" or (has_item(tot, "bandage") and "bandage" or "first_aid_kit")
 				add({ key = "tend:" .. p.id, kind = "tend", work = "doctor", target = { kind = "colonist", id = p.id }, pos = p.pos,
 					data = { patient = p.id, item = item }, urgency = (bleed >= J.treat_bleed_urgent or p.downed) and 3 or 2 })
 			end
@@ -1218,7 +1218,7 @@ local function pick_board(w, c, urgent_only)
 		local job = plan_from_desc(w, c, best)
 		if job then return job end
 		c.ban = c.ban or {}
-		c.ban[best.key] = now + 30
+		c.ban[best.key] = now + J.ban_min
 	end
 	return nil
 end
@@ -1267,8 +1267,8 @@ function M.pick(w, c)
 	if c.thirst >= N.drink_at then job = plan_drink(w, c, CLASS.NEED); if job then return job end end
 	if c.hunger >= N.eat_at then job = plan_eat(w, c, CLASS.NEED); if job then return job end end
 	local sched = colonist.schedule_at(c, clock.hour(now))
-	if (sched == "S" and c.fatigue >= 20) or c.fatigue >= N.sleep_at then return plan_sleep(w, c, CLASS.NEED, "sleep") end
-	local sick = c.hp < c.hp_max * 0.55 or c.inf.stage == "symptomatic" or c.inf.stage == "terminal"
+	if (sched == "S" and c.fatigue >= J.sched_sleep_fatigue) or c.fatigue >= N.sleep_at then return plan_sleep(w, c, CLASS.NEED, "sleep") end
+	local sick = c.hp < c.hp_max * J.rest_hp or c.inf.stage == "symptomatic" or c.inf.stage == "terminal"
 	if sick and sched ~= "W" then return plan_sleep(w, c, CLASS.NEED, "rest") end
 	if sick and c.inf.stage ~= "none" and c.inf.stage ~= "incubating" then return plan_sleep(w, c, CLASS.NEED, "rest") end
 	-- work
@@ -1299,10 +1299,7 @@ function M.update(w, c, dt, index)
 	c.dirty = false
 	if newjob then
 		if (not c.job) or newjob.class > c.job.class then
-			if c.job then
-				local old = c.job
-				end_job(w, c, "preempted")
-			end
+			if c.job then end_job(w, c, "preempted") end
 			if not start_job(w, c, newjob) then
 				c.reeval_t = now + 2
 			else

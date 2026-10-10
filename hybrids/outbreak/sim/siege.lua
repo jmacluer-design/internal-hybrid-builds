@@ -18,7 +18,7 @@ local function readiness(w, c)
 	if c.drafted or (j and j.kind == "guard") then return CT.guard_factor end
 	local r
 	if j and (j.kind == "sleep" or j.kind == "rest") then r = CT.sleep_factor else r = CT.awake_factor end
-	if w.s.alert > 0 and r < CT.awake_factor * 1.3 then r = CT.awake_factor * 1.3 end
+	if w.s.alert > 0 and r < CT.awake_factor * CT.alarm_bonus then r = U.min(CT.guard_factor, CT.awake_factor * CT.alarm_bonus) end
 	return r
 end
 
@@ -77,8 +77,8 @@ function M.resolve(w, mix, opts)
 				local c = cs[i]
 				if not c.dead and c.state ~= "away" and not c.downed then
 					local share = kills / fighters
-					skills.add_xp(c, "shooting", share * TUNING.skills.xp_per_kill * 0.5)
-					skills.add_xp(c, "melee", share * TUNING.skills.xp_per_kill * 0.4)
+					skills.add_xp(c, "shooting", share * TUNING.skills.xp_per_kill * CT.xp_shoot_mult)
+					skills.add_xp(c, "melee", share * TUNING.skills.xp_per_kill * CT.xp_melee_mult)
 					c.kills = c.kills + share
 				end
 			end

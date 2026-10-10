@@ -331,6 +331,11 @@ const TUNING = {
     shardVis: 48,                   // (world m) shards further than this from the hero are not drawn in VR (the arrow points to the nearest)
     blinkDist: 4, blinkTime: 0.35,  // a hero teleport (respawn / pipe) bigger than this in one frame blinks to black instead of sliding the table
     fbScale: 0.9, foveation: 1,     // XR framebuffer scale (0.85-1.0; picked by estimated cost, NOT measured on a headset) and fixed foveation
+    // ---- RPG layer in VR (see the <vr-rpg> block): diorama limits + panel sizes. (world m) = world metres, the rest real metres
+    rpgVis: 30,                     // (world m) enemies / chests / crates / auras further than this from the hero are not drawn (the fog hides them at the table rim anyway)
+    rpgBeamMax: 4, rpgBeamK: 0.4,   // at most 4 light beams (loot / chest / elite) drawn at once, at 40% of their flat-play height
+    rpgPlates: 6, rpgPlateVis: 40, rpgPlateW: 5.4, rpgPlateY: 2.6, // pool of 3D name plates (rare+ loot, act chests, elites), reach (world m), width (world m), height above the thing (world m)
+    rpgPanelW: 1.5,                 // inventory / perk panel width (m); 2048 x 1280 canvas, ~66 deg wide at 1.15 m, text >= 34 px (= 28 px of a 1024 canvas at the same angular size on the 1.15 m menu panel)
   },
 };
 
@@ -3180,7 +3185,7 @@ Object.assign(window.__game, {
   teleport(x, y, z) { setHeroPos(x, y, z); deathCheck(); }, setQuality(q) { applyQuality(q, true); }, collect(i) { const s = SHARDS.filter(s => !s.got)[i || 0]; if (s) collectShard(s); return !!s; }, shards: () => SHARDS.map(s => [s.x, s.y, s.z, s.got, s.final]),
   loadAct(n) { if (!G.started) { G.started = true; } G.ck = G.ck || { act: 1 }; loadAct(n); resetHero(LV ? { x: LV.O.x + LV.start.x, y: LV.O.y + LV.start.y, z: LV.O.z + LV.start.z } : G.ck.pos || { x: SITES.spawn.x, y: SITE_H.spawn, z: SITES.spawn.z }); }, level: () => LV, SH: () => SH, G, P, CAM, C, TREES, ROCKS,
   blocks: () => BLOCKS, enemies: () => ENEMIES, scene, grass, flowers, terrain, water, sky, hero, TREE_MESH, FAR, passes(b, g2) { if (bloomPass) bloomPass.enabled = !!b; if (gradePass) gradePass.enabled = !!g2; }, setScale(v) { qScale = v; onResize(); buildComposer(); }, camera, hfGround, HT, render() { renderFrame(); }, local(x, z) { startLocalShatter(x ?? P.x, z ?? P.z, TUNING.shatter.localR); }, world() { const s = SHARDS.find(s => s.final); startWorldShatter(G.act, G.act + 1, s ? s.x : P.x, s ? floorAt(s.x, s.z, s.y) : P.y, s ? s.z : P.z); },
-  pause(v) { window.__paused = !!v; }, renderer, rig, vr: { enter: () => vrEnter(), exit: () => vrExit(), check: () => vrCheckSupport(), state: VR, ui: () => UI }, wave(o) { Object.assign(WV, o); syncWave(); }, flip() { flipGravity(); }, hurt() { hurtHero(P.x + 1, P.z); }, kill() { killHero('hits'); },
+  pause(v) { window.__paused = !!v; }, renderer, rig, vr: { enter: () => vrEnter(), exit: () => vrExit(), check: () => vrCheckSupport(), state: VR, ui: () => UI, rp: () => RV }, wave(o) { Object.assign(WV, o); syncWave(); }, flip() { flipGravity(); }, hurt() { hurtHero(P.x + 1, P.z); }, kill() { killHero('hits'); },
 });
 
 // ============================================================================
@@ -3203,6 +3208,7 @@ Object.assign(VR, {
   hpx: 0, hpy: 1.6, hpz: 0, gx: 0, gz: -1, ax: 0, ay: 0.9, az: -0.6, hx: 0, hy: 0, hz: 0, gy: 0, lpx: 0, lpy: 0, lpz: 0,
   snapArmed: true, turns: 0, haptics: 0, fire: false, place: false, fireHand: 1, eT: 0, xHold: 0, xDone: false, fade: 0, capAng: 0,
   pinch: [false, false], perfT: 0, perfN: 0, avgMs: 0, autoLite: false, soft: false, prevQ: 'high', sessionFeatures: '', gazeLocked: false,
+  yArm: '', yDone: false, wasRp: false, eKey: false, // RPG in VR: Y hold = inventory (state at press / hold fired), previous inv-or-perk flag, 'e' injected by the right-stick click
 });
 // ---- per-hand input state (0 = left, 1 = right) -----------------------------------------------------------------------------------
 // mask bits: 1 trigger, 2 grip, 4 A/X, 8 B/Y, 16 stick click. m = raw, e = effective (after suppression), pm/pe = previous frame
@@ -3268,10 +3274,10 @@ function vrBuildMerged(g) {
 function vrMergeApply(root, on) {
   root.traverse(o => { const ud = o.userData; if (!ud || !ud.vrp) return; if (on) vrBuildMerged(o); for (const m of ud.vrp) m.visible = !on; if (ud.vro) for (const m of ud.vro) m.visible = !on; if (ud.vrM) ud.vrM.visible = on; if (ud.vrO) ud.vrO.visible = on; });
 }
-function vrMergeAll(on) { VR.merge = on; vrMergeApply(hero.root, on); vrMergeApply(twin.root, on); for (const e of ENEMIES) vrMergeApply(e.mesh, on); }
+function vrMergeAll(on) { VR.merge = on; vrMergeApply(hero.root, on); vrMergeApply(twin.root, on); for (const e of ENEMIES) vrMergeApply(e.mesh, on); for (const k of CHESTS) vrMergeApply(k.g, on); }
 
 // ---- procedural Touch-style controller (no asset download) ---------------------------------------------------------------------------
-const UI = { mode: 'none', built: false, btns: [], hotKey: -1, laserLen: [1.2, 1.2], hit: [false, false], hot: [-1, -1], cap: { talk: '', talkOn: false, talkSeq: -1, toast: '', toastOn: false, toastSeq: -1, prompt: '', promptOn: false, who: '' }, capT: 0, wr: { sig: '' }, howShown: false };
+const UI = { mode: 'none', built: false, btns: [], hotKey: -1, laserLen: [1.2, 1.2], hit: [false, false], hot: [-1, -1], cap: { talk: '', talkOn: false, talkSeq: -1, toast: '', toastOn: false, toastSeq: -1, prompt: '', promptOn: false, who: '' }, capT: 0, wr: { sig: '' }, howShown: false, rp: null, hudP: null, chips: [], sumBottom: 0 };
 const vrCtrl = [null, null]; // three controller groups (target-ray space); their hand is data.handedness
 UI.ch = [null, null];        // controller group currently carrying the LEFT (0) / RIGHT (1) hand, or null
 function vrBuildControllerModel() {
@@ -3316,6 +3322,10 @@ const _hit = { u: 0, v: 0, t: 0 };
 function wrapLines(c, text, maxW, out) { out.length = 0; const words = String(text).split(/\s+/); let line = ''; for (const w of words) { const t = line ? line + ' ' + w : w; if (c.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; } if (line) out.push(line); return out; }
 const _wl = [];
 
+function vrRpgSubLines() { // two short RPG status lines for the start panel (mirrors #rpgMenuSub)
+  const cap = RP.level >= RPG_TUNING.levelCap;
+  return ['LEVEL ' + RP.level + (cap ? ' MAX' : ' \u00b7 ' + rfmt(RP.xp) + ' / ' + rfmt(rpgXpNext(RP.level)) + ' XP') + ' \u00b7 ' + rfmt(RP.gold) + ' GOLD', Object.keys(RP.codex).length + '/' + RPG_LEGENDARIES.length + ' LEGENDARIES' + (RP.bestRift ? ' \u00b7 BEST RIFT T' + RP.bestRift : '') + (RP.pending ? ' \u00b7 PERK READY' : '')];
+}
 function vrDrawMain() {
   const p = UI.main, c = p.ctx, W = p.pw, H = p.ph, m = UI.mode; c.clearRect(0, 0, W, H);
   rrect(c, 8, 8, W - 16, H - 16, 46); const gr = c.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(12,30,48,.95)'); gr.addColorStop(1, 'rgba(6,14,24,.95)'); c.fillStyle = gr; c.fill();
@@ -3323,38 +3333,51 @@ function vrDrawMain() {
   c.textAlign = 'center'; c.textBaseline = 'alphabetic';
   let title = 'SHATTERWORLD', sub = '', sub2 = '', col = '#ffd66b';
   if (m === 'start') { sub = 'A REALISTIC WORLD. SHATTERED INTO BLOCKS.'; sub2 = $('best').textContent; }
-  else if (m === 'pause') { title = 'PAUSED'; sub = 'Y also resumes'; }
+  else if (m === 'pause') { title = 'PAUSED'; sub = 'Y tap resumes \u00b7 Y hold = inventory'; }
   else { title = $('deadT').textContent; col = m === 'lose' ? '#ff8f7a' : '#ffd66b'; sub = ($('deadS').innerHTML || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ''); }
   c.fillStyle = col; c.font = '900 ' + (title.length > 12 ? 78 : 92) + 'px ' + VFONT; c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 12; c.fillText(title, W / 2, 128); c.shadowBlur = 0;
   c.fillStyle = '#ffe9b8'; c.font = '600 36px ' + VFONT;
   const sl = sub.split('\n'); let y = 190; for (const s of sl) { c.fillText(s, W / 2, y); y += 44; }
-  if (sub2) { c.fillStyle = '#53e0d0'; c.font = '700 34px ' + VFONT; c.fillText(sub2, W / 2, y + 4); }
+  if (sub2) { c.fillStyle = '#53e0d0'; c.font = '700 34px ' + VFONT; c.fillText(sub2, W / 2, y + 4); y += 44; }
+  if (m === 'start') { const L = vrRpgSubLines(); c.fillStyle = RP.pending ? '#ffe27a' : '#9fd8ff'; c.font = '700 32px ' + VFONT; for (const t of L) { c.fillText(t, W / 2, y + 4); y += 40; } }
+  if (UI.chips.length) { // run summary chips (#rpgRunSum): xp / kills / loot by rarity / gold / legendaries
+    for (const q of UI.chips) { rrect(c, q.x, q.y, q.w, 52, 26); c.fillStyle = 'rgba(255,255,255,.08)'; c.fill(); c.lineWidth = 3; c.strokeStyle = q.cls === 'r3' ? 'rgba(255,138,42,.9)' : q.cls === 'r2' ? 'rgba(255,216,74,.7)' : q.cls === 'r1' ? 'rgba(106,169,255,.7)' : 'rgba(255,255,255,.25)'; c.stroke(); c.fillStyle = q.cls === 'r3' ? '#ffb06a' : q.cls === 'r2' ? '#ffe27a' : q.cls === 'r1' ? '#a9ccff' : '#fff0cc'; c.font = '700 32px ' + VFONT; c.textBaseline = 'middle'; c.fillText(q.t, q.x + q.w / 2, q.y + 28); c.textBaseline = 'alphabetic'; }
+  }
   for (let i = 0; i < UI.btns.length; i++) {
-    const b = UI.btns[i], hot = UI.hot[0] === i || UI.hot[1] === i; rrect(c, b.x, b.y, b.w, b.h, b.h / 2);
+    const b = UI.btns[i], hot = !b.static && (UI.hot[0] === i || UI.hot[1] === i); rrect(c, b.x, b.y, b.w, b.h, b.h / 2);
     const g2 = c.createLinearGradient(0, b.y, 0, b.y + b.h);
-    if (b.primary) { g2.addColorStop(0, hot ? '#fff9d0' : '#fff2b0'); g2.addColorStop(0.55, hot ? '#ffd45f' : '#ffc54a'); g2.addColorStop(1, hot ? '#ffa43a' : '#ff9c2b'); } else { g2.addColorStop(0, hot ? 'rgba(120,200,255,.55)' : 'rgba(255,255,255,.14)'); g2.addColorStop(1, hot ? 'rgba(60,140,220,.55)' : 'rgba(255,255,255,.06)'); }
+    if (b.primary) { g2.addColorStop(0, hot ? '#fff9d0' : '#fff2b0'); g2.addColorStop(0.55, hot ? '#ffd45f' : '#ffc54a'); g2.addColorStop(1, hot ? '#ffa43a' : '#ff9c2b'); } else if (b.static) { g2.addColorStop(0, 'rgba(255,255,255,.05)'); g2.addColorStop(1, 'rgba(255,255,255,.02)'); } else { g2.addColorStop(0, hot ? 'rgba(120,200,255,.55)' : 'rgba(255,255,255,.14)'); g2.addColorStop(1, hot ? 'rgba(60,140,220,.55)' : 'rgba(255,255,255,.06)'); }
     c.fillStyle = g2; c.fill(); c.lineWidth = hot ? 6 : 3; c.strokeStyle = hot ? '#ffffff' : (b.primary ? 'rgba(255,235,170,.6)' : 'rgba(255,255,255,.4)'); c.stroke();
-    c.fillStyle = b.primary ? '#2a1400' : '#eaf6ff'; c.font = (b.primary ? '900 54px ' : '800 36px ') + VFONT; c.textBaseline = 'middle'; c.fillText(b.label(), b.x + b.w / 2, b.y + b.h / 2 + 2); c.textBaseline = 'alphabetic';
+    const lab = b.label(); let fs = b.primary ? 54 : 36; c.font = (b.primary ? '900 ' : '800 ') + fs + 'px ' + VFONT; while (c.measureText(lab).width > b.w - 28 && fs > 26) { fs -= 2; c.font = (b.primary ? '900 ' : '800 ') + fs + 'px ' + VFONT; }
+    c.fillStyle = b.primary ? '#2a1400' : b.static ? 'rgba(234,246,255,.55)' : '#eaf6ff'; c.textBaseline = 'middle'; c.fillText(lab, b.x + b.w / 2, b.y + b.h / 2 + 2); c.textBaseline = 'alphabetic';
   }
   p.tex.needsUpdate = true;
 }
 function vrBuildButtons(mode) {
-  const W = UI.main.pw, B = UI.btns; B.length = 0;
-  const sizeL = () => 'SIZE: ' + ['S', 'M', 'L'][vrCfg.size], turnL = () => 'TURN: ' + (vrCfg.snap ? 'SNAP 30°' : 'SMOOTH'), gfxL = () => 'GFX: ' + (vrCfg.q === 'vr' ? 'VR' : 'LITE');
-  const rows = mode === 'start' ? [[['cta', () => 'BEGIN', 1]], [['size', sizeL], ['turn', turnL], ['qual', gfxL]], [['exit', () => 'EXIT VR']]]
-    : mode === 'pause' ? [[['resume', () => 'RESUME', 1]], [['menu', () => 'MAIN MENU'], ['exit', () => 'EXIT VR']], [['size', sizeL], ['turn', turnL], ['qual', gfxL]]]
-      : [[['cta2', () => $('cta2').textContent || 'RETRY', 1]], [['menu', () => 'MAIN MENU'], ['exit', () => 'EXIT VR']]];
-  let y = 300; const m = 48;
-  rows.forEach((row, ri) => { const h = ri === 0 ? 112 : 84, n = row.length, gap = 22, w = (W - 2 * m - gap * (n - 1)) / n; row.forEach((r, i) => B.push({ id: r[0], label: r[1], primary: !!r[2], x: m + i * (w + gap), y, w, h })); y += h + 22; });
+  const W = UI.main.pw, B = UI.btns, ctx = UI.main.ctx; B.length = 0; UI.chips.length = 0;
+  const sizeL = () => 'SIZE: ' + ['S', 'M', 'L'][vrCfg.size], turnL = () => 'TURN: ' + (vrCfg.snap ? 'SNAP 30\u00b0' : 'SMOOTH'), gfxL = () => 'GFX: ' + (vrCfg.q === 'vr' ? 'VR' : 'LITE'), diffL = () => 'DIFFICULTY: ' + RPG_TUNING.difficulty[RP.diff].name, tierL = () => 'RIFT TIER ' + RP.riftTier;
+  let rows, y = 300; const ul = RP.riftUnlocked;
+  if (mode === 'start') { y = 372; rows = [[['cta', () => 'BEGIN', 1]], [['diff', diffL], ['inv', () => 'INVENTORY']], ul ? [['rtm', () => '-', 0, 1], ['rtl', tierL, 0, 3, 1], ['rtp', () => '+', 0, 1], ['rift', () => 'SHATTER RIFT', 0, 4]] : [['rtl', () => 'SHATTER RIFTS UNLOCK AFTER THE FINALE', 0, 1, 1]], [['size', sizeL], ['turn', turnL], ['qual', gfxL]], [['exit', () => 'EXIT VR']]]; }
+  else if (mode === 'pause') rows = [[['resume', () => 'RESUME', 1]], [['inv', () => 'INVENTORY'], ['menu', () => 'MAIN MENU'], ['exit', () => 'EXIT VR']], [['size', sizeL], ['turn', turnL], ['qual', gfxL]]];
+  else {
+    const lines = (($('deadS').innerHTML || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')).split('\n').length; y = 190 + lines * 44 + 12;
+    const sum = $('rpgRunSum'); if (sum && sum.children.length) { ctx.font = '700 32px ' + VFONT; let x = 48, ry = y; for (const el of sum.children) { const w = Math.ceil(ctx.measureText(el.textContent).width) + 40; if (x + w > W - 48 && x > 48) { x = 48; ry += 64; } UI.chips.push({ t: el.textContent, cls: el.className, x, y: ry, w }); x += w + 12; } y = ry + 52 + 26; const rowW = {}; for (const q of UI.chips) rowW[q.y] = (rowW[q.y] || 48) + q.w + 12; for (const q of UI.chips) { const tot = rowW[q.y] - 12 - 48, off = (W - 96 - tot) / 2; q.x += off; } }
+    const ex = [['inv', () => 'INVENTORY']]; if (RIFT) ex.push(['seed', () => 'NEW SEED']); else if (G.won && RP.riftUnlocked) ex.push(['rift', () => 'SHATTER RIFT']); ex.push(['menu', () => 'MAIN MENU']);
+    rows = [[['cta2', () => $('cta2').textContent || 'RETRY', 1]], ex, [['exit', () => 'EXIT VR']]];
+  }
+  const m = 48; UI.sumBottom = y;
+  rows.forEach((row, ri) => { const h = ri === 0 ? 112 : 84, n = row.length, gap = 22; let tw = 0; for (const r of row) tw += r[3] || 1; const aw = W - 2 * m - gap * (n - 1); let x = m; row.forEach(r => { const w = aw * (r[3] || 1) / tw; B.push({ id: r[0], label: r[1], primary: !!r[2], static: !!r[4], x, y, w, h }); x += w + gap; }); y += h + 22; });
 }
 function vrDrawHow() {
   const p = UI.how, c = p.ctx, W = p.pw, H = p.ph; c.clearRect(0, 0, W, H);
   rrect(c, 8, 8, W - 16, H - 16, 42); c.fillStyle = 'rgba(8,22,34,.93)'; c.fill(); c.lineWidth = 6; c.strokeStyle = 'rgba(83,224,208,.9)'; c.stroke();
   c.textBaseline = 'alphabetic'; c.textAlign = 'center'; c.fillStyle = '#53e0d0'; c.font = '900 52px ' + VFONT; c.fillText('TOUCH CONTROLS', W / 2, 84);
-  const rows = [['LEFT STICK', 'move (relative to your head)'], ['RIGHT STICK', 'turn the table 30° (flick)'], ['A', 'jump - chain 3 for a triple'], ['B', 'crouch / ground-pound in air'], ['TRIGGER', 'punch / dive in air'], ['GRIP (hold)', 'REWIND shattered blocks'], ['X  tap / hold', 'table size / recentre'], ['Y', 'pause menu'], ['L-STICK CLICK', 'sprint'], ['R-STICK CLICK', 'talk / flip pad']];
+  const rows = [['LEFT STICK', 'move (relative to your head)'], ['RIGHT STICK', 'turn the table 30\u00b0 (flick)'], ['A', 'jump - chain 3 for a triple'], ['B', 'crouch / ground-pound in air'], ['TRIGGER', 'punch / dive in air'], ['GRIP (hold)', 'REWIND shattered blocks'], ['X  tap / hold', 'table size / recentre'], ['Y  tap', 'pause menu'], ['Y  HOLD', 'inventory, perks, character'], ['L-STICK CLICK', 'sprint'], ['R-STICK CLICK', 'talk / flip pad']];
   let y = 150; c.textAlign = 'left';
-  for (const r of rows) { c.fillStyle = '#ffd66b'; c.font = '800 34px ' + VFONT; c.fillText(r[0], 44, y); c.fillStyle = '#eaf6ff'; c.font = '600 34px ' + VFONT; c.fillText(r[1], 330, y); y += 52; }
-  c.textAlign = 'center'; c.fillStyle = '#9fd8ff'; c.font = '600 30px ' + VFONT; c.fillText('Bluetooth pad: same as flat play', W / 2, H - 38);
+  for (const r of rows) { c.fillStyle = r[0] === 'Y  HOLD' ? '#ffe27a' : '#ffd66b'; c.font = '800 34px ' + VFONT; c.fillText(r[0], 44, y); c.fillStyle = r[0] === 'Y  HOLD' ? '#fff4c8' : '#eaf6ff'; c.font = '600 34px ' + VFONT; c.fillText(r[1], 330, y); y += 50; }
+  c.fillStyle = '#ffb15e'; c.font = '800 32px ' + VFONT; c.fillText('IN THE INVENTORY / PERK PICK', 44, y + 18); y += 62;
+  c.font = '600 31px ' + VFONT; c.fillStyle = '#eaf6ff'; for (const t of ['Sticks move the cursor (no turning). A equip / pick.', 'B back. X salvage (twice). Y lock. Y hold = close.', 'Grips switch tab. Trigger clicks what the laser points at.']) { c.fillText(t, 44, y); y += 40; }
+  c.textAlign = 'center'; c.fillStyle = '#9fd8ff'; c.font = '600 30px ' + VFONT; c.fillText('Bluetooth pad: same as flat play', W / 2, H - 34);
   p.tex.needsUpdate = true;
 }
 function vrDrawCaption() {
@@ -3372,15 +3395,38 @@ function vrDrawCaption() {
 function vrDrawWrist() {
   const p = UI.wrP, c = p.ctx, W = p.pw, H = p.ph; c.clearRect(0, 0, W, H);
   rrect(c, 8, 8, W - 16, H - 16, 52); const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(10,26,42,.94)'); g.addColorStop(1, 'rgba(6,14,24,.94)'); c.fillStyle = g; c.fill(); c.lineWidth = 6; c.strokeStyle = 'rgba(83,224,208,.9)'; c.stroke();
-  c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.fillStyle = '#ffd66b'; c.font = '800 42px ' + VFONT; c.fillText(ACT_NAMES[G.act] || '', 48, 84);
-  for (let i = 0; i < 3; i++) { const x = 100 + i * 118, y = 190; c.beginPath(); c.arc(x, y, 46, 0, TAU); c.fillStyle = i < P.hp ? (P.big ? '#ffd24a' : '#ff5a4a') : 'rgba(255,255,255,.1)'; c.fill(); c.lineWidth = 5; c.strokeStyle = 'rgba(255,230,160,.7)'; c.stroke(); }
-  c.beginPath(); c.arc(590, 190, 36, 0, TAU); const cg = c.createRadialGradient(580, 180, 4, 590, 190, 38); cg.addColorStop(0, '#fff7c2'); cg.addColorStop(0.55, '#ffc93a'); cg.addColorStop(1, '#d98a12'); c.fillStyle = cg; c.fill();
-  c.fillStyle = '#fff4d8'; c.font = '900 84px ' + VFONT; c.fillText('×' + G.coins, 648, 220);
-  const n = ACT_SHARDS[G.act] || 0; for (let i = 0; i < n; i++) { const x = 90 + i * (n > 4 ? 100 : 118), y = 350, on = i < G.shards; c.save(); c.translate(x, y); c.rotate(PI / 4); rrect(c, -30, -30, 60, 60, 7); c.fillStyle = on ? '#ffc54a' : 'rgba(255,255,255,.12)'; c.fill(); c.lineWidth = 4; c.strokeStyle = on ? '#fff2b8' : 'rgba(255,230,160,.5)'; c.stroke(); c.restore(); }
-  c.fillStyle = '#9fb4c8'; c.font = '700 34px ' + VFONT; c.fillText('TIME', 48, 468); c.fillText('SCORE', 470, 468);
-  c.fillStyle = '#fff4d8'; c.font = '900 78px ' + VFONT; c.fillText(fmtTime(G.t), 48, 548); c.fillText(String(G.score), 470, 548);
-  c.fillStyle = '#53e0d0'; c.font = '800 42px ' + VFONT; c.fillText(G.nsd >= 0 ? 'NEXT SHARD  ' + G.nsd + ' m' : (G.shardsTotal > 0 && G.shards >= G.shardsTotal ? 'ALL SHARDS FOUND' : ''), 48, 686);
+  c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.fillStyle = '#ffd66b'; c.font = '800 40px ' + VFONT; c.fillText(RIFT ? 'RIFT TIER ' + RIFT.tier : (ACT_NAMES[G.act] || ''), 44, 78);
+  const cap = RP.level >= RPG_TUNING.levelCap; c.textAlign = 'right'; c.fillStyle = '#ffe27a'; c.font = '900 46px ' + VFONT; c.fillText('LV ' + RP.level + (cap ? ' MAX' : ''), W - 44, 78);
+  // hp bar (+ shield sliver)
+  const hf = clamp(RT.hp / RT.max, 0, 1); rrect(c, 40, 100, W - 80, 86, 24); c.fillStyle = 'rgba(255,255,255,.1)'; c.fill();
+  if (hf > 0.01) { rrect(c, 40, 100, Math.max(40, (W - 80) * hf), 86, 24); const hg = c.createLinearGradient(0, 100, 0, 186); const hc = hf > 0.5 ? ['#7cf08a', '#2faa4a'] : hf > 0.25 ? ['#ffe27a', '#d9a21a'] : ['#ff8f7a', '#d93a2a']; hg.addColorStop(0, hc[0]); hg.addColorStop(1, hc[1]); c.fillStyle = hg; c.fill(); }
+  if (RT.shield > 0.5) { rrect(c, 40, 176, Math.max(20, (W - 80) * clamp(RT.shield / RT.max, 0, 1)), 14, 7); c.fillStyle = '#9fd0ff'; c.fill(); }
+  c.textAlign = 'center'; c.fillStyle = '#fff'; c.font = '900 56px ' + VFONT; c.lineWidth = 7; c.strokeStyle = 'rgba(0,0,0,.55)'; const ht = Math.ceil(RT.hp) + ' / ' + RT.max + (RT.shield > 0.5 ? '  +' + Math.round(RT.shield) : ''); c.strokeText(ht, W / 2, 162); c.fillText(ht, W / 2, 162);
+  // xp bar
+  const xf = cap ? 1 : clamp(RP.xp / rpgXpNext(RP.level), 0, 1); rrect(c, 40, 206, W - 80, 40, 20); c.fillStyle = 'rgba(255,255,255,.1)'; c.fill(); if (xf > 0.01) { rrect(c, 40, 206, Math.max(40, (W - 80) * xf), 40, 20); c.fillStyle = '#53c8e0'; c.fill(); }
+  c.fillStyle = '#04202a'; c.font = '800 30px ' + VFONT; c.fillText('XP ' + Math.floor(xf * 100) + '%', W / 2, 236);
+  // rewind pips + gold
+  c.textAlign = 'left'; c.fillStyle = '#9fb4c8'; c.font = '700 30px ' + VFONT; c.fillText('REWIND', 44, 312); const nrw = Math.ceil(RT.rwMax); for (let i = 0; i < nrw; i++) { const x = 200 + i * 66; rrect(c, x, 280, 56, 44, 12); c.fillStyle = 'rgba(255,255,255,.12)'; c.fill(); const f = clamp(RT.rw - i, 0, 1); if (f > 0.02) { rrect(c, x, 280, Math.max(14, 56 * f), 44, 12); c.fillStyle = '#53e0d0'; c.fill(); } }
+  rvCoin(c, W - 200, 302, 30); c.textAlign = 'right'; c.fillStyle = '#fff4d8'; c.font = '900 58px ' + VFONT; c.fillText(rfmt(RP.gold), W - 44, 324);
+  // buff chips
+  let bx = 44; const chip = (t, col) => { c.font = '800 30px ' + VFONT; const w = c.measureText(t).width + 30; if (bx + w > W - 40) return; rrect(c, bx, 346, w, 46, 23); c.fillStyle = col; c.fill(); c.fillStyle = '#10202e'; c.textAlign = 'left'; c.fillText(t, bx + 15, 380); bx += w + 10; };
+  if (RT.chill > 0.05) chip('CHILLED', '#9cf3ff'); if (RT.goldStack) chip('GOLD RUSH x' + RT.goldStack, '#ffd24a'); if (RT.surgeT > 0) chip('STAR SURGE', '#ffe27a'); if (RT.S.fx.comboFiend && RT.combo > 1) chip('COMBO x' + Math.min(5, RT.combo), '#ff9a7a'); if (RT.shield > 0.5) chip('SHIELD', '#9fd0ff'); if (P.big) chip('SUPER', '#ff8f7a');
+  // shards
+  const n = ACT_SHARDS[G.act] || 0; if (!RIFT) for (let i = 0; i < n; i++) { const x = 70 + i * (n > 4 ? 84 : 98), y = 440, on = i < G.shards; c.save(); c.translate(x, y); c.rotate(PI / 4); rrect(c, -24, -24, 48, 48, 6); c.fillStyle = on ? '#ffc54a' : 'rgba(255,255,255,.12)'; c.fill(); c.lineWidth = 4; c.strokeStyle = on ? '#fff2b8' : 'rgba(255,230,160,.5)'; c.stroke(); c.restore(); }
+  c.textAlign = 'left'; c.fillStyle = '#9fb4c8'; c.font = '700 30px ' + VFONT; c.fillText('TIME', 44, 520); c.fillText('SCORE', 470, 520);
+  c.fillStyle = '#fff4d8'; c.font = '900 72px ' + VFONT; c.fillText(fmtTime(G.t), 44, 590); c.fillText(String(G.score), 470, 590);
+  if (RIFT) { const left = Math.max(0, RIFT.limit - RIFT.t), pr = RIFT.phase === 'fight' ? RIFT.prog / RIFT.need : 1; c.fillStyle = left < 30 ? '#ff8f7a' : '#53e0d0'; c.font = '900 56px ' + VFONT; c.fillText(fmtTime(left), 44, 676); rrect(c, 260, 640, W - 300, 36, 18); c.fillStyle = 'rgba(255,255,255,.12)'; c.fill(); if (pr > 0.01) { rrect(c, 260, 640, Math.max(36, (W - 300) * clamp(pr, 0, 1)), 36, 18); c.fillStyle = RIFT.phase === 'fight' ? '#53e0d0' : '#ffb15e'; c.fill(); } c.fillStyle = '#cfe0ee'; c.font = '700 32px ' + VFONT; c.fillText(RIFT.phase === 'fight' ? Math.floor(pr * 100) + '% to the guardian' : RIFT.phase === 'guardian' ? 'GUARDIAN' : 'CLEARED', 260, 722); }
+  else { c.fillStyle = '#53e0d0'; c.font = '800 42px ' + VFONT; c.fillText(G.nsd >= 0 ? 'NEXT SHARD  ' + G.nsd + ' m' : (G.shardsTotal > 0 && G.shards >= G.shardsTotal ? 'ALL SHARDS FOUND' : ''), 44, 700); }
   p.tex.needsUpdate = true;
+}
+function vrWristSig() { // redraw the wrist panel only when something it shows changed (allocation-free: numbers only)
+  const w = RV.ws, hp = RT.hp | 0, mx = RT.max | 0, sh = RT.shield | 0, t = G.t | 0, cap = RP.level >= RPG_TUNING.levelCap, xp = cap ? 100 : ((RP.xp / rpgXpNext(RP.level)) * 100) | 0, rw = (RT.rw * 4) | 0, rwm = RT.rwMax | 0;
+  const buf = (RT.chill > 0.05 ? 1 : 0) | (RT.shield > 0.5 ? 2 : 0) | (P.big ? 4 : 0) | (RT.surgeT > 0 ? 8 : 0) | (Math.min(10, RT.goldStack) << 4) | ((RT.S.fx.comboFiend && RT.combo > 1 ? Math.min(5, RT.combo) : 0) << 8);
+  const rl = RIFT ? Math.max(0, RIFT.limit - RIFT.t) | 0 : -1, rp = RIFT ? (RIFT.phase === 'fight' ? Math.min(100, (RIFT.prog / RIFT.need * 100) | 0) : 101 + (RIFT.phase === 'guardian' ? 0 : 1)) : -1;
+  if (w.hp !== hp || w.mx !== mx || w.sh !== sh || w.xp !== xp || w.lv !== RP.level || w.rw !== rw || w.rwm !== rwm || w.gold !== RP.gold || w.buf !== buf || w.rl !== rl || w.rp !== rp || w.big !== G.act || w.t !== t || w.coins !== G.coins || w.shards !== G.shards || w.score !== G.score || w.nsd !== G.nsd) {
+    w.hp = hp; w.mx = mx; w.sh = sh; w.xp = xp; w.lv = RP.level; w.rw = rw; w.rwm = rwm; w.gold = RP.gold; w.buf = buf; w.rl = rl; w.rp = rp; w.big = G.act; w.t = t; w.coins = G.coins; w.shards = G.shards; w.score = G.score; w.nsd = G.nsd; return true;
+  }
+  return false;
 }
 
 // ---- build (lazy, once) -------------------------------------------------------------------------------------------------------------------
@@ -3399,9 +3445,9 @@ function vrBuild() {
     c.addEventListener('disconnected', () => { c.userData.hasSrc = false; c.userData.hand = ''; vrAttachWrist(); });
     rig.add(c); vrCtrl[i] = c;
   }
-  UI.main = vrPanel(1.15, 0.79, 1024, 704, true); UI.how = vrPanel(0.84, 0.584, 1024, 712, true); UI.capP = vrPanel(0.8, 0.25, 1024, 320, false); UI.wrP = vrPanel(0.26, 0.195, 1024, 768, false);
+  UI.main = vrPanel(1.15, 1.123, 1024, 1000, true); UI.how = vrPanel(0.84, 0.681, 1024, 830, true); UI.capP = vrPanel(0.8, 0.25, 1024, 320, false); UI.wrP = vrPanel(0.26, 0.195, 1024, 768, false);
   rig.add(UI.main.mesh, UI.how.mesh, UI.capP.mesh); UI.wrP.mesh.rotation.x = -PI / 2 + 0.5; UI.wrP.mesh.position.set(0, 0.06, 0.07); rig.add(UI.wrP.mesh);
-  UI.wrP.mat.opacity = 0; vrDrawHow(); UI.built = true;
+  UI.wrP.mat.opacity = 0; vrRpgBuild(); vrDrawHow(); UI.built = true;
 }
 function vrAttachWrist() { // the wrist panel rides on the left controller; with no left controller it floats low in front (re-parented to the rig)
   UI.ch[0] = UI.ch[1] = null; for (let i = 0; i < 2; i++) { const c = vrCtrl[i]; if (c && c.userData.hasSrc) { if (c.userData.hand === 'left') UI.ch[0] = c; else if (c.userData.hand === 'right') UI.ch[1] = c; } }
@@ -3469,7 +3515,7 @@ function vrOnEnd() {
 function vrRestore() {
   rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); rig.scale.set(1, 1, 1); camera.near = 0.1; camera.far = 1400; camera.scale.set(1, 1, 1); camera.fov = TUNING.cam.fov; camera.aspect = W / H; camera.updateProjectionMatrix();
   VR.beamK = 1; ptMat.uniforms.uWS.value = 1; moteMat.uniforms.uWS.value = 1; vrBlink.visible = false; vrRing.visible = false; vrArrow.visible = false; VR.fade = 0;
-  if (UI.built) { UI.main.mesh.visible = UI.how.mesh.visible = UI.capP.mesh.visible = UI.wrP.mesh.visible = false; for (let i = 0; i < 2; i++) { const u = vrCtrl[i].userData; u.laser.visible = false; u.ret.visible = false; } }
+  if (UI.built) { vrRpgRestore(); UI.main.mesh.visible = UI.how.mesh.visible = UI.capP.mesh.visible = UI.wrP.mesh.visible = false; for (let i = 0; i < 2; i++) { const u = vrCtrl[i].userData; u.laser.visible = false; u.ret.visible = false; } }
   UI.mode = 'none'; vrMergeAll(false); for (const s of SHARDS) s.mesh.visible = !s.got;
   if (VR.prevQ && QUALITY[VR.prevQ] && !QUALITY[VR.prevQ].vr) applyQuality(VR.prevQ, true); else if (Q.vr) applyQuality('high', true);
   applyAtmosphere(); onResize();
@@ -3517,21 +3563,22 @@ function vrPlaceTable() { // put the diorama in front of the viewer, below eye l
 }
 function vrCycleSize() { vrCfg.size = (vrCfg.size + 1) % VRT.scales.length; VR.S = VRT.scales[vrCfg.size]; VR.fade = 1; vrSaveCfg(); vrHaptic(2, 0.3, 30); toast('Table size ' + ['SMALL', 'MEDIUM', 'LARGE'][vrCfg.size]); sfx('click'); UI.dirtyMain = true; }
 function vrActions(rdt) {
-  const L = XI[0], R = XI[1], play = G.state === 'play';
-  if (play !== VR.wasPlay) { VR.wasPlay = play; vrReleaseAll(); L.sup = L.m; R.sup = R.m; } // buttons held across a state change must be released before they count again
+  const L = XI[0], R = XI[1], play = G.state === 'play', rpm = G.state === 'inv' || G.state === 'perk';
+  if (play !== VR.wasPlay || rpm !== VR.wasRp) { VR.wasPlay = play; VR.wasRp = rpm; vrReleaseAll(); L.sup = L.m; R.sup = R.m; RV.rep.dir = 0; RV.yHold = 0; VR.yDone = false; } // buttons held across a state change must be released before they count again
   for (let h = 0; h < 2; h++) { const X = XI[h]; X.sup &= X.m; X.e = X.m & ~X.sup; X.rise = X.e & ~X.pe; X.pe = X.e; }
+  if (rpm) { vrRpgActions(rdt, L, R); return; } // inventory / perk pick: sticks = cursor, A confirm, B back, X salvage, Y lock, grips = tabs (the world is paused)
   // ---- left stick: analog direction + proportional speed (VRIN) and the same WASD keys the shim uses -------------------------------------
   let mag = 0, ix = 0, iz = 0, ly = 0, lx = 0;
   if (play && L.has) { const m = Math.hypot(L.ax, L.ay), dz = VRT.stickDead; if (m > dz) { const k = (Math.min(m, 1) - dz) / (1 - dz) / m; lx = L.ax * k; ly = L.ay * k; mag = Math.hypot(lx, ly); ix = lx; iz = -ly; } }
   if (play) { vrAxisKeys('a', 'd', lx); vrAxisKeys('w', 's', ly); } else { xkey('a', false); xkey('d', false); xkey('w', false); xkey('s', false); }
   VRIN.mag = mag > 0 ? clamp(mag / 0.85, 0.22, 1) : 0; VRIN.x = ix; VRIN.z = iz;
   xkey(' ', play && !!(R.e & 4)); xkey('z', play && !!(R.e & 8)); xkey('shift', play && !!(L.e & 16));
-  if (play && (R.rise & 16)) { VR.eT = 0.12; keys.add('e'); } if (VR.eT > 0) { VR.eT -= rdt; if (VR.eT <= 0) keys.delete('e'); } // R-stick click: talk / flip pad
+  if (play && (R.rise & 16)) { VR.eT = 0.12; VR.eKey = true; keys.add('e'); VR.eKey = false; } if (VR.eT > 0) { VR.eT -= rdt; if (VR.eT <= 0) keys.delete('e'); } // R-stick click: talk / flip pad
   const fireNow = play && !!((L.e | R.e) & 1), placeNow = play && !!((L.e | R.e) & 2);
   if (fireNow !== VR.fire) { VR.fire = fireNow; padFire(fireNow); if (fireNow) VR.fireHand = (R.e & 1) ? 1 : 0; }
   if (placeNow !== VR.place) { VR.place = placeNow; padPlace(placeNow); }
-  // ---- Y: pause menu; X: tap = table size, hold = recentre ------------------------------------------------------------------------------
-  if (L.rawRise & 8) { if (G.state === 'play') pauseGame(); else if (G.state === 'pause') resumeGame(); }
+  // ---- Y: pause menu (tap) / inventory (hold); X: tap = table size, hold = recentre ------------------------------------------------------------------------------
+  if (vrYLogic(rdt, L)) return; // Y: tap = pause / resume (at release), hold 0.4 s = inventory
   if (L.m & 4) { VR.xHold += rdt; if (VR.xHold > 0.6 && !VR.xDone) { VR.xDone = true; vrPlaceTable(); VR.fade = 1; vrHaptic(0, 0.5, 60); toast('Table recentred'); } }
   else { if (VR.xHold > 0 && !VR.xDone) vrCycleSize(); VR.xHold = 0; VR.xDone = false; }
   // ---- right stick: snap turn (30 deg per flick, re-armed when the stick returns) or smooth turn ----------------------------------------
@@ -3539,9 +3586,13 @@ function vrActions(rdt) {
   if (vrCfg.snap) { if (VR.snapArmed) { if (Math.abs(rx) > VRT.snapOn) { VR.yaw -= Math.sign(rx) * VRT.snapDeg * PI / 180; VR.snapArmed = false; VR.turns++; vrHaptic(1, 0.12, 12); } } else if (Math.abs(rx) < VRT.snapOff) VR.snapArmed = true; }
   else { const m = Math.abs(rx); if (m > VRT.stickDead) VR.yaw -= Math.sign(rx) * (m - VRT.stickDead) / (1 - VRT.stickDead) * VRT.smoothDegPerSec * PI / 180 * rdt; VR.snapArmed = true; }
 }
-function vrUiMode() { return G.state === 'menu' ? 'start' : G.state === 'pause' ? 'pause' : G.state === 'dead' ? (G.won ? 'win' : 'lose') : 'none'; }
+function vrUiMode() { return G.state === 'menu' ? 'start' : G.state === 'pause' ? 'pause' : G.state === 'dead' ? (G.won ? 'win' : 'lose') : G.state === 'inv' ? 'inv' : G.state === 'perk' ? 'perk' : 'none'; }
 function vrUiOpen(mode) {
-  UI.mode = mode; UI.hot[0] = UI.hot[1] = -1; UI.hotKey = -1; const on = mode !== 'none'; UI.main.mesh.visible = on; UI.how.mesh.visible = on && (mode === 'start' || mode === 'pause'); if (!on) return;
+  UI.mode = mode; UI.hot[0] = UI.hot[1] = -1; UI.hotKey = -1; const on = mode !== 'none', rpm = mode === 'inv' || mode === 'perk'; UI.main.mesh.visible = on && !rpm; UI.how.mesh.visible = on && (mode === 'start' || mode === 'pause'); UI.rp.mesh.visible = rpm; RV.hotId[0] = RV.hotId[1] = ''; RV.rep.dir = 0; if (!on) return;
+  if (rpm) { // the big RPG panel sits where you are looking, level with the horizon so the table below stays visible; it never follows the head afterwards
+    const hx = VR.hpx, hz = VR.hpz, gx = VR.gx, gz = VR.gz, pit = clamp(Math.asin(clamp(VR.fy, -1, 1)), -0.2, 0.08), y = Math.max(0.7, VR.hpy + VR.floorY + Math.sin(pit) * 1.15) - VR.floorY, hd = Math.cos(pit) * 1.15;
+    vrPlacePanel(UI.rp, hx + gx * hd, y, hz + gz * hd, hx, hz); RV.dirty = true; RV.pkPage = 0; vrDrawRp(); toastPollForce(); return;
+  }
   vrBuildButtons(mode);
   const hx = VR.hpx, hz = VR.hpz, gx = VR.gx, gz = VR.gz, pit = clamp(Math.asin(clamp(VR.fy, -1, 1)), -0.5, 0.09); // panel sits where you are looking, but never steeper than ~28 deg down
   const y = Math.max(0.6, VR.hpy + VR.floorY + Math.sin(pit) * 1.3) - VR.floorY, hd = Math.cos(pit) * 1.3;
@@ -3561,29 +3612,41 @@ function vrUiClick(id) {
     case 'turn': vrCfg.snap = vrCfg.snap ? 0 : 1; vrSaveCfg(); toast(vrCfg.snap ? 'Snap turn 30°' : 'Smooth turn'); UI.dirtyMain = true; break;
     case 'qual': vrSetQuality(vrCfg.q === 'vr' ? 'vrlite' : 'vr'); toast(vrCfg.q === 'vr' ? 'VR graphics' : 'VR lite graphics (smaller shadows, fewer blocks)'); UI.dirtyMain = true; break;
     case 'exit': vrExit(); break;
+    case 'inv': openInv(); break;
+    case 'diff': { const d = $('rpgMenu').querySelector('[data-diff="' + ((RP.diff + 1) % (RP.diffUnlocked + 1)) + '"]'); if (d) d.click(); UI.dirtyMain = true; break; }
+    case 'rtm': case 'rtp': { const d = $('rpgMenu').querySelector('[data-rt="' + (id === 'rtp' ? 1 : -1) + '"]'); if (d) d.click(); UI.dirtyMain = true; break; }
+    case 'rift': { const d = $('rpgMenu').querySelector('[data-go="rift"]'); if (d && G.state === 'menu') d.click(); else if (G.state === 'dead') { if (RIFT) rpgRiftRestart(false, false); else rpgStartRift(RP.riftTier, RP.riftSeed || null); } break; }
+    case 'seed': rpgRiftRestart(false, false); break;
   }
 }
 function vrUiFrame(rdt) {
   const mode = vrUiMode(); if (mode !== UI.mode) vrUiOpen(mode);
-  const open = UI.mode !== 'none';
+  const open = UI.mode !== 'none', rpm = UI.mode === 'inv' || UI.mode === 'perk';
   if (open) {
-    let hotKey = 0;
+    let hotKey = 0; const pan = rpm ? UI.rp : UI.main, list = rpm ? RV.btns : UI.btns;
     for (let h = 0; h < 2; h++) {
       const c = UI.ch[h]; let hot = -1, hit = false; UI.hit[h] = false;
       const X = XI[h]; if (X.has && c && c.visible) {
         _vb.set(0, 0, -1).applyQuaternion(c.quaternion); const p = c.position;
-        if (vrHitPanel(UI.main, p.x, p.y, p.z, _vb.x, _vb.y, _vb.z, _hit)) {
+        if (vrHitPanel(pan, p.x, p.y, p.z, _vb.x, _vb.y, _vb.z, _hit)) {
           hit = true; UI.laserLen[h] = _hit.t; UI.hit[h] = true;
-          for (let i = 0; i < UI.btns.length; i++) { const b = UI.btns[i]; if (_hit.u >= b.x && _hit.u <= b.x + b.w && _hit.v >= b.y && _hit.v <= b.y + b.h) { hot = i; break; } }
-          const r = c.userData.ret; r.position.set(p.x + _vb.x * _hit.t, p.y + _vb.y * _hit.t, p.z + _vb.z * _hit.t); r.rotation.y = Math.atan2(UI.main.nx, UI.main.nz);
+          for (let i = 0; i < list.length; i++) { const b = list[i]; if (b.static) continue; if (_hit.u >= b.x && _hit.u <= b.x + b.w && _hit.v >= b.y && _hit.v <= b.y + b.h) { hot = i; break; } }
+          const r = c.userData.ret; r.position.set(p.x + _vb.x * _hit.t, p.y + _vb.y * _hit.t, p.z + _vb.z * _hit.t); r.rotation.y = Math.atan2(pan.nx, pan.nz);
         } else UI.laserLen[h] = 1.2;
-        if (hot >= 0 && hot !== UI.hot[h]) vrHaptic(h, 0.15, 10);
-        if (hot >= 0 && (X.rawRise & 1)) vrUiClick(UI.btns[hot].id);
-      }
+        if (rpm) { // the RPG panel keys its hot regions by id (the layout changes with the selection): hover selects, trigger clicks
+          const id = hot >= 0 ? list[hot].id : ''; if (id !== RV.hotId[h]) { RV.hotId[h] = id; RV.dirty = true; if (id) { vrHaptic(h, 0.12, 8); vrRpgHover(id); } }
+          if (id && (X.rawRise & 1)) vrRpgClick(id);
+        } else {
+          if (hot >= 0 && hot !== UI.hot[h]) vrHaptic(h, 0.15, 10);
+          if (hot >= 0 && (X.rawRise & 1)) vrUiClick(UI.btns[hot].id);
+        }
+      } else if (rpm && RV.hotId[h] !== '') { RV.hotId[h] = ''; RV.dirty = true; }
       UI.hot[h] = hot; hotKey |= (hot + 1) << (h * 8);
     }
-    if ((XI[1].rawRise & 4) && UI.btns.length) vrUiClick(UI.btns[0].id); // A confirms the primary button
-    if (hotKey !== UI.hotKey || UI.dirtyMain) { UI.hotKey = hotKey; UI.dirtyMain = false; if (UI.mode !== 'none') vrDrawMain(); }
+    if (!rpm) {
+      if ((XI[1].rawRise & 4) && UI.btns.length) vrUiClick(UI.btns[0].id); // A confirms the primary button
+      if (hotKey !== UI.hotKey || UI.dirtyMain) { UI.hotKey = hotKey; UI.dirtyMain = false; if (UI.mode !== 'none') vrDrawMain(); }
+    }
   }
   // lasers / reticles visible only while a panel is open
   for (let i = 0; i < 2; i++) { const c = vrCtrl[i], u = c.userData, h = u.hand === 'left' ? 0 : u.hand === 'right' ? 1 : -1; const show = open && h >= 0 && u.hasSrc && XI[h].has && c.visible; u.laser.visible = show; u.ret.visible = show && UI.hit[h]; if (show) u.laser.scale.z = Math.max(0.01, UI.laserLen[h] - 0.004); }
@@ -3596,18 +3659,13 @@ function vrCaptionPoll(rdt) { // allocation-free: DOM class reads + the sequence
   const to = domToast.classList.contains('on'); if (to !== k.toastOn || G.toastSeq !== k.toastSeq) { k.toastOn = to; k.toastSeq = G.toastSeq; k.toast = G.toastMsg || ''; ch = true; }
   const ta = domTalk.classList.contains('on'); if (ta !== k.talkOn || G.talkSeq !== k.talkSeq) { k.talkOn = ta; k.talkSeq = G.talkSeq; k.talk = G.talkMsg || ''; k.who = G.talkWho || ''; ch = true; }
   const po = G.state === 'play' && PROMPT !== ''; if (po !== k.promptOn || (po && PROMPT !== k.prompt)) { k.promptOn = po; k.prompt = po ? PROMPT : k.prompt; ch = true; }
-  if (ch) vrDrawCaption();
-}
-function vrWristSig() { // redraw the wrist panel only when something it shows changed
-  const w = UI.wr; const hp = P.hp | 0, big = P.big ? 1 : 0, t = G.t | 0;
-  if (w.hp !== hp || w.big !== big || w.coins !== G.coins || w.shards !== G.shards || w.act !== G.act || w.score !== G.score || w.t !== t || w.nsd !== G.nsd) { w.hp = hp; w.big = big; w.coins = G.coins; w.shards = G.shards; w.act = G.act; w.score = G.score; w.t = t; w.nsd = G.nsd; return true; }
-  return false;
+  if (ch) { vrDrawCaption(); if (UI.rp && UI.rp.mesh.visible) RV.dirty = true; }
 }
 function vrPre(rdt) {
   if (!UI.built || !VR.session) return;
   vrReadInputs(); vrHead(rdt);
   if (VR.needAnchor && VR.headOk) vrPlaceTable();
-  vrActions(rdt); vrUiFrame(rdt); vrCaptionPoll(rdt);
+  vrActions(rdt); vrUiFrame(rdt); vrCaptionPoll(rdt); vrRpgPre(rdt);
 }
 
 // ---- the rig: camera dolly follows the hero (replaces the flat chase camera in VR) ---------------------------------------------------
@@ -3663,12 +3721,13 @@ function vrRenderPrep() {
     const p = UI.capP, x = VR.hpx + Math.sin(VR.capAng) * 1.05, z = VR.hpz + Math.cos(VR.capAng) * 1.05; vrPlacePanel(p, x, Math.max(0.4, VR.hpy - 0.4), z, VR.hpx, VR.hpz);
     p.mat.opacity += (want - p.mat.opacity) * 0.25; p.mesh.visible = p.mat.opacity > 0.02;
   }
+  vrRpgRenderPrep();
 }
 function vrDbg() {
   const inp = [];
   for (let h = 0; h < 2; h++) { const X = XI[h]; inp.push({ hand: h ? 'right' : 'left', has: X.has, isHand: X.hand, axes: [+X.ax.toFixed(2), +X.ay.toFixed(2)], trig: +X.trig.toFixed(2), grip: +X.grip.toFixed(2), a: X.b4, b: X.b5, stick: X.stick }); }
   const r = renderer.info.render;
-  return { supported: VR.supported, presenting: VR.presenting, mode: VR.mode, snapDeg: vrCfg.snap ? VRT.snapDeg : 0, scale: VR.S, size: vrCfg.size, rigYawDeg: +(VR.yaw * 180 / PI).toFixed(3), rigPos: [rig.position.x, rig.position.y, rig.position.z], frames: VR.frames, turns: VR.turns, haptics: VR.haptics, ui: UI.mode, tier: Q.vr ? qName : null, features: VR.sessionFeatures, fade: VR.fade, avgMs: +VR.avgMs.toFixed(1), draw: { calls: r.calls, triangles: r.triangles }, inputs: inp };
+  return { supported: VR.supported, presenting: VR.presenting, mode: VR.mode, snapDeg: vrCfg.snap ? VRT.snapDeg : 0, scale: VR.S, size: vrCfg.size, rigYawDeg: +(VR.yaw * 180 / PI).toFixed(3), rigPos: [rig.position.x, rig.position.y, rig.position.z], frames: VR.frames, turns: VR.turns, haptics: VR.haptics, ui: UI.mode, tier: Q.vr ? qName : null, features: VR.sessionFeatures, fade: VR.fade, avgMs: +VR.avgMs.toFixed(1), draw: { calls: r.calls, triangles: r.triangles }, inputs: inp, rpg: { rp: !!UI.rp && UI.rp.mesh.visible, hud: !!UI.hudP && UI.hudP.mesh.visible, hot: RV.hotId.slice(), btns: RV.btns.length, plates: RV.nPlates, beams: RV.nBeams, haps: RV.hapSeq, hapPlayed: RV.hapPlayed, yHold: +RV.yHold.toFixed(2), banner: RV.ban.on && performance.now() < RV.ban.until } };
 }
 
 // <rpg-core> =================================================================================================================
@@ -4064,6 +4123,7 @@ function rpgHealFull() { RT.hp = RT.max; rpgMirror(); }
 
 // ---- WebAudio: one cue per event (uses the game's osc / noiseHit helpers, always start(t)/stop(t+dur) scheduled) ----------------------------------------
 function rsfx(name, a = 0) {
+  if (VR.presenting) vrRsfxHaptic(name, a); // every RPG cue also gets a haptic pattern in VR (<vr-rpg> block)
   if (!AC || muted) return; const t = AC.currentTime, now = performance.now(); if (lastSfx['r' + name] && now - lastSfx['r' + name] < 28) return; lastSfx['r' + name] = now;
   switch (name) {
     case 'pick0': osc('square', 880, 1100, t, 0.06, 0.05); break;
@@ -4204,7 +4264,7 @@ function rpgProject(x, y, z, out) { _pv.set(x, y, z).project(camera); if (_pv.z 
 const FLT_POOL = [], PLATES = [], _pp = { x: 0, y: 0 }; let fltNext = 0;
 (() => { const fl = $('rpgFloat'), pl = $('rpgPlates'); for (let i = 0; i < 26; i++) { const d = document.createElement('div'); d.className = 'flt'; fl.appendChild(d); FLT_POOL.push(d); d.addEventListener('animationend', () => d.classList.remove('go')); } for (let i = 0; i < 16; i++) { const d = document.createElement('div'); d.className = 'plate'; pl.appendChild(d); PLATES.push({ d, key: '', on: false }); } })();
 let fltFrame = 0, fltCount = 0;
-function floatText(x, y, z, txt, cls = '') { if (G.state !== 'play') return; if (fltFrame !== frameCount) { fltFrame = frameCount; fltCount = 0; } if (++fltCount > 9 && cls !== 'crit' && cls !== 'hurt') return; /* cap DOM churn in big AoE frames */ if (!rpgProject(x, y, z, _pp)) return; const d = FLT_POOL[fltNext++ % FLT_POOL.length]; d.className = 'flt ' + cls; d.textContent = txt; d.style.setProperty('--x', (_pp.x + (Math.random() - 0.5) * 26) + 'px'); d.style.setProperty('--y', _pp.y + 'px'); void d.offsetWidth; d.classList.add('go'); }
+function floatText(x, y, z, txt, cls = '') { if (G.state !== 'play' || VR.presenting) return; if (fltFrame !== frameCount) { fltFrame = frameCount; fltCount = 0; } if (++fltCount > 9 && cls !== 'crit' && cls !== 'hurt') return; /* cap DOM churn in big AoE frames */ if (!rpgProject(x, y, z, _pp)) return; const d = FLT_POOL[fltNext++ % FLT_POOL.length]; d.className = 'flt ' + cls; d.textContent = txt; d.style.setProperty('--x', (_pp.x + (Math.random() - 0.5) * 26) + 'px'); d.style.setProperty('--y', _pp.y + 'px'); void d.offsetWidth; d.classList.add('go'); }
 function rpgLogLine(txt, col) { const el = document.createElement('div'); el.textContent = txt; if (col) { el.style.color = col; el.style.borderColor = col; } const lg = $('rpgLog'); lg.appendChild(el); while (lg.childElementCount > 6) lg.firstChild.remove(); setTimeout(() => el.remove(), 4300); }
 function rpgBanner(h, p, leg) { const b = $('rpgBanner'); $('rpgBanH').textContent = h; $('rpgBanP').textContent = p || ''; b.classList.toggle('leg', !!leg); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); }
 
@@ -4217,8 +4277,8 @@ const BEAM_H = [0, 7, 14, 42];
 function spawnLoot(kind, x, y, z, payload) {
   const L = { kind, x, y: y + 0.6, z, vx: (Math.random() - 0.5) * 4, vy: 6 + Math.random() * 3, vz: (Math.random() - 0.5) * 4, t: 0, landed: false, g: new THREE.Group(), item: null, val: 0, ph: Math.random() * 6, sp: 0, rar: 0, gy: y };
   if (kind === 'item') {
-    L.item = payload; L.rar = RPG_RARITIES.indexOf(payload.rarity); const gem = new THREE.Mesh(L.rar === 0 ? LOOT_GEO.box : LOOT_GEO.gem, LOOT_MAT[L.rar]); gem.scale.setScalar(1 + L.rar * 0.22); gem.castShadow = true; L.gem = gem; L.g.add(gem);
-    if (L.rar > 0) { const b = new THREE.Mesh(LOOT_GEO.beam, LOOT_BEAM[L.rar]); b.scale.set(1 + (L.rar === 3 ? 0.7 : 0), BEAM_H[L.rar], 1 + (L.rar === 3 ? 0.7 : 0)); b.position.y = -0.2; b.frustumCulled = false; L.g.add(b); }
+    L.item = payload; L.rar = RPG_RARITIES.indexOf(payload.rarity); const gem = new THREE.Mesh(L.rar === 0 ? LOOT_GEO.box : LOOT_GEO.gem, LOOT_MAT[L.rar]); gem.scale.setScalar(1 + L.rar * 0.22); gem.castShadow = !VR.presenting; L.gem = gem; L.g.add(gem);
+    if (L.rar > 0) { const b = new THREE.Mesh(LOOT_GEO.beam, LOOT_BEAM[L.rar]); b.scale.set(1 + (L.rar === 3 ? 0.7 : 0), BEAM_H[L.rar], 1 + (L.rar === 3 ? 0.7 : 0)); b.position.y = -0.2; b.frustumCulled = false; L.g.add(b); L.beam = b; }
   } else if (kind === 'gold') { L.val = payload; const c = new THREE.Mesh(LOOT_GEO.coin, GOLD_MAT); c.scale.setScalar(1 + Math.min(1.2, payload / 150)); L.gem = c; L.g.add(c); }
   else { L.val = payload; const c = new THREE.Mesh(LOOT_GEO.dust, DUST_MAT); L.gem = c; L.g.add(c); }
   L.g.position.set(L.x, L.y, L.z); scene.add(L.g); LOOT.push(L);
@@ -4238,7 +4298,7 @@ function rpgPickupLoot(L, force) {
   if (L.kind === 'gold') { const g = Math.round(L.val); RP.gold += g; RUN.gold += g; G.coins++; G.runCoins++; sfx('coin', Math.min(8, G.coinCombo++)); G.coinComboT = 0.8; RT.goldT = 5; if (RT.S.powers.includes('goldrush')) { RT.goldStack = Math.min(10, RT.goldStack + 1); RT.buffRun = 0.03 * RT.goldStack; rpgApplyTuning(); } floatText(L.x, L.y + 0.6, L.z, '+' + g, 'gold'); sparkBurst(L.x, L.y, L.z, 4, 0xffd040, 3); updateHUD(); rpgFree(L); RT.dirty = true; return true; }
   if (L.kind === 'dust') { const d = Math.max(1, Math.round(L.val)); RP.dust += d; RUN.dust += d; rsfx('dust'); floatText(L.x, L.y + 0.6, L.z, '+' + d + ' shards', 'xp'); sparkBurst(L.x, L.y, L.z, 4, 0x53e0d0, 3); rpgFree(L); RT.dirty = true; return true; }
   const it = L.item, where = rpgAddItem(it);
-  if (!where) { if (!force && RT.real - RT.bagWarnT > 3) { RT.bagWarnT = RT.real; toast('BAG FULL - open the inventory (I) and salvage something'); rsfx('deny'); } L.blocked = true; return false; }
+  if (!where) { if (!force && RT.real - RT.bagWarnT > 3) { RT.bagWarnT = RT.real; toast(VR.presenting ? 'BAG FULL - hold Y for the inventory and salvage something' : 'BAG FULL - open the inventory (I) and salvage something'); rsfx('deny'); } L.blocked = true; return false; }
   const ri = RPG_RARITIES.indexOf(it.rarity); RUN.loot[ri]++; RT.dirty = true; rsfx('pick' + ri); const nm = rpgItemName(it);
   rpgLogLine((where === 'equipped' ? 'Equipped ' : where === 'salvaged' ? 'Bag full, salvaged ' : '+ ') + nm + '  ilvl ' + it.ilvl, RPG_RARITY_COL[ri]);
   sparkBurst(L.x, L.y, L.z, 6 + ri * 5, new THREE.Color(RPG_RARITY_COL[ri]).getHex(), 4 + ri);
@@ -4284,11 +4344,12 @@ const crateMat = new THREE.MeshStandardMaterial({ map: crateTex, roughness: 0.8 
 function buildChest(big) {
   const g = new THREE.Group(), s = big ? 1.3 : 1; const base = part(g, CYL, rpWoodMat, 0, 0.26 * s, 0, 0.5 * s, 0.26 * s, 0.34 * s, 0); base.geometry = new THREE.BoxGeometry(1, 1, 1); base.scale.set(0.9 * s, 0.5 * s, 0.6 * s); base.position.y = 0.25 * s;
   const lid = new THREE.Group(); lid.position.set(0, 0.5 * s, -0.3 * s); g.add(lid); const lm = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * s, 0.3 * s, 0.9 * s, 12, 1, false, 0, PI).rotateZ(PI / 2), rpWoodMat); lm.position.set(0, 0, 0.3 * s); lm.castShadow = true; lid.add(lm);
-  for (const x of [-0.3, 0.3]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.56 * s, 0.64 * s), trimMat); b.position.set(x * s, 0.24 * s, 0); g.add(b); const t = new THREE.Mesh(new THREE.CylinderGeometry(0.31 * s, 0.31 * s, 0.1 * s, 12, 1, false, 0, PI).rotateZ(PI / 2), trimMat); t.position.set(x * s, 0, 0.3 * s); lid.add(t); }
-  const lock = new THREE.Mesh(new THREE.BoxGeometry(0.14 * s, 0.16 * s, 0.06 * s), trimMat); lock.position.set(0, 0.46 * s, 0.32 * s); g.add(lock);
+  const vg = g.userData.vrp || (g.userData.vrp = []), vl = lid.userData.vrp || (lid.userData.vrp = []); vl.push(lm); // vrp: baked into one mesh per group while presenting (VR draw-call diet)
+  for (const x of [-0.3, 0.3]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.56 * s, 0.64 * s), trimMat); b.position.set(x * s, 0.24 * s, 0); g.add(b); vg.push(b); const t = new THREE.Mesh(new THREE.CylinderGeometry(0.31 * s, 0.31 * s, 0.1 * s, 12, 1, false, 0, PI).rotateZ(PI / 2), trimMat); t.position.set(x * s, 0, 0.3 * s); lid.add(t); vl.push(t); }
+  const lock = new THREE.Mesh(new THREE.BoxGeometry(0.14 * s, 0.16 * s, 0.06 * s), trimMat); lock.position.set(0, 0.46 * s, 0.32 * s); g.add(lock); vg.push(lock);
   g.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); return { g, lid };
 }
-function rpgAddChest(x, y, z, act, tag) { if (RT.runFlags['c' + tag]) return; const m = buildChest(act); m.g.position.set(x, y, z); m.g.rotation.y = Math.random() * TAU; scene.add(m.g); let beam = null; if (act) { beam = new THREE.Mesh(LOOT_GEO.beam, LOOT_BEAM[2]); beam.scale.set(1.2, 34, 1.2); m.g.add(beam); } CHESTS.push({ x, y, z, act, tag, open: false, t: 0, g: m.g, lid: m.lid, beam }); }
+function rpgAddChest(x, y, z, act, tag) { if (RT.runFlags['c' + tag]) return; const m = buildChest(act); m.g.position.set(x, y, z); m.g.rotation.y = Math.random() * TAU; scene.add(m.g); if (VR.merge) vrMergeApply(m.g, true); let beam = null; if (act) { beam = new THREE.Mesh(LOOT_GEO.beam, LOOT_BEAM[2]); beam.scale.set(1.2, 34, 1.2); m.g.add(beam); } CHESTS.push({ x, y, z, act, tag, open: false, t: 0, g: m.g, lid: m.lid, beam }); }
 function rpgAddCrate(x, y, z, tag) { if (RT.runFlags['k' + tag]) return; const m = new THREE.Mesh(crateGeo, crateMat); m.position.set(x, y + 0.43, z); m.rotation.y = Math.random() * TAU; m.castShadow = true; m.receiveShadow = true; scene.add(m); CRATES.push({ x, y, z, tag, m, alive: true }); }
 function rpgOpenChest(c) {
   c.open = true; c.t = 0; RT.runFlags['c' + c.tag] = 1; rsfx('chest'); if (c.beam) { c.g.remove(c.beam); c.beam = null; } sparkBurst(c.x, c.y + 0.7, c.z, 20, 0xffd040, 6); fxRing(c.x, c.y, c.z, 0.4, 4, 0.7, 0xffd66b, 0.8); camShake(0.2);
@@ -4369,7 +4430,7 @@ function rpgAura(e) {
   g.userData.orbs = R.aff.map((id, i) => { const o = new THREE.Mesh(ORB_GEO, new THREE.MeshBasicMaterial({ color: hexNum(RPG_MAFFIX[id].col), fog: false })); o.scale.setScalar(0.1); g.add(o); return o; });
   if (R.aff.includes('shielded')) { const sh = new THREE.Mesh(SHELL_GEO, new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); sh.scale.set(0.95, 1.05, 0.95); sh.position.y = 0.55; g.add(sh); g.userData.shell = sh; }
   if (R.aff.includes('frozen')) { const fr = new THREE.Mesh(FROST_GEO, new THREE.MeshBasicMaterial({ color: 0x9cf3ff, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide })); fr.scale.setScalar(5.2); /* the aura group cancels the mesh scale, so this is metres */ fr.position.y = 0.08; fr.renderOrder = 16; g.add(fr); g.userData.frost = fr; }
-  if (R.tier === 'guardian' || R.tier === 'elite') { const b = new THREE.Mesh(LOOT_GEO.beam, LOOT_BEAM[R.tier === 'guardian' ? 3 : 2]); b.scale.set(1.4, R.tier === 'guardian' ? 26 : 9, 1.4); b.position.y = 0.4; b.frustumCulled = false; g.add(b); }
+  if (R.tier === 'guardian' || R.tier === 'elite') { const b = new THREE.Mesh(LOOT_GEO.beam, LOOT_BEAM[R.tier === 'guardian' ? 3 : 2]); b.scale.set(1.4, R.tier === 'guardian' ? 26 : 9, 1.4); b.position.y = 0.4; b.frustumCulled = false; g.add(b); g.userData.beam = b; g.userData.beamH = b.scale.y; }
 }
 
 // ---- hero -> enemy damage ---------------------------------------------------------------------------------------------------------------------------------
@@ -4499,7 +4560,7 @@ function rpgEnemiesTick(dt) {
     R.showT = Math.max(0, R.showT - dt); if (e.flinch > 0) { e.flinch -= dt; if (e.flinch <= 0 && e.state !== 'shell' && e.state !== 'crouch' && e.state !== 'charge' && e.state !== 'leap') e.body.scale.y = 1; }
     if (Math.abs(e.kbx) + Math.abs(e.kbz) > 0.15 && e.state !== 'leap') { const nx = e.x + e.kbx * dt, nz = e.z + e.kbz * dt, f = floorAt(nx, nz, e.y + 0.7); if (f > -1e8 && f > e.y - 0.9) { e.x = nx; e.z = nz; } const k = Math.exp(-9 * dt); e.kbx *= k; e.kbz *= k; }
     const dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz), near = Math.abs(P.y - e.y) < 4.5, alive = !P.dead;
-    if (e.aura) { const u = e.aura.userData; e.aura.visible = true; const orbs = u.orbs; for (let i = 0; i < orbs.length; i++) { const a = t * 2 + i * TAU / orbs.length; const orr = 0.7 + (e.mesh.scale.x || 1) * 0.5; orbs[i].position.set(Math.cos(a) * orr, 0.9 + (e.mesh.scale.y || 1) * 0.35 + Math.sin(t * 3 + i) * 0.12, Math.sin(a) * orr); } if (u.shell) u.shell.visible = R.shield > 0; if (u.frost) u.frost.rotation.y = t * 0.4; }
+    if (e.aura) { const u = e.aura.userData; e.aura.visible = true; const orbs = u.orbs; for (let i = 0; i < orbs.length; i++) { if (VR.presenting) { orbs[i].visible = false; continue; } orbs[i].visible = true; const a = t * 2 + i * TAU / orbs.length; const orr = 0.7 + (e.mesh.scale.x || 1) * 0.5; orbs[i].position.set(Math.cos(a) * orr, 0.9 + (e.mesh.scale.y || 1) * 0.35 + Math.sin(t * 3 + i) * 0.12, Math.sin(a) * orr); } if (u.shell) u.shell.visible = R.shield > 0; if (u.frost) u.frost.rotation.y = t * 0.4; }
     if (R.shieldMax > 0 && R.shield < R.shieldMax && RT.t > R.shieldT) R.shield = Math.min(R.shieldMax, R.shield + R.maxhp * 0.12 * dt);
     if (R.aff.includes('frozen') && d < 5.2 && near && alive) RT.chillWant = Math.max(RT.chillWant, 0.35);
     if (e.state === 'walk' && alive) {
@@ -4936,7 +4997,7 @@ function rpgHud() {
   const bo = $('rpgBoss'); const g = RIFT && RIFT.guardian && RIFT.guardian.alive && RIFT.guardian.rpg ? RIFT.guardian : null; if (g) { bo.classList.add('on'); rpgSet($('rpgBossN'), g.rpg.name.toUpperCase(), 'bn'); rpgSty($('rpgBossBar'), 'width', (sat(g.rpg.hp / g.rpg.maxhp, 0, 1) * 100).toFixed(1) + '%', 'bb'); } else bo.classList.remove('on');
 }
 function rpgUiTick(rdt) {
-  uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || RUI.open || PK.open || G.state === 'dead'; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide) return;
+  uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || RUI.open || PK.open || G.state === 'dead'; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide || VR.presenting) return; // VR: the wrist / strip panels and the 3D plates replace these DOM overlays
   if (HC.php !== P.hp) { HC.php = P.hp; updateHUD(); } rpgHud(); rpgPlatesTick();
 }
 function rpgRunSummary() {
@@ -4983,7 +5044,7 @@ const _victory = victory; victory = function () {
   if (RT.runDiff < RP.diffUnlocked && RP.diff === RT.runDiff) RP.diff = RT.runDiff + 1 <= RP.diffUnlocked ? RT.runDiff + 1 : RP.diff;
   RP.totals.runs++; rpgSaveNow(); $('deadS').innerHTML += '<br>' + RPG_TUNING.difficulty[RT.runDiff].name + ' cleared' + (lines.length ? '<br><b style="color:#8af7e6">' + lines.join(' &middot; ') + '</b>' : ''); rpgDeadExtras(); rpgRenderMenu();
 };
-const _beginGame = beginGame; beginGame = function () { _beginGame(); if (!RP.intro && G.state === 'play') { RP.intro = true; RT.dirty = true; setTimeout(() => { if (G.state === 'play') toast('Defeat enemies, break crates, open chests. Walk over loot to collect it. Press I / Tab / Y for your inventory.', 7000); }, 3600); } };
+const _beginGame = beginGame; beginGame = function () { _beginGame(); if (!RP.intro && G.state === 'play') { RP.intro = true; RT.dirty = true; setTimeout(() => { if (G.state === 'play') toast('Defeat enemies, break crates, open chests. Walk over loot to collect it. ' + (VR.presenting ? 'Hold Y (left) for your inventory.' : 'Press I / Tab / Y for your inventory.'), 7000); }, 3600); } };
 const _retry = retry; retry = function () { if (RIFT) { if (RIFT.done) rpgRiftRestart(!RIFT.won, RIFT.won); else rpgRiftRestart(true, false); return; } _retry(); };
 const _toMenu = toMenu; toMenu = function () { RIFT = null; _toMenu(); rpgRenderMenu(); };
 const _updateHUD = updateHUD; updateHUD = function () { _updateHUD(); if (RT.S) $('coinN').textContent = rfmt(RP.gold); if (RIFT) $('actName').textContent = 'SHATTER RIFT · TIER ' + RIFT.tier; document.body.classList.toggle('rift', !!RIFT); };
@@ -4997,7 +5058,7 @@ function rpgSwallow() { latch.clear(); _pk.jump = keys.has(' '); _pk.z = keys.ha
 function rpgKeyDown(k) {
   if (PK.open) { perkKey(k); return; } if (RUI.open) { uiKey(k); return; }
   const st = G.state;
-  if (st === 'play') { if (k === 'i' || k === 'tab') openInv(); else if (k === 'e' && !(NPC.active && NPC.near) && !/Press E/.test(PROMPT)) openInv(); else if (k === 'f') { RP.filter = !RP.filter; RT.dirty = true; toast(RP.filter ? 'Common drops hidden' : 'Showing all drops'); rsfx('lock'); } }
+  if (st === 'play') { if (k === 'i' || k === 'tab') openInv(); else if (k === 'e' && !VR.eKey && !(NPC.active && NPC.near) && !/Press E/.test(PROMPT)) openInv(); /* VR.eKey: the R-stick click (talk / flip pad) must never pop the inventory open */ else if (k === 'f') { RP.filter = !RP.filter; RT.dirty = true; toast(RP.filter ? 'Common drops hidden' : 'Showing all drops'); rsfx('lock'); } }
   else if (st === 'pause') { if (k === 'i' || k === 'tab' || k === 'e') openInv(RP.pending ? 2 : null); }
   else if (st === 'menu') menuKey(k);
   else if (st === 'dead') { if (k === 'i' || k === 'tab' || k === 'e') openInv(RP.pending ? 2 : null); else if (k === 'z' && (RIFT || G.won)) toMenu(); else if (k === 'j' && RIFT) rpgRiftRestart(false, false); }
@@ -5047,6 +5108,409 @@ window.__game.rpg = true;
 // boot-time init: restore progression, derive stats, paint the menu
 rpgLoad(); RT.S = null; RT.runDiff = RP.diff; rpgRecalc(); RT.hp = RT.max; RT.rw = RT.rwMax; rpgMirror(); rpgRenderMenu(); { const cs = document.createElement('style'); cs.textContent = 'body.rift #shards,body.rift #shardDist{display:none}'; document.head.appendChild(cs); }
 // </rpg-game>
+
+// <vr-rpg> ====================================================================================================================
+// RPG layer inside the VR layer (merge of the RPG build and the VR build). DOM overlays are invisible in an immersive session, so:
+//  * inventory / sheet / perks / codex / rift tabs and the perk pick are drawn on ONE big world-space panel (UI.rp): laser-clickable AND drivable with the Touch controls
+//    (while state is 'inv' / 'perk' the sticks move the cursor instead of snap-turning, A confirm, B back, X salvage, Y lock, grips = tabs, trigger = laser click)
+//  * HUD: the wrist panel carries level / xp / hp / rewind / gold / buffs / rift timer; a second strip panel (UI.hudP) carries rift bar, boss bar, banners and the loot log
+//  * loot / chest / elite name plates are a small pool of 3D text sprites; loot beams and elite auras are capped + shortened in the diorama
+//  * item pickup, level-up, legendary, equip, salvage ... each get their own haptic pattern (vrRsfxHaptic + a tiny scheduler: no timers, no per-frame allocation)
+// Open / close the inventory: HOLD Y (left) for 0.4 s (a short tap is still pause / resume, now acted on at release). Nothing in this block runs in flat play except VR.presenting checks.
+// ====================================================================================================================
+const RV = {
+  open: false, dirty: true, hotId: ['', ''], btns: [], armedOn: false, pkPage: 0,
+  ban: { on: false, h: '', p: '', leg: false, until: 0 }, log: [{ t: '', c: '', until: 0 }, { t: '', c: '', until: 0 }], logSeq: 0,
+  ws: { hp: -1, mx: -1, sh: -1, xp: -1, lv: -1, rw: -1, rwm: -1, gold: -1, buf: -1, rl: -2, rp: -2, big: -1, t: -1, coins: -1, shards: -1, score: -1, nsd: -9 }, hs: { rl: -2, rp: -2, ph: -2, bh: -2, ban: -1, log: -1, key: -1 },
+  plates: [], cand: [], selN: 0, putN: 0, plateT: 0, nPlates: 0, nBeams: 0, rep: { dir: 0, t: 0 }, hap: [], hapSeq: 0, hapPlayed: 0, cullT: 0, yHold: 0, scratch: null,
+};
+const RV_PERKS_PER_PAGE = 8;
+
+// ---- haptics: per-event patterns [delay ms, amplitude, duration ms] x n; played through a preallocated queue (no timers, never allocates while presenting) ---------------------
+const RV_HP = {
+  pick1: [0, 0.3, 40], pick2: [0, 0.45, 40, 95, 0.55, 55], pick3: [0, 0.35, 60, 100, 0.6, 80, 210, 1, 380], drop3: [0, 0.7, 140, 160, 0.5, 90],
+  levelup: [0, 0.3, 50, 110, 0.5, 60, 230, 0.7, 80, 370, 1, 420], rift: [0, 1, 260, 330, 0.7, 340], riftwin: [0, 0.5, 70, 130, 0.7, 80, 270, 1, 450], riftlose: [0, 1, 520], phoenix: [0, 1, 160, 220, 0.8, 120, 380, 1, 420],
+  equip: [0, 0.3, 30], salvage: [0, 0.6, 90, 130, 0.4, 60], reroll: [0, 0.3, 20, 70, 0.4, 20, 140, 0.5, 20, 210, 0.7, 60], lock: [0, 0.25, 25], chest: [0, 0.6, 90, 130, 0.4, 70], deny: [0, 0.45, 70], uiopen: [0, 0.3, 40], perk: [0, 0.4, 50, 110, 0.6, 90],
+  crit: [0, 0.6, 50], slam: [0, 0.9, 220], nova: [0, 0.6, 110], pulse: [0, 0.5, 80], shield: [0, 0.3, 60], heal: [0, 0.2, 90],
+};
+for (let i = 0; i < 24; i++) RV.hap.push({ on: false, t: 0, h: 2, a: 0, ms: 0 });
+function vrHapPlay(h, pat) {
+  const now = performance.now(), n = pat.length / 3; RV.hapSeq++;
+  for (let k = 0; k < n; k++) { let s = null; for (let i = 0; i < RV.hap.length; i++) if (!RV.hap[i].on) { s = RV.hap[i]; break; } if (!s) return; s.on = true; s.t = now + pat[k * 3]; s.h = h; s.a = pat[k * 3 + 1]; s.ms = pat[k * 3 + 2]; }
+}
+function vrHapTick() {
+  const now = performance.now(); for (let i = 0; i < RV.hap.length; i++) { const s = RV.hap[i]; if (s.on && now >= s.t) { s.on = false; vrHaptic(s.h, s.a, s.ms); RV.hapPlayed++; } }
+}
+function vrRsfxHaptic(name, a) { // called from rsfx() while presenting (every RPG event that has a sound also gets a feel)
+  switch (name) {
+    case 'pick0': vrHaptic(1, 0.16, 18); RV.hapSeq++; break;
+    case 'pick1': vrHapPlay(1, RV_HP.pick1); break;
+    case 'pick2': vrHapPlay(2, RV_HP.pick2); break;
+    case 'pick3': vrHapPlay(2, RV_HP.pick3); break;
+    case 'drop3': vrHapPlay(2, RV_HP.drop3); break;
+    case 'drop2': vrHaptic(2, 0.25, 35); break;
+    case 'dust': vrHaptic(1, 0.14, 16); break;
+    case 'levelup': vrHapPlay(2, RV_HP.levelup); break;
+    case 'perk': vrHapPlay(2, RV_HP.perk); break;
+    case 'rift': vrHapPlay(2, RV_HP.rift); break;
+    case 'riftwin': vrHapPlay(2, RV_HP.riftwin); break;
+    case 'riftlose': vrHapPlay(2, RV_HP.riftlose); break;
+    case 'phoenix': vrHapPlay(2, RV_HP.phoenix); break;
+    case 'equip': vrHapPlay(2, RV_HP.equip); break;
+    case 'salvage': vrHapPlay(2, RV_HP.salvage); break;
+    case 'reroll': vrHapPlay(2, RV_HP.reroll); break;
+    case 'lock': vrHapPlay(2, RV_HP.lock); break;
+    case 'chest': vrHapPlay(2, RV_HP.chest); break;
+    case 'deny': vrHapPlay(2, RV_HP.deny); break;
+    case 'uiopen': vrHapPlay(2, RV_HP.uiopen); break;
+    case 'crit': vrHapPlay(VR.fireHand, RV_HP.crit); break;
+    case 'slam': vrHapPlay(2, RV_HP.slam); break;
+    case 'nova': vrHapPlay(2, RV_HP.nova); break;
+    case 'pulse': vrHapPlay(2, RV_HP.pulse); break;
+    case 'shield': vrHapPlay(2, RV_HP.shield); break;
+    case 'heal': vrHapPlay(2, RV_HP.heal); break;
+  }
+}
+
+// ---- hooks into the RPG layer (function re-binding, the technique the RPG layer itself uses on the original game) ------------------------------------------------------------
+const _rpgRenderInv = rpgRenderInv; rpgRenderInv = function () { if (VR.presenting) { RV.dirty = true; return; } _rpgRenderInv(); }; // the DOM grid / tooltip HTML is not built while the headset shows the panel
+const _renderPerks = renderPerks; renderPerks = function () { if (VR.presenting) { RV.dirty = true; return; } _renderPerks(); };
+const _rpgBanner = rpgBanner; rpgBanner = function (h, p, leg) { _rpgBanner(h, p, leg); if (VR.presenting) { const b = RV.ban; b.on = true; b.h = h; b.p = p || ''; b.leg = !!leg; b.until = performance.now() + 3400; } };
+const _rpgLogLine = rpgLogLine; rpgLogLine = function (txt, col) { _rpgLogLine(txt, col); if (VR.presenting) { const l = RV.log, a = l[0]; l[0] = l[1]; l[1] = a; a.t = txt; a.c = col || '#eaf6ff'; a.until = performance.now() + 4600; RV.logSeq++; } };
+
+// ---- canvas helpers ------------------------------------------------------------------------------------------------------------------------------------
+function rvFit(c, t, maxW) { if (c.measureText(t).width <= maxW) return t; while (t.length > 1 && c.measureText(t + '…').width > maxW) t = t.slice(0, -1); return t + '…'; }
+function rvTxt(c, t, x, y, size, col, weight, align, maxW) { c.font = (weight || 700) + ' ' + size + 'px ' + VFONT; if (maxW) t = rvFit(c, t, maxW); c.fillStyle = col; c.textAlign = align || 'left'; c.fillText(t, x, y); }
+const RV_RC = ['rgba(34,48,66,.92)', 'rgba(24,52,98,.92)', 'rgba(74,60,14,.92)', 'rgba(88,42,10,.92)'];
+function rvTri(c, x, y, s, up, col) { c.beginPath(); if (up) { c.moveTo(x, y - s); c.lineTo(x + s, y + s * 0.8); c.lineTo(x - s, y + s * 0.8); } else { c.moveTo(x, y + s); c.lineTo(x + s, y - s * 0.8); c.lineTo(x - s, y - s * 0.8); } c.closePath(); c.fillStyle = col; c.fill(); }
+function rvArrow(c, x, y, s, dir, col) { c.beginPath(); c.moveTo(x + dir * s, y); c.lineTo(x - dir * s * 0.7, y - s); c.lineTo(x - dir * s * 0.7, y + s); c.closePath(); c.fillStyle = col; c.fill(); }
+function rvDiamond(c, x, y, s, col) { c.beginPath(); c.moveTo(x, y - s); c.lineTo(x + s * 0.75, y); c.lineTo(x, y + s); c.lineTo(x - s * 0.75, y); c.closePath(); c.fillStyle = col; c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(255,255,255,.55)'; c.stroke(); }
+function rvCoin(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, TAU); const g = c.createRadialGradient(x - r * 0.3, y - r * 0.3, 2, x, y, r); g.addColorStop(0, '#fff7c2'); g.addColorStop(0.55, '#ffc93a'); g.addColorStop(1, '#d98a12'); c.fillStyle = g; c.fill(); }
+function rvPanelBg(c, x, y, w, h, r) { rrect(c, x, y, w, h, r || 28); c.fillStyle = 'rgba(255,255,255,.05)'; c.fill(); }
+function rvHot(id) { return RV.hotId[0] === id || RV.hotId[1] === id; }
+function rvBtn(c, id, x, y, w, h, label, o) {
+  o = o || {}; const hot = !o.static && rvHot(id); if (!o.static) RV.btns.push({ id, x, y, w, h });
+  rrect(c, x, y, w, h, o.r != null ? o.r : h / 2); const g = c.createLinearGradient(0, y, 0, y + h);
+  if (o.primary) { g.addColorStop(0, hot ? '#fff9d0' : '#fff2b0'); g.addColorStop(0.55, hot ? '#ffd45f' : '#ffc54a'); g.addColorStop(1, hot ? '#ffa43a' : '#ff9c2b'); }
+  else if (o.on) { g.addColorStop(0, hot ? 'rgba(120,255,240,.85)' : 'rgba(83,224,208,.72)'); g.addColorStop(1, hot ? 'rgba(40,180,170,.85)' : 'rgba(30,140,130,.72)'); }
+  else if (o.dim) { g.addColorStop(0, hot ? 'rgba(120,200,255,.35)' : 'rgba(255,255,255,.06)'); g.addColorStop(1, hot ? 'rgba(60,140,220,.35)' : 'rgba(255,255,255,.02)'); }
+  else { g.addColorStop(0, hot ? 'rgba(120,200,255,.6)' : 'rgba(255,255,255,.14)'); g.addColorStop(1, hot ? 'rgba(60,140,220,.6)' : 'rgba(255,255,255,.06)'); }
+  c.fillStyle = g; c.fill(); c.lineWidth = hot ? 7 : 3; c.strokeStyle = hot ? '#ffffff' : (o.primary ? 'rgba(255,235,170,.6)' : 'rgba(255,255,255,.38)'); c.stroke();
+  c.textBaseline = 'middle'; rvTxt(c, label, x + w / 2, y + h / 2 + 2, o.fs || 40, o.primary ? '#2a1400' : o.dim ? 'rgba(234,246,255,.5)' : '#eaf6ff', 800, 'center', w - 20); c.textBaseline = 'alphabetic';
+}
+function rvSlot(c, id, x, y, s, it, zone, focus, ghost) {
+  const hot = rvHot(id); RV.btns.push({ id, x, y, w: s, h: s }); const ri = it ? RPG_RARITIES.indexOf(it.rarity) : -1;
+  rrect(c, x, y, s, s, s * 0.14); c.fillStyle = it ? RV_RC[ri] : 'rgba(255,255,255,.05)'; c.fill();
+  if (it) c.drawImage(rpgIconBase(it), x + 5, y + 5, s - 10, s - 10);
+  else if (ghost) { c.globalAlpha = 0.22; c.drawImage(rpgIconBase({ slot: ghost, rarity: 'common', seed: 0, ilvl: 1, affixes: [] }), x + 5, y + 5, s - 10, s - 10); c.globalAlpha = 1; }
+  rrect(c, x, y, s, s, s * 0.14); c.lineWidth = focus ? 8 : 3; c.strokeStyle = focus ? '#ffffff' : it ? RPG_RARITY_COL[ri] : 'rgba(255,255,255,.22)'; c.stroke();
+  if (hot && !focus) { rrect(c, x - 4, y - 4, s + 8, s + 8, s * 0.17); c.lineWidth = 4; c.strokeStyle = 'rgba(160,220,255,.9)'; c.stroke(); }
+  if (it) {
+    c.textBaseline = 'alphabetic'; c.lineWidth = 6; c.strokeStyle = 'rgba(0,0,0,.85)'; c.font = '800 ' + Math.round(s * 0.27) + 'px ' + VFONT; c.textAlign = 'right'; c.strokeText(String(it.ilvl), x + s - 8, y + s - 9); c.fillStyle = '#fff'; c.fillText(String(it.ilvl), x + s - 8, y + s - 9);
+    if (it.locked) { c.beginPath(); c.arc(x + 17, y + 17, 11, 0, TAU); c.fillStyle = '#ffd24a'; c.fill(); c.lineWidth = 3; c.strokeStyle = '#2a1400'; c.stroke(); }
+    if (zone === 'bag' && rpgItemScore(it) > rpgItemScore(rpgCmpTarget(it))) rvTri(c, x + s - 20, y + 20, 11, true, '#7bf08a');
+  }
+}
+
+// ---- the big panel ---------------------------------------------------------------------------------------------------------------------------------------
+function rvHeader(c) {
+  for (let i = 0; i < TAB_NAMES.length; i++) {
+    const x = 40 + i * 248, w = 236; rvBtn(c, 'tab:' + i, x, 22, w, 84, TAB_NAMES[i], { on: RUI.tab === i, fs: 44, r: 22 });
+    const n = i === 2 ? RP.pending : i === 1 ? RP.free : 0; if (n) { c.beginPath(); c.arc(x + w - 14, 30, 24, 0, TAU); c.fillStyle = '#ff5a4a'; c.fill(); c.lineWidth = 3; c.strokeStyle = '#fff'; c.stroke(); c.textBaseline = 'middle'; rvTxt(c, String(n), x + w - 14, 32, 32, '#fff', 900, 'center'); c.textBaseline = 'alphabetic'; }
+  }
+  rvTxt(c, 'LV ' + RP.level, 1318, 82, 50, '#ffe27a', 900); rvCoin(c, 1500, 66, 24); rvTxt(c, rfmt(RP.gold), 1536, 82, 46, '#fff4d8', 900);
+  rvDiamond(c, 1730, 64, 24, '#53e0d0'); rvTxt(c, rfmt(RP.dust), 1768, 82, 46, '#c8fff6', 900); rvBtn(c, 'close', 1884, 22, 124, 84, 'X', { fs: 50, r: 22 });
+}
+function rvStatBlock(c, x, y, w, rows, pitch, size) {
+  for (let i = 0; i < rows.length; i++) { const r = rows[i]; rvTxt(c, r[0], x, y + i * pitch, size, '#a9bccb', 700); rvTxt(c, r[1], x + w, y + i * pitch, size, '#ffffff', 800, 'right'); }
+}
+function rvTooltip(c, x0, y0, w, h) {
+  rvPanelBg(c, x0, y0, w, h, 26); const sel = uiSel(), item = sel.item, x = x0 + 26, iw = w - 52; let y = y0 + 64; c.textBaseline = 'alphabetic';
+  if (!item) { rvTxt(c, sel.where === 'eq' ? 'NOTHING EQUIPPED' : sel.where === 'chip' ? CHIPS[sel.idx] : 'EMPTY', x0 + w / 2, y0 + 220, 50, '#a9bccb', 800, 'center', iw); rvTxt(c, sel.where === 'chip' ? 'press A to use' : 'loot drops from', x0 + w / 2, y0 + 290, 40, '#7d93a6', 600, 'center'); if (sel.where !== 'chip') rvTxt(c, 'enemies, chests, crates', x0 + w / 2, y0 + 340, 40, '#7d93a6', 600, 'center'); return; }
+  const ri = RPG_RARITIES.indexOf(item.rarity), col = RPG_RARITY_COL[ri], im = rpgImplicit(item), cmpTo = sel.where === 'bag' ? rpgCmpTarget(item) : null;
+  rvTxt(c, rpgItemName(item), x, y, 54, col, 900, 'left', iw); y += 52;
+  rvTxt(c, RPG_RARITY_NAME[ri] + ' ' + RPG_SLOT_LABEL[item.slot] + '  ·  ilvl ' + item.ilvl + (item.locked ? '  ·  LOCKED' : '') + (sel.where === 'eq' ? '  ·  EQUIPPED' : ''), x, y, 38, '#a9bccb', 700, 'left', iw); y += 54;
+  rvTxt(c, rpgFmtStat(im.stat, im.value) + ' ' + RPG_STATS[im.stat].label, x, y, 40, '#dfe9f2', 700, 'left', iw - 110); rvTxt(c, 'base', x + iw, y, 34, '#7d93a6', 600, 'right'); y += 52;
+  for (let k = 0; k < item.affixes.length; k++) {
+    const a = item.affixes[k], d = RPG_AFFIX_BY_ID[a.id], T = d.tiers[a.tier], sl = !!RUI.rr && RUI.rr.row === k, id = 'rr:' + k, hot = !!RUI.rr && rvHot(id);
+    if (RUI.rr) RV.btns.push({ id, x: x - 8, y: y - 40, w: iw + 16, h: 56 });
+    if (sl || hot) { rrect(c, x - 8, y - 40, iw + 16, 56, 12); c.fillStyle = sl ? 'rgba(255,226,122,.28)' : 'rgba(160,220,255,.22)'; c.fill(); }
+    rrect(c, x, y - 34, 64, 42, 10); c.fillStyle = ['#46607a', '#3a8a8a', '#3d8f5a', '#a8842a', '#c8602a'][a.tier] || '#46607a'; c.fill(); rvTxt(c, 'T' + (a.tier + 1), x + 32, y - 3, 34, '#fff', 900, 'center');
+    const txt = rpgFmtStat(d.stat, a.value) + ' ' + RPG_STATS[d.stat].label, rng = rpgFmtStat(d.stat, T.lo, false) + '-' + rpgFmtStat(d.stat, T.hi, false); rvTxt(c, txt, x + 78, y, 40, '#ffffff', 700, 'left', iw - 80);
+    c.font = '700 40px ' + VFONT; const tw = c.measureText(txt).width; if (78 + tw + 20 + 150 < iw) rvTxt(c, rng, x + iw, y, 34, '#7d93a6', 600, 'right'); y += 54;
+  }
+  if (item.legendary) { const L = RPG_LEG_BY_ID[item.legendary]; c.font = '600 38px ' + VFONT; wrapLines(c, L.text, iw - 24, _wl); const hh = 56 + Math.min(4, _wl.length) * 42; rrect(c, x - 6, y - 38, iw + 12, hh, 14); c.fillStyle = 'rgba(255,138,42,.16)'; c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(255,138,42,.6)'; c.stroke(); rvTxt(c, 'LEGENDARY POWER', x + 8, y, 34, '#ffb15e', 900); y += 44; c.font = '600 38px ' + VFONT; c.fillStyle = '#ffe9c8'; c.textAlign = 'left'; for (let i = 0; i < _wl.length && i < 4; i++) { c.fillText(_wl[i], x + 8, y); y += 42; } y += 16; }
+  if (RUI.rr) { const rc = rpgRerollCost(item); rvTxt(c, 'REROLL: pick an affix (A). Cost ' + rc.dust + ' shards + ' + rc.gold + ' gold', x, y, 34, '#ffe27a', 700, 'left', iw); y += 48; }
+  if (sel.where === 'bag') {
+    const d = rpgCompare(item, cmpTo); rvTxt(c, cmpTo ? 'VS EQUIPPED: ' + rpgItemName(cmpTo).toUpperCase() : 'VS EMPTY SLOT', x, y, 34, '#9fd8ff', 800, 'left', iw); y += 46;
+    if (!d.length) { rvTxt(c, 'no change', x, y, 38, '#a9bccb', 600); y += 44; }
+    for (let i = 0; i < d.length && i < 6; i++) { const q = d[i], up = q.delta > 0; rvTri(c, x + 16, y - 14, 12, up, up ? '#7bf08a' : '#ff8f7a'); rvTxt(c, rpgFmtStat(q.stat, q.delta) + ' ' + RPG_STATS[q.stat].label, x + 44, y, 40, up ? '#9cf7ab' : '#ffa898', 700, 'left', iw - 50); y += 44; }
+  }
+}
+function rvItems(c) {
+  const eqx = 40, eqw = 480, bx = 540, bw = 780, tx = 1340, tw = 668, y0 = 130, hh = 1010;
+  rvPanelBg(c, eqx, y0, eqw, hh, 26); rvTxt(c, 'EQUIPPED', eqx + 28, y0 + 56, 40, '#9fd8ff', 800);
+  for (let i = 0; i < 6; i++) { const k = RPG_EQUIP[i], cx = eqx + 56 + (i % 2) * 220, cy = y0 + 84 + ((i / 2) | 0) * 262; rvSlot(c, 'eq:' + i, cx, cy, 180, RP.equipped[k], 'eq', RUI.zone === 'eq' && RUI.i === i, k.replace(/\d/, '')); rvTxt(c, RPG_SLOT_LABEL[k], cx + 90, cy + 180 + 40, 40, '#cfe0ee', 700, 'center'); }
+  const S = RT.S; rvStatBlock(c, eqx + 30, y0 + 912, eqw - 60, [['MAX HP', String(RT.max)], ['DAMAGE / hit', rfmt(RT.sheet.punch)], ['CRIT', Math.round(S.critTotal * 100) + '%  x' + S.critMul.toFixed(2)]], 46, 40);
+  rvPanelBg(c, bx, y0, bw, hh, 26); const cnt = RP.bag.filter(Boolean).length; rvTxt(c, 'BAG ' + cnt + ' / ' + BAG_N, bx + 28, y0 + 56, 40, '#9fd8ff', 800);
+  for (let i = 0; i < BAG_N; i++) rvSlot(c, 'bag:' + i, bx + 12 + (i % 6) * 128, y0 + 78 + ((i / 6) | 0) * 128, 116, RP.bag[i], 'bag', RUI.zone === 'bag' && RUI.i === i);
+  const cy0 = y0 + 78 + 4 * 128 + 24;
+  for (let i = 0; i < 4; i++) rvBtn(c, 'chip:' + i, bx + 12 + (i % 2) * 378, cy0 + ((i / 2) | 0) * 84, 366, 72, i === 3 ? (RP.filter ? 'HIDE COMMONS: ON' : 'HIDE COMMONS: OFF') : i === 2 ? 'SALVAGE MAGIC' : i === 1 ? 'SALVAGE COMMONS' : 'SORT BAG', { fs: 36, r: 20, on: i === 3 && RP.filter });
+  if (RUI.zone === 'chip') { rrect(c, bx + 6 + (RUI.i % 2) * 378, cy0 - 6 + ((RUI.i / 2) | 0) * 84, 378, 84, 24); c.lineWidth = 7; c.strokeStyle = '#fff'; c.stroke(); }
+  const sel = uiSel(), item = sel.item, by = cy0 + 130; rvTxt(c, 'SELECTED ITEM', bx + 28, by - 18, 34, '#9fd8ff', 800);
+  if (item) {
+    const rc = rpgRerollCost(item), can = RP.dust >= rc.dust && RP.gold >= rc.gold;
+    if (sel.where === 'bag') { rvBtn(c, 'act:equip', bx + 12, by, 366, 72, 'EQUIP', { primary: true, fs: 42 }); if (item.locked) rvBtn(c, '', bx + 390, by, 366, 72, 'LOCKED', { dim: true, static: true, fs: 38 }); else rvBtn(c, 'act:salv', bx + 390, by, 366, 72, 'SALVAGE +' + rpgSalvageValue(item, RT.S.dustFind), { fs: 38 }); }
+    else { rvBtn(c, 'act:unequip', bx + 12, by, 366, 72, 'UNEQUIP', { primary: true, fs: 42 }); rvBtn(c, '', bx + 390, by, 366, 72, '', { dim: true, static: true }); }
+    rvBtn(c, 'act:lock', bx + 12, by + 84, 366, 72, item.locked ? 'UNLOCK' : 'LOCK', { fs: 40 }); rvBtn(c, 'act:rrmode', bx + 390, by + 84, 366, 72, RUI.rr ? 'CANCEL REROLL' : 'REROLL ' + rc.dust + '+' + rc.gold + 'g', { fs: 36, dim: !can && !RUI.rr });
+  } else rvTxt(c, 'point at an item or move the cursor', bx + 28, by + 40, 38, '#6f8aa0', 600);
+  rvTooltip(c, tx, y0, tw, hh);
+}
+function rvSheet(c) {
+  const S = RT.S, sh = RT.sheet, T = TUNING, lv = RP.level, au = RPG_TUNING.autoPerLevel * (lv - 1), xpn = lv >= RPG_TUNING.levelCap ? 0 : rpgXpNext(lv), g = TB.gravity, jh = v => (v * v / (2 * g)).toFixed(1) + ' m', P1 = x => (x * 100).toFixed(1) + '%';
+  rvPanelBg(c, 40, 130, 720, 1010, 26); rvTxt(c, 'ATTRIBUTES', 68, 186, 40, '#9fd8ff', 800); rvTxt(c, 'LEVEL ' + lv + (lv >= RPG_TUNING.levelCap ? ' (MAX)' : ''), 68, 270, 78, '#ffe27a', 900);
+  rvTxt(c, 'XP ' + rfmt(RP.xp) + ' / ' + (xpn ? rfmt(xpn) : '-'), 68, 330, 42, '#cfe0ee', 700); rvTxt(c, 'POINTS TO SPEND  ' + RP.free, 68, 384, 44, '#ffe27a', 900);
+  const att = [['power', 'POWER', 'All damage'], ['agility', 'AGILITY', 'Speed, jump, crit'], ['resolve', 'RESOLVE', 'Health, defence']];
+  for (let i = 0; i < 3; i++) {
+    const y = 420 + i * 150, a = att[i], id = 'attr:' + i, hot = rvHot(id); RV.btns.push({ id, x: 60, y, w: 680, h: 130 }); rrect(c, 60, y, 680, 130, 22); c.fillStyle = RUI.sheetRow === i ? 'rgba(255,226,122,.2)' : hot ? 'rgba(160,220,255,.18)' : 'rgba(255,255,255,.06)'; c.fill(); c.lineWidth = RUI.sheetRow === i ? 6 : 3; c.strokeStyle = RUI.sheetRow === i ? '#ffe27a' : 'rgba(255,255,255,.3)'; c.stroke();
+    rvTxt(c, a[1], 90, y + 56, 48, '#fff', 900); rvTxt(c, a[2], 90, y + 106, 38, '#a9bccb', 600); rvTxt(c, String(au + RP.spent[a[0]]), 560, y + 88, 70, '#fff', 900, 'right'); rrect(c, 600, y + 20, 112, 90, 20); c.fillStyle = RP.free ? '#ffc54a' : 'rgba(255,255,255,.12)'; c.fill(); rvTxt(c, '+', 656, y + 92, 78, RP.free ? '#2a1400' : '#5a6b7b', 900, 'center');
+  }
+  c.font = '600 36px ' + VFONT; wrapLines(c, 'Each level: +1 to every attribute and ' + RPG_TUNING.pointsPerLevel + ' points to spend. Power +1.2% damage. Agility +0.4% run, +0.6% jump, +0.2% crit. Resolve +7 health, +0.2% damage reduction.', 650, _wl); c.fillStyle = '#a9bccb'; c.textAlign = 'left'; for (let i = 0; i < _wl.length && i < 6; i++) c.fillText(_wl[i], 68, 890 + i * 42);
+  rvPanelBg(c, 780, 130, 1228, 1010, 26); rvTxt(c, 'DERIVED', 808, 186, 40, '#9fd8ff', 800);
+  const L = [['Max health', RT.max], ['Regeneration', S.regenHp.toFixed(1) + ' /s'], ['Damage reduction', P1(S.reduce)], ['Run speed', T.run.toFixed(1) + ' m/s'], ['Sprint speed', T.sprint.toFixed(1) + ' m/s'], ['Jump / triple', jh(T.jump[0]) + ' / ' + jh(T.jump[2])], ['Wall grip', P1(S.wallGrip)], ['Pound radius', T.pound.radius.toFixed(1) + ' m'], ['Crit chance', P1(S.critTotal)],
+    ['Crit power', 'x' + S.critMul.toFixed(2)], ['Rewind charges', S.rewindCharges + ' (' + S.rewindRate.toFixed(2) + '/s)'], ['Cube burst', '+' + P1(S.burstSize)], ['Magic find', P1(S.magicFind)], ['Gold find', P1(S.goldFind)], ['Shard find', P1(S.dustFind)], ['Experience', '+' + P1(S.xpGain)], ['Loot magnet', S.magnetR.toFixed(1) + ' m'], ['Health on kill', P1(S.lifeOnKill)]];
+  rvStatBlock(c, 808, 246, 560, L.slice(0, 9), 50, 40); rvStatBlock(c, 1420, 246, 560, L.slice(9), 50, 40);
+  rvTxt(c, 'OFFENSE  ·  PER HIT / DPS-ISH', 808, 760, 40, '#9fd8ff', 800);
+  const O = [['Punch', rfmt(sh.punch) + ' / ' + rfmt(sh.dpsPunch)], ['Dive', rfmt(sh.dive)], ['Stomp', rfmt(sh.stomp) + ' / ' + rfmt(sh.dpsStomp)], ['Ground pound', rfmt(sh.pound) + ' / ' + rfmt(sh.dpsPound)], ['Rewind pulse', rfmt(sh.pulse)], ['Avg crit factor', 'x' + sh.crit.toFixed(2)]];
+  rvStatBlock(c, 808, 820, 560, O.slice(0, 3), 50, 40); rvStatBlock(c, 1420, 820, 560, O.slice(3), 50, 40);
+  if (S.powers.length) { rvTxt(c, 'LEGENDARY POWERS', 808, 1010, 38, '#ffb15e', 800); for (let i = 0; i < S.powers.length && i < 3; i++) rvTxt(c, RPG_LEG_BY_ID[S.powers[i]].name + ': ' + RPG_LEG_BY_ID[S.powers[i]].text, 808, 1056 + i * 42, 36, '#ffe9c8', 600, 'left', 1170); }
+}
+function rvPerksTab(c) {
+  const ids = Object.keys(RP.perks).filter(k => RP.perks[k] > 0), pages = Math.max(1, Math.ceil(ids.length / RV_PERKS_PER_PAGE)); RV.pkPage = clamp(RV.pkPage, 0, pages - 1);
+  rvPanelBg(c, 40, 130, 1968, 1010, 26); rvTxt(c, 'PERKS  ·  ' + ids.length + ' OF ' + RPG_PERKS.length + ' LEARNED', 68, 186, 40, '#9fd8ff', 800);
+  let y = 216; if (RP.pending) { rvBtn(c, 'perkgo', 68, y, 1912, 96, 'PERK READY  ·  ' + RP.pending + ' PICK' + (RP.pending > 1 ? 'S' : '') + ' WAITING  ·  A: CHOOSE', { primary: true, fs: 48 }); y += 118; }
+  if (!ids.length) { rvTxt(c, 'No perks yet.', 1024, 560, 56, '#a9bccb', 800, 'center'); rvTxt(c, 'Every level you choose 1 of 3.', 1024, 630, 42, '#7d93a6', 600, 'center'); return; }
+  const top = y, ch = Math.floor((1090 - top) / 4) - 12; if (!RV.scratch) RV.scratch = document.createElement('canvas');
+  for (let n = 0; n < RV_PERKS_PER_PAGE; n++) {
+    const id = ids[RV.pkPage * RV_PERKS_PER_PAGE + n]; if (!id) break; const p = RPG_PERK_BY_ID[id], r = RP.perks[id], x = 68 + (n % 2) * 964, yy = top + ((n / 2) | 0) * (ch + 12);
+    rrect(c, x, yy, 948, ch, 22); c.fillStyle = 'rgba(255,255,255,.07)'; c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(255,214,107,.4)'; c.stroke();
+    rpgSigil(RV.scratch, p.glyph, '#ffd66b'); c.drawImage(RV.scratch, x + 14, yy + (ch - 104) / 2, 104, 104);
+    rvTxt(c, p.name, x + 136, yy + 50, 44, '#fff', 900, 'left', 560); for (let i = 0; i < p.max; i++) rvDiamond(c, x + 906 - i * 34, yy + 34, 12, i < r ? '#ffd66b' : 'rgba(255,255,255,.18)');
+    c.font = '600 36px ' + VFONT; wrapLines(c, p.desc(r), 780, _wl); c.fillStyle = '#c4d4e2'; c.textAlign = 'left'; for (let i = 0; i < _wl.length && i < 2; i++) c.fillText(_wl[i], x + 136, yy + 94 + i * 40);
+  }
+  if (pages > 1) { rvBtn(c, 'pkpg:-1', 1500, 150, 150, 70, '<', { fs: 48, r: 20 }); rvTxt(c, 'PAGE ' + (RV.pkPage + 1) + ' / ' + pages, 1740, 198, 40, '#cfe0ee', 800, 'center'); rvBtn(c, 'pkpg:1', 1830, 150, 150, 70, '>', { fs: 48, r: 20 }); }
+}
+function rvCodex(c) {
+  rvPanelBg(c, 40, 130, 1968, 1010, 26); rvTxt(c, 'LEGENDARY CODEX  ·  ' + Object.keys(RP.codex).length + ' / ' + RPG_LEGENDARIES.length, 68, 186, 40, '#9fd8ff', 800);
+  for (let i = 0; i < RPG_LEGENDARIES.length; i++) {
+    const L = RPG_LEGENDARIES[i], got = RP.codex[L.id], x = 68 + (i % 3) * 648, y = 214 + ((i / 3) | 0) * 230, id = 'cdx:' + i, hot = rvHot(id); RV.btns.push({ id, x, y, w: 632, h: 214 });
+    rrect(c, x, y, 632, 214, 22); c.fillStyle = got ? 'rgba(88,42,10,.55)' : 'rgba(255,255,255,.05)'; c.fill(); c.lineWidth = RUI.cdx === i ? 7 : 3; c.strokeStyle = RUI.cdx === i ? '#fff' : hot ? 'rgba(160,220,255,.9)' : got ? 'rgba(255,138,42,.7)' : 'rgba(255,255,255,.2)'; c.stroke();
+    rvTxt(c, RPG_SLOT_LABEL[L.slot].toUpperCase(), x + 24, y + 42, 34, got ? '#ffb15e' : '#6f8294', 800); rvTxt(c, got ? L.name : '? ? ?', x + 24, y + 92, 46, got ? '#ffd9a8' : '#6f8294', 900, 'left', 584);
+    c.font = '600 35px ' + VFONT; wrapLines(c, got ? L.text : 'Not found yet.', 584, _wl); c.fillStyle = got ? '#e9d6bd' : '#5d7083'; c.textAlign = 'left'; for (let q = 0; q < _wl.length && q < 3; q++) c.fillText(_wl[q], x + 24, y + 136 + q * 36);
+  }
+}
+function rvRift(c) {
+  const D = RPG_TUNING.difficulty, { t, seed, sp } = riftInfo(), R = RPG_TUNING.rift, ok = RP.riftUnlocked, maxT = Math.min(R.maxTier, RP.bestRift + 1);
+  rvPanelBg(c, 40, 130, 980, 1010, 26); rvTxt(c, 'CAMPAIGN DIFFICULTY', 68, 186, 40, '#9fd8ff', 800);
+  const row = (i, y, lab, val, arrows) => {
+    const id = 'rift:' + i, hot = rvHot(id) || rvHot(id + ':-1') || rvHot(id + ':1'); rrect(c, 60, y, 940, 110, 22); c.fillStyle = RUI.riftRow === i ? 'rgba(255,226,122,.2)' : hot ? 'rgba(160,220,255,.16)' : 'rgba(255,255,255,.06)'; c.fill(); c.lineWidth = RUI.riftRow === i ? 6 : 3; c.strokeStyle = RUI.riftRow === i ? '#ffe27a' : 'rgba(255,255,255,.3)'; c.stroke(); rvTxt(c, lab, 90, y + 70, 44, '#fff', 900);
+    if (arrows) { RV.btns.push({ id: id + ':-1', x: 60, y, w: 470, h: 110 }, { id: id + ':1', x: 530, y, w: 470, h: 110 }); rvTxt(c, val, 880, y + 70, 44, '#ffe27a', 900, 'right'); rvArrow(c, 925, y + 55, 22, -1, '#cfe0ee'); rvArrow(c, 975, y + 55, 22, 1, '#cfe0ee'); }
+    else { RV.btns.push({ id, x: 60, y, w: 940, h: 110 }); rvTxt(c, val, 970, y + 70, 44, '#ffe27a', 900, 'right'); }
+  };
+  row(0, 214, 'DIFFICULTY', D[RP.diff].name + (RP.diff > RP.diffUnlocked ? ' (locked)' : ''), true);
+  c.font = '600 36px ' + VFONT; wrapLines(c, 'Next campaign run: monster level +' + D[RP.diff].mlvl + ', item level floor ' + D[RP.diff].ilvlFloor + ', enemy health x' + D[RP.diff].hp + ', damage x' + D[RP.diff].dmg + '. Finish the finale to unlock the next difficulty (' + (RP.diffUnlocked + 1) + ' of 3 open).', 920, _wl); c.fillStyle = '#a9bccb'; c.textAlign = 'left'; for (let i = 0; i < _wl.length && i < 5; i++) c.fillText(_wl[i], 68, 372 + i * 42);
+  rvTxt(c, 'SHATTER RIFT' + (ok ? '' : '  ·  LOCKED'), 68, 640, 40, '#9fd8ff', 800);
+  if (ok) { row(1, 668, 'RIFT TIER', 'TIER ' + t + '  (max ' + maxT + ')', true); row(2, 794, 'SEED', hexSeed(seed) + '   A = new', false); row(3, 920, 'ENTER RIFT', 'SHATTER >', false); }
+  else { c.font = '700 40px ' + VFONT; wrapLines(c, 'Restore the world (clear the Act III finale) to unlock repeatable Shatter Rifts.', 900, _wl); c.fillStyle = '#a9bccb'; c.textAlign = 'left'; for (let i = 0; i < _wl.length; i++) c.fillText(_wl[i], 68, 720 + i * 50); }
+  rvPanelBg(c, 1040, 130, 968, 1010, 26); rvTxt(c, 'RIFT PREVIEW', 1068, 186, 40, '#9fd8ff', 800);
+  if (ok) {
+    const L2 = [['MONSTER LEVEL', sp.mlvl + '-' + (sp.mlvl + 2)], ['ITEM LEVEL', String(rpgItemLevel({ plvl: RP.level, act: 3, diff: 0, rift: sp.tier }))], ['KILLS FOR GUARDIAN', String(sp.need)], ['TIME LIMIT', fmtTime(sp.limit)], ['BEST CLEARED TIER', RP.bestRift ? String(RP.bestRift) : 'none']];
+    rvStatBlock(c, 1068, 256, 912, L2, 58, 42); let y = 580;
+    for (const m of sp.mods) { rrect(c, 1068, y - 40, 912, 52, 14); c.fillStyle = 'rgba(255,177,94,.16)'; c.fill(); rvTxt(c, RPG_RIFT_MODS[m].name, 1084, y, 40, '#ffb15e', 900); y += 54; c.font = '600 35px ' + VFONT; wrapLines(c, RPG_RIFT_MODS[m].text, 890, _wl); c.fillStyle = '#c4d4e2'; c.textAlign = 'left'; for (let i = 0; i < _wl.length && i < 2; i++) { c.fillText(_wl[i], 1084, y); y += 40; } y += 22; }
+    rvTxt(c, 'The same seed always builds the same arena.', 1068, 1090, 35, '#7d93a6', 600);
+  } else rvTxt(c, 'Rifts are timed arena runs with a guardian at 100%.', 1068, 300, 40, '#a9bccb', 600, 'left', 900);
+}
+function rvPerkPick(c) {
+  const W = UI.rp.pw; rvTxt(c, 'LEVEL ' + RP.level, W / 2, 190, 110, '#ffe27a', 900, 'center'); rvTxt(c, RP.pending > 1 ? 'CHOOSE A PERK  ·  ' + RP.pending + ' PICKS WAITING' : 'CHOOSE A PERK', W / 2, 270, 54, '#cfe0ee', 800, 'center');
+  const n = PK.choices.length, cw = 600, gap = 44, x0 = (W - (n * cw + (n - 1) * gap)) / 2; if (!RV.scratch) RV.scratch = document.createElement('canvas');
+  for (let i = 0; i < n; i++) {
+    const p = PK.choices[i], rk = (RP.perks[p.id] || 0) + 1, x = x0 + i * (cw + gap), y = 330, h = 740, f = PK.i === i, id = 'pk:' + i, hot = rvHot(id); RV.btns.push({ id, x, y, w: cw, h });
+    rrect(c, x, y, cw, h, 32); const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, f || hot ? 'rgba(70,110,150,.95)' : 'rgba(34,52,74,.92)'); g.addColorStop(1, f || hot ? 'rgba(30,60,96,.95)' : 'rgba(16,28,42,.92)'); c.fillStyle = g; c.fill(); c.lineWidth = f ? 10 : 4; c.strokeStyle = f ? '#ffe27a' : hot ? '#bfe6ff' : 'rgba(255,255,255,.35)'; c.stroke();
+    rpgSigil(RV.scratch, p.glyph, f ? '#ffe27a' : '#ffd66b'); c.drawImage(RV.scratch, x + cw / 2 - 100, y + 36, 200, 200);
+    rvTxt(c, p.name, x + cw / 2, y + 300, 58, '#fff', 900, 'center', cw - 40); rvTxt(c, 'RANK ' + rk + ' / ' + p.max, x + cw / 2, y + 362, 42, '#ffd66b', 800, 'center');
+    c.font = '600 44px ' + VFONT; wrapLines(c, p.desc(rk), cw - 70, _wl); c.fillStyle = '#e3eef7'; c.textAlign = 'center'; for (let q = 0; q < _wl.length && q < 6; q++) c.fillText(_wl[q], x + cw / 2, y + 438 + q * 56);
+    c.beginPath(); c.arc(x + 44, y + 44, 30, 0, TAU); c.fillStyle = f ? '#ffe27a' : 'rgba(255,255,255,.2)'; c.fill(); c.textBaseline = 'middle'; rvTxt(c, String(i + 1), x + 44, y + 46, 38, f ? '#2a1400' : '#fff', 900, 'center'); c.textBaseline = 'alphabetic';
+  }
+}
+function vrDrawRp() {
+  const p = UI.rp, c = p.ctx, W = p.pw, H = p.ph; c.clearRect(0, 0, W, H); RV.btns.length = 0; c.textBaseline = 'alphabetic';
+  rrect(c, 8, 8, W - 16, H - 16, 50); const gr = c.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(12,28,46,.96)'); gr.addColorStop(1, 'rgba(6,14,24,.96)'); c.fillStyle = gr; c.fill(); c.lineWidth = 7; c.strokeStyle = 'rgba(255,214,107,.9)'; c.stroke();
+  if (UI.mode === 'perk') { if (PK.open) rvPerkPick(c); rvTxt(c, 'STICK choose   A confirm   TRIGGER click a card', W / 2, 1196, 40, '#9fd8ff', 700, 'center'); }
+  else {
+    rvHeader(c); [rvItems, rvSheet, rvPerksTab, rvCodex, rvRift][RUI.tab](c);
+    const k = UI.cap, armed = RUI.tab === 0 && RUI.armed && RT.real - RUI.armed.t < 2.6;
+    const foot = RUI.tab === 0 ? ['A equip / unequip   X salvage (twice)   Y lock   B back   GRIPS tabs   STICK cursor   TRIGGER click', 'Hold Y to close. Pointing at a slot selects it. Rare+ drops, chests and elites get name plates in the world.'] : RUI.tab === 1 ? ['A spend a point   STICK select   GRIPS tabs   B close   TRIGGER click', ''] : RUI.tab === 4 ? ['A change / start   STICK left-right adjust   GRIPS tabs   B close   TRIGGER click', ''] : RUI.tab === 2 ? ['STICK up-down page   A open the pick   GRIPS tabs   B close   TRIGGER click', ''] : ['STICK cursor   GRIPS tabs   B close   TRIGGER click', ''];
+    rvTxt(c, foot[0], W / 2, 1196, 38, '#9fd8ff', 700, 'center', W - 80);
+    if (armed) rvTxt(c, 'SALVAGE: press X again to confirm', W / 2, 1246, 40, '#ffb15e', 800, 'center', W - 80); else if (k.toastOn) rvTxt(c, k.toast, W / 2, 1246, 40, '#fff4d8', 800, 'center', W - 80); else if (foot[1]) rvTxt(c, foot[1], W / 2, 1246, 35, '#6f8aa0', 600, 'center', W - 80);
+  }
+  p.tex.needsUpdate = true; RV.dirty = false;
+}
+
+// ---- actions: the same code paths as flat play (uiKey / uiAct / perkKey / invReroll ...) ---------------------------------------------------------------------------------
+function vrRpgHover(id) { // pointing at a slot selects it, exactly like the mouse does in the DOM
+  if (UI.mode === 'perk') { if (id.startsWith('pk:')) { const i = +id.slice(3); if (PK.open && i !== PK.i) { PK.i = i; RV.dirty = true; } } return; }
+  if (RUI.tab === 0) { const eq = id.startsWith('eq:'); if (eq || id.startsWith('bag:')) { const zone = eq ? 'eq' : 'bag', i = +id.slice(eq ? 3 : 4); if (RUI.zone !== zone || RUI.i !== i) { RUI.zone = zone; RUI.i = i; RUI.rr = null; RV.dirty = true; } } }
+  else if (RUI.tab === 3 && id.startsWith('cdx:')) { const i = +id.slice(4); if (RUI.cdx !== i) { RUI.cdx = i; RV.dirty = true; } }
+}
+function vrRpgClick(id) {
+  sfx('click');
+  if (UI.mode === 'perk') { if (PK.open && id.startsWith('pk:')) { PK.i = +id.slice(3); perkPick(PK.i); RV.dirty = true; } return; }
+  if (!RUI.open) return; const sel = uiSel();
+  if (id === 'close') { closeInv(); return; }
+  if (id.startsWith('tab:')) { RUI.tab = +id.slice(4); RUI.rr = null; RUI.armed = null; rsfx('ui'); rpgRenderInv(); return; }
+  if (id.startsWith('bag:') || id.startsWith('eq:')) { const eq = id.startsWith('eq:'); RUI.zone = eq ? 'eq' : 'bag'; RUI.i = +id.slice(eq ? 3 : 4); RUI.rr = null; uiAct('A'); rpgRenderInv(); return; }
+  if (id.startsWith('chip:')) { RUI.zone = 'chip'; RUI.i = +id.slice(5); invChip(RUI.i); rpgRenderInv(); return; }
+  if (id.startsWith('act:')) { const a = id.slice(4); if (a === 'equip' || a === 'unequip') uiAct('A'); else if (a === 'salv') { RUI.armed = { k: 'b' + sel.idx, t: RT.real }; uiAct('X'); } else if (a === 'lock') uiAct('Y'); else if (a === 'rrmode') uiAct('RT'); rpgRenderInv(); return; }
+  if (id.startsWith('rr:')) { if (invReroll(sel, +id.slice(3))) RUI.rr = null; rpgRenderInv(); return; }
+  if (id.startsWith('attr:')) { RUI.sheetRow = +id.slice(5); uiAct('A'); return; }
+  if (id === 'perkgo') { uiAct('A'); return; }
+  if (id.startsWith('pkpg:')) { RV.pkPage += +id.slice(5); RV.dirty = true; return; }
+  if (id.startsWith('rift:')) { const q = id.split(':'); RUI.riftRow = +q[1]; if (q.length > 2) { uiRiftAdjust(+q[2]); rpgRenderInv(); } else uiAct('A'); return; }
+}
+function vrRpgStep(d, h) {
+  vrHaptic(h, 0.1, 8);
+  if (G.state === 'perk') { perkKey(d === 1 ? 'arrowleft' : 'arrowright'); return; }
+  if (RUI.tab === 2 && (d === 3 || d === 4)) { RV.pkPage += d === 4 ? 1 : -1; RV.dirty = true; rsfx('ui'); return; }
+  uiKey(d === 1 ? 'arrowleft' : d === 2 ? 'arrowright' : d === 3 ? 'arrowup' : 'arrowdown');
+}
+function vrRpgActions(rdt, L, R) { // inventory / perk pick open: the Touch controls become menu controls (called from vrActions, which then returns)
+  const perk = G.state === 'perk'; let ax = R.has ? R.ax : 0, ay = R.has ? R.ay : 0, hh = 1; if (L.has && Math.hypot(L.ax, L.ay) > Math.hypot(ax, ay)) { ax = L.ax; ay = L.ay; hh = 0; }
+  const rep = RV.rep, on = rep.dir ? 0.3 : 0.62; let d = 0;
+  if (Math.abs(ax) > Math.abs(ay)) { if (ax < -on) d = 1; else if (ax > on) d = 2; } else { if (ay < -on) d = 3; else if (ay > on) d = 4; }
+  if (!d) rep.dir = 0; else if (d !== rep.dir) { rep.dir = d; rep.t = 0.36; vrRpgStep(d, hh); } else { rep.t -= rdt; if (rep.t <= 0) { rep.t = 0.11; vrRpgStep(d, hh); } }
+  if (R.rise & 4) { if (perk) perkKey(' '); else uiKey(' '); }
+  if (!perk) {
+    if (R.rise & 8) uiKey('z');
+    if (L.rise & 4) uiKey('j');
+    if (L.rise & 2) uiKey('q'); if (R.rise & 2) uiKey('shift');
+    if (L.e & 8) { RV.yHold += rdt; if (RV.yHold >= 0.4 && !VR.yDone) { VR.yDone = true; closeInv(); } } else { if (RV.yHold > 0 && !VR.yDone && G.state === 'inv') uiKey('e'); RV.yHold = 0; VR.yDone = false; }
+  } else { RV.yHold = 0; VR.yDone = false; }
+}
+// Y outside the inventory: a short tap is pause / resume (acted on at release); holding it for 0.4 s opens the inventory instead. Returns true when the inventory just opened.
+function vrYLogic(rdt, L) {
+  if (L.rawRise & 8) { RV.yHold = 0; VR.yDone = false; VR.yArm = G.state; }
+  if (L.m & 8) { if (VR.yArm !== '') { RV.yHold += rdt; if (RV.yHold >= 0.4 && !VR.yDone) { VR.yDone = true; if (openInv()) { VR.yArm = ''; return true; } } } }
+  else { if (VR.yArm !== '' && !VR.yDone && VR.yArm === G.state) { if (G.state === 'play') pauseGame(); else if (G.state === 'pause') resumeGame(); } VR.yArm = ''; RV.yHold = 0; VR.yDone = false; }
+  return false;
+}
+
+// ---- HUD strip panel (rift bar, boss bar, banner, loot log) -----------------------------------------------------------------------------------------------------------
+function vrHudWant(now) { return !!RIFT || (RV.ban.on && now < RV.ban.until) || RV.log[0].until > now || RV.log[1].until > now; }
+function vrHudSig(now) {
+  const h = RV.hs, rl = RIFT ? Math.max(0, RIFT.limit - RIFT.t) | 0 : -1, rp = RIFT ? (RIFT.phase === 'fight' ? Math.min(100, (RIFT.prog / RIFT.need * 100) | 0) : 100) : -1, g = RIFT && RIFT.guardian && RIFT.guardian.alive && RIFT.guardian.rpg ? RIFT.guardian : null, bh = g ? Math.ceil(g.rpg.hp / g.rpg.maxhp * 40) : -1;
+  const ban = RV.ban.on && now < RV.ban.until ? 1 + (RV.ban.until | 0) : 0, lg = (RV.logSeq << 2) | (RV.log[0].until > now ? 1 : 0) | (RV.log[1].until > now ? 2 : 0), key = RIFT ? RIFT.seed : -1, ph = RIFT ? (RIFT.phase === 'fight' ? 0 : RIFT.phase === 'guardian' ? 1 : 2) : -1;
+  if (h.rl !== rl || h.rp !== rp || h.ph !== ph || h.bh !== bh || h.ban !== ban || h.log !== lg || h.key !== key) { h.rl = rl; h.rp = rp; h.ph = ph; h.bh = bh; h.ban = ban; h.log = lg; h.key = key; return true; }
+  return false;
+}
+function vrDrawHud(now) {
+  const p = UI.hudP, c = p.ctx, W = p.pw, H = p.ph; c.clearRect(0, 0, W, H); c.textBaseline = 'alphabetic'; const B = RV.ban;
+  if (B.on && now < B.until) {
+    rrect(c, 8, 8, W - 16, 200, 40); c.fillStyle = B.leg ? 'rgba(70,28,6,.93)' : 'rgba(12,30,52,.93)'; c.fill(); c.lineWidth = 6; c.strokeStyle = B.leg ? '#ff9a3a' : '#ffe27a'; c.stroke();
+    rvTxt(c, B.h, W / 2, 100, 84, B.leg ? '#ffb15e' : '#ffe27a', 900, 'center', W - 80); rvTxt(c, B.p, W / 2, 164, 40, '#ffe9c8', 700, 'center', W - 80);
+  } else {
+    let y = 8;
+    if (RIFT) {
+      const left = Math.max(0, RIFT.limit - RIFT.t), pr = RIFT.phase === 'fight' ? RIFT.prog / RIFT.need : 1;
+      rrect(c, 8, y, W - 16, 150, 36); c.fillStyle = 'rgba(10,22,38,.92)'; c.fill(); c.lineWidth = 5; c.strokeStyle = 'rgba(83,224,208,.9)'; c.stroke();
+      rvTxt(c, fmtTime(left), 44, y + 104, 92, left < 30 ? '#ff8f7a' : '#fff4d8', 900); rvTxt(c, 'RIFT TIER ' + RIFT.tier + '  ·  SEED ' + hexSeed(RIFT.seed), 330, y + 52, 36, '#9fd8ff', 800);
+      rrect(c, 330, y + 68, 640, 34, 17); c.fillStyle = 'rgba(255,255,255,.12)'; c.fill(); if (pr > 0.01) { rrect(c, 330, y + 68, Math.max(34, 640 * clamp(pr, 0, 1)), 34, 17); c.fillStyle = RIFT.phase === 'fight' ? '#53e0d0' : '#ffb15e'; c.fill(); }
+      rvTxt(c, (RIFT.phase === 'fight' ? Math.min(100, Math.floor(pr * 100)) + '%  ·  ' : RIFT.phase === 'guardian' ? 'DEFEAT THE GUARDIAN  ·  ' : '') + RIFT.mods.map(m => RPG_RIFT_MODS[m].name.toUpperCase()).join('  ·  '), 330, y + 134, 32, '#cfe0ee', 700, 'left', 640); y += 160;
+    }
+    const g = RIFT && RIFT.guardian && RIFT.guardian.alive && RIFT.guardian.rpg ? RIFT.guardian : null;
+    if (g) { rrect(c, 8, y, W - 16, 112, 30); c.fillStyle = 'rgba(40,12,16,.93)'; c.fill(); c.lineWidth = 5; c.strokeStyle = '#ff6a4a'; c.stroke(); rvTxt(c, g.rpg.name.toUpperCase(), W / 2, y + 48, 40, '#ffb1a0', 900, 'center', W - 100); rrect(c, 44, y + 62, W - 88, 30, 15); c.fillStyle = 'rgba(255,255,255,.14)'; c.fill(); const f = clamp(g.rpg.hp / g.rpg.maxhp, 0, 1); if (f > 0.005) { rrect(c, 44, y + 62, Math.max(30, (W - 88) * f), 30, 15); c.fillStyle = '#ff5a3c'; c.fill(); } y += 122; }
+    for (let i = 0; i < 2; i++) { const l = RV.log[i]; if (l.until > now && l.t) { c.font = '700 38px ' + VFONT; const tw = Math.min(W - 40, c.measureText(l.t).width + 60); rrect(c, W / 2 - tw / 2, y, tw, 58, 29); c.fillStyle = 'rgba(10,22,34,.9)'; c.fill(); c.lineWidth = 3; c.strokeStyle = l.c; c.stroke(); rvTxt(c, l.t, W / 2, y + 41, 38, l.c, 700, 'center', W - 100); y += 66; } }
+  }
+  p.tex.needsUpdate = true;
+}
+
+// ---- loot / chest / elite name plates (3D text sprites) --------------------------------------------------------------------------------------------------------------
+function vrRpgBuildPlates() {
+  for (let i = 0; i < VRT.rpgPlates; i++) {
+    const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = false; tex.minFilter = THREE.LinearFilter;
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, toneMapped: false })); spr.scale.set(VRT.rpgPlateW, VRT.rpgPlateW / 4, 1); spr.renderOrder = 40; spr.visible = false; scene.add(spr);
+    RV.plates.push({ spr, cv, ctx: cv.getContext('2d'), tex, ref: null, kind: 0, hp: -2, seed: -1 }); RV.cand.push({ ref: null, kind: 0, d2: 0 });
+  }
+}
+function vrDrawPlate(pl, name, sub, col, hp) {
+  const c = pl.ctx, W = 512, H = 128; c.clearRect(0, 0, W, H); rrect(c, 4, 4, W - 8, H - 8, 26); c.fillStyle = 'rgba(8,16,28,.86)'; c.fill(); c.lineWidth = 5; c.strokeStyle = col; c.stroke(); c.textBaseline = 'alphabetic';
+  rvTxt(c, name, W / 2, hp >= 0 ? 52 : 62, 46, col, 900, 'center', W - 36); rvTxt(c, sub, W / 2, hp >= 0 ? 88 : 104, 32, '#cfe0ee', 700, 'center', W - 36);
+  if (hp >= 0) { rrect(c, 40, 100, W - 80, 14, 7); c.fillStyle = 'rgba(255,255,255,.16)'; c.fill(); if (hp > 0.01) { rrect(c, 40, 100, Math.max(14, (W - 80) * hp), 14, 7); c.fillStyle = '#ff5a3c'; c.fill(); } }
+  pl.tex.needsUpdate = true;
+}
+function vrPlatePut(ref, kind, d2) { // keeps RV.cand sorted ascending by d2 (slot objects are only permuted, never allocated)
+  const cand = RV.cand, N = cand.length; if (d2 > VRT.rpgPlateVis * VRT.rpgPlateVis) return; let i = RV.putN < N ? RV.putN : N - 1; if (RV.putN >= N && d2 >= cand[N - 1].d2) return; if (RV.putN < N) RV.putN++;
+  while (i > 0 && cand[i - 1].d2 > d2) { const a = cand[i]; cand[i] = cand[i - 1]; cand[i - 1] = a; i--; } const q = cand[i]; q.ref = ref; q.kind = kind; q.d2 = d2;
+}
+function vrRpgPlates(rdt) {
+  RV.plateT -= rdt; const N = RV.plates.length; if (!N) return;
+  if (RV.plateT <= 0) { // choose the nearest N plate-worthy things (rare+ loot, act chests, elites / guardians)
+    RV.plateT = 0.2; RV.putN = 0; const px = P.x, pz = P.z;
+    for (let i = 0; i < LOOT.length; i++) { const L = LOOT[i]; if (L.kind === 'item' && L.rar >= 2) vrPlatePut(L, 1, (L.x - px) * (L.x - px) + (L.z - pz) * (L.z - pz)); }
+    for (let i = 0; i < CHESTS.length; i++) { const k = CHESTS[i]; if (!k.open && k.act) vrPlatePut(k, 2, (k.x - px) * (k.x - px) + (k.z - pz) * (k.z - pz)); }
+    for (let i = 0; i < ENEMIES.length; i++) { const e = ENEMIES[i]; if (e.alive && e.rpg && e.rpg.tier !== 'normal' && e.state !== 'dead' && e.state !== 'squash') vrPlatePut(e, 3, (e.x - px) * (e.x - px) + (e.z - pz) * (e.z - pz)); }
+    RV.selN = RV.putN;
+    for (let i = 0; i < N; i++) { const pl = RV.plates[i]; if (i < RV.putN) { const q = RV.cand[i]; if (pl.ref !== q.ref) { pl.ref = q.ref; pl.kind = q.kind; pl.hp = -2; pl.seed = -1; } } else if (pl.ref) { pl.ref = null; pl.spr.visible = false; } }
+  }
+  let shown = 0;
+  for (let i = 0; i < N; i++) {
+    const pl = RV.plates[i], r = pl.ref; if (!r) continue;
+    if (pl.kind === 1) { if (LOOT.indexOf(r) < 0) { pl.ref = null; pl.spr.visible = false; continue; } if (pl.seed !== r.item.seed) { pl.seed = r.item.seed; vrDrawPlate(pl, rpgItemName(r.item), 'ilvl ' + r.item.ilvl + ' ' + RPG_SLOT_LABEL[r.item.slot], RPG_RARITY_COL[r.rar], -1); } pl.spr.position.set(r.x, r.y + VRT.rpgPlateY, r.z); }
+    else if (pl.kind === 2) { if (r.open) { pl.ref = null; pl.spr.visible = false; continue; } if (pl.seed !== 1) { pl.seed = 1; vrDrawPlate(pl, 'ACT CHEST', 'open it for loot', RPG_RARITY_COL[2], -1); } pl.spr.position.set(r.x, r.y + VRT.rpgPlateY, r.z); }
+    else { const R = r.rpg; if (!r.alive || !R || r.state === 'dead' || r.state === 'squash') { pl.ref = null; pl.spr.visible = false; continue; } const hb = Math.ceil(clamp(R.hp / R.maxhp, 0, 1) * 10); if (pl.seed !== R.lvl || pl.hp !== hb) { pl.seed = R.lvl; pl.hp = hb; vrDrawPlate(pl, R.name, 'Lv ' + R.lvl + ' ' + R.tier.toUpperCase(), R.col, hb / 10); } pl.spr.position.set(r.x, r.y + VRT.rpgPlateY * (r.mesh.scale.y || 1) * 0.9 + 1.2, r.z); }
+    pl.spr.visible = pl.kind === 3 ? r.mesh.visible : pl.kind === 2 ? r.g.visible : true; if (pl.spr.visible) shown++;
+  }
+  RV.nPlates = shown;
+}
+
+// ---- diorama limits for RPG objects: distance cull, beam cap + shortening, aura trimming ----------------------------------------------------------------------------------
+function vrRpgCull(rdt) {
+  RV.cullT -= rdt; if (RV.cullT > 0) return; RV.cullT = 0.1; const R2 = VRT.rpgVis * VRT.rpgVis, px = P.x, pz = P.z, bm = VRT.rpgBeamMax, bk = VRT.rpgBeamK; let nb = 0;
+  for (let i = 0; i < ENEMIES.length; i++) {
+    const e = ENEMIES[i]; if (!e.alive) continue; const dx = e.x - px, dz = e.z - pz, v = dx * dx + dz * dz < R2 || (RIFT && e === RIFT.guardian); if (e.mesh.visible !== v) e.mesh.visible = v;
+    if (v && e.aura) { const u = e.aura.userData; if (u.beam) { const on = nb < bm; if (u.beam.visible !== on) u.beam.visible = on; if (on) { nb++; u.beam.scale.y = u.beamH * bk; } } }
+  }
+  for (let i = 0; i < CHESTS.length; i++) { const k = CHESTS[i], dx = k.x - px, dz = k.z - pz, v = dx * dx + dz * dz < R2; if (k.g.visible !== v) k.g.visible = v; if (k.beam) { const on = v && nb < bm; if (k.beam.visible !== on) k.beam.visible = on; if (on) { nb++; k.beam.scale.y = 34 * bk; } } }
+  for (let i = 0; i < CRATES.length; i++) { const k = CRATES[i]; if (!k.alive) continue; const dx = k.x - px, dz = k.z - pz, v = dx * dx + dz * dz < R2; if (k.m.visible !== v) k.m.visible = v; }
+  for (let i = 0; i < LOOT.length; i++) { const L = LOOT[i]; if (!L.beam) continue; const dx = L.x - px, dz = L.z - pz, on = dx * dx + dz * dz < R2 * 1.5 && nb < bm; if (L.beam.visible !== on) L.beam.visible = on; if (on) { nb++; L.beam.scale.y = BEAM_H[L.rar] * bk; } }
+  RV.nBeams = nb;
+}
+function vrRpgRestore() { // leaving VR: everything the diorama limits hid comes back
+  for (const e of ENEMIES) { if (e.alive) e.mesh.visible = true; if (e.aura) { const u = e.aura.userData; if (u.orbs) for (const o of u.orbs) o.visible = true; if (u.beam) { u.beam.visible = true; u.beam.scale.y = u.beamH; } } }
+  for (const k of CHESTS) { k.g.visible = true; if (k.beam) { k.beam.visible = true; k.beam.scale.y = 34; } } for (const k of CRATES) if (k.alive) k.m.visible = true;
+  for (const L of LOOT) if (L.beam) { L.beam.visible = true; L.beam.scale.y = BEAM_H[L.rar]; }
+  for (const pl of RV.plates) { pl.ref = null; pl.spr.visible = false; } RV.nPlates = 0; if (UI.hudP) UI.hudP.mesh.visible = false; if (UI.rp) UI.rp.mesh.visible = false;
+  if (RUI.open) rpgRenderInv(); if (PK.open) renderPerks();
+}
+
+// ---- per-frame glue (called from vrPre / vrRenderPrep) -----------------------------------------------------------------------------------------------------------------------
+function vrRpgPre(rdt) {
+  vrHapTick(); vrRpgCull(rdt); vrRpgPlates(rdt);
+  const open = UI.mode === 'inv' || UI.mode === 'perk'; RV.open = open;
+  if (open) { const armed = !!RUI.armed && RT.real - RUI.armed.t < 2.6; if (armed !== RV.armedOn) { RV.armedOn = armed; RV.dirty = true; } }
+}
+function vrRpgRenderPrep() {
+  const now = performance.now();
+  if (UI.rp.mesh.visible && RV.dirty) vrDrawRp();
+  const want = UI.mode === 'none' && vrHudWant(now) ? 1 : 0; if (want && vrHudSig(now)) vrDrawHud(now);
+  const p = UI.hudP; vrPlacePanel(p, VR.hpx + Math.sin(VR.capAng) * 1.1, Math.max(0.5, VR.hpy - 0.17), VR.hpz + Math.cos(VR.capAng) * 1.1, VR.hpx, VR.hpz);
+  p.mat.opacity += (want - p.mat.opacity) * 0.25; p.mesh.visible = p.mat.opacity > 0.02; if (!want && !p.mesh.visible) RV.hs.rl = -3;
+}
+function vrRpgBuild() {
+  UI.rp = vrPanel(VRT.rpgPanelW, VRT.rpgPanelW * 0.625, 2048, 1280, true); rig.add(UI.rp.mesh);
+  UI.hudP = vrPanel(0.8, 0.3, 1024, 384, false); UI.hudP.mat.opacity = 0; rig.add(UI.hudP.mesh);
+  vrRpgBuildPlates();
+}
+// </vr-rpg>
 
 // ============================================================================
 // BOOT + shelf bridge

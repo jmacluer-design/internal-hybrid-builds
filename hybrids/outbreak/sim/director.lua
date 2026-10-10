@@ -5,7 +5,7 @@
 -- so threat never outruns what the colony has earned. Pacing profiles ("calm", "escalating", "chaos") change the
 -- multiplier curve, the gap between threat-channel events, how much of the budget one event spends, surge chance,
 -- and event weights. Boons (caravan, supply drop, refugees) run on their own timer and cost nothing.
--- (Idea only: RimWorld-style storytellers; the formula and tables here are original.)
+-- (Idea only: the generic colony-sim "storyteller" pattern; the formula and tables here are original.)
 local U = require("sim.util")
 local TUNING = require("data.tuning")
 local EV = require("data.events")
@@ -66,7 +66,7 @@ local function gap_days(w, rng, channel)
 		hi = U.lerp(p.threat_gap[2], p.threat_gap_late[2], f)
 	end
 	local g = rng:range(lo, hi)
-	if channel ~= "boon" and rng:chance(p.surge_chance) then g = g * 0.25 end
+	if channel ~= "boon" and rng:chance(p.surge_chance) then g = g * D.surge_gap_mult end
 	return g
 end
 
@@ -276,7 +276,7 @@ local function try_threat(w, rng)
 	if cost > d.budget then cost = d.budget end
 	local detail = H[ev.id](w, ev, cost, rng)
 	if not detail then
-		d.cooldowns[ev.id] = s.t - ev.cooldown_days * 1440 + 180 -- try something else, retry this one in 3 hours
+		d.cooldowns[ev.id] = s.t - ev.cooldown_days * 1440 + D.retry_minutes -- try something else, retry this one later
 		return false
 	end
 	local before = d.budget
@@ -299,7 +299,7 @@ local function try_boon(w, rng)
 			local last = d.cooldowns[ev.id]
 			if last == nil or s.t - last >= ev.cooldown_days * 1440 then
 				local wt = ev.weight * (p.weights[ev.id] or 1)
-				if radio and (ev.id == "caravan" or ev.id == "refugee_arrival") then wt = wt * 1.5 end
+				if radio and (ev.id == "caravan" or ev.id == "refugee_arrival") then wt = wt * D.radio_mult end
 				cands[#cands + 1] = { ev = ev, w = wt }
 			end
 		end
@@ -309,7 +309,7 @@ local function try_boon(w, rng)
 	local ev = pick.ev
 	local detail = H[ev.id](w, ev, 0, rng)
 	if not detail then
-		d.cooldowns[ev.id] = s.t - ev.cooldown_days * 1440 + 180
+		d.cooldowns[ev.id] = s.t - ev.cooldown_days * 1440 + D.retry_minutes
 		return false
 	end
 	log_event(w, ev.id, ev.cat, 0, d.budget, d.budget, detail)

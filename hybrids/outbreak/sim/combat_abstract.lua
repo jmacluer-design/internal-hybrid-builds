@@ -127,7 +127,7 @@ function M.resolve(rng, spec)
 		local Aavg = (A + A2) / 2
 		local barrier_eff = 0
 		if barrier_hp0 > 0 then
-			barrier_eff = barrier_score * (barrier_left / barrier_hp0) * (0.4 + 0.6 * enclosure)
+			barrier_eff = barrier_score * (barrier_left / barrier_hp0) * (CT.barrier_enclosure_base + (1 - CT.barrier_enclosure_base) * enclosure)
 		end
 		local wall_mult = 1 / (1 + barrier_eff / CT.barrier_k)
 		local dmg = Aavg * CT.k_damage * wall_mult * rng:range(CT.var_lo, CT.var_hi)
@@ -148,8 +148,8 @@ function M.resolve(rng, spec)
 				if #pool == 0 then break end
 				local id = rng:pick(pool)
 				local kind
-				if raider_mix and (mix.raider or 0) > 0 and rng:chance(0.7) then kind = "bullet"
-				elseif rng:chance(CT.bite_share * (1 - 0.6 * enclosure)) then kind = "bite" else kind = "scratch" end
+				if raider_mix and (mix.raider or 0) > 0 and rng:chance(CT.raider_bullet_share) then kind = "bullet"
+				elseif rng:chance(CT.bite_share * (1 - CT.bite_enclosure_cut * enclosure)) then kind = "bite" else kind = "scratch" end
 				hits[#hits + 1] = { id = id, kind = kind, amount = per }
 				hp_left[id] = hp_left[id] - per
 				if hp_left[id] <= 0 then
@@ -170,7 +170,7 @@ function M.resolve(rng, spec)
 	else outcome = "stalemate" end
 	return {
 		attackers_left = mix, killed = killed, hits = hits, dead = dead, ammo_used = ammo_used,
-		wall_damage = wall_damage, breached = (barrier_hp0 > 0 and barrier_left <= barrier_hp0 * 0.25) or (barrier_hp0 <= 0),
+		wall_damage = wall_damage, breached = (barrier_hp0 > 0 and barrier_left <= barrier_hp0 * CT.breach_hp_frac) or (barrier_hp0 <= 0),
 		outcome = outcome, rounds_run = ran, screamers_left = mix.screamer or 0,
 	}
 end

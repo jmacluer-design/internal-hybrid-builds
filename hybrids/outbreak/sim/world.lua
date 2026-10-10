@@ -59,11 +59,12 @@ function World.new(opts)
 	return w
 end
 
--- rebuild every derived cache from plain state (after a load, or after tests edit state directly)
-function World.restore(state)
+-- rebuild every derived cache from plain state (after a load, or after tests edit state directly).
+-- opts.max_dt sets the internal step size (it is configuration, not state, so it is not saved).
+function World.restore(state, opts)
 	local w = setmetatable({}, World)
 	w.s = state
-	w.rt = { out = nil, pending = {}, idx = { c = {}, b = {}, p = {}, z = {} }, res = {}, max_dt = TUNING.sim.max_dt,
+	w.rt = { out = nil, pending = {}, idx = { c = {}, b = {}, p = {}, z = {} }, res = {}, max_dt = (opts and opts.max_dt) or TUNING.sim.max_dt,
 		env = { rng = nil }, menv = { ctx = {} }, tmp = {} }
 	w:rebuild()
 	return w
@@ -84,6 +85,12 @@ function World:rebuild()
 	for i = 1, #s.raids do items.rebuild(s.raids[i].loot) end
 	self.rt.idx = idx
 	jobs.rebuild_res(self)
+end
+
+-- internal step size in minutes (default 1). Larger steps are faster and slightly less precise; the same step size must
+-- be used to reproduce a run.
+function World:set_max_dt(n)
+	self.rt.max_dt = U.clamp(floor(n), 1, 60)
 end
 
 function World:setup_default(opts)
@@ -466,7 +473,7 @@ function World:colonist_leaves(c, why)
 	self:stat("colonists_left", 1)
 	self:emit({ type = "colonist_left", id = c.id, name = c.name, why = why })
 	self:notify("bad", string.format("%s is gone (%s).", c.name, why))
-	for i = 1, #s.colonists do self:add_thought(s.colonists[i], "friend_died", 0.5) end
+	for i = 1, #s.colonists do self:add_thought(s.colonists[i], "friend_died", W.leave_grief) end
 	if #s.colonists == 0 and not s.over then
 		s.over = true
 		self:emit({ type = "game_over", reason = "all_colonists_lost", day = clock.day(s.t) })
@@ -556,7 +563,7 @@ function World:on_new_day()
 	local day = s.day
 	self:emit({ type = "day_start", day = day })
 	local _, _, enclosure = blueprints.defense(self)
-	if enclosure >= 0.8 then self:add_thought_all("secure_walls") end
+	if enclosure >= W.secure_enclosure then self:add_thought_all("secure_walls") end
 	-- one history row per day (bounded) for reports and balance tooling
 	local n = #s.colonists
 	local msum = 0
@@ -604,7 +611,7 @@ function World:update_colonists(dt)
 			env.heal_mult = 1
 			if j and j.data and j.data.bed then
 				local bd = self:building(j.data.bed)
-				if bd and require("data.blueprints")[bd.bp].tags.med_bed then env.heal_mult = bd.powered and 1.8 or 1.3 end
+				if bd and require("data.blueprints")[bd.bp].tags.med_bed then env.heal_mult = bd.powered and W.med_bed_heal or W.med_bed_heal_unpowered end
 			end
 			local ev = needs.step(c, dt, env)
 			if ev then self:handle_need_events(c, ev) end
@@ -713,7 +720,7 @@ function World:snapshot()
 	local msum, hurt = 0, 0
 	for i = 1, n do
 		msum = msum + s.colonists[i].mood
-		if s.colonists[i].hp < s.colonists[i].hp_max * 0.7 then hurt = hurt + 1 end
+		if s.colonists[i].hp < s.colonists[i].hp_max * W.hurt_frac then hurt = hurt + 1 end
 	end
 	local tot = stockpile.totals(s.zones)
 	local food, drink = 0, 0

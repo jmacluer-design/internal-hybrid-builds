@@ -208,10 +208,10 @@ function M.unpack(str)
 	return merr
 end
 
-function M.load(str)
+function M.load(str, opts)
 	local state, err = M.unpack(str)
 	if not state then return nil, err end
-	return require("sim.world").restore(state)
+	return require("sim.world").restore(state, opts)
 end
 
 return M

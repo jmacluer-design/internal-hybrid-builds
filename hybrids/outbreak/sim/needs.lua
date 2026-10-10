@@ -58,15 +58,16 @@ end
 -- multiplier on every work speed (hunger, thirst, tiredness, pain, sickness, maiming, injury)
 function M.work_speed(c, now)
 	local s = 1
-	if c.hunger > 50 then s = s * (1 - (c.hunger - 50) * 0.004) end
-	if c.thirst > 50 then s = s * (1 - (c.thirst - 50) * 0.006) end
-	if c.fatigue > 60 then s = s * (1 - (c.fatigue - 60) * 0.006) end
-	s = s * (1 - M.perceived_pain(c, now) * 0.004)
+	local sp = N.speed
+	if c.hunger > sp.hunger_from then s = s * (1 - (c.hunger - sp.hunger_from) * sp.hunger_k) end
+	if c.thirst > sp.thirst_from then s = s * (1 - (c.thirst - sp.thirst_from) * sp.thirst_k) end
+	if c.fatigue > sp.fatigue_from then s = s * (1 - (c.fatigue - sp.fatigue_from) * sp.fatigue_k) end
+	s = s * (1 - M.perceived_pain(c, now) * sp.pain_k)
 	local st = c.inf.stage
-	if st == "symptomatic" then s = s * INF.symptom_speed elseif st == "terminal" then s = s * 0.45 end
+	if st == "symptomatic" then s = s * INF.symptom_speed elseif st == "terminal" then s = s * sp.terminal_mult end
 	for _ = 1, c.maimed do s = s * INF.maim_speed end
-	if c.hp < c.hp_max * 0.5 then s = s * 0.85 end
-	return clamp(s, N.speed_floor, 1.5)
+	if c.hp < c.hp_max * sp.hurt_below then s = s * sp.hurt_mult end
+	return clamp(s, N.speed_floor, sp.ceiling)
 end
 
 local function roll_range(rng, r) return rng:int(r[1], r[2]) end
@@ -91,9 +92,10 @@ function M.wound(c, rng, kind, amount, part)
 	local def = N.wounds[kind] or N.wounds.blunt
 	amount = clamp(amount or 0, 0, 1000)
 	part = part or rng:pick(M.PARTS)
-	if kind == "bite" and part == "head" and rng:chance(0.5) then part = "arm" end
+	if kind == "bite" and part == "head" and rng:chance(N.head_bite_to_arm) then part = "arm" end
 	info.part = part
-	local scale = clamp(amount / 15, 0.4, 2.5)
+	local ws = N.wound_scale
+	local scale = clamp(amount / ws.per_hp, ws.min, ws.max)
 	c.hp = max(0, c.hp - amount)
 	if amount > 0 then c.hurt_by = (kind == "bite" or kind == "scratch") and "zombies" or "wounds" end
 	c.pain = min(N.pain_cap, c.pain + def.pain * scale)
@@ -124,7 +126,7 @@ function M.treat_bleeding(c, rng, power)
 	for i = 1, #w do if w[i].bleed > worst then worst = w[i].bleed; wi = i end end
 	if wi then
 		if rng:chance(N.bandage_stop) then w[wi].bleed = 0; closed = 1
-		else w[wi].bleed = w[wi].bleed * 0.4 end
+		else w[wi].bleed = w[wi].bleed * N.bandage_partial end
 	end
 	return closed
 end
@@ -142,7 +144,7 @@ function M.treat_infection(c, rng, skill_level, bonus)
 		M.cure_infection(c)
 		return true
 	end
-	c.inf.t = c.inf.t * 1.3
+	c.inf.t = c.inf.t * INF.fail_extend
 	return false
 end
 
@@ -155,8 +157,8 @@ end
 function M.amputate(c, rng, skill_level, bonus)
 	if not M.can_amputate(c) then return false, "not_amputable" end
 	local chance = INF.amputate_base + INF.amputate_per_skill * skill_level + (bonus or 0)
-	if c.inf.stage == "symptomatic" then chance = chance - 0.15 end
-	chance = clamp(chance, 0.05, 0.97)
+	if c.inf.stage == "symptomatic" then chance = chance - INF.amputate_symptomatic_pen end
+	chance = clamp(chance, INF.amputate_min, INF.amputate_max)
 	local part = c.inf.part
 	if rng:chance(chance) then
 		M.cure_infection(c)
@@ -168,7 +170,7 @@ function M.amputate(c, rng, skill_level, bonus)
 		c.wounds = keep
 		return true, "ok"
 	end
-	c.hp = max(1, c.hp - INF.amputate_hp_cost * 1.5)
+	c.hp = max(1, c.hp - INF.amputate_hp_cost * INF.amputate_fail_hp_mult)
 	c.pain = min(N.pain_cap, c.pain + INF.amputate_pain)
 	return false, "failed"
 end
@@ -206,7 +208,7 @@ function M.check_vitals(c)
 		c.downed = true
 		return { kind = "downed" }
 	end
-	if c.downed and c.hp > N.downed_hp + 8 then
+	if c.downed and c.hp > N.downed_hp + N.recover_margin then
 		c.downed = false
 		return { kind = "recovered" }
 	end
@@ -226,10 +228,11 @@ function M.step(c, dt, env)
 	local resting = sleeping or act == "rest"
 
 	-- hunger / thirst
-	local hf = (sleeping and 0.55) or (resting and 0.75) or (act == "work" and 1.1) or 1
+	local ac = N.activity
+	local hf = (sleeping and ac.hunger_sleep) or (resting and ac.hunger_rest) or (act == "work" and ac.hunger_work) or 1
 	local was_h, was_t = c.hunger, c.thirst
 	c.hunger = clamp(c.hunger + N.hunger_per_min * dt * hf * traits.mul(c, "hunger_rate"), 0, 100)
-	c.thirst = clamp(c.thirst + N.thirst_per_min * dt * (sleeping and 0.6 or 1) * traits.mul(c, "thirst_rate"), 0, 100)
+	c.thirst = clamp(c.thirst + N.thirst_per_min * dt * (sleeping and ac.thirst_sleep or 1) * traits.mul(c, "thirst_rate"), 0, 100)
 	if c.hunger >= 100 and was_h < 100 then push({ kind = "starving" }) end
 	if c.thirst >= 100 and was_t < 100 then push({ kind = "dehydrated" }) end
 
@@ -238,7 +241,7 @@ function M.step(c, dt, env)
 	if sleeping then
 		c.fatigue = clamp(c.fatigue - N.fatigue_sleep_per_min * dt * (env.rest_q or 1), 0, 100)
 	elseif resting then
-		c.fatigue = clamp(c.fatigue - N.fatigue_sleep_per_min * dt * 0.35, 0, 100)
+		c.fatigue = clamp(c.fatigue - N.fatigue_sleep_per_min * dt * ac.rest_fatigue_frac, 0, 100)
 	else
 		local wf = (act == "work") and N.fatigue_work_mult or 1
 		c.fatigue = clamp(c.fatigue + N.fatigue_awake_per_min * dt * wf * traits.mul(c, "fatigue_rate"), 0, 100)
@@ -260,7 +263,7 @@ function M.step(c, dt, env)
 			bleed = bleed + wd.bleed
 		end
 		local keep_src = (c.inf.stage ~= "none" and c.inf.part == wd.part and wd.bite)
-		if wd.bleed == 0 and wd.age > 2880 and not keep_src then table.remove(w, i) else i = i + 1 end
+		if wd.bleed == 0 and wd.age > N.wound_heal_min and not keep_src then table.remove(w, i) else i = i + 1 end
 	end
 	local hp_loss = bleed * dt
 	local hurt = (bleed > 0) and "bleeding" or nil

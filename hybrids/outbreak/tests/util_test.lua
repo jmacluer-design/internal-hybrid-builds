@@ -150,7 +150,7 @@ end)
 -- portability lint
 -- ---------------------------------------------------------------------------------------------
 local SIM = { "util", "rng", "clock", "items", "loot", "needs", "mood", "skills", "traits", "colonist", "stockpile", "blueprints",
-	"jobs", "grid", "expedition", "horde", "factions", "director", "combat_abstract", "siege", "world", "handlers", "save", "ai_policy", "runner" }
+	"jobs", "grid", "expedition", "horde", "factions", "director", "combat_abstract", "siege", "world", "handlers", "save", "ai_policy", "runner", "bootstrap" }
 local DATA = { "tuning", "items", "blueprints", "loot", "traits", "thoughts", "events", "factions", "districts", "recipes", "names" }
 
 local function read(path)
@@ -230,7 +230,9 @@ T.test("portability lint: no goto, bit ops, //, ^, libm trig/exp/log, os.time/cl
 			local bad = {}
 			for ln, l in ipairs(lines) do
 				for _, b in ipairs(BANNED) do
-					if l.code:find(b[2]) then bad[#bad + 1] = string.format("%s:%d uses %s: %s", path, ln, b[1], l.code) end
+					-- sim/bootstrap.lua is the one place that must compile source text (loadstring or load) for hosts without package.path
+					local allowed = (m == "bootstrap" and b[1] == "loadstring")
+					if l.code:find(b[2]) and not allowed then bad[#bad + 1] = string.format("%s:%d uses %s: %s", path, ln, b[1], l.code) end
 				end
 			end
 			T.eq(#bad, 0, table.concat(bad, "\n"))

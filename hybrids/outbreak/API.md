@@ -11,8 +11,10 @@ silently drift from the code.
 ## 1. Conventions
 
 * **Runtime**: plain Lua 5.1-semantics-compatible code, verified under LuaJIT 2.1 and Lua 5.4 (FiveM runs 5.4). No globals are created.
-  Modules are loaded with `require("sim.world")`; the host must make `sim/` and `data/` reachable by `require`
-  (in FiveM, supply a `require` shim over `LoadResourceFile`, see the risks section).
+  Modules are loaded with `require("sim.world")`; the host must make `sim/` and `data/` reachable by `require`. Where there is no `package.path`
+  (FiveM resources), `sim/bootstrap.lua` defines a `require` over a file reader:
+  `local boot = load(LoadResourceFile(res, "sim/bootstrap.lua"), "@sim/bootstrap.lua")(); boot.install(function(p) return LoadResourceFile(res, p) end)`.
+  `tests/loader_test.lua` loads the whole sim that way in a fresh process, with the standard search path disabled, and checks that it reproduces the normal run's state hash.
 * **Positions** are plain tables `{x = number, y = number, z = number}` in *sim space* (base = origin, units are roughly metres).
   The adapter adds a fixed offset to convert to game coordinates (the `TUNING.base` / `TUNING.map` numbers are in sim space).
 * **Time** is an integer number of game minutes since day 1 00:00 (`clock.day(t) = floor(t/1440)+1`). Every event carries `t`.
@@ -44,8 +46,9 @@ local blob = save.save(w)                 -- string; store in KVP / file
 local w2, err = save.load(blob)           -- nil, "reason" on a damaged or too-new save
 ```
 
-* `tick(n)` runs `n` one-minute steps (it may be split into `max_dt`-minute steps, see `World.new{max_dt=}`); call it with the
-  real game minutes elapsed. Calling `tick(1)` once per in-game minute is the reference setup (about 0.05 ms per call on LuaJIT with 6 colonists).
+* `tick(n)` runs `n` one-minute steps (optionally split into larger `max_dt`-minute steps: `World.new{max_dt=}`, `w:set_max_dt(n)`,
+  `save.load(blob, {max_dt = n})`; the step size is configuration, not saved state); call it with the real game minutes elapsed.
+  Calling `tick(1)` once per in-game minute is the reference setup (0.1 ms per call on LuaJIT with 30 colonists, see `tests/bench.lua`).
 * The sim is **authoritative for time and jobs**: colonist tasks complete after walking time + work time computed from the sim's own
   `walk_speed`. The adapter animates and may snap peds into place; it does not report task completion.
 * The sim is **deterministic**: the same seed and the same sequence of `tick` / `handle` calls give the same state hash

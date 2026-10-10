@@ -105,8 +105,9 @@ function M.seed_ambient(w, n)
 		local dist = rng:range(1100, 2300)
 		local size = rng:int(H.ambient_size[1], H.ambient_size[2])
 		local mix = { walker = size }
-		if size >= 12 and rng:chance(0.35) then mix.runner = floor(size * 0.12) + 1; mix.walker = size - mix.runner end
-		if size >= 25 and rng:chance(0.3) then mix.brute = 1; mix.walker = mix.walker - 1 end
+		local am = H.ambient_mix
+		if size >= am.runner_min_size and rng:chance(am.runner_chance) then mix.runner = floor(size * am.runner_share) + 1; mix.walker = size - mix.runner end
+		if size >= am.brute_min_size and rng:chance(am.brute_chance) then mix.brute = 1; mix.walker = mix.walker - 1 end
 		M.spawn(w, { x = R.x + dv[1] * dist, y = R.y + dv[2] * dist, mix = mix, src = "ambient" })
 	end
 end
@@ -394,7 +395,7 @@ function M.step(w, dt)
 			if h.state == "assault" or dbase <= H.assault_radius then
 				h.state = "assault"
 				h.tx, h.ty = nil, nil
-				if dbase > H.assault_radius * 1.5 then h.state = "wander" else do_assault(w, h) end
+				if dbase > H.assault_radius * H.assault_leave_mult then h.state = "wander" else do_assault(w, h) end
 				if h.size <= 0 then removed = true end
 			elseif h.tx then
 				local dx, dy = h.tx - h.x, h.ty - h.y
@@ -423,7 +424,7 @@ function M.step(w, dt)
 				local stp = h.speed * H.wander_mult * dt
 				move(h, h.hx * stp, h.hy * stp)
 				-- drifting hordes near the alert radius may be drawn toward the (noisy) base
-				if U.dist2(h.x, h.y, b.x, b.y) < TUNING.base.alert_radius * 1.6 and rng:chance(H.base_target_chance / 60 * dt) then
+				if U.dist2(h.x, h.y, b.x, b.y) < TUNING.base.alert_radius * H.base_pull_mult and rng:chance(H.base_target_chance / 60 * dt) then
 					h.tx, h.ty, h.tscore = b.x, b.y, 20
 					h.state = "seek"
 				end

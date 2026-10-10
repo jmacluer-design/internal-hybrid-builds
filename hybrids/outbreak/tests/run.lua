@@ -18,6 +18,7 @@ T.root = root
 local files = {
 	"rng_test",        -- Park-Miller stream: determinism, distribution, forks
 	"util_test",       -- util, clock, portability lint of every source file
+	"loader_test",     -- sim/bootstrap.lua: loading the sim without package.path (FiveM-style) gives identical results
 	"items_test",      -- items/containers/loot + data validation
 	"needs_test",      -- needs, infection state machine, mood, skills, traits, colonist
 	"build_test",      -- blueprints, prerequisites, power + water networks
