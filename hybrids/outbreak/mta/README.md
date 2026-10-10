@@ -250,7 +250,7 @@ MTA renders through GTA SA's DirectX 9 pipeline, so the usual San Andreas graphi
 mta/tests/run.sh                  # everything: copy checks, Lua suite on LuaJIT + Lua 5.4 (+ PUC Lua 5.1.5), function check, browser test, Lua replay of the browser's calls
 mta/tests/run.sh --no-browser     # without Playwright
 mta/tests/run.sh --with-sim       # also the sim's own suite and the FiveM adapter's suite
-mta/tools/build_lua51.sh          # builds PUC-Rio Lua 5.1.5 (md5-checked) into ~/.cache; then  LUA51=<path>/src/lua mta/tests/run.sh
+mta/tools/build_lua51.sh          # builds PUC-Rio Lua 5.1.5 (md5-checked) into ~/.cache/lua-5.1.5; then  LUA51=$HOME/.cache/lua-5.1.5/lua-5.1.5/src/lua mta/tests/run.sh
 ```
 
 | Layer | Proves | Does **not** prove |
