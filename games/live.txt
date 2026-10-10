@@ -5,3 +5,4 @@ souls64.html
 webcraft.html
 blockshot.html
 colossus.html
+shatterworld.html
