@@ -11,27 +11,29 @@ await g.eval(() => {
   window.__axes = (a,b,c,d)=>{ window.__fp.axes=[a,b,c,d]; };
 });
 const held = async () => (await g.eval(() => window.__gpDbg())).held.slice().sort().join(',');
+const heldIs = async (exp, ms = 4000) => { const t = Date.now(); let v = await held(); while (v !== exp && Date.now() - t < ms) { await g.wait(60); v = await held(); } return v; };
 const menuShown = () => g.eval(() => { const el=document.getElementById('menu'); const s=getComputedStyle(el);
   return s.display!=='none'&&s.visibility!=='hidden'&&+s.opacity>0.01&&el.getClientRects().length>0; });
 const R = [];
 const ok = (name, cond, extra='') => { R.push(cond); console.log((cond?'PASS':'FAIL'), name, extra); };
 ok('menu visible at load', await menuShown());
-await g.eval(()=>window.__set(0,true)); await g.wait(120); await g.eval(()=>window.__set(0,false)); await g.wait(300);
+await g.eval(()=>window.__set(0,true));
+{ const t=Date.now(); while ((await menuShown()) && Date.now()-t<5000) await g.wait(80); } // hold A until a frame has seen it
+await g.eval(()=>window.__set(0,false)); await g.wait(200);
 ok('A on menu starts the game (menu hidden)', !(await menuShown()));
-await g.eval(()=>window.__axes(1,0,0,0)); await g.wait(120); ok('left stick right -> d', (await held())==='d', await held());
-await g.eval(()=>window.__axes(-1,0,0,0)); await g.wait(120); ok('left stick left -> a', (await held())==='a', await held());
-await g.eval(()=>window.__axes(0,-1,0,0)); await g.wait(120); ok('left stick up -> w', (await held())==='w', await held());
-await g.eval(()=>window.__axes(0,1,0,0)); await g.wait(120); ok('left stick down -> s', (await held())==='s', await held());
-await g.eval(()=>window.__axes(0.1,0.1,0,0)); await g.wait(120); ok('inside deadzone -> nothing', (await held())==='', await held());
+await g.eval(()=>window.__axes(1,0,0,0)); { const v = await heldIs('d'); ok('left stick right -> d', v==='d', v); }
+await g.eval(()=>window.__axes(-1,0,0,0)); { const v = await heldIs('a'); ok('left stick left -> a', v==='a', v); }
+await g.eval(()=>window.__axes(0,-1,0,0)); { const v = await heldIs('w'); ok('left stick up -> w', v==='w', v); }
+await g.eval(()=>window.__axes(0,1,0,0)); { const v = await heldIs('s'); ok('left stick down -> s', v==='s', v); }
+await g.eval(()=>window.__axes(0.1,0.1,0,0)); { const v = await heldIs(''); ok('inside deadzone -> nothing', v==='', v); }
 await g.eval(()=>window.__axes(0,0,0,0));
 for (const [i,k] of [[0,' '],[1,'z'],[2,'j'],[3,'e'],[4,'q'],[5,'shift'],[12,'arrowup'],[15,'arrowright']]) {
-  await g.eval(([i])=>window.__set(i,true),[i]); await g.wait(100); const h1=await held();
-  await g.eval(([i])=>window.__set(i,false),[i]); await g.wait(100); const h2=await held();
+  await g.eval(([i])=>window.__set(i,true),[i]); const h1=await heldIs(k);
+  await g.eval(([i])=>window.__set(i,false),[i]); const h2=await heldIs('');
   ok(`button ${i} -> '${k}' and released`, h1===k && h2==='', `down=${h1} up=${h2}`);
 }
 await g.eval(()=>window.__axes(0.5,0,0,0)); await g.wait(100);
-await g.eval(()=>{ navigator.getGamepads=()=>[null,null,null,null]; window.dispatchEvent(new Event('gamepaddisconnected')); }); await g.wait(150);
-ok('disconnect releases everything', (await held())==='', await held());
+await g.eval(()=>{ navigator.getGamepads=()=>[null,null,null,null]; window.dispatchEvent(new Event('gamepaddisconnected')); }); { const v = await heldIs(''); ok('disconnect releases everything', v==='', v); }
 console.log('errors:', JSON.stringify(g.errors));
 await g.close();
 process.exit(R.every(Boolean) && g.errors.length===0 ? 0 : 1);
