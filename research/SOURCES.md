@@ -46,6 +46,7 @@ Shallow clones live OUTSIDE this repo (never committed). Re-pull with e.g.
 | [mrborghini/libertycraft](https://github.com/mrborghini/libertycraft) | 3ae5306 (2026-10-09) | `LICENSE` | Minecraft inside GTA IV (fork of the SkyCraft bridge for a new host) |
 | [cyteon/GrandTheftMinecraft](https://github.com/cyteon/GrandTheftMinecraft) | 84cf1fc (2026-10-09) | `LICENSE` | Minecraft inside GTA V |
 | [Sm1jjj/PipeLinkLauncher](https://github.com/Sm1jjj/PipeLinkLauncher) | e0f3014 (2026-10-03) | `LICENSE` | GTA San Andreas host running Skate 3 and MW2 gameplay modes |
+| [CleverRaven/Cataclysm-DDA](https://github.com/CleverRaven/Cataclysm-DDA) | a74468b (2026-10-09) | CC BY-SA 3.0 (`LICENSE.txt`; share-alike if reused) | Open-source zombie-survival roguelike. Mine for the Outbreak hybrid: `src/faction_camp.cpp` + `basecamp.cpp` + `mission_companion.cpp` (NPC base jobs/missions, the RimWorld layer), `src/horde_map.cpp` + `horde_entity.cpp` (moving horde sim, the storyteller/horde layer), `src/character_morale.cpp`, `effect.cpp`, `mutation.cpp` (needs, moods, wounds, infection), `data/json/{monsters,items,recipes,npcs}` (data-driven content layout). Pulled shallow (221 MB) at /home/user/cleverraven/cataclysm-dda |
 
 ## Found, not pulled (verify before relying on)
 - Curated lists: [bobeff/open-source-games](https://github.com/bobeff/open-source-games) (Xonotic, Cube 2, Red Eclipse, Liblast, Surreal Engine, OpenGOAL, SRB2, OpenMW, Veloren, SuperTuxKart, Zelda TP decomp...)
