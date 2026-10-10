@@ -3,3 +3,4 @@
 parkcraft.html
 souls64.html
 webcraft.html
+blockshot.html
