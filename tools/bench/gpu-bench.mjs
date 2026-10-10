@@ -23,7 +23,19 @@ const args = SOFT ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsa
 if (UNCAPPED) args.push('--disable-gpu-vsync', '--disable-frame-rate-limit');
 const HGPU = !!arg('headless-gpu', false); if (HGPU) args.push('--use-angle=vulkan', '--enable-features=Vulkan', '--disable-vulkan-surface', '--enable-gpu');
 const launchOpts = { headless: SOFT || HGPU || !!arg('headless', false), args }; if (arg('chrome', false)) launchOpts.channel = 'chrome'; else if (SOFT) launchOpts.executablePath = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const browser = await chromium.launch(launchOpts);
+async function launchBrowser(opts) {
+  try { return await chromium.launch(opts); } catch (e) {
+    const msg = String(e.message || e); const head = msg.split('\n').filter(l => l.trim()).slice(0, 14).join('\n');
+    console.error('\n=== Chrome failed to launch. First lines of the error: ===\n' + head + '\n');
+    if (/is not found at|Executable doesn't exist|distribution/i.test(msg)) console.error('FIX: Chrome is not installed where Playwright looks (/opt/google/chrome/chrome). Install the Google Chrome .deb (see instructions), or leave out --chrome and run `npx playwright install chromium` on a supported OS.');
+    else if (/Missing X server|\$DISPLAY|ozone|platform failed to initialize/i.test(msg)) console.error('FIX: no desktop session. Add --headless-gpu (or run this from the machine\'s own desktop).');
+    else if (/sandbox|namespace|No usable|Operation not permitted|zygote/i.test(msg) && !opts.args.includes('--no-sandbox')) { console.error('Looks like the Chrome sandbox is blocked (common on new Ubuntu). Retrying once with --no-sandbox (this is a local benchmark of your own pages, so that is fine)...'); return launchBrowser({ ...opts, args: [...opts.args, '--no-sandbox'] }); }
+    else if (/crash|SIGTRAP|SIGSEGV|exited|closed/i.test(msg)) console.error('Chrome crashed at start. Try again without --headless-gpu, or with --no-sandbox-always.');
+    process.exit(2);
+  }
+}
+if (arg('no-sandbox-always', false)) args.push('--no-sandbox');
+const browser = await launchBrowser(launchOpts);
 const PROFILES = { desktop: { viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false, cpu: 1 },
   phone: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, cpu: 4 } }; // iPhone-class landscape; the GPU cannot be throttled, see notes
 const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : 0; };
