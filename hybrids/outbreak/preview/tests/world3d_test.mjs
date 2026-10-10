@@ -113,7 +113,7 @@ if (want('tiers')) {
   section('quality tiers: draw calls / triangles per tier, auto pick, switch at runtime');
   for (const [q, maxCalls, maxTris] of [['high', 1500, 1e9], ['mid', 900, 1e9], ['low', 250, 300000]]) {
     const p = await open3d({ q, w: q === 'low' ? 844 : 1280, h: q === 'low' ? 390 : 720, mobile: false });
-    await colony(p, { seed: 5, days: 4, horde: 60 }); await p.frames(6);
+    await colony(p, { seed: 5, days: 4, horde: 60 }); await p.frames(40, 0.1); // (let the whole horde rise out of the ground: worst case)
     const r = await p.W((_, W) => { const calls = [], tris = []; for (let i = 0; i < 3; i++) { W.frame(0.05); calls.push(W.stats.calls); tris.push(W.stats.triangles); } return { calls: Math.max(...calls), tris: Math.max(...tris), tier: W.tierName, z: W.dyn.zombies.cnt, post: !!W.composer, shadow: W.renderer.shadowMap.enabled, city: W.city.totalTris() | 0 }; });
     budget.push({ tier: q, calls: r.calls, tris: r.tris });
     check(r.tier === q && r.calls <= maxCalls && r.tris <= maxTris, `${q}: ${r.calls} draw calls (limit ${maxCalls}), ${(r.tris / 1000) | 0}k triangles${maxTris < 1e9 ? ' (limit ' + maxTris / 1000 + 'k)' : ''}; ${r.z.drawn} zombies drawn (${r.z.hi} detailed + ${r.z.lo} low-poly), post=${r.post}, shadows=${r.shadow}`);
@@ -151,10 +151,9 @@ if (want('daynight')) {
   await p.W((_, W) => W.camRig.jump(0, 30, 260)); await p.frames(10);
   const grab = async hour => { await p.page.evaluate(h => { window.__preview.debug('time_set', { hour: h, minute: 0 }); }, hour); await p.sync(); await p.frames(3); const s = await p.stats(), u = await p.W((_, W) => ({ night: Math.round(W.atmo.daylight * 100) / 100, hour: W.hour, sunY: W.atmo.sunElev, lamps: W.stateLamps })); return { s, u }; };
   const day = await grab(13), night = await grab(23), dusk = await grab(19.6), dawn = await grab(6.2);
-  const a = await p.W((_, W) => ({ n: 0 }));
   check(day.s.mean > night.s.mean * 1.8, `noon is much brighter than midnight (mean luminance ${day.s.mean.toFixed(0)} vs ${night.s.mean.toFixed(0)})`);
   check(sigDiff(day.s, night.s) > 12, `day and night frames differ (signature difference ${sigDiff(day.s, night.s).toFixed(1)})`);
-  check(Math.abs(dusk.s.mean - day.s.mean) > 3 && Math.abs(dawn.s.mean - night.s.mean) > 3, `dusk (${dusk.s.mean.toFixed(0)}) and dawn (${dawn.s.mean.toFixed(0)}) are different looks again`);
+  check(sigDiff(dusk.s, day.s) > 8 && sigDiff(dawn.s, night.s) > 5 && sigDiff(dusk.s, night.s) > 8, `dusk (mean ${dusk.s.mean.toFixed(0)}) and dawn (mean ${dawn.s.mean.toFixed(0)}) are looks of their own (signature differences: dusk-day ${sigDiff(dusk.s, day.s).toFixed(1)}, dawn-night ${sigDiff(dawn.s, night.s).toFixed(1)}, dusk-night ${sigDiff(dusk.s, night.s).toFixed(1)})`);
   check(night.u.hour > 22.9 && day.u.hour > 12.9 && day.u.sunY > 0.5 && night.u.sunY < 0 && dusk.u.sunY < day.u.sunY, `the 3D clock follows the sim clock (hour ${day.u.hour.toFixed(1)} sun ${day.u.sunY.toFixed(2)}; hour ${night.u.hour.toFixed(1)} sun ${night.u.sunY.toFixed(2)})`);
   check(night.s.rgb[2] > night.s.rgb[0], 'the night is blue-ish (moon light), the day is not (' + night.s.rgb.map(x => x.toFixed(0)).join(',') + ' vs ' + day.s.rgb.map(x => x.toFixed(0)).join(',') + ')');
   // a power outage (mains down) switches the city windows and street lamps off

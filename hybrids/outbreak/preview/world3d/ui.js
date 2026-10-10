@@ -113,7 +113,7 @@ export function attachWorldUI(ctx) {
     } else if (m.mode === 'ghost') { if (!m.moved) { moveGhost(px, py); if (OB.mapBg.ghost) OB.mapBg.commitGhost(e.shiftKey); } }
     else if (m.mode === 'rotate' && !m.moved && m.btn === 2) { if (ghostOn()) OB.build.cancel(); else contextAt(px, py, e); }
   }
-  function onWheel(e) { if (!api.on || !isWorld(e.target)) return; e.stopImmediatePropagation(); e.preventDefault(); cam().zoom(e.deltaY < 0 ? 1 / 1.16 : 1.16); }
+  function onWheel(e) { if (!api.on || !isWorld(e.target)) return; e.stopImmediatePropagation(); e.preventDefault(); const dy = (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 100 : 1) * e.deltaY; cam().zoom(Math.exp(Math.max(-300, Math.min(300, dy)) * 0.0016)); } // one mouse notch (100) = 1.17x, a trackpad scroll is proportional
   function onDbl(e) { if (!api.on || !isWorld(e.target) || !colonyMode()) return; const h = dyn().pick(e.clientX, e.clientY, false); if (h && h.kind === 'colonist') { e.stopImmediatePropagation(); const a = dyn().actor(h.id); if (a) { cam().setTarget(a.px, a.pz, 45); } } }
   function onContext(e) { if (api.on && isWorld(e.target)) { e.preventDefault(); e.stopImmediatePropagation(); } }
 
