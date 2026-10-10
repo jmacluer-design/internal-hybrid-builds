@@ -92,7 +92,7 @@ T.test("scripted run: three chaos days on autopilot with a player who shoots zom
 	T.eq(m.open_files, 0)
 end)
 
-T.test("sequences: place_blueprint -> progress -> done -> destroyed produce object create -> alpha ramp -> collision on -> destroy, in that order, for every building", function()
+T.test("sequences: place_blueprint -> progress -> done -> destroyed produce object create -> alpha ramp -> collision on -> destroy, in that order (a wall, built by the colony then dismantled)", function()
 	local m = H.boot({ settings = { profile = "calm" } })
 	local host = H.host(m)
 	local w = host.world
@@ -137,6 +137,14 @@ T.test("sequences: place_blueprint -> progress -> done -> destroyed produce obje
 	for i, t in ipairs(order) do if t == "place_blueprint" and not pb then pb = i end if t == "construction_done" then cd = i end end
 	T.truthy(pb and cd and pb < cd, "place_blueprint then construction_done: " .. table.concat(order, ","))
 	for i, t in ipairs(order) do if t == "construction_progress" then T.truthy(i > pb and i < cd) end end
+	-- and the last step of the sequence: dismantling the building destroys its object (and frees its slot)
+	local obj = B.objs[mine.id] and B.objs[mine.id].obj
+	T.truthy(obj and not obj.destroyed, "the built wall has a live object")
+	m:send_remote("server", NET.order, m.resourceRoot, m.player, nil, { id = "colony", kind = "cancel_blueprint", target = { id = mine.id } })
+	m:step(3000)
+	T.truthy(obj.destroyed, "cancelling the building destroyed its object")
+	T.eq(B.objs[mine.id], nil, "and the module forgot it")
+	T.eq(#m.errors, 0, H.errors_text(m))
 	m:stop()
 end)
 

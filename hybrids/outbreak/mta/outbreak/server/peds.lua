@@ -6,7 +6,7 @@
 -- client that syncs it (that is how the DayZ gamemodes' "slothbot" works: the server decides, the syncer client executes). So the server brain (server/zombies.lua, raiders.lua,
 -- colonists.lua) decides what a ped should do and sends small intents { ped, m = mode, x, y, ... } to the owner's client (outbreak:drive), which runs client/driver.lua.
 --
--- borrowed (see THIRD_PARTY.md): the cap / budget bookkeeping follows the FiveM adapter's client/pool.lua (own code); the idea "server decides, syncer client moves the ped" is read from
+-- borrowed: see THIRD_PARTY.md. The cap / budget bookkeeping follows the FiveM adapter's client/pool.lua (own code); the idea "server decides, syncer client moves the ped" is read from
 -- NullSystemWorks/mtadayz slothbot (custom licence: reference only, nothing copied).
 local ctx = require("server.ctx")
 local NET = require("shared.mta_net")

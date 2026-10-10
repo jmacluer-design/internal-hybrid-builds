@@ -3,7 +3,7 @@
 -- (cfg.max_peds hard cap + the ped-element guard in server/peds.lua) and never creates more than allowed. Locomotion and the swing animation are executed by the owner's client
 -- (client/driver.lua) from the intents this module sends through server/peds.lua; damage is scripted here (the same model as the FiveM adapter: range + cooldown) and fed to the sim.
 --
--- borrowed (see THIRD_PARTY.md):
+-- borrowed: see THIRD_PARTY.md. Per source:
 --   TitansProductions/TP-Advanced-Zombies (Apache-2.0): distance based detection (crouching 10 / walking 35 / sprinting 45 m, +15 for a fast vehicle), the chase-the-target loop,
 --     the melee attack cadence; the numbers are in shared/mta_config.lua. Changed here: decisions run on the MTA server, perception uses the owner's speed (the server has no
 --     getPedMoveState), the attack is scripted damage plus an animation.

@@ -4,8 +4,10 @@
 -- and for ranged intents aim and fire in bursts. Collision and line of sight exist only here, which is why the movement belongs to the client.
 --
 -- intents (validated here, they come over the network): { ped, m = "stop"|"go"|"wander"|"attack"|"aim"|"flee", x, y, s = 0..3, r = stop radius, tgt = element, ranged = bool }
--- reference only (not a borrow mark): the technique (face the target with setPedRotation, hold the "forwards" control, sprint / walk modifiers, fire in timed bursts, notice a stuck ped by its distance covered)
---   is read from NullSystemWorks/mtadayz and mta-resources/deadwalkers "slothbot" (client side) which have no usable licence, so NOTHING is copied: this is a fresh implementation.
+-- borrowed: multitheftauto/mtasa-resources [gamemodes]/[race]/[addons]/race_ghost/playback_client.lua (MIT, pattern only, see THIRD_PARTY.md): a CLIENT script sets control states on a ped the
+--   server created (setPedControlState) and clears every control name when it resets; clear_controls() below is the same idea over our own control list, written here.
+-- reference only (nothing copied): the technique (face the target with setPedRotation, hold the "forwards" control, sprint / walk modifiers, fire in timed bursts, notice a stuck ped by its distance
+--   covered) is read from NullSystemWorks/mtadayz and mta-resources/deadwalkers "slothbot" (client side), which have no usable licence: this is a fresh implementation.
 local ctx = require("client.ctx")
 local NET = require("shared.mta_net")
 local U = require("shared.util")

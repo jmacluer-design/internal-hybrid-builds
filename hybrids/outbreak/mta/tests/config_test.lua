@@ -129,3 +129,30 @@ T.test("the sim's ped cap is the setting: TUNING.horde.max_materialized follows 
 	local m2 = H.boot({})
 	T.eq(H.sreq(m2, "data.tuning").horde.max_materialized, 60, "the default start value")
 end)
+
+-- the freeroam resource's animation catalog (multitheftauto/mtasa-resources, MIT): block -> { names }. Read at test time, not copied.
+T.test("every animation block / name the colonists use exists in MTA's own animation list (freeroam/data/animations.xml)", function()
+	local path = (os.getenv("MTA_RES_SRC") or "/home/user/multitheftauto/mtasa-resources") .. "/[gameplay]/freeroam/data/animations.xml"
+	local f = io.open(path, "rb")
+	T.truthy(f, "clone multitheftauto/mtasa-resources to read the animation list (expected " .. path .. ")")
+	if not f then return end
+	local text = f:read("*a")
+	f:close()
+	local anims, block = {}, nil
+	for line in text:gmatch("[^\n]+") do
+		local g = line:match('<group name="([^"]+)"')
+		if g then block = g; anims[block] = {} end
+		local a = line:match('<anim name="([^"]+)"')
+		if a and block then anims[block][a] = true end
+	end
+	local checked = 0
+	local function has(entry, what)
+		checked = checked + 1
+		T.truthy(anims[entry[1]], what .. ": block " .. entry[1] .. " exists")
+		T.truthy(anims[entry[1]] and anims[entry[1]][entry[2]], what .. ": " .. entry[1] .. "/" .. entry[2] .. " exists")
+	end
+	for step, entry in pairs(Config.anims) do has(entry, "step " .. step) end
+	has(Config.carry_anim, "carry")
+	T.gt(checked, 15)
+	T.note("%d animation entries checked against %d blocks of the freeroam catalog", checked, (function() local n = 0 for _ in pairs(anims) do n = n + 1 end return n end)())
+end)

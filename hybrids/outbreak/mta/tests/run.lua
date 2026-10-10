@@ -23,6 +23,7 @@ local files = {
 	"client_test",         -- ui bridge, camera, noise, placement, survival, driver, ground
 	"integration_test",    -- scripted sim run through server + client + page
 	"lifecycle_test",      -- stop / restart / leaks / caps / budgets
+	"readme_test",         -- README.md and THIRD_PARTY.md match the code (commands, settings, events, functions, borrowed marks)
 }
 
 local only = {}
