@@ -23,6 +23,15 @@ else
   while read -r g; do [ -z "$g" ] || [[ "$g" == \#* ]] || cp "games/$g" "$STAGE/public/games/$g"; done < games/live.txt
   cp functions/_middleware.js "$STAGE/functions/"
 fi
+# Outbreak colony-UI preview (real Lua sim in the browser via wasmoon; no GTA). Needs preview/ + the NUI it embeds, same relative layout under public/outbreak/.
+OUT="$STAGE/public/outbreak"; mkdir -p "$OUT/preview" "$OUT/fivem/outbreak"
+if [ -n "${REF:-}" ]; then
+  T=$(mktemp -d); git archive "$REF" hybrids/outbreak/preview hybrids/outbreak/fivem/outbreak/ui | tar -x -C "$T"
+  cp -r "$T/hybrids/outbreak/preview/." "$OUT/preview/"; cp -r "$T/hybrids/outbreak/fivem/outbreak/ui" "$OUT/fivem/outbreak/ui"; rm -rf "$T"
+else
+  cp -r hybrids/outbreak/preview/. "$OUT/preview/"; cp -r hybrids/outbreak/fivem/outbreak/ui "$OUT/fivem/outbreak/ui"
+fi
+rm -rf "$OUT/preview/tests" "$OUT/preview/tools"
 sed -i "s/__BUILD__/$(date +%s)/" "$STAGE/public/index.html"
 cd "$STAGE"
 WRANGLER_SEND_METRICS=false npx --yes wrangler@3 pages deploy public --project-name "$PROJECT" --branch main --commit-dirty=true
