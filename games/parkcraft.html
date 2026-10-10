@@ -934,7 +934,7 @@ const LQ = (() => { try {
   const c = document.createElement('canvas'), gl = c.getContext('webgl'); if (!gl) return false; const e = gl.getExtension('WEBGL_debug_renderer_info');
   return !!e && /swiftshader|llvmpipe|software|softpipe/i.test(String(gl.getParameter(e.UNMASKED_RENDERER_WEBGL))); } catch (e) { return false; } })();
 const LQ_SCALE = (() => { const m = /[?&]lqs=([0-9.]+)/.exec(location.search); return m ? clamp(+m[1], 0.2, 1) : 0.4; })();      // software GL renders at 40% resolution (override: ?lqs=0.5)
-const renderer = new THREE.WebGLRenderer({ antialias: !LQ, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+const renderer = new THREE.WebGLRenderer({ antialias: !LQ, powerPreference: 'high-performance', preserveDrawingBuffer: false });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = !LQ; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -943,7 +943,7 @@ const canvas = renderer.domElement;
 const scene = new THREE.Scene();
 const FOG_COL = new THREE.Color('#c27396');
 scene.fog = new THREE.Fog(FOG_COL, 60, 230);
-const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 900);
+const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.15, 700);
 function onResize() {
   const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
   renderer.setPixelRatio(LQ ? Math.min(1, (window.devicePixelRatio || 1)) * LQ_SCALE : Math.min(2, window.devicePixelRatio || 1)); renderer.setSize(w, h, false);
@@ -1027,7 +1027,7 @@ function makeParkTexture() {
   g.strokeStyle = 'rgba(15,12,40,.5)'; g.lineWidth = 2; g.strokeRect(0, 0, 128, 128);
   const at = new THREE.CanvasTexture(ac); at.colorSpace = THREE.SRGBColorSpace; at.wrapS = at.wrapT = THREE.RepeatWrapping; at.repeat.set(120, 120); at.anisotropy = LQ ? 1 : 4;
   const am = new THREE.Mesh(new THREE.PlaneGeometry(960, 960), LQ ? new THREE.MeshLambertMaterial({ color: 0x383a52 }) : new THREE.MeshLambertMaterial({ map: at }));
-  am.rotation.x = -PI / 2; am.position.y = -0.02; am.receiveShadow = true; scene.add(am);
+  am.rotation.x = -PI / 2; am.position.y = -0.14; am.receiveShadow = true; scene.add(am);
 }
 scene.add(worldGroup); scene.add(neonMesh);
 

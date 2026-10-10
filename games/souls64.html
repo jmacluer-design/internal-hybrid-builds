@@ -531,12 +531,12 @@ function buildArena() {
 }
 buildArena();
 /* merge static arena meshes that share a material (fewer draw calls) */
-function mergeStaticMeshes(parent) {
+function mergeStaticMeshes(parent, minCount = 3) {
   const groups = new Map();
   for (const c of parent.children) { if (!c.isMesh || Array.isArray(c.material) || !c.geometry.index) continue; const k = c.material.uuid + (c.castShadow ? 'c' : 'n') + (c.receiveShadow ? 'r' : 'n'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(c); }
   const v = new THREE.Vector3(), nrm = new THREE.Vector3(), nm = new THREE.Matrix3();
   for (const list of groups.values()) {
-    if (list.length < 3) continue; let vc = 0, ic = 0; for (const m of list) { vc += m.geometry.attributes.position.count; ic += m.geometry.index.count; }
+    if (list.length < minCount) continue; let vc = 0, ic = 0; for (const m of list) { vc += m.geometry.attributes.position.count; ic += m.geometry.index.count; }
     const pos = new Float32Array(vc * 3), nor = new Float32Array(vc * 3), uv = new Float32Array(vc * 2), idx = new Uint32Array(ic); let vo = 0, io = 0;
     for (const m of list) {
       m.updateMatrix(); nm.getNormalMatrix(m.matrix); const g = m.geometry, p = g.attributes.position, n = g.attributes.normal, u = g.attributes.uv;
@@ -966,6 +966,7 @@ const BR = (() => {
 })();
 function root_enable_shadows(o) { o.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } }); }
 root_enable_shadows(heroRoot);
+{ const gs = []; heroRoot.traverse(o => { if (o.isGroup) gs.push(o); }); bossRoot.traverse(o => { if (o.isGroup) gs.push(o); }); gs.forEach(g => mergeStaticMeshes(g, 2)); }
 const BP = Object.assign({}, POSES.dormant);   // current smoothed pose
 // glow eyes light: faint point light would cost; use sprites around eyes
 { const g1 = glowSprite(0xffa33a, 2.2, .7); g1.position.set(0, .75, 1.3); BR.head.add(g1); BR.eyeGlow = g1; }
@@ -2416,7 +2417,7 @@ function frame(now) {
   // adaptive resolution: software GL / weak iGPUs get a smaller internal resolution so input and simulation stay responsive
   if (!QUAL.hold) {
     if (lastRenderAt > 0) {
-      const gap = now - lastRenderAt; lastRenderAt = 0; skipUntil = gap > 50 ? now + Math.min(260, gap * 1.3) : 0;
+      const gap = now - lastRenderAt; lastRenderAt = 0; skipUntil = gap > 50 ? now + Math.min(450, gap * 2.5) : 0;
       if (gap > 40) { slowFrames++; fastFrames = 0; if (slowFrames >= 2 && QUAL.q > 0.15) { QUAL.q = Math.max(0.15, QUAL.q * (gap > 200 ? 0.5 : 0.78)); slowFrames = 0; applyQuality(); } }
       else if (gap < 22) { fastFrames++; slowFrames = 0; if (fastFrames > 150 && QUAL.q < QUAL.max) { QUAL.q = Math.min(QUAL.max, QUAL.q * 1.2); fastFrames = 0; applyQuality(); } }
       else { slowFrames = 0; }

@@ -373,21 +373,23 @@ const SITES = {
 const PATH = [[-24, -46], [-23, -34], [-25, -23], [-18, -12], [-4, -4], [1.5, 2], [23, 2], [31, 8], [37, 12], [36, 28], [31, 40], [18, 40], [-6, 38], [-27, 36]];
 
 function hillsRaw(x, z) {
-  let h = 3.6 + 5.8 * fbm(x * 0.021 + 3.1, z * 0.021 - 1.7, 4);
-  const rg = 1 - Math.abs(snoise(x * 0.047 + 9, z * 0.047 - 4)); h += rg * rg * 2.6;
+  let h = 4.2 + 3.9 * fbm(x * 0.019 + 3.1, z * 0.019 - 1.7, 4);
+  const rg = 1 - Math.abs(snoise(x * 0.04 + 9, z * 0.04 - 4)); h += rg * rg * 1.3;
+  h += 0.35 * snoise(x * 0.16, z * 0.16);
   return h;
 }
 function Hbase(x, z) {
   let h = hillsRaw(x, z);
   const d = Math.abs(x - riverX(z));
-  const flood = 1 - sstep(7, 22, d);
-  h = lerp(h, 2.15 + 0.35 * fbm(x * 0.08, z * 0.08, 2) + d * 0.045, flood * 0.88);
+  const flood = 1 - sstep(8, 26, d);
+  h = lerp(h, 2.2 + 0.4 * fbm(x * 0.07, z * 0.07, 2) + d * 0.05, flood * 0.9);
   const bed = -0.12 + 2.15 * sstep(1.4, 6.0, d);
   h = lerp(h, Math.min(h, bed), 1 - sstep(5.2, 7.6, d));
   const r = Math.pow(Math.pow(Math.abs(x), 4) + Math.pow(Math.abs(z), 4), 0.25), rimT = sstep(47, 69, r);
   const rn = Math.max(0, 0.55 + fbm(x * 0.035 + 20, z * 0.035 + 5, 3));
   const rr = 1 - Math.abs(snoise(x * 0.06 - 8, z * 0.06 + 11));
-  h += rimT * (9 + 17 * rimT * rn + 7 * rr * rimT);
+  h += rimT * (6 + 15 * rimT * rn + 3.5 * rr * rimT);
+  if (d > 6) h = Math.max(h, WATER_Y + 0.55 + 0.1 * Math.min(d - 6, 5));   // no stray ponds outside the river
   return h;
 }
 const SITE_H = {};
@@ -444,7 +446,7 @@ function terrColour(x, z, out) { // writes sRGB rgb + grass mask
   const wet = 1 - sstep(WATER_Y - 0.2, WATER_Y + 0.55, h);
   const sand = Math.max(bank * sstep(WATER_Y + 1.6, WATER_Y + 0.3, h), wet);
   r = lerp(r, lerp(0.58, 0.40, wet), sand); g = lerp(g, lerp(0.49, 0.37, wet), sand); b = lerp(b, lerp(0.33, 0.30, wet), sand); gm *= 1 - sand;
-  const rockT = sstep(0.55, 0.95, sl + 0.18 * n2) * 1 + sstep(15, 26, h + 3 * n2);
+  const rockT = sstep(0.62, 1.0, sl + 0.15 * n2) + sstep(17, 27, h + 3 * n2);
   const rk = clamp(rockT, 0, 1), rv = 0.84 + 0.3 * snoise(x * 0.4 + h * 0.8, z * 0.4);
   r = lerp(r, 0.50 * rv, rk); g = lerp(g, 0.44 * rv, rk); b = lerp(b, 0.38 * rv, rk); gm *= 1 - rk;
   const snow = sstep(32, 40, h + 4 * n3) * 0.9; r = lerp(r, 0.9, snow); g = lerp(g, 0.92, snow); b = lerp(b, 0.96, snow); gm *= 1 - snow;

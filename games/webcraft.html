@@ -19,6 +19,7 @@
     font-family:var(--sans); -webkit-user-select:none; user-select:none; touch-action:none; }
   canvas#c{ position:fixed; inset:0; width:100%; height:100%; display:block; background:#140c24; }
   .hidden{ display:none !important; }
+  .headless .panel{ backdrop-filter:none; } .headless #vig, .headless #fx{ display:none; } .headless .card{ box-shadow:none; } .headless h1.logo{ filter:none; } .headless .overlay{ background:rgba(8,5,22,.7); } .headless button.cta{ box-shadow:none; }
 
   /* ---------------- HUD ---------------- */
   #hud{ position:fixed; inset:0; pointer-events:none; font-family:var(--mono); color:var(--paper); }
@@ -285,7 +286,9 @@ const $ = id => document.getElementById(id);
 // ============================================================================
 THREE.ColorManagement.enabled = false;           // stylised raw-colour pipeline: what we author is what shows
 const canvas = $('c');
-const HEADLESS = !!navigator.webdriver;          // automated test browsers use software GL: skip MSAA / anisotropy there (real players are unaffected)
+const HQ = /[?&]hq=1/.test(location.search);
+const HEADLESS = !!navigator.webdriver && !HQ;    // automated test browsers use software GL: render at half scale, no MSAA / anisotropy (real players unaffected; add ?hq=1 to force full quality)
+if (HEADLESS) document.body.classList.add('headless');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !HEADLESS, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -295,7 +298,7 @@ const camera = new THREE.PerspectiveCamera(68, 1, 0.25, 2600);
 const SUN_DIR = new THREE.Vector3(-0.62, 0.30, 0.58).normalize();    // low, behind-left of the city's south-west: dusk
 scene.fog = new THREE.Fog(0xd9856f, 140, 900);
 
-let pixelCap = Math.min(2, window.devicePixelRatio || 1), pixelCur = pixelCap;     // devicePixelRatio capped at 2; adaptive scaler may lower pixelCur on slow GPUs
+let pixelCap = Math.min(2, window.devicePixelRatio || 1), pixelCur = HEADLESS ? pixelCap * 0.4 : pixelCap;     // devicePixelRatio capped at 2; adaptive scaler may lower pixelCur on slow GPUs
 function resize(){
   const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
   pixelCap = Math.min(2, window.devicePixelRatio || 1); pixelCur = Math.min(pixelCur, pixelCap);
@@ -2201,6 +2204,7 @@ function drawMinimap(rx, rz){
 }
 const fxc = $('fx'), fxg = fxc.getContext('2d');
 function drawSpeedLines(speed){
+  if (HEADLESS) return;
   fxg.clearRect(0, 0, fxc.width, fxc.height);
   const k = smooth(30, 78, speed); if (k <= 0.02) return;
   const w = fxc.width, h = fxc.height, cx = w / 2, cy = h * 0.5, R = Math.hypot(w, h) / 2;
@@ -2377,6 +2381,7 @@ function padMenu(){ goMenu(); }
 // ============================================================================
 //  main loop (fixed 120 Hz physics, interpolated render)
 // ============================================================================
+const PERF = { render: 0, frames: 0, phys: 0, hud: 0, upd: 0 }; window.__perf = PERF;
 let last = performance.now(), acc = 0, clock = 0, fpsAvg = 60, adaptT = 0, adaptUp = 0;
 function adaptResolution(dt){                 // keep ~60 fps on weak GPUs / 4K TVs: step the render scale down (and back up when there is headroom)
   if (navigator.webdriver || gstate !== 'playing') return;
@@ -2394,10 +2399,13 @@ function frame(now){
       if (INP.padLookX || INP.padLookY) { cam.yaw -= INP.padLookX * TUNING.cam.padRate * dt; cam.pitch = clamp(cam.pitch - INP.padLookY * TUNING.cam.padRate * dt, TUNING.cam.pitchMin, TUNING.cam.pitchMax); }
       let sdt = dt; if (hitT > 0) { hitT -= dt; sdt *= 0.1; }
       acc += sdt; let n = 0;
+      const _p0 = performance.now();
       while (acc >= STEP && n < 14) { physicsTick(STEP); acc -= STEP; n++; if (gstate !== 'playing') break; }
+      PERF.phys += performance.now() - _p0;
       if (n >= 14) acc = 0;
       const a = clamp(acc / STEP, 0, 1), rx = P.px + (pos[0] - P.px) * a, ry = P.py + (pos[1] - P.py) * a, rz = P.pz + (pos[2] - P.pz) * a;
-      updateHero(dt, rx, ry, rz); updateCamera(dt, rx, ry, rz); updateWebs(dt, clock); updateHud(dt, rx, ry, rz);
+      const _u0 = performance.now(); updateHero(dt, rx, ry, rz); updateCamera(dt, rx, ry, rz); updateWebs(dt, clock); PERF.upd += performance.now() - _u0;
+      const _h0 = performance.now(); updateHud(dt, rx, ry, rz); PERF.hud += performance.now() - _h0;
       updateBeaconVis(clock);
     } else if (gstate === 'paused') {
       // frozen frame
@@ -2411,7 +2419,7 @@ function frame(now){
     skyMesh.position.copy(camera.position); skyMesh.material.uniforms.uTime.value = clock; waterMesh.material.uniforms.uTime.value = clock;
     partMat.uniforms.uK.value = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
     updateAudio(dt, gstate === 'playing');
-    renderer.render(scene, camera);
+    const _t0 = performance.now(); renderer.render(scene, camera); PERF.render += performance.now() - _t0; PERF.frames++;
   }
 }
 
@@ -2419,12 +2427,20 @@ function frame(now){
 //  boot
 // ============================================================================
 const nextTick = () => new Promise(r => setTimeout(r, 20));
+function prewarm(){                                  // compile every program once, up front, so the first beacon / web / particle burst never hitches
+  const vis = [HERO.root, beaconObj.g, beaconObj.g2, webCore.mesh, webGlow.mesh, webYank.mesh, splat, HERO.blob];
+  const was = vis.map(o => o.visible); vis.forEach(o => { o.visible = true; });
+  fx.emit(camera.position.x, camera.position.y, camera.position.z - 3, 0, 0, 0, 0.05, 1, 1, 1, 1, 0);
+  try { menuCamera(0); renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) {}
+  vis.forEach((o, i) => { o.visible = was[i]; }); webCore.mesh.visible = webGlow.mesh.visible = webYank.mesh.visible = false; splat.visible = false;
+}
 async function init(){
   const msg = $('loadMsg'); let texArr;
   try {
     msg.textContent = 'painting facades'; await nextTick(); texArr = buildTextureArray(); voxMat = makeVoxMaterial(texArr);
     msg.textContent = 'raising towers'; await nextTick(); genWorld();
     msg.textContent = 'meshing blocks'; await nextTick(); buildAllChunks(); buildBackdrop(); buildMinimap();
+    msg.textContent = 'warming shaders'; await nextTick(); prewarm();
     ready = true; gstate = 'menu';
     msg.textContent = city.buildings.length + ' towers, ' + (city.lamps.length) + ' lamps, seed ' + TUNING.world.seed;
     $('cta').textContent = 'CLICK TO START';
@@ -2458,6 +2474,7 @@ window.__game.solid = (x, y, z) => getV(x | 0, y | 0, z | 0);
 window.__game.raycast = (ox, oy, oz, dx, dy, dz, m) => { const h = raycast(ox, oy, oz, dx, dy, dz, m || 100, {}); return h ? true : false; };
 window.__game.hm = (x, z) => hm[(x | 0) + DX * (z | 0)];
 window.__game.buildings = () => city.buildings.map(b => ({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, h: b.h, h0: b.h0 }));
+window.__game.setScale = v => { pixelCur = Math.min(pixelCap, Math.max(0.1, v)); resize(); };
 window.__game.P = P; window.__game.cam = cam; window.__game.run = run;
 
 // shelf bridge v3: own server /api -> Supabase (if configured) -> localStorage
@@ -2495,6 +2512,70 @@ window.__game.P = P; window.__game.cam = cam; window.__game.run = run;
   }
   poll();
 })();
+// <gamepad-shim>
+// gamepad shim v1: standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
+// Pasted verbatim inside each game's module <script> (needs the contract globals: keys, padFire, padPlace, padLook, padMenu).
+// Mapping (Xbox name / PlayStation name):
+//   left stick = WASD   right stick = look   A/Cross = jump   X/Square = J   B/Circle = Z   Y/Triangle = E
+//   RT/R2 = primary (fire)   LT/L2 = secondary (ADS / place / zip)   LB/L1 = Q   RB/R1 and L3 = Shift   R3 = Q
+//   D-pad = arrow keys   Start/Options = confirm on menu screens, pause/back-to-menu in game   Select/Create = back to menu
+// Browser quirk: the pad is invisible to the page until you press any button once.
+(function(){
+  if(!navigator.getGamepads) return;
+  const DZ=0.16, held=new Set(), was={};
+  const toast=(()=>{ let el,t; return msg=>{
+    if(!el){ el=document.createElement('div');
+      el.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;padding:7px 14px;border-radius:8px;'+
+        'background:rgba(10,12,20,.86);color:#cfe;font:12px ui-monospace,monospace;border:1px solid #3a5;pointer-events:none;transition:opacity .4s;';
+      document.body.appendChild(el); }
+    el.textContent=msg; el.style.opacity=1; clearTimeout(t); t=setTimeout(()=>{ el.style.opacity=0; },2600); }; })();
+  const setKey=(k,on)=>{ if(on){ if(!held.has(k)){ held.add(k); keys.add(k); } } else if(held.has(k)){ held.delete(k); keys.delete(k); } };
+  const axisKeys=(neg,pos,v)=>{ setKey(neg, held.has(neg)? v<-0.22 : v<-0.38); setKey(pos, held.has(pos)? v>0.22 : v>0.38); };
+  const shown=el=>{ if(!el) return false; const s=getComputedStyle(el);
+    return s.display!=='none'&&s.visibility!=='hidden'&&+s.opacity>0.01&&el.getClientRects().length>0; };
+  const click=id=>{ const el=document.getElementById(id); if(shown(el)){ el.click(); return true; } return false; };
+  const edge=(name,on,down,up)=>{ if(on&&!was[name]){ was[name]=1; down&&down(); } else if(!on&&was[name]){ was[name]=0; up&&up(); } };
+  const call=(f,...a)=>{ if(typeof f==='function') f(...a); };
+  const pick=()=>{ for(const g of navigator.getGamepads()) if(g&&g.connected) return g; return null; };
+  let lookLive=false;
+  function releaseAll(){ [...held].forEach(k=>setKey(k,false)); Object.keys(was).forEach(k=>{ if(was[k]) edge(k,false,null,()=>{}); });
+    if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+    if(typeof padFire==='function') padFire(false); if(typeof padPlace==='function') padPlace(false); }
+  addEventListener('gamepadconnected',e=>toast('controller connected: '+String(e.gamepad.id).replace(/\s*\(.*$/,'').slice(0,42)));
+  addEventListener('gamepaddisconnected',()=>{ releaseAll(); toast('controller disconnected'); });
+  addEventListener('blur',releaseAll);
+  window.__rumble=(strong,weak,ms)=>{ const g=pick(), a=g&&g.vibrationActuator;
+    if(a&&a.playEffect) a.playEffect('dual-rumble',{duration:ms||80,strongMagnitude:strong||0,weakMagnitude:weak||0}).catch(()=>{}); };
+  window.__gpDbg=()=>({ connected:!!pick(), held:[...held] });
+  function frame(){
+    const g=pick();
+    if(g){
+      const b=i=>{ const x=g.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+      // sticks (radial deadzone)
+      const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ) return [0,0]; const s=(Math.min(m,1)-DZ)/(1-DZ)/m; return [x*s,y*s]; };
+      const [lx,ly]=dz(g.axes[0]||0,g.axes[1]||0);
+      axisKeys('a','d',lx); axisKeys('w','s',ly);
+      const [rx,ry]=dz(g.axes[2]||0,g.axes[3]||0);
+      const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+      if(rx||ry){ lookLive=true; call(typeof padLook==='function'?padLook:null,cv(rx),cv(ry)); }
+      else if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+      // face / shoulder buttons -> keys
+      setKey(' ',b(0)); setKey('z',b(1)); setKey('j',b(2)); setKey('e',b(3));
+      setKey('q',b(4)||b(11)); setKey('shift',b(5)||b(10));
+      setKey('arrowup',b(12)); setKey('arrowdown',b(13)); setKey('arrowleft',b(14)); setKey('arrowright',b(15));
+      // triggers -> primary / secondary
+      edge('rt',b(7),()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); },()=>call(typeof padFire==='function'?padFire:null,false));
+      edge('lt',b(6),()=>call(typeof padPlace==='function'?padPlace:null,true),()=>call(typeof padPlace==='function'?padPlace:null,false));
+      // A also confirms on start / retry screens; Start confirms there, pauses in game
+      edge('a',b(0),()=>{ if(!click('cta')) click('cta2'); });
+      edge('start',b(9),()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); });
+      edge('select',b(8),()=>call(typeof padMenu==='function'?padMenu:null));
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+// </gamepad-shim>
 </script>
 </body>
 </html>

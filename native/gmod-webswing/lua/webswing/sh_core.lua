@@ -24,6 +24,7 @@ local sqrt, max, min, abs = math.sqrt, math.max, math.min, math.abs
 local IsValid = IsValid
 
 local CHEST, CHEST_DUCK = 40, 26 -- the rope's hold on the body: this far above the feet
+WS.CHEST = CHEST
 local STAND = 58                 -- body centre above a ledge when a zip lands on it
 local svGravity = GetConVar("sv_gravity")
 local svMaxVel = GetConVar("sv_maxvelocity")
@@ -253,6 +254,17 @@ function WS.FindAnchor(ply, ex, ey, ez, aimx, aimy, aimz, bx, by, bz, vx, vy, vz
 		return true, 2
 	end
 	return false, 0
+end
+
+-- FindAnchor with the gravity the simulated swing should use (the board lives in Skate 3's
+-- gravity with no extra pull), always restored, even if something throws.
+function WS.FindAnchorWith(g, gscale, ply, ...)
+	local og, ogs = T.g, T.gravityScale
+	T.g, T.gravityScale = g, gscale
+	local ok, a, b = pcall(WS.FindAnchor, ply, ...)
+	T.g, T.gravityScale = og, ogs
+	if not ok then error(a, 0) end
+	return a, b
 end
 
 ---------------------------------------------------------------------------
