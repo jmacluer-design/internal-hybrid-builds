@@ -4594,10 +4594,10 @@ function rpgLevelUp() {
 }
 const PK = { open: false, choices: [], i: 0, from: 'play', hid: [], stale: null };
 function rpgMaybePerks() {
-  if (RP.pending > 0 && !PK.open && !UI.open && G.state === 'play' && !G.trans && !G.finale && !P.dead && RT.real >= RT.perkOpenAt && !SH.on && !(RIFT && RIFT.phase === 'victory')) openPerks();
+  if (RP.pending > 0 && !PK.open && !RUI.open && G.state === 'play' && !G.trans && !G.finale && !P.dead && RT.real >= RT.perkOpenAt && !SH.on && !(RIFT && RIFT.phase === 'victory')) openPerks();
 }
 function openPerks() { // from play (automatic after a level-up) or from the menu / pause / result screens (PERKS tab)
-  if (PK.open || UI.open) return; const st = G.state; if (!(st === 'play' || st === 'pause' || st === 'menu' || st === 'dead')) return; PK.choices = rpgPerkChoices({ seed: RP.seed, picks: RP.picks, perks: RP.perks }); if (!PK.choices.length) { RP.pending = 0; return; }
+  if (PK.open || RUI.open) return; const st = G.state; if (!(st === 'play' || st === 'pause' || st === 'menu' || st === 'dead')) return; PK.choices = rpgPerkChoices({ seed: RP.seed, picks: RP.picks, perks: RP.perks }); if (!PK.choices.length) { RP.pending = 0; return; }
   PK.from = st; PK.open = true; PK.i = 1; G.state = 'perk'; PK.stale = new Set(keys); mouseFire = mousePlace = padFireDown = padPlaceDown = false; document.exitPointerLock && document.exitPointerLock(); PK.hid = []; for (const id of ['menu', 'dead', 'pause']) { const el = $(id); if (el && !el.classList.contains('hidden')) { el.classList.add('hidden'); PK.hid.push(id); } }
   $('perkpick').classList.remove('hidden'); renderPerks(); rsfx('uiopen');
 }
@@ -4653,29 +4653,29 @@ function rpgSpawnAct() {
 }
 function rpgPending() { if (RT.pend && !RIFT && !G.trans && !SH.on && !G.finale && G.state === 'play') { const p = RT.pend; RT.pend = null; if (p.act === G.act) rpgSpawnAct(); } }
 
-// ---- inventory / character UI: pad-first, mouse + keyboard too -------------------------------------------------------------------------------------------------------------------
-const UI = { stale: null, open: false, tab: 0, zone: 'bag', i: 0, from: 'play', rr: null, armed: null, hid: [], sheetRow: 0, cdx: 0, perkRow: 0, riftRow: 0, lastClick: { k: '', t: 0 } };
+// ---- inventory / character RUI: pad-first, mouse + keyboard too -------------------------------------------------------------------------------------------------------------------
+const RUI = { stale: null, open: false, tab: 0, zone: 'bag', i: 0, from: 'play', rr: null, armed: null, hid: [], sheetRow: 0, cdx: 0, perkRow: 0, riftRow: 0, lastClick: { k: '', t: 0 } };
 const TAB_NAMES = ['ITEMS', 'SHEET', 'PERKS', 'CODEX', 'RIFT'], CHIPS = ['SORT', 'SALVAGE COMMONS', 'SALVAGE MAGIC', 'HIDE COMMONS'];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const rcl = it => it ? 'r' + RPG_RARITIES.indexOf(it.rarity) : '';
 const slotKey = (zone, i) => zone === 'eq' ? RPG_EQUIP[i] : zone === 'bag' ? 'b' + i : 'c' + i;
 function uiSel() { // -> {item, where:'bag'|'eq', idx, slot}
-  if (UI.zone === 'bag') return { item: RP.bag[UI.i], where: 'bag', idx: UI.i }; if (UI.zone === 'eq') return { item: RP.equipped[RPG_EQUIP[UI.i]], where: 'eq', idx: UI.i, slot: RPG_EQUIP[UI.i] }; return { item: null, where: 'chip', idx: UI.i };
+  if (RUI.zone === 'bag') return { item: RP.bag[RUI.i], where: 'bag', idx: RUI.i }; if (RUI.zone === 'eq') return { item: RP.equipped[RPG_EQUIP[RUI.i]], where: 'eq', idx: RUI.i, slot: RPG_EQUIP[RUI.i] }; return { item: null, where: 'chip', idx: RUI.i };
 }
 function rpgCmpTarget(item) { // which equipped item would this replace?
   if (!item) return null; if (item.slot !== 'charm') return RP.equipped[item.slot]; const a = RP.equipped.charm1, b = RP.equipped.charm2; if (!a || !b) return null; return rpgItemScore(a) <= rpgItemScore(b) ? a : b;
 }
 function openInv(tab) {
-  if (UI.open || PK.open) return false; if (typeof tab !== 'number') tab = null; const st = G.state; if (!(st === 'play' || st === 'pause' || st === 'menu' || st === 'dead')) return false;
+  if (RUI.open || PK.open) return false; if (typeof tab !== 'number') tab = null; const st = G.state; if (!(st === 'play' || st === 'pause' || st === 'menu' || st === 'dead')) return false;
   if (st === 'play' && (G.trans || G.finale || P.dead)) { toast('Not now'); return false; }
-  UI.from = st; UI.open = true; G.state = 'inv'; UI.tab = tab != null ? tab : 0; UI.stale = new Set(keys); mouseFire = mousePlace = padFireDown = padPlaceDown = false; UI.hid = []; // keys stay as they are (a held stick must not go dead after the menu); held ones just don't count as UI input
-  for (const id of ['menu', 'dead', 'pause']) { const el = $(id); if (el && !el.classList.contains('hidden')) { el.classList.add('hidden'); UI.hid.push(id); } }
-  document.exitPointerLock && document.exitPointerLock(); UI.rr = null; UI.armed = null; if (UI.tab === 0) { UI.zone = 'bag'; const f = RP.bag.findIndex(x => x); UI.i = f < 0 ? 0 : f; }
+  RUI.from = st; RUI.open = true; G.state = 'inv'; RUI.tab = tab != null ? tab : 0; RUI.stale = new Set(keys); mouseFire = mousePlace = padFireDown = padPlaceDown = false; RUI.hid = []; // keys stay as they are (a held stick must not go dead after the menu); held ones just don't count as RUI input
+  for (const id of ['menu', 'dead', 'pause']) { const el = $(id); if (el && !el.classList.contains('hidden')) { el.classList.add('hidden'); RUI.hid.push(id); } }
+  document.exitPointerLock && document.exitPointerLock(); RUI.rr = null; RUI.armed = null; if (RUI.tab === 0) { RUI.zone = 'bag'; const f = RP.bag.findIndex(x => x); RUI.i = f < 0 ? 0 : f; }
   $('inv').classList.remove('hidden'); rpgRenderInv(); rsfx('uiopen'); return true;
 }
 function closeInv() {
-  if (!UI.open) return; UI.open = false; UI.rr = null; UI.armed = null; $('inv').classList.add('hidden'); const from = UI.from;
-  for (const id of UI.hid) if (!(id === 'pause' && (from === 'play' || from === 'pause'))) $(id).classList.remove('hidden'); UI.hid = [];
+  if (!RUI.open) return; RUI.open = false; RUI.rr = null; RUI.armed = null; $('inv').classList.add('hidden'); const from = RUI.from;
+  for (const id of RUI.hid) if (!(id === 'pause' && (from === 'play' || from === 'pause'))) $(id).classList.remove('hidden'); RUI.hid = [];
   if (from === 'play' || from === 'pause') { G.state = 'play'; $('pause').classList.add('hidden'); requestLock(); } else G.state = from; if (from === 'menu') rpgRenderMenu();
   rpgFlush(true); rsfx('uiclose');
 }
@@ -4693,7 +4693,7 @@ function invReroll(ref, k) {
   const nw = rpgRerollAffix(it, k, dseed()); if (!nw) { toast('No other affix can roll here'); rsfx('deny'); return false; } if (it.locked) nw.locked = true; RP.dust -= c.dust; RP.gold -= c.gold; RP.totals.rerolls++;
   if (ref.where === 'bag') RP.bag[ref.idx] = nw; else RP.equipped[ref.slot] = nw; rpgRecalc(); rsfx('reroll'); const a = RPG_AFFIX_BY_ID[nw.affixes[k].id]; rpgLogLine('Rerolled: ' + RPG_AFFIX_BY_ID[it.affixes[k].id].word + ' -> ' + a.word, '#ffe27a'); return true;
 }
-function invSort() { const items = RP.bag.filter(Boolean); items.sort((a, b) => (RPG_RARITIES.indexOf(b.rarity) - RPG_RARITIES.indexOf(a.rarity)) || (rpgItemScore(b) - rpgItemScore(a)) || (b.ilvl - a.ilvl)); RP.bag = items.concat(new Array(BAG_N - items.length).fill(null)); UI.i = 0; rsfx('ui'); RT.dirty = true; toast('Bag sorted'); }
+function invSort() { const items = RP.bag.filter(Boolean); items.sort((a, b) => (RPG_RARITIES.indexOf(b.rarity) - RPG_RARITIES.indexOf(a.rarity)) || (rpgItemScore(b) - rpgItemScore(a)) || (b.ilvl - a.ilvl)); RP.bag = items.concat(new Array(BAG_N - items.length).fill(null)); RUI.i = 0; rsfx('ui'); RT.dirty = true; toast('Bag sorted'); }
 function invBulk(maxR) { let n = 0, d = 0; for (let i = 0; i < BAG_N; i++) { const it = RP.bag[i]; if (it && !it.locked && RPG_RARITIES.indexOf(it.rarity) <= maxR) { d += rpgSalvageValue(it, RT.S.dustFind); n++; RP.bag[i] = null; } } if (n) { RP.dust += d; RUN.dust += d; RP.totals.salvaged += n; rsfx('salvage'); RT.dirty = true; toast('Salvaged ' + n + ' items (+' + d + ' shards)'); } else { toast('Nothing to salvage (locked items are kept)'); rsfx('deny'); } }
 function invChip(i) { if (i === 0) invSort(); else if (i === 1) invBulk(0); else if (i === 2) invBulk(1); else { RP.filter = !RP.filter; RT.dirty = true; rsfx('lock'); toast(RP.filter ? 'Common drops hidden (converted to gold)' : 'Showing all drops'); } }
 
@@ -4703,36 +4703,36 @@ function tipHTML(sel) {
   const ri = RPG_RARITIES.indexOf(item.rarity), col = RPG_RARITY_COL[ri], im = rpgImplicit(item), cmpTo = sel.where === 'bag' ? rpgCmpTarget(item) : null;
   let h = `<div class="tipName" style="color:${col}">${esc(rpgItemName(item))}</div><div class="tipSub">${RPG_RARITY_NAME[ri]} ${RPG_SLOT_LABEL[item.slot]} &middot; ilvl ${item.ilvl}${item.locked ? ' &middot; LOCKED' : ''}${sel.where === 'eq' ? ' &middot; EQUIPPED' : ''}</div>`;
   h += `<div class="tipRow base">${rpgFmtStat(im.stat, im.value)} ${RPG_STATS[im.stat].label}<span class="rg">base</span></div>`;
-  item.affixes.forEach((a, k) => { const d = RPG_AFFIX_BY_ID[a.id], T = d.tiers[a.tier]; h += `<div class="tipRow${UI.rr && UI.rr.row === k ? ' sel' : ''}"><span class="tb t${a.tier}">T${a.tier + 1}</span>${rpgFmtStat(d.stat, a.value)} ${RPG_STATS[d.stat].label}<span class="rg">${rpgFmtStat(d.stat, T.lo, false)}-${rpgFmtStat(d.stat, T.hi, false)}</span><span class="rr" data-act="rr" data-k="${k}" title="reroll this affix">&#8635;</span></div>`; });
+  item.affixes.forEach((a, k) => { const d = RPG_AFFIX_BY_ID[a.id], T = d.tiers[a.tier]; h += `<div class="tipRow${RUI.rr && RUI.rr.row === k ? ' sel' : ''}"><span class="tb t${a.tier}">T${a.tier + 1}</span>${rpgFmtStat(d.stat, a.value)} ${RPG_STATS[d.stat].label}<span class="rg">${rpgFmtStat(d.stat, T.lo, false)}-${rpgFmtStat(d.stat, T.hi, false)}</span><span class="rr" data-act="rr" data-k="${k}" title="reroll this affix">&#8635;</span></div>`; });
   if (item.legendary) { const L = RPG_LEG_BY_ID[item.legendary]; h += `<div class="tipLeg"><b>LEGENDARY POWER</b>${esc(L.text)}</div>`; }
-  if (UI.rr) h += `<div class="tipRow base">REROLL: pick an affix (&uarr;&darr;), A to confirm, B to cancel. Cost ${rpgRerollCost(item).dust} shards + ${rpgRerollCost(item).gold} gold</div>`;
+  if (RUI.rr) h += `<div class="tipRow base">REROLL: pick an affix (&uarr;&darr;), A to confirm, B to cancel. Cost ${rpgRerollCost(item).dust} shards + ${rpgRerollCost(item).gold} gold</div>`;
   if (sel.where === 'bag') { const d = rpgCompare(item, cmpTo); h += `<div class="tipCmp"><h4>${cmpTo ? 'VS EQUIPPED: ' + esc(rpgItemName(cmpTo)).toUpperCase() : 'VS EMPTY SLOT'}</h4>`; if (!d.length) h += `<div class="cmp">no change</div>`; for (const x of d) { const up = x.delta > 0; h += `<div class="cmp ${up ? 'up' : 'dn'}">${up ? '&#9650;' : '&#9660;'} ${rpgFmtStat(x.stat, x.delta)} ${RPG_STATS[x.stat].label}<span>${rpgFmtStat(x.stat, x.from, false)} &rarr; ${rpgFmtStat(x.stat, x.to, false)}</span></div>`; } h += `</div>`; }
   const c = rpgRerollCost(item), can = RP.dust >= c.dust && RP.gold >= c.gold;
   h += `<div class="tipAct">${sel.where === 'bag' ? `<button class="go" data-act="equip">EQUIP</button><button data-act="salv"${item.locked ? ' disabled' : ''}>SALVAGE +${rpgSalvageValue(item, RT.S.dustFind)}</button>` : `<button class="go" data-act="unequip">UNEQUIP</button>`}<button data-act="lock">${item.locked ? 'UNLOCK' : 'LOCK'}</button><button data-act="rrmode"${can ? '' : ' style="opacity:.6"'}>REROLL ${c.dust}+${c.gold}g</button></div>`;
   return h;
 }
 function rpgRenderInv() {
-  if (!UI.open) return; $('invLv').textContent = 'LV ' + RP.level; $('invGold').textContent = rfmt(RP.gold); $('invDust').textContent = rfmt(RP.dust);
-  $('invTabs').innerHTML = TAB_NAMES.map((n, i) => `<button data-tab="${i}" class="${i === UI.tab ? 'on' : ''}">${n}${i === 2 && RP.pending ? `<span class="nb">${RP.pending}</span>` : ''}${i === 1 && RP.free ? `<span class="nb">${RP.free}</span>` : ''}</button>`).join('');
-  const body = $('invBody'); body.innerHTML = [itemsHTML, sheetHTML, perksHTML, codexHTML, riftHTML][UI.tab]();
+  if (!RUI.open) return; $('invLv').textContent = 'LV ' + RP.level; $('invGold').textContent = rfmt(RP.gold); $('invDust').textContent = rfmt(RP.dust);
+  $('invTabs').innerHTML = TAB_NAMES.map((n, i) => `<button data-tab="${i}" class="${i === RUI.tab ? 'on' : ''}">${n}${i === 2 && RP.pending ? `<span class="nb">${RP.pending}</span>` : ''}${i === 1 && RP.free ? `<span class="nb">${RP.free}</span>` : ''}</button>`).join('');
+  const body = $('invBody'); body.innerHTML = [itemsHTML, sheetHTML, perksHTML, codexHTML, riftHTML][RUI.tab]();
   body.querySelectorAll('canvas[data-ic]').forEach(cv => { const [z, i] = cv.dataset.ic.split(':'); const it = z === 'eq' ? RP.equipped[RPG_EQUIP[+i]] : RP.bag[+i]; if (it) rpgDrawIcon(cv, it); });
   body.querySelectorAll('canvas[data-gh]').forEach(cv => rpgDrawIcon(cv, { slot: cv.dataset.gh, rarity: 'common', seed: 0, ilvl: 1, affixes: [] }));
   body.querySelectorAll('canvas[data-sg]').forEach(cv => rpgSigil(cv, cv.dataset.sg, cv.dataset.col || '#ffd66b'));
   const K = (cls, t, lab) => `<span><i class="kk ${cls}">${t}</i>${lab}</span>`;
-  $('invFoot').innerHTML = UI.tab === 0 ? K('a', 'A', 'Equip') + K('x', 'X', 'Salvage (x2)') + K('y', 'Y', 'Lock') + K('t', 'RT', 'Reroll') + K('t', 'LT', 'Sort') + K('t', 'LB RB', 'Tabs') + K('b', 'B', 'Close') + '<span style="opacity:.6">keys: Space J E R T Q/Shift Z</span>'
-    : K('a', 'A', UI.tab === 1 ? 'Spend point' : UI.tab === 4 ? 'Change / Start' : 'Select') + K('t', '&larr;&rarr;', 'Adjust') + K('t', 'LB RB', 'Tabs') + K('b', 'B', 'Close');
+  $('invFoot').innerHTML = RUI.tab === 0 ? K('a', 'A', 'Equip') + K('x', 'X', 'Salvage (x2)') + K('y', 'Y', 'Lock') + K('t', 'RT', 'Reroll') + K('t', 'LT', 'Sort') + K('t', 'LB RB', 'Tabs') + K('b', 'B', 'Close') + '<span style="opacity:.6">keys: Space J E R T Q/Shift Z</span>'
+    : K('a', 'A', RUI.tab === 1 ? 'Spend point' : RUI.tab === 4 ? 'Change / Start' : 'Select') + K('t', '&larr;&rarr;', 'Adjust') + K('t', 'LB RB', 'Tabs') + K('b', 'B', 'Close');
 }
-function slotDiv(zone, i, it, extra = '') { const f = UI.zone === zone && UI.i === i; return `<div class="slot ${rcl(it)}${f ? ' focus' : ''}${extra}" data-z="${zone}" data-i="${i}">${!it && zone === 'eq' ? `<canvas data-gh="${RPG_EQUIP[i].replace(/\d/, '')}" style="opacity:.22"></canvas>` : ''}${it ? `<canvas data-ic="${zone}:${i}"></canvas>${it.locked ? '<span class="lk">&#9679;</span>' : ''}<span class="il">${it.ilvl}</span>` : ''}${zone === 'bag' && it && rpgItemScore(it) > rpgItemScore(rpgCmpTarget(it)) ? '<span class="up">&#9650;</span>' : ''}</div>`; }
+function slotDiv(zone, i, it, extra = '') { const f = RUI.zone === zone && RUI.i === i; return `<div class="slot ${rcl(it)}${f ? ' focus' : ''}${extra}" data-z="${zone}" data-i="${i}">${!it && zone === 'eq' ? `<canvas data-gh="${RPG_EQUIP[i].replace(/\d/, '')}" style="opacity:.22"></canvas>` : ''}${it ? `<canvas data-ic="${zone}:${i}"></canvas>${it.locked ? '<span class="lk">&#9679;</span>' : ''}<span class="il">${it.ilvl}</span>` : ''}${zone === 'bag' && it && rpgItemScore(it) > rpgItemScore(rpgCmpTarget(it)) ? '<span class="up">&#9650;</span>' : ''}</div>`; }
 function itemsHTML() {
   const eq = RPG_EQUIP.map((k, i) => `<div class="eq">${slotDiv('eq', i, RP.equipped[k])}<label>${RPG_SLOT_LABEL[k]}</label></div>`).join('');
-  const bag = RP.bag.map((it, i) => slotDiv('bag', i, it)).join(''), chips = CHIPS.map((c, i) => `<button class="chip${UI.zone === 'chip' && UI.i === i ? ' focus' : ''}${i === 3 && RP.filter ? ' on' : ''}" data-z="chip" data-i="${i}">${c}${i === 3 ? (RP.filter ? ': ON' : ': OFF') : ''}</button>`).join('');
+  const bag = RP.bag.map((it, i) => slotDiv('bag', i, it)).join(''), chips = CHIPS.map((c, i) => `<button class="chip${RUI.zone === 'chip' && RUI.i === i ? ' focus' : ''}${i === 3 && RP.filter ? ' on' : ''}" data-z="chip" data-i="${i}">${c}${i === 3 ? (RP.filter ? ': ON' : ': OFF') : ''}</button>`).join('');
   const cnt = RP.bag.filter(Boolean).length, sel = uiSel();
   return `<div class="pnl colEq"><h3>EQUIPPED</h3><div class="eqGrid">${eq}</div><div style="margin-top:auto;font-size:.76em;color:#a9bccb;letter-spacing:.08em;line-height:1.5">MAX HP <b style="color:#fff">${RT.max}</b><br>DAMAGE <b style="color:#fff">${rfmt(RT.sheet.punch)}</b> / hit<br>CRIT <b style="color:#fff">${Math.round(RT.S.critTotal * 100)}%</b> x${RT.S.critMul.toFixed(2)}</div></div>
   <div class="pnl colBag"><h3>BAG ${cnt} / ${BAG_N}</h3><div class="chips">${chips}</div><div class="bagGrid">${bag}</div></div><div class="pnl colTip" id="invTip">${tipHTML(sel)}</div>`;
 }
 function sheetHTML() {
   const S = RT.S, sh = RT.sheet, T = TUNING, att = [['power', 'POWER', 'All damage'], ['agility', 'AGILITY', 'Speed, jump, crit'], ['resolve', 'RESOLVE', 'Health, defence']], lv = RP.level, au = RPG_TUNING.autoPerLevel * (lv - 1);
-  const rows = att.map(([k, n, d], i) => `<div class="attr${UI.sheetRow === i ? ' focus' : ''}" data-z="attr" data-i="${i}"><b>${n}</b><em>${d}</em><span class="v">${au + RP.spent[k]}</span><span class="plus${RP.free ? '' : ' off'}">+</span></div>`).join('');
+  const rows = att.map(([k, n, d], i) => `<div class="attr${RUI.sheetRow === i ? ' focus' : ''}" data-z="attr" data-i="${i}"><b>${n}</b><em>${d}</em><span class="v">${au + RP.spent[k]}</span><span class="plus${RP.free ? '' : ' off'}">+</span></div>`).join('');
   const xpn = lv >= RPG_TUNING.levelCap ? 0 : rpgXpNext(lv), g = TB.gravity, jh = v => (v * v / (2 * g)).toFixed(1) + ' m', P1 = x => (x * 100).toFixed(1) + '%';
   const st = (a, b) => `<div><span>${a}</span><b>${b}</b></div>`;
   return `<div class="pnl shHalf" style="flex:1"><h3>ATTRIBUTES</h3><div class="big">LEVEL ${lv}${lv >= RPG_TUNING.levelCap ? ' (MAX)' : ''}</div><div style="color:#a9bccb;font-size:.8em;letter-spacing:.1em;margin-bottom:.5em">XP ${rfmt(RP.xp)} / ${xpn ? rfmt(xpn) : '-'} &nbsp; &middot; &nbsp; UNSPENT POINTS <b style="color:#ffe27a">${RP.free}</b></div>${rows}<div style="margin-top:.6em;font-size:.76em;color:#a9bccb;line-height:1.5;letter-spacing:.06em">Each level grants +1 to every attribute automatically and ${RPG_TUNING.pointsPerLevel} points to spend. Power +1.2% damage, Agility +0.4% run / +0.6% jump / +0.2% crit, Resolve +7 health / +0.2% damage reduction per point.</div></div>
@@ -4745,76 +4745,76 @@ function perksHTML() {
   return `<div class="pnl" style="flex:1;display:flex;flex-direction:column;overflow:hidden"><h3>PERKS &middot; ${ids.length} OF ${RPG_PERKS.length} LEARNED</h3>${RP.pending ? `<div class="riftRow focus" data-z="perkgo"><b>PERK READY</b><span class="v">${RP.pending} pick${RP.pending > 1 ? 's' : ''} waiting</span><span class="ar">A &rarr;</span></div>` : ''}<div class="perkList">${cards || '<div class="tipEmpty">No perks yet.<br><small>Every level you choose 1 of 3.</small></div>'}</div></div>`;
 }
 function codexHTML() {
-  const cards = RPG_LEGENDARIES.map((L, i) => { const got = RP.codex[L.id]; return `<div class="cdx${got ? '' : ' no'}${UI.cdx === i ? ' focus' : ''}" data-z="cdx" data-i="${i}"><span class="sl">${RPG_SLOT_LABEL[L.slot].toUpperCase()}</span><br><b>${got ? esc(L.name) : '? ? ?'}</b><small>${got ? esc(L.text) : 'Not found yet.'}</small></div>`; }).join('');
+  const cards = RPG_LEGENDARIES.map((L, i) => { const got = RP.codex[L.id]; return `<div class="cdx${got ? '' : ' no'}${RUI.cdx === i ? ' focus' : ''}" data-z="cdx" data-i="${i}"><span class="sl">${RPG_SLOT_LABEL[L.slot].toUpperCase()}</span><br><b>${got ? esc(L.name) : '? ? ?'}</b><small>${got ? esc(L.text) : 'Not found yet.'}</small></div>`; }).join('');
   return `<div class="pnl" style="flex:1;display:flex;flex-direction:column;overflow:hidden"><h3>LEGENDARY CODEX &middot; ${Object.keys(RP.codex).length} / ${RPG_LEGENDARIES.length}</h3><div class="codex">${cards}</div></div>`;
 }
 function riftInfo() { const R = RPG_TUNING.rift, t = RP.riftTier, seed = RP.riftSeed || (RP.riftSeed = (dseed() & 0xFFFFFF) | 1), sp = rpgRiftSpec(t, seed); return { t, seed, sp }; }
 function riftHTML() {
   const D = RPG_TUNING.difficulty, { t, seed, sp } = riftInfo(), R = RPG_TUNING.rift, ok = RP.riftUnlocked, maxT = Math.min(R.maxTier, RP.bestRift + 1);
-  const mods = sp.mods.map(m => `<span class="modPill" title="${esc(RPG_RIFT_MODS[m].text)}">${RPG_RIFT_MODS[m].name}</span>`).join(''), rr = (i, lab, val, ar) => `<div class="riftRow${UI.riftRow === i ? ' focus' : ''}" data-z="rift" data-i="${i}"><b>${lab}</b><span class="v">${val}</span><span class="ar">${ar || ''}</span></div>`;
+  const mods = sp.mods.map(m => `<span class="modPill" title="${esc(RPG_RIFT_MODS[m].text)}">${RPG_RIFT_MODS[m].name}</span>`).join(''), rr = (i, lab, val, ar) => `<div class="riftRow${RUI.riftRow === i ? ' focus' : ''}" data-z="rift" data-i="${i}"><b>${lab}</b><span class="v">${val}</span><span class="ar">${ar || ''}</span></div>`;
   return `<div class="pnl" style="flex:1"><h3>CAMPAIGN DIFFICULTY</h3>${rr(0, 'DIFFICULTY', `${D[RP.diff].name}${RP.diff > RP.diffUnlocked ? ' (locked)' : ''}`, '&larr; &rarr;')}<div style="font-size:.78em;color:#a9bccb;letter-spacing:.06em;line-height:1.5;margin:0 0 .8em">Applies to the next campaign run. Monster level +${D[RP.diff].mlvl}, item level floor ${D[RP.diff].ilvlFloor}, enemy health x${D[RP.diff].hp}, damage x${D[RP.diff].dmg}. Finish the finale to unlock the next difficulty (${RP.diffUnlocked + 1} of 3 open).</div>
   <h3>SHATTER RIFT${ok ? '' : ' &middot; LOCKED'}</h3>${ok ? rr(1, 'RIFT TIER', 'TIER ' + t + ' <small style="opacity:.6;font-size:.6em">(max ' + maxT + ')</small>', '&larr; &rarr;') + rr(2, 'SEED', hexSeed(seed), 'A = new') + rr(3, 'ENTER RIFT', 'SHATTER &rarr;', 'A') : '<div class="tipEmpty">Restore the world (clear the Act III finale) to unlock repeatable Shatter Rifts.</div>'}</div>
   <div class="pnl" style="flex:1"><h3>RIFT PREVIEW</h3>${ok ? `<div class="tipRow"><b>MONSTER LEVEL</b> &nbsp;${sp.mlvl}-${sp.mlvl + 2}</div><div class="tipRow"><b>ITEM LEVEL</b> &nbsp;${rpgItemLevel({ plvl: RP.level, act: 3, diff: 0, rift: sp.tier })}</div><div class="tipRow"><b>KILLS TO SUMMON THE GUARDIAN</b> &nbsp;${sp.need}</div><div class="tipRow"><b>TIME LIMIT</b> &nbsp;${fmtTime(sp.limit)}</div><div style="margin:.5em 0">${mods}</div>${sp.mods.map(m => `<div class="tipRow base">${esc(RPG_RIFT_MODS[m].name)}: ${esc(RPG_RIFT_MODS[m].text)}</div>`).join('')}<div class="tipRow base" style="margin-top:.6em">Best cleared tier: ${RP.bestRift || 'none'}. The same seed always builds the same arena, modifiers and spawns.</div>` : '<div class="tipEmpty">Rifts are timed arena runs with a guardian at 100%.<br><small>Higher tiers: stronger monsters, better loot.</small></div>'}</div>`;
 }
 // ---- input ----
 function uiMove(dx, dy) {
-  rsfx('ui'); UI.armed = null;
-  if (UI.tab === 0) {
-    if (UI.rr) { const it = uiSel().item; if (dy) UI.rr.row = (UI.rr.row + dy + it.affixes.length) % it.affixes.length; rpgRenderInv(); return; }
-    if (UI.zone === 'eq') { const c = UI.i % 2, r = (UI.i / 2) | 0; if (dx > 0 && c === 1) { UI.zone = 'bag'; UI.i = Math.min(3, r) * 6; } else if (dx) UI.i = r * 2 + sat(c + dx, 0, 1); else UI.i = sat(r + dy, 0, 2) * 2 + c; }
-    else if (UI.zone === 'bag') { const c = UI.i % 6, r = (UI.i / 6) | 0; if (dx < 0 && c === 0) { UI.zone = 'eq'; UI.i = Math.min(2, r) * 2 + 1; } else if (dx) UI.i = r * 6 + sat(c + dx, 0, 5); else if (dy < 0 && r === 0) { UI.zone = 'chip'; UI.i = Math.min(3, c >> 1); } else UI.i = sat(r + dy, 0, 3) * 6 + c; }
-    else { if (dx) UI.i = sat(UI.i + dx, 0, 3); else if (dy > 0) { UI.zone = 'bag'; UI.i = UI.i * 2; } }
-  } else if (UI.tab === 1) { if (dy) UI.sheetRow = sat(UI.sheetRow + dy, 0, 2); }
-  else if (UI.tab === 3) { const n = RPG_LEGENDARIES.length, cols = 3; if (dx) UI.cdx = sat(UI.cdx + dx, 0, n - 1); else UI.cdx = sat(UI.cdx + dy * cols, 0, n - 1); }
-  else if (UI.tab === 4) { if (dy) UI.riftRow = sat(UI.riftRow + dy, 0, RP.riftUnlocked ? 3 : 0); else if (dx) uiRiftAdjust(dx); }
+  rsfx('ui'); RUI.armed = null;
+  if (RUI.tab === 0) {
+    if (RUI.rr) { const it = uiSel().item; if (dy) RUI.rr.row = (RUI.rr.row + dy + it.affixes.length) % it.affixes.length; rpgRenderInv(); return; }
+    if (RUI.zone === 'eq') { const c = RUI.i % 2, r = (RUI.i / 2) | 0; if (dx > 0 && c === 1) { RUI.zone = 'bag'; RUI.i = Math.min(3, r) * 6; } else if (dx) RUI.i = r * 2 + sat(c + dx, 0, 1); else RUI.i = sat(r + dy, 0, 2) * 2 + c; }
+    else if (RUI.zone === 'bag') { const c = RUI.i % 6, r = (RUI.i / 6) | 0; if (dx < 0 && c === 0) { RUI.zone = 'eq'; RUI.i = Math.min(2, r) * 2 + 1; } else if (dx) RUI.i = r * 6 + sat(c + dx, 0, 5); else if (dy < 0 && r === 0) { RUI.zone = 'chip'; RUI.i = Math.min(3, c >> 1); } else RUI.i = sat(r + dy, 0, 3) * 6 + c; }
+    else { if (dx) RUI.i = sat(RUI.i + dx, 0, 3); else if (dy > 0) { RUI.zone = 'bag'; RUI.i = RUI.i * 2; } }
+  } else if (RUI.tab === 1) { if (dy) RUI.sheetRow = sat(RUI.sheetRow + dy, 0, 2); }
+  else if (RUI.tab === 3) { const n = RPG_LEGENDARIES.length, cols = 3; if (dx) RUI.cdx = sat(RUI.cdx + dx, 0, n - 1); else RUI.cdx = sat(RUI.cdx + dy * cols, 0, n - 1); }
+  else if (RUI.tab === 4) { if (dy) RUI.riftRow = sat(RUI.riftRow + dy, 0, RP.riftUnlocked ? 3 : 0); else if (dx) uiRiftAdjust(dx); }
   rpgRenderInv();
 }
 function uiRiftAdjust(dx) {
-  if (UI.riftRow === 0) { RP.diff = sat(RP.diff + dx, 0, RP.diffUnlocked); RT.dirty = true; rpgRenderMenu(); }
-  else if (UI.riftRow === 1 && RP.riftUnlocked) { RP.riftTier = sat(RP.riftTier + dx, 1, Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1)); RP.riftSeed = 0; RT.dirty = true; }
-  else if (UI.riftRow === 2 && RP.riftUnlocked) { RP.riftSeed = (dseed() & 0xFFFFFF) | 1; }
+  if (RUI.riftRow === 0) { RP.diff = sat(RP.diff + dx, 0, RP.diffUnlocked); RT.dirty = true; rpgRenderMenu(); }
+  else if (RUI.riftRow === 1 && RP.riftUnlocked) { RP.riftTier = sat(RP.riftTier + dx, 1, Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1)); RP.riftSeed = 0; RT.dirty = true; }
+  else if (RUI.riftRow === 2 && RP.riftUnlocked) { RP.riftSeed = (dseed() & 0xFFFFFF) | 1; }
 }
 function uiAct(kind) { // A / X / Y / RT / LT on the current tab
-  if (UI.tab === 0) {
+  if (RUI.tab === 0) {
     const sel = uiSel();
     if (kind === 'A') {
-      if (UI.rr) { if (invReroll(sel, UI.rr.row)) { UI.rr = null; } rpgRenderInv(); return; }
+      if (RUI.rr) { if (invReroll(sel, RUI.rr.row)) { RUI.rr = null; } rpgRenderInv(); return; }
       if (sel.where === 'chip') invChip(sel.idx); else if (sel.where === 'bag' && sel.item) invEquip(sel.idx); else if (sel.where === 'eq' && sel.item) invUnequip(sel.slot); else rsfx('deny'); rpgRenderInv();
     } else if (kind === 'X') {
       if (sel.where !== 'bag' || !sel.item) { if (sel.where === 'eq' && sel.item) { toast('Unequip it first (A), then salvage'); } rsfx('deny'); return; }
-      if (sel.item.rarity === 'common' || (UI.armed && UI.armed.k === 'b' + sel.idx && RT.real - UI.armed.t < 2.6)) { invSalvage(sel.idx); UI.armed = null; } else { UI.armed = { k: 'b' + sel.idx, t: RT.real }; toast('Press X again to salvage ' + rpgItemName(sel.item)); rsfx('ui'); } rpgRenderInv();
+      if (sel.item.rarity === 'common' || (RUI.armed && RUI.armed.k === 'b' + sel.idx && RT.real - RUI.armed.t < 2.6)) { invSalvage(sel.idx); RUI.armed = null; } else { RUI.armed = { k: 'b' + sel.idx, t: RT.real }; toast('Press X again to salvage ' + rpgItemName(sel.item)); rsfx('ui'); } rpgRenderInv();
     } else if (kind === 'Y') { if (sel.item) invLock(sel.item); else rsfx('deny'); rpgRenderInv(); }
-    else if (kind === 'RT') { if (sel.item && sel.item.affixes.length) { UI.rr = UI.rr ? null : { row: 0 }; rsfx('ui'); } else { toast('Nothing to reroll'); rsfx('deny'); } rpgRenderInv(); }
+    else if (kind === 'RT') { if (sel.item && sel.item.affixes.length) { RUI.rr = RUI.rr ? null : { row: 0 }; rsfx('ui'); } else { toast('Nothing to reroll'); rsfx('deny'); } rpgRenderInv(); }
     else if (kind === 'LT') { invSort(); rpgRenderInv(); }
-  } else if (UI.tab === 1) { if (kind === 'A') { const k = ['power', 'agility', 'resolve'][UI.sheetRow]; if (RP.free > 0) { RP.free--; RP.spent[k]++; rpgRecalc(); rsfx('perk'); } else rsfx('deny'); rpgRenderInv(); } }
-  else if (UI.tab === 2) { if (kind === 'A' && RP.pending > 0) { closeInv(); openPerks(); } }
-  else if (UI.tab === 4) {
-    if (kind === 'A') { if (UI.riftRow === 0) { RP.diff = (RP.diff + 1) % (RP.diffUnlocked + 1); RT.dirty = true; rpgRenderMenu(); rsfx('ui'); rpgRenderInv(); } else if (UI.riftRow === 1 && RP.riftUnlocked) { const mx = Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1); RP.riftTier = RP.riftTier >= mx ? 1 : RP.riftTier + 1; RP.riftSeed = 0; rsfx('ui'); rpgRenderInv(); } else if (UI.riftRow === 2 && RP.riftUnlocked) { RP.riftSeed = (dseed() & 0xFFFFFF) | 1; rsfx('ui'); rpgRenderInv(); } else if (UI.riftRow === 3 && RP.riftUnlocked) { const { t, seed } = riftInfo(); closeInv(); rpgStartRift(t, seed); } }
+  } else if (RUI.tab === 1) { if (kind === 'A') { const k = ['power', 'agility', 'resolve'][RUI.sheetRow]; if (RP.free > 0) { RP.free--; RP.spent[k]++; rpgRecalc(); rsfx('perk'); } else rsfx('deny'); rpgRenderInv(); } }
+  else if (RUI.tab === 2) { if (kind === 'A' && RP.pending > 0) { closeInv(); openPerks(); } }
+  else if (RUI.tab === 4) {
+    if (kind === 'A') { if (RUI.riftRow === 0) { RP.diff = (RP.diff + 1) % (RP.diffUnlocked + 1); RT.dirty = true; rpgRenderMenu(); rsfx('ui'); rpgRenderInv(); } else if (RUI.riftRow === 1 && RP.riftUnlocked) { const mx = Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1); RP.riftTier = RP.riftTier >= mx ? 1 : RP.riftTier + 1; RP.riftSeed = 0; rsfx('ui'); rpgRenderInv(); } else if (RUI.riftRow === 2 && RP.riftUnlocked) { RP.riftSeed = (dseed() & 0xFFFFFF) | 1; rsfx('ui'); rpgRenderInv(); } else if (RUI.riftRow === 3 && RP.riftUnlocked) { const { t, seed } = riftInfo(); closeInv(); rpgStartRift(t, seed); } }
   }
 }
-function uiTab(d) { UI.tab = (UI.tab + d + TAB_NAMES.length) % TAB_NAMES.length; UI.rr = null; UI.armed = null; if (UI.tab === 0 && UI.zone === 'chip') UI.zone = 'bag'; rsfx('ui'); rpgRenderInv(); }
+function uiTab(d) { RUI.tab = (RUI.tab + d + TAB_NAMES.length) % TAB_NAMES.length; RUI.rr = null; RUI.armed = null; if (RUI.tab === 0 && RUI.zone === 'chip') RUI.zone = 'bag'; rsfx('ui'); rpgRenderInv(); }
 const UI_MAP = { arrowleft: 'L', a: 'L', arrowright: 'R', d: 'R', arrowup: 'U', w: 'U', arrowdown: 'D', s: 'D', ' ': 'A', enter: 'A', j: 'X', e: 'Y', z: 'B', escape: 'B', q: 'LB', shift: 'RB', i: 'CLOSE', tab: 'CLOSE', r: 'RT', t: 'LT', f: 'F' };
 function uiKey(k) {
-  const m = UI_MAP[k]; if (k >= '1' && k <= '5' && k.length === 1) { UI.tab = +k - 1; UI.rr = null; rpgRenderInv(); rsfx('ui'); return; } if (!m) return;
+  const m = UI_MAP[k]; if (k >= '1' && k <= '5' && k.length === 1) { RUI.tab = +k - 1; RUI.rr = null; rpgRenderInv(); rsfx('ui'); return; } if (!m) return;
   if (m === 'L') uiMove(-1, 0); else if (m === 'R') uiMove(1, 0); else if (m === 'U') uiMove(0, -1); else if (m === 'D') uiMove(0, 1);
-  else if (m === 'B') { if (UI.rr) { UI.rr = null; rpgRenderInv(); } else closeInv(); } else if (m === 'CLOSE') closeInv(); else if (m === 'LB') uiTab(-1); else if (m === 'RB') uiTab(1);
+  else if (m === 'B') { if (RUI.rr) { RUI.rr = null; rpgRenderInv(); } else closeInv(); } else if (m === 'CLOSE') closeInv(); else if (m === 'LB') uiTab(-1); else if (m === 'RB') uiTab(1);
   else if (m === 'F') { invChip(3); rpgRenderInv(); } else uiAct(m);
 }
 // key repeat for held d-pad / stick directions
 let uiRepT = 0, uiRepKey = '';
 function uiRepeat(rdt) {
-  if (!UI.open && !PK.open) { uiRepKey = ''; return; } const stale = UI.open ? UI.stale : PK.stale; let hk = ''; for (const k of ['arrowleft', 'a', 'arrowright', 'd', 'arrowup', 'w', 'arrowdown', 's']) { if (stale && stale.has(k)) { if (!keys.has(k)) stale.delete(k); continue; } if (keys.has(k)) { hk = k; break; } }
-  if (!hk) { uiRepKey = ''; return; } if (hk !== uiRepKey) { uiRepKey = hk; uiRepT = 0.38; return; } uiRepT -= rdt; if (uiRepT <= 0) { uiRepT = 0.11; (UI.open ? uiKey : perkKey)(hk); }
+  if (!RUI.open && !PK.open) { uiRepKey = ''; return; } const stale = RUI.open ? RUI.stale : PK.stale; let hk = ''; for (const k of ['arrowleft', 'a', 'arrowright', 'd', 'arrowup', 'w', 'arrowdown', 's']) { if (stale && stale.has(k)) { if (!keys.has(k)) stale.delete(k); continue; } if (keys.has(k)) { hk = k; break; } }
+  if (!hk) { uiRepKey = ''; return; } if (hk !== uiRepKey) { uiRepKey = hk; uiRepT = 0.38; return; } uiRepT -= rdt; if (uiRepT <= 0) { uiRepT = 0.11; (RUI.open ? uiKey : perkKey)(hk); }
 }
 $('inv').addEventListener('click', e => {
-  const t = e.target; if (!UI.open) return; const tab = t.closest('[data-tab]'); if (tab) { UI.tab = +tab.dataset.tab; UI.rr = null; rpgRenderInv(); rsfx('ui'); return; }
-  const act = t.closest('[data-act]'); if (act) { const a = act.dataset.act, sel = uiSel(); if (a === 'equip') uiAct('A'); else if (a === 'unequip') uiAct('A'); else if (a === 'salv') { UI.armed = { k: 'b' + sel.idx, t: RT.real }; uiAct('X'); } else if (a === 'lock') uiAct('Y'); else if (a === 'rrmode') uiAct('RT'); else if (a === 'rr') { if (invReroll(sel, +act.dataset.k)) UI.rr = null; rpgRenderInv(); } return; }
-  const el = t.closest('[data-z]'); if (!el) return; const z = el.dataset.z, i = el.dataset.i == null ? 0 : +el.dataset.i, key = z + i, now = performance.now(), dbl = UI.lastClick.k === key && now - UI.lastClick.t < 450; UI.lastClick = { k: key, t: now };
-  if (z === 'eq' || z === 'bag' || z === 'chip') { const same = UI.zone === z && UI.i === i; UI.zone = z; UI.i = i; if (z === 'chip') { invChip(i); rpgRenderInv(); } else if (dbl) { uiAct('A'); } else if (!same) { rsfx('ui'); rpgRenderInv(); } }
-  else if (z === 'attr') { UI.sheetRow = i; uiAct('A'); } else if (z === 'cdx') { UI.cdx = i; rpgRenderInv(); } else if (z === 'perkgo') uiAct('A'); else if (z === 'rift') { UI.riftRow = i; if (i <= 1) { const r = el.getBoundingClientRect(); uiRiftAdjust(e.clientX < r.left + r.width / 2 ? -1 : 1); rpgRenderInv(); } else uiAct('A'); }
+  const t = e.target; if (!RUI.open) return; const tab = t.closest('[data-tab]'); if (tab) { RUI.tab = +tab.dataset.tab; RUI.rr = null; rpgRenderInv(); rsfx('ui'); return; }
+  const act = t.closest('[data-act]'); if (act) { const a = act.dataset.act, sel = uiSel(); if (a === 'equip') uiAct('A'); else if (a === 'unequip') uiAct('A'); else if (a === 'salv') { RUI.armed = { k: 'b' + sel.idx, t: RT.real }; uiAct('X'); } else if (a === 'lock') uiAct('Y'); else if (a === 'rrmode') uiAct('RT'); else if (a === 'rr') { if (invReroll(sel, +act.dataset.k)) RUI.rr = null; rpgRenderInv(); } return; }
+  const el = t.closest('[data-z]'); if (!el) return; const z = el.dataset.z, i = el.dataset.i == null ? 0 : +el.dataset.i, key = z + i, now = performance.now(), dbl = RUI.lastClick.k === key && now - RUI.lastClick.t < 450; RUI.lastClick = { k: key, t: now };
+  if (z === 'eq' || z === 'bag' || z === 'chip') { const same = RUI.zone === z && RUI.i === i; RUI.zone = z; RUI.i = i; if (z === 'chip') { invChip(i); rpgRenderInv(); } else if (dbl) { uiAct('A'); } else if (!same) { rsfx('ui'); rpgRenderInv(); } }
+  else if (z === 'attr') { RUI.sheetRow = i; uiAct('A'); } else if (z === 'cdx') { RUI.cdx = i; rpgRenderInv(); } else if (z === 'perkgo') uiAct('A'); else if (z === 'rift') { RUI.riftRow = i; if (i <= 1) { const r = el.getBoundingClientRect(); uiRiftAdjust(e.clientX < r.left + r.width / 2 ? -1 : 1); rpgRenderInv(); } else uiAct('A'); }
 });
-$('inv').addEventListener('mouseover', e => { const el = e.target.closest('[data-z]'); if (!el || !UI.open || UI.tab !== 0) return; const z = el.dataset.z; if (z === 'chip' || z === 'attr') return; const i = +el.dataset.i; if (UI.zone === z && UI.i === i) return; UI.zone = z; UI.i = i; UI.rr = null; rpgRenderInv(); });
-$('inv').addEventListener('contextmenu', e => { e.preventDefault(); const el = e.target.closest('[data-z="bag"]'); if (el && UI.open) { UI.zone = 'bag'; UI.i = +el.dataset.i; uiAct('X'); } });
+$('inv').addEventListener('mouseover', e => { const el = e.target.closest('[data-z]'); if (!el || !RUI.open || RUI.tab !== 0) return; const z = el.dataset.z; if (z === 'chip' || z === 'attr') return; const i = +el.dataset.i; if (RUI.zone === z && RUI.i === i) return; RUI.zone = z; RUI.i = i; RUI.rr = null; rpgRenderInv(); });
+$('inv').addEventListener('contextmenu', e => { e.preventDefault(); const el = e.target.closest('[data-z="bag"]'); if (el && RUI.open) { RUI.zone = 'bag'; RUI.i = +el.dataset.i; uiAct('X'); } });
 
 // ---- SHATTER RIFTS: seeded arena runs built with the same voxel-level machinery as acts 2 / 3 ---------------------------------------------------------------------------
 const RIFT_SETS = [ // palettes: {top a, top b, soil, stone, glow}
@@ -4850,7 +4850,7 @@ function rpgBreakTile(g) { // breakGroup() without the "bridge" toast; the same 
 function rpgStartRift(tier, seed) {
   tier = sat(tier | 0 || 1, 1, RPG_TUNING.rift.maxTier); seed = (seed == null ? (dseed() & 0xFFFFFF) | 1 : seed) >>> 0; const spec = rpgRiftSpec(tier, seed);
   if (!G.started) G.started = true; audioInit(); for (const id of ['menu', 'dead', 'pause']) $(id).classList.add('hidden'); $('hud').classList.remove('hidden');
-  if (UI.open) { UI.open = false; $('inv').classList.add('hidden'); } if (PK.open) { PK.open = false; $('perkpick').classList.add('hidden'); }
+  if (RUI.open) { RUI.open = false; $('inv').classList.add('hidden'); } if (PK.open) { PK.open = false; $('perkpick').classList.add('hidden'); }
   rpgVacuum(); RT_TIMERS.length = 0; for (const p of PROJ) { p.on = false; p.m.visible = false; } RIFT = null; clearEntities(); RT.pend = null;
   Object.assign(RUN, { xp: 0, kills: 0, elites: 0, loot: [0, 0, 0, 0], gold: 0, dust: 0, lvStart: RP.level, levels: 0, legends: [], salv: 0, shards: 0 }); RT.runFlags = {}; RT.runDiff = RP.diff;
   RIFT = { ...spec, t: 0, prog: 0, kills: 0, spawned: 0, phase: 'fight', guardian: null, spawnT: 0.8, rng: rpgRng(seed ^ 0xC0FFEE), done: false, won: false, theme: (seed & 1) ? 3 : 2, tileT: {}, endAt: 0, gT: 0 };
@@ -4935,7 +4935,7 @@ function rpgHud() {
   const bo = $('rpgBoss'); const g = RIFT && RIFT.guardian && RIFT.guardian.alive && RIFT.guardian.rpg ? RIFT.guardian : null; if (g) { bo.classList.add('on'); rpgSet($('rpgBossN'), g.rpg.name.toUpperCase(), 'bn'); rpgSty($('rpgBossBar'), 'width', (sat(g.rpg.hp / g.rpg.maxhp, 0, 1) * 100).toFixed(1) + '%', 'bb'); } else bo.classList.remove('on');
 }
 function rpgUiTick(rdt) {
-  uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || UI.open || PK.open || G.state === 'dead'; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide) return;
+  uiRepeat(rdt); rpgFlush(false); const hide = $('hud').classList.contains('hidden') || RUI.open || PK.open || G.state === 'dead'; if (HC.hide !== hide) { HC.hide = hide; $('rpgRoot').classList.toggle('hidden', hide); } if (hide) return;
   if (HC.php !== P.hp) { HC.php = P.hp; updateHUD(); } rpgHud(); rpgPlatesTick();
 }
 function rpgRunSummary() {
@@ -4987,14 +4987,14 @@ const _retry = retry; retry = function () { if (RIFT) { if (RIFT.done) rpgRiftRe
 const _toMenu = toMenu; toMenu = function () { RIFT = null; _toMenu(); rpgRenderMenu(); };
 const _updateHUD = updateHUD; updateHUD = function () { _updateHUD(); if (RT.S) $('coinN').textContent = rfmt(RP.gold); if (RIFT) $('actName').textContent = 'SHATTER RIFT · TIER ' + RIFT.tier; document.body.classList.toggle('rift', !!RIFT); };
 const _updateBestLine = updateBestLine; updateBestLine = function () { _updateBestLine(); const b = $('best'); b.textContent += '  ·  LV ' + RP.level + (RP.diff ? '  ·  ' + RPG_TUNING.difficulty[RP.diff].name : ''); };
-const _padMenu = padMenu; padMenu = function () { if (PK.open) return; if (UI.open) { if (UI.rr) { UI.rr = null; rpgRenderInv(); } else closeInv(); return; } _padMenu(); };
-const _padFire = padFire; padFire = function (down) { if (UI.open) { if (down === true || down === undefined) uiAct('RT'); else _padFire(false); return; } if (PK.open) { if (down === true || down === undefined) perkPick(PK.i); else _padFire(false); return; } _padFire(down); };
-const _padPlace = padPlace; padPlace = function (down) { if (UI.open) { if (down === true || down === undefined) uiAct('LT'); else _padPlace(false); return; } if (PK.open) { if (down === false) _padPlace(false); return; } _padPlace(down); };
+const _padMenu = padMenu; padMenu = function () { if (PK.open) return; if (RUI.open) { if (RUI.rr) { RUI.rr = null; rpgRenderInv(); } else closeInv(); return; } _padMenu(); };
+const _padFire = padFire; padFire = function (down) { if (RUI.open) { if (down === true || down === undefined) uiAct('RT'); else _padFire(false); return; } if (PK.open) { if (down === true || down === undefined) perkPick(PK.i); else _padFire(false); return; } _padFire(down); };
+const _padPlace = padPlace; padPlace = function (down) { if (RUI.open) { if (down === true || down === undefined) uiAct('LT'); else _padPlace(false); return; } if (PK.open) { if (down === false) _padPlace(false); return; } _padPlace(down); };
 
 // ---- key routing: every key (keyboard, pad shim, phone pad bridge) goes through keys.add -------------------------------------------------------------------------------
 function rpgSwallow() { latch.clear(); _pk.jump = keys.has(' '); _pk.z = keys.has('z'); _pk.e = keys.has('e'); _pk.j = keys.has('j'); _pk.q = keys.has('q'); _pk.fire = false; edge.fire = edge.place = edge.e = edge.j = edge.q = false; P.jumpBuf = P.zBuf = P.fireBuf = 0; placeLatch = false; }
 function rpgKeyDown(k) {
-  if (PK.open) { perkKey(k); return; } if (UI.open) { uiKey(k); return; }
+  if (PK.open) { perkKey(k); return; } if (RUI.open) { uiKey(k); return; }
   const st = G.state;
   if (st === 'play') { if (k === 'i' || k === 'tab') openInv(); else if (k === 'e' && !(NPC.active && NPC.near) && !/Press E/.test(PROMPT)) openInv(); else if (k === 'f') { RP.filter = !RP.filter; RT.dirty = true; toast(RP.filter ? 'Common drops hidden' : 'Showing all drops'); rsfx('lock'); } }
   else if (st === 'pause') { if (k === 'i' || k === 'tab' || k === 'e') openInv(RP.pending ? 2 : null); }
@@ -5002,7 +5002,7 @@ function rpgKeyDown(k) {
   else if (st === 'dead') { if (k === 'i' || k === 'tab' || k === 'e') openInv(RP.pending ? 2 : null); else if (k === 'z' && (RIFT || G.won)) toMenu(); else if (k === 'j' && RIFT) rpgRiftRestart(false, false); }
 }
 { const proto = Object.getPrototypeOf(keys), base = proto.add; keys.add = function (k) { const fresh = !keys.has(k); const r = base.call(keys, k); if (fresh) { try { rpgKeyDown(k); } catch (err) { console.error('rpg key', err); } } return r; }; }
-addEventListener('keydown', e => { if (e.key === 'Tab') e.preventDefault(); if (e.key === 'Escape' && UI.open) { if (UI.rr) { UI.rr = null; rpgRenderInv(); } else closeInv(); } });
+addEventListener('keydown', e => { if (e.key === 'Tab') e.preventDefault(); if (e.key === 'Escape' && RUI.open) { if (RUI.rr) { RUI.rr = null; rpgRenderInv(); } else closeInv(); } });
 const _closeInv = closeInv; closeInv = function () { _closeInv(); rpgSwallow(); }; const _closePerks = closePerks; closePerks = function () { _closePerks(); rpgSwallow(); };
 
 // ---- the one per-frame hook (called from frame()) + public API ----------------------------------------------------------------------------------------------------------
@@ -5017,14 +5017,14 @@ function rpgFrame(rdt, sdt) {
 function rpgDbg() {
   const alive = ENEMIES.filter(e => e.alive && e.state !== 'dead' && e.state !== 'squash'), cap = RP.level >= RPG_TUNING.levelCap;
   return { level: RP.level, xp: RP.xp, xpNext: cap ? 0 : rpgXpNext(RP.level), hp: Math.round(RT.hp * 10) / 10, maxHp: RT.max, shield: Math.round(RT.shield), gold: RP.gold, dust: RP.dust, bag: RP.bag.filter(Boolean).length, equipped: RPG_EQUIP.map(k => RP.equipped[k] ? rpgItemName(RP.equipped[k]) : null), loot: LOOT.length, enemies: alive.length, elites: alive.filter(e => e.rpg && e.rpg.tier !== 'normal').length, kills: RUN.kills,
-    perks: Object.assign({}, RP.perks), pending: RP.pending, free: RP.free, ui: UI.open ? { tab: UI.tab, zone: UI.zone, i: UI.i, rr: UI.rr ? UI.rr.row : -1 } : null, perkOpen: PK.open, rw: Math.round(RT.rw * 100) / 100, rwMax: RT.rwMax, diff: RP.diff, runDiff: RT.runDiff, riftUnlocked: RP.riftUnlocked, diffUnlocked: RP.diffUnlocked, bestRift: RP.bestRift, filter: RP.filter, chests: CHESTS.filter(c => !c.open).length, crates: CRATES.length, powers: RT.S.powers, codex: Object.keys(RP.codex).length, chill: Math.round(RT.chill * 100) / 100, projectiles: PROJ.filter(p => p.on).length, audio: AC ? AC.state : null,
+    perks: Object.assign({}, RP.perks), pending: RP.pending, free: RP.free, ui: RUI.open ? { tab: RUI.tab, zone: RUI.zone, i: RUI.i, rr: RUI.rr ? RUI.rr.row : -1 } : null, perkOpen: PK.open, rw: Math.round(RT.rw * 100) / 100, rwMax: RT.rwMax, diff: RP.diff, runDiff: RT.runDiff, riftUnlocked: RP.riftUnlocked, diffUnlocked: RP.diffUnlocked, bestRift: RP.bestRift, filter: RP.filter, chests: CHESTS.filter(c => !c.open).length, crates: CRATES.length, powers: RT.S.powers, codex: Object.keys(RP.codex).length, chill: Math.round(RT.chill * 100) / 100, projectiles: PROJ.filter(p => p.on).length, audio: AC ? AC.state : null,
     rift: RIFT ? { tier: RIFT.tier, seed: hexSeed(RIFT.seed), mods: RIFT.mods, t: Math.round(RIFT.t * 10) / 10, limit: RIFT.limit, prog: RIFT.prog, need: RIFT.need, phase: RIFT.phase, kills: RIFT.kills, done: RIFT.done, won: RIFT.won, guardian: !!(RIFT.guardian && RIFT.guardian.alive) } : null };
 }
 { const d0 = window.__dbg; window.__dbg = () => { const d = d0(); d.rpg = rpgDbg(); return d; }; }
 window.__rpg = {
   get level() { return RP.level; }, get xp() { return RP.xp; }, get xpNext() { return RP.level >= RPG_TUNING.levelCap ? 0 : rpgXpNext(RP.level); }, get gold() { return RP.gold; }, get dust() { return RP.dust; }, get equipped() { return RP.equipped; }, get bag() { return RP.bag; }, get perks() { return RP.perks; }, get points() { return RP.free; }, get pending() { return RP.pending; },
   stats() { const s = JSON.parse(JSON.stringify(RT.S)); s.sheet = RT.sheet; s.tuning = { run: TUNING.run, sprint: TUNING.sprint, jump0: TUNING.jump[0], jump2: TUNING.jump[2], wallSlide: TUNING.wallSlide, poundR: TUNING.pound.radius, punchReach: TUNING.punch.reach }; return s; },
-  open(tab) { return openInv(tab); }, close() { closeInv(); }, isOpen() { return UI.open; }, openPerks() { openPerks(); }, tabs: TAB_NAMES,
+  open(tab) { return openInv(tab); }, close() { closeInv(); }, isOpen() { return RUI.open; }, openPerks() { openPerks(); }, tabs: TAB_NAMES,
   give(spec = {}) { const it = rpgGenItem(spec.seed != null ? spec.seed : dseed(), { ilvl: spec.ilvl || rpgItemLevel({ plvl: RP.level, act: 1, diff: 0 }), slot: spec.slot, rarity: spec.rarity, legendary: spec.legendary, mf: spec.mf || 0 }); if (spec.locked) it.locked = true; if (spec.equip) { const sl = it.slot === 'charm' ? (RP.equipped.charm1 ? 'charm2' : 'charm1') : it.slot; RP.equipped[sl] = it; } else { const i = rpgBagFree(); if (i < 0) return null; RP.bag[i] = it; } rpgRecalc(); return it; },
   setLevel(n) { RP.level = sat(n | 0, 1, RPG_TUNING.levelCap); RP.xp = 0; RP.free = Math.max(0, RPG_TUNING.pointsPerLevel * (RP.level - 1) - RP.spent.power - RP.spent.agility - RP.spent.resolve); rpgRecalc(); rpgHealFull(); updateHUD(); },
   gainXp(n) { rpgGainXp(n, 'test'); }, giveGold(n) { RP.gold += n; RT.dirty = true; updateHUD(); }, giveDust(n) { RP.dust += n; RT.dirty = true; },
