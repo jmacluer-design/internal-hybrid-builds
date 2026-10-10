@@ -1,0 +1,2 @@
+# Games shipped by deploy.sh (one filename per line, relative to games/). games/archive/*.html always ships.
+# Add a game here only after it passes its headless checks. Unlisted games stay out of the live site.

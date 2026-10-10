@@ -44,20 +44,25 @@ html,body{margin:0;background:var(--bg);color:var(--foreground);font-family:syst
     </div>
     <div class="artifact-list" id="listing"></div>
   </details>
+  <details class="artifact-library" id="archiveBox">
+    <summary>Archive</summary>
+    <div class="artifact-list" id="archiveListing" style="margin-top:12px"></div>
+  </details>
 </div>
 <script>
 const API = location.origin;
 const SUPA = (()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
 const games = [
- {id:'neondrift', name:'NEONDRIFT', desc:'synthwave hover-skiff runner · rings, shards, boost', file:'games/neondrift.html', bytes:46000},
- {id:'blockshot', name:'BLOCKSHOT', desc:'MW2 × Minecraft × SM64 × Skate3 hybrid · shoot, build, grind', file:'games/blockshot.html', bytes:88000},
+ {id:'neondrift', name:'NEONDRIFT', desc:'synthwave hover-skiff runner · rings, shards, boost', file:'games/archive/neondrift.html', bytes:25729, archived:true},
+ {id:'blockshot-v1', name:'BLOCKSHOT v1', desc:'MW2 × Minecraft × SM64 × Skate3 prototype · superseded by the rebuild', file:'games/archive/blockshot-v1.html', bytes:23873, archived:true},
 ];
 const listing = document.getElementById('listing');
+const archiveListing = document.getElementById('archiveListing');
 
 function card(g, save){
   const section=document.createElement('article'); section.className='artifact-card'; section.dataset.artifact=g.id;
   const kicker=document.createElement('small'); kicker.className='artifact-kicker';
-  kicker.textContent=(save&&save.best)?'GAME · SAVED · BEST '+save.best:'GAME · HYBRID BUILD';
+  kicker.textContent=(g.archived?'ARCHIVED · ':'')+((save&&save.best)?'GAME · SAVED · BEST '+save.best:'GAME · HYBRID BUILD');
   const title=document.createElement('strong'); title.textContent=g.name;
   const summary=document.createElement('p'); summary.textContent=g.desc;
   const actions=document.createElement('div'); actions.className='artifact-actions';
@@ -71,7 +76,7 @@ function card(g, save){
   const technical=document.createElement('details'); technical.className='artifact-technical';
   const tlabel=document.createElement('summary'); tlabel.textContent='Details & verification';
   const info=document.createElement('small');
-  info.textContent=g.kind+' · '+g.id.slice(0,8)+' · 1 file · '+(g.bytes/1024).toFixed(1)+' KB';
+  info.textContent=(g.kind||'game')+' · '+g.id.slice(0,12)+' · 1 file · '+(g.bytes/1024).toFixed(1)+' KB';
   const status=document.createElement('small');
   status.textContent=(save&&save.best)?('best '+save.best+' · '+(save.synced||'local')):(save&&save.score)?('last run '+save.score):(g.saveNote||'no save yet');
   technical.append(tlabel,info,status);
@@ -80,8 +85,9 @@ function card(g, save){
 }
 
 function render(saves){
-  listing.replaceChildren();
-  games.forEach(g=>{ const s=(saves||{})[g.id]||{}; g.save=s; listing.append(card(g,s)); });
+  listing.replaceChildren(); archiveListing.replaceChildren();
+  games.forEach(g=>{ const s=(saves||{})[g.id]||{}; g.save=s; (g.archived?archiveListing:listing).append(card(g,s)); });
+  if(!listing.children.length){ const e=document.createElement('p'); e.className='k'; e.textContent='No active builds right now — new ones are on the way.'; listing.append(e); }
   document.getElementById('owner').replaceChildren(
     (()=>{const o=document.createElement('option');o.value='all';o.textContent='All builds';return o;})(),
     ...games.map(g=>{const o=document.createElement('option');o.value=g.id;o.textContent=g.name;return o;}));
@@ -91,13 +97,14 @@ function filter(){
   const q=document.getElementById('q').value.toLowerCase().trim();
   const owner=document.getElementById('owner').value;
   let n=0;
-  listing.querySelectorAll('.artifact-card').forEach(c=>{
+  document.querySelectorAll('.artifact-card').forEach(c=>{
     const g=games.find(x=>x.id===c.dataset.artifact);
     const hay=(g.name+' '+g.desc+' '+g.id).toLowerCase();
     const ok=(owner==='all'||owner===g.id)&&hay.includes(q);
     c.classList.toggle('hidden-search',!ok); if(ok)n++;
   });
-  document.getElementById('count').textContent=n+' matches · '+games.length+' builds on shelf';
+  const act=games.filter(g=>!g.archived).length;
+  document.getElementById('count').textContent=n+' matches · '+act+' on shelf · '+(games.length-act)+' archived';
 }
 document.getElementById('q').addEventListener('input',filter);
 document.getElementById('owner').addEventListener('change',filter);
