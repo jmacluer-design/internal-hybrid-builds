@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 PROJECT=internal-hybrid-builds
 STAGE=$(mktemp -d); trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/public/games" "$STAGE/functions"
-TOP=(index.html pad.html supa.html)
+TOP=(index.html pad.html supa.html controllers.html)
 if [ -n "${REF:-}" ]; then
   for f in "${TOP[@]}"; do git show "$REF:$f" > "$STAGE/public/$f"; done
   mkdir -p "$STAGE/public/games/archive"

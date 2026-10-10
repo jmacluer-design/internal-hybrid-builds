@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Controller Check</title>
+<style>
+:root{
+  --bg:#0e1116; --panel:#171b22; --line:#262c36; --text:#e8ecf1; --dim:#8b95a5; --accent:#4da3ff; --ok:#3ddc84; --bad:#ff6b6b; --warn:#ffc857;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{ --bg:#f4f6f9; --panel:#fff; --line:#d9dee6; --text:#14181f; --dim:#5b6575; --accent:#0a6cff; --ok:#16a34a; --bad:#dc2626; --warn:#b7791f; color-scheme:light; }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#f4f6f9; --panel:#fff; --line:#d9dee6; --text:#14181f; --dim:#5b6575; --accent:#0a6cff; --ok:#16a34a; --bad:#dc2626; --warn:#b7791f; color-scheme:light; } }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px max(16px,env(safe-area-inset-right)) 48px max(16px,env(safe-area-inset-left))}
+main{max-width:980px;margin:0 auto}
+h1{font-size:24px;margin:8px 0 4px} h2{font-size:18px;margin:28px 0 10px}
+a{color:var(--accent)} .dim{color:var(--dim)} .small{font-size:13px}
+.bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0}
+.status{font-weight:600;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}
+.status.ok{border-color:var(--ok);color:var(--ok)} .status.wait{border-color:var(--warn);color:var(--warn)}
+button{font:inherit;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;min-height:44px}
+button.alt{background:transparent;color:var(--text);border:1px solid var(--line)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.pad{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;align-items:start}
+.sticks{display:flex;gap:18px;flex-wrap:wrap;margin:10px 0}
+.stick{width:96px;height:96px;border-radius:50%;border:2px solid var(--line);position:relative;background:var(--bg)}
+.stick i{position:absolute;width:20px;height:20px;border-radius:50%;background:var(--accent);left:38px;top:38px;transition:none}
+.stick.click{border-color:var(--ok)}
+.trig{display:flex;gap:10px;align-items:center;margin:6px 0}
+.trig b{width:28px} .trig .t{flex:1;height:10px;border-radius:6px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.trig .t i{display:block;height:100%;width:0;background:var(--accent)}
+.btns{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px;margin-top:8px}
+.btn{border:1px solid var(--line);border-radius:8px;padding:6px 2px;text-align:center;font-size:12px;background:var(--bg);color:var(--dim)}
+.btn.on{background:var(--ok);color:#06210f;border-color:var(--ok);font-weight:700}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+code,kbd{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:14px} td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.k-ok{color:var(--ok)} .k-bad{color:var(--bad)} .k-warn{color:var(--warn)}
+ul{padding-left:20px;margin:6px 0}
+</style>
+</head>
+<body>
+<main>
+  <div class="bar">
+    <div>
+      <h1>Controller check</h1>
+      <div class="dim small">Confirm your Xbox / PlayStation pad and VR controllers connect before you trust a game with them. Nothing here is sent anywhere.</div>
+    </div>
+    <a href="/">&larr; back to the shelf</a>
+  </div>
+
+  <h2>1. Gamepads (Xbox, PlayStation, Switch Pro, 8BitDo...)</h2>
+  <div id="padStatus" class="status wait">No controller detected yet. Press any button on your pad (browsers hide pads until you do).</div>
+  <div id="pads" class="pad"></div>
+  <div class="card small">
+    <b>Pair it first</b> (the browser can only see a pad the device has already paired):
+    <ul>
+      <li><b>Xbox:</b> hold the round sync button on top until the logo flashes fast, then pair in the device's Bluetooth settings.</li>
+      <li><b>PlayStation 4/5:</b> hold <kbd>Share</kbd> + <kbd>PS</kbd> until the light bar flashes, then pair in Bluetooth settings.</li>
+      <li><b>iPad / iPhone / Apple TV / Android / Fire TV / Windows / Mac:</b> Bluetooth settings &rarr; pair. USB cable works on computers too.</li>
+      <li><b>Quest:</b> pair a Bluetooth pad in the headset's settings (menu names vary by Horizon OS version), then open this page in Quest Browser.</li>
+    </ul>
+    Default game mapping (all games on the shelf): left stick = move, right stick = look, <b>A</b> = jump, <b>RT</b> = primary action, <b>LT</b> = secondary / hold,
+    <b>X</b> = J, <b>B</b> = Z, <b>Y</b> = E, <b>LB / R3</b> = Q, <b>RB / L3</b> = Shift, <b>Start</b> = confirm / pause.
+  </div>
+
+  <h2>2. VR (Meta Quest Touch controllers, or a PC headset through Chrome)</h2>
+  <div class="card">
+    <table id="xrTable"></table>
+    <div class="row" style="margin-top:12px">
+      <button id="xrEnter" disabled>Enter VR controller test</button>
+      <button id="xrRecheck" class="alt">Re-check</button>
+    </div>
+    <div class="small dim" style="margin-top:10px">
+      In the headset you get a floating panel that lists every controller it can see, with live button and stick values. Squeeze a trigger to feel a haptic pulse.
+      VR needs HTTPS (this site is) and a VR-capable browser: <b>Quest Browser</b> on a Quest, or <b>Chrome / Edge</b> on a PC with Link / SteamVR / Windows Mixed Reality.
+      Safari and Firefox on phones/tablets do not do WebXR VR.
+    </div>
+  </div>
+
+  <h2>3. This device</h2>
+  <div class="card small"><table id="envTable"></table></div>
+</main>
+
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }</script>
+<script type="module">
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---- 1. gamepads -----------------------------------------------------------------------------------------
+const NAMES = ['A / Cross','B / Circle','X / Square','Y / Triangle','LB / L1','RB / R1','LT / L2','RT / R2','Back / Share','Start / Options','L3','R3','D-up','D-down','D-left','D-right','Home'];
+const padEls = new Map();
+function kindOf(id){
+  const s = id.toLowerCase();
+  if (/xbox|xinput|045e/.test(s)) return 'Xbox';
+  if (/054c|sony|playstation|dualshock|dualsense/.test(s)) return 'PlayStation';
+  if (/057e|nintendo|switch|pro controller/.test(s)) return 'Switch';
+  if (/oculus|meta quest|touch/.test(s)) return 'Quest Touch';
+  return 'Generic';
+}
+function buildPadCard(gp){
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `<div class="row" style="justify-content:space-between"><b class="kind"></b><span class="small dim map"></span></div>
+    <div class="small dim id" style="word-break:break-all"></div>
+    <div class="sticks"><div class="stick l"><i></i></div><div class="stick r"><i></i></div></div>
+    <div class="trig"><b>LT</b><div class="t lt"><i></i></div></div><div class="trig"><b>RT</b><div class="t rt"><i></i></div></div>
+    <div class="btns"></div>
+    <div class="row" style="margin-top:10px"><button class="rum alt">Test rumble</button><span class="small dim rumMsg"></span></div>`;
+  const b = el.querySelector('.btns');
+  for (let i = 0; i < Math.max(gp.buttons.length, 1); i++){
+    const d = document.createElement('div'); d.className = 'btn'; d.textContent = NAMES[i] && gp.mapping === 'standard' ? NAMES[i] : 'btn ' + i; b.appendChild(d);
+  }
+  el.querySelector('.rum').onclick = async () => {
+    const g = (navigator.getGamepads()[gp.index]); const m = el.querySelector('.rumMsg');
+    try {
+      if (g && g.vibrationActuator && g.vibrationActuator.playEffect){ await g.vibrationActuator.playEffect('dual-rumble', { duration: 500, strongMagnitude: 1, weakMagnitude: 0.6 }); m.textContent = 'sent (you should feel it)'; }
+      else if (g && g.hapticActuators && g.hapticActuators[0]){ await g.hapticActuators[0].pulse(1, 400); m.textContent = 'sent (you should feel it)'; }
+      else m.textContent = 'this browser exposes no rumble for this pad (normal on Safari/iOS)';
+    } catch (e) { m.textContent = 'rumble failed: ' + e.message; }
+  };
+  $('pads').appendChild(el); padEls.set(gp.index, el); return el;
+}
+function stickDot(el, x, y, click){ const i = el.querySelector('i'); i.style.transform = `translate(${(x*34).toFixed(1)}px,${(y*34).toFixed(1)}px)`; el.classList.toggle('click', !!click); }
+function pollPads(){
+  const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean);
+  const live = new Set(pads.map(p => p.index));
+  for (const [i, el] of padEls) if (!live.has(i)){ el.remove(); padEls.delete(i); }
+  for (const gp of pads){
+    const el = padEls.get(gp.index) || buildPadCard(gp);
+    el.querySelector('.kind').textContent = `${kindOf(gp.id)} pad #${gp.index}`;
+    el.querySelector('.map').textContent = gp.mapping === 'standard' ? 'standard layout' : 'NON-standard layout (labels are generic)';
+    el.querySelector('.id').textContent = gp.id;
+    const ax = gp.axes; const dz = v => Math.abs(v) < 0.08 ? 0 : v;
+    stickDot(el.querySelector('.stick.l'), dz(ax[0] || 0), dz(ax[1] || 0), gp.buttons[10] && gp.buttons[10].pressed);
+    stickDot(el.querySelector('.stick.r'), dz(ax[2] || 0), dz(ax[3] || 0), gp.buttons[11] && gp.buttons[11].pressed);
+    el.querySelector('.lt i').style.width = ((gp.buttons[6] ? gp.buttons[6].value : 0) * 100) + '%';
+    el.querySelector('.rt i').style.width = ((gp.buttons[7] ? gp.buttons[7].value : 0) * 100) + '%';
+    const bs = el.querySelectorAll('.btn'); gp.buttons.forEach((b, i) => bs[i] && bs[i].classList.toggle('on', b.pressed || b.value > 0.5));
+  }
+  const st = $('padStatus');
+  if (pads.length){ st.className = 'status ok'; st.textContent = `${pads.length} controller${pads.length > 1 ? 's' : ''} connected. Press buttons and move the sticks: they should light up below.`; }
+  else { st.className = 'status wait'; st.textContent = 'No controller detected yet. Press any button on your pad (browsers hide pads until you do).'; }
+  requestAnimationFrame(pollPads);
+}
+window.addEventListener('gamepadconnected', e => console.log('pad connected', e.gamepad.id));
+requestAnimationFrame(pollPads);
+
+// ---- 2. WebXR --------------------------------------------------------------------------------------------
+async function xrCheck(){
+  const rows = []; const row = (k, v, cls = '') => rows.push(`<tr><td>${k}</td><td class="${cls}">${v}</td></tr>`);
+  row('Secure context (HTTPS)', window.isSecureContext ? 'yes' : 'NO (WebXR is blocked)', window.isSecureContext ? 'k-ok' : 'k-bad');
+  let vr = false;
+  if (!navigator.xr) row('WebXR available', 'no: this browser has no WebXR (use Quest Browser, or Chrome/Edge on a PC with a headset)', 'k-warn');
+  else {
+    row('WebXR available', 'yes', 'k-ok');
+    try { vr = await navigator.xr.isSessionSupported('immersive-vr'); } catch (e) {}
+    row('Immersive VR supported', vr ? 'yes' : 'no (no headset connected / not allowed)', vr ? 'k-ok' : 'k-warn');
+    try { row('Immersive AR supported', (await navigator.xr.isSessionSupported('immersive-ar')) ? 'yes' : 'no'); } catch (e) {}
+  }
+  $('xrTable').innerHTML = rows.join('');
+  $('xrEnter').disabled = !vr;
+}
+$('xrRecheck').onclick = xrCheck;
+$('xrEnter').onclick = async () => {
+  $('xrEnter').disabled = true;
+  try { const m = await import('three'); await runXR(m); } catch (e) { alert('Could not start VR: ' + e.message); }
+  $('xrEnter').disabled = false;
+};
+
+async function runXR(THREE){
+  const canvas = document.createElement('canvas'); canvas.style.display = 'none'; document.body.appendChild(canvas);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType('local-floor');
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0e1116);
+  scene.add(new THREE.GridHelper(10, 20, 0x4da3ff, 0x223044));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x223044, 1.2));
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 50);
+  // panel
+  const pc = document.createElement('canvas'); pc.width = 1024; pc.height = 640; const px = pc.getContext('2d');
+  const tex = new THREE.CanvasTexture(pc); tex.colorSpace = THREE.SRGBColorSpace;
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), new THREE.MeshBasicMaterial({ map: tex })); panel.position.set(0, 1.5, -1.5); scene.add(panel);
+  // simple procedural controller visuals (no downloaded models)
+  const vis = [0, 1].map(i => { const g = renderer.xr.getController(i); const m = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.12), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+    const ray = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.004, 1.2), new THREE.MeshBasicMaterial({ color: 0x4da3ff })); ray.position.z = -0.6; g.add(m, ray); scene.add(g); return { g, m }; });
+  const lastTrig = new Map();
+  const NAMES_XR = ['trigger', 'squeeze', 'touchpad', 'thumbstick', 'A / X', 'B / Y'];
+  function draw(session){
+    px.fillStyle = '#10151c'; px.fillRect(0, 0, 1024, 640); px.fillStyle = '#e8ecf1'; px.font = 'bold 40px system-ui'; px.fillText('Controller check (VR)', 30, 56);
+    px.font = '30px system-ui'; let y = 110;
+    const srcs = session ? [...session.inputSources] : [];
+    if (!srcs.length){ px.fillStyle = '#ffc857'; px.fillText('No VR controllers seen. Wake them (press a button).', 30, y); y += 44; }
+    srcs.forEach((s, i) => {
+      const gp = s.gamepad; px.fillStyle = '#4da3ff'; px.fillText(`${s.handedness || 'none'} (${s.targetRayMode})  ${(s.profiles && s.profiles[0]) || ''}`, 30, y); y += 38; px.fillStyle = '#e8ecf1';
+      if (gp){ const on = gp.buttons.map((b, k) => b.value > 0.05 ? `${NAMES_XR[k] || 'btn' + k} ${b.value.toFixed(2)}` : null).filter(Boolean).join('   ');
+        px.fillText('pressed: ' + (on || '-'), 30, y); y += 36; px.fillText('stick: ' + [gp.axes[2], gp.axes[3]].map(v => (v || 0).toFixed(2)).join(', '), 30, y); y += 44; }
+    });
+    const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).filter(p => p.mapping === 'standard' && p.id.indexOf('Touch') < 0);
+    px.fillStyle = '#3ddc84'; px.fillText(pads.length ? `Bluetooth pads: ${pads.length}  (${kindOf(pads[0].id)})` : 'Bluetooth pads: none (pair one, then press a button)', 30, Math.min(y + 10, 600));
+    if (pads[0]){ px.fillStyle = '#e8ecf1'; px.font = '26px system-ui'; px.fillText('pressed: ' + (pads[0].buttons.map((b, k) => b.pressed ? NAMES[k] || k : null).filter(Boolean).join(', ') || '-'), 30, Math.min(y + 50, 636)); }
+    tex.needsUpdate = true;
+  }
+  const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] });
+  await renderer.xr.setSession(session);
+  session.addEventListener('end', () => { renderer.setAnimationLoop(null); renderer.dispose(); canvas.remove(); });
+  renderer.setAnimationLoop(() => {
+    draw(session);
+    session.inputSources.forEach((s, i) => { const gp = s.gamepad; if (!gp) return; const trig = gp.buttons[0] ? gp.buttons[0].value : 0;
+      const v = vis[i]; if (v) v.m.material.color.setHex(trig > 0.5 ? 0x3ddc84 : 0x888888);
+      if (trig > 0.8 && !(lastTrig.get(s) > 0.8)){ const h = gp.hapticActuators && gp.hapticActuators[0]; if (h && h.pulse) h.pulse(0.8, 120); else if (gp.vibrationActuator && gp.vibrationActuator.playEffect) gp.vibrationActuator.playEffect('dual-rumble', { duration: 120, strongMagnitude: 0.8, weakMagnitude: 0.4 }); }
+      lastTrig.set(s, trig); });
+    renderer.render(scene, camera);
+  });
+}
+xrCheck();
+
+// ---- 3. environment --------------------------------------------------------------------------------------
+{
+  const rows = []; const row = (k, v) => rows.push(`<tr><td>${k}</td><td>${esc(v)}</td></tr>`);
+  row('Browser', navigator.userAgent); row('Gamepad API', navigator.getGamepads ? 'yes' : 'no');
+  row('Screen', `${screen.width}x${screen.height} @ ${window.devicePixelRatio}x`);
+  row('Touch', ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'yes' : 'no');
+  $('envTable').innerHTML = rows.join('');
+}
+// test hook
+window.__cc = { padCards: () => padEls.size, xrRows: () => $('xrTable').innerText };
+</script>
+</body>
+</html>
