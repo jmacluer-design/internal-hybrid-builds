@@ -241,8 +241,8 @@ MTA renders through GTA SA's DirectX 9 pipeline, so the usual San Andreas graphi
 * **The Take-Two takedown (December 2025):** the `mtasa-blue` repository was disabled after a DMCA notice, the MTA team filed a counter-notice on 22 December 2025 and GitHub restored it in early January 2026
   ([TorrentFreak](https://torrentfreak.com/?p=275921), [Korben](https://korben.info/en/multi-theft-auto-returns-github-take-two-failed-dmca.html)); coverage notes Take-Two could still sue, as it did over re3 / reVC. Practical consequences for this project:
   the MTA client and server come from multitheftauto.com, the checks in `tools/` read a local, **read-only** clone of mtasa-blue (GPL-3.0, nothing copied), and the clone should be kept in case the repository goes away again.
-* **Performance, from the mock (not from a GPU):** one screen of the colony UI is about 170 KB of JavaScript pushes per 40 s; the CEF page is only drawn while a screen is open
-  (`setBrowserRenderingPaused` when MTA is minimised; the wiki warns the call has a low-RAM caveat).
+* **Performance, from the mock (not from a GPU):** with 60 zombies and the colony view open the client makes about 5000 MTA function calls per second (the driver's control-state cache brought it down from about 10000) and the page
+  receives about 170 KB of JavaScript pushes per 40 s. The page is paused when MTA is minimised (`setBrowserRenderingPaused`; the wiki warns the call has a low-RAM caveat). Frame rate, memory and CEF cost are unmeasured.
 
 ## 9. Tests and what the mocks cannot prove
 

@@ -49,6 +49,16 @@ if [ -n "${LUA51:-}" ] && [ -x "${LUA51}" ]; then runtimes="$runtimes $LUA51"
 elif command -v lua5.1 >/dev/null 2>&1; then runtimes="$runtimes lua5.1"
 else echo "(PUC Lua 5.1 not found: run mta/tools/build_lua51.sh and set LUA51 to also test on MTA's real interpreter)"; fi
 
+# every resource file must compile with the real Lua 5.1 compiler (only when a PUC Lua 5.1 build is available; LuaJIT accepts some syntax that 5.1 does not)
+luac51=""
+if [ -n "${LUA51:-}" ] && [ -x "$(dirname "$LUA51")/luac" ]; then luac51="$(dirname "$LUA51")/luac"; elif command -v luac5.1 >/dev/null 2>&1; then luac51="luac5.1"; fi
+if [ -n "$luac51" ]; then
+	echo "=============== every resource .lua file compiles with PUC Lua 5.1 ($luac51)"
+	bad=0; n=0
+	for f in $(find "$mta/outbreak" -name '*.lua'); do n=$((n + 1)); "$luac51" -p "$f" || { echo "FAIL: $f"; bad=1; }; done
+	if [ "$bad" = 0 ]; then echo "OK ($n files)"; else fail=1; fi
+fi
+
 for rt in $runtimes; do
 	if ! command -v "$rt" >/dev/null 2>&1 && [ ! -x "$rt" ]; then echo "FAIL: runtime '$rt' not found"; fail=1; continue; fi
 	echo "=============== $rt: self-test hash equals the recorded one (the sim is deterministic on this runtime)"
