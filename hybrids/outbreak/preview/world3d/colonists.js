@@ -14,7 +14,7 @@ const PANTS = ['#2f3b52', '#4a4034', '#33363b', '#5a5144', '#27323f', '#3e4a3a']
 const SKINS = ['#e8c4a4', '#d9a77f', '#bd8560', '#8d5b3d', '#6b4430', '#f0d2b8'].map(h => new THREE.Color(h));
 const HAIRS = ['#1f1a17', '#3a2a1c', '#6b4a2b', '#b08d57', '#2c2c30', '#7a3b22', '#d8d4c8'].map(h => new THREE.Color(h));
 const SHOES = new THREE.Color('#1d1c1e');
-export const colonistLook = id => { const h = hashStr(id); return { shirt: SHIRTS[h % SHIRTS.length], pants: PANTS[(h >> 3) % PANTS.length], skin: SKINS[(h >> 6) % SKINS.length], hair: HAIRS[(h >> 9) % HAIRS.length], female: ((h >> 12) & 1) === 1, scale: 0.97 + ((h >> 14) % 9) * 0.01 }; };
+export const colonistLook = id => { const h = hashStr(id); return { shirt: SHIRTS[h % SHIRTS.length], pants: PANTS[(h >>> 3) % PANTS.length], skin: SKINS[(h >>> 6) % SKINS.length], hair: HAIRS[(h >>> 9) % HAIRS.length], female: ((h >>> 12) & 1) === 1, scale: 0.97 + ((h >>> 14) % 9) * 0.01 }; };
 
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _m3 = new THREE.Matrix4(), _v = new THREE.Vector3(), _s = new THREE.Vector3(), _p0 = new THREE.Vector3();
 const qa = (axis, a, out) => out.setFromAxisAngle(axis, a);

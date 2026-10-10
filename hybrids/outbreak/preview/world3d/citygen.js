@@ -209,7 +209,7 @@ export class City {
     add('fence', [{ geometry: fenceGeo(), material: vm }], 160, { params: false, castShadow: false }); add('chimney', [{ geometry: chimneyGeo(), material: vm }], 24, { params: false });
     add('tank', [{ geometry: tankGeo(), material: vm }], 40, { params: false }); add('canopy', [{ geometry: canopyGeo(), material: vm }], 12, { params: false });
     const rockG = new THREE.IcosahedronGeometry(1, 1); { const p = rockG.attributes.position; for (let i = 0; i < p.count; i++) { const k = 0.8 + 0.4 * hash2(Math.round(p.getX(i) * 50), Math.round(p.getY(i) * 50), Math.round(p.getZ(i) * 50)); p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.8, p.getZ(i) * k); } rockG.computeVertexNormals(); }
-    add('rock', [{ geometry: rockG.toNonIndexed(), material: new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }) }], Math.ceil(pc * 1.2), { params: false });
+    add('rock', [{ geometry: rockG, material: new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }) }], Math.ceil(pc * 1.2), { params: false });
     const bushG = new THREE.IcosahedronGeometry(1, 1); { const p = bushG.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, Math.max(p.getY(i) * 0.75, -0.2) + 0.2); bushG.computeVertexNormals(); }
     add('bush', [{ geometry: bushG, material: new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }) }], Math.ceil(pc * 1.2), { params: false });
     // trees: GLB broadleaf near the camera (2 parts), simple procedural ones beyond; pines always procedural

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Outbreak Preview</title>
 <link rel="icon" href="data:,">
+<!-- the 3D world (world3d.js, loaded lazily by preview.js) uses a vendored three.js r169: no CDN -->
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }</script>
 <style>
   :root { --bg: #070a10; --panel: #10151f; --line: rgba(255,255,255,.09); --text: #e8eef8; --muted: #8e9bb2; --amber: #f6b44f; }
   * { box-sizing: border-box; }
@@ -30,6 +32,19 @@
   #bench .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 11.5px; }
   #bench .kv span:nth-child(odd) { color: var(--muted); }
   #bench pre { margin: 0; font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace; color: #aab6cc; max-height: 9.5rem; overflow: auto; white-space: pre-wrap; background: #0a0e16; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  #world3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: #05070b; outline: none; }
+  #w3d-labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .w3d-label { position: absolute; left: 0; top: 0; font: 600 11px/1 Inter, 'Segoe UI', system-ui, sans-serif; color: #eaf0f9; background: rgba(8, 12, 20, .72); border: 1px solid rgba(255, 255, 255, .1); padding: 3px 6px; border-radius: 5px; white-space: nowrap; will-change: transform; text-shadow: 0 1px 2px #000; }
+  .w3d-label.col.sel { background: rgba(246, 180, 79, .92); color: #1b1205; border-color: rgba(255, 220, 150, .9); }
+  .w3d-label.horde { background: rgba(120, 18, 30, .88); color: #fff; border-color: rgba(255, 120, 120, .5); font: 700 14px/1 'Barlow Condensed', Inter, sans-serif; letter-spacing: .04em; }
+  .w3d-label.horde.hot { background: rgba(190, 20, 40, .92); }
+  .w3d-label.dist { background: rgba(10, 16, 26, .55); color: #c9d2e3; font-weight: 600; letter-spacing: .04em; }
+  .w3d-label.dist.d4, .w3d-label.dist.d5 { color: #ff9aa4; } .w3d-label.dist.d3 { color: #ffbf7a; } .w3d-label.dist.d1 { color: #8be0b8; }
+  .w3d-label.cara { background: rgba(60, 46, 10, .8); color: #ffe08a; }
+  .w3d-selbox { position: absolute; display: none; border: 1px solid #f6b44f; background: rgba(246, 180, 79, .16); border-radius: 2px; pointer-events: none; }
+  #w3d-vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .38) 100%); display: none; }
+  body.w3d-low #w3d-vig { display: block; }
+  #bench .stat { font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace; color: #aab6cc; margin-top: 4px; white-space: pre-wrap; }
   #loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; font-size: 12px; background: #05070b; z-index: 5; }
 </style>
 </head>
@@ -37,12 +52,20 @@
 <div id="shell">
   <main id="stage">
     <canvas id="world" aria-hidden="true"></canvas>
+    <canvas id="world3d" aria-hidden="true" hidden></canvas>
+    <div id="w3d-vig"></div>
+    <div id="w3d-labels"></div>
     <iframe id="nui" title="Outbreak NUI (the exact page FiveM would load)" src="../fivem/outbreak/ui/index.html" allowtransparency="true"></iframe>
     <div id="loading">Starting the Lua sim (wasmoon)&hellip;</div>
   </main>
   <aside id="bench" aria-label="Preview bench">
     <h1>Outbreak preview</h1>
     <div class="sub">UI test bench. The real Lua sim + host run here in WebAssembly (wasmoon); there is <b>no GTA</b>. The stage backdrop is a stand-in, not game art.</div>
+
+    <h2>World view</h2>
+    <div class="row"><button id="b-v3d" data-view="3d">3D world</button><button id="b-v2d" data-view="2d">2D map</button><select id="b-qual" title="graphics quality"><option value="auto">quality: auto</option><option value="high">high</option><option value="mid">mid</option><option value="low">low</option></select></div>
+    <div class="row"><button id="b-chase">Follow cam (F)</button><button id="b-camhome">Recentre (Home)</button></div>
+    <div class="stat" id="b-3dstat">-</div>
 
     <h2>Simulation</h2>
     <div class="kv"><span>time</span><span id="b-time">-</span><span>state hash</span><span id="b-hash">-</span><span>colonists</span><span id="b-col">-</span><span>hordes / real</span><span id="b-hordes">-</span><span>update cost</span><span id="b-perf">-</span></div>

@@ -8506,7 +8506,7 @@ function suiM_board() {
 function suiDoBoard(id) {
   if (SUI.tab < 2) {
     const L = suiQuests(), q = L[clamp(SUI.row, 0, L.length - 1)]; if (!q) return;
-    if (id === 'A') { const r = questClaim(TOWN, q); if (!r) return suiMsg('Not finished yet', false); RP.gold += r.gold; RUN.gold += r.gold; rpgGainXp(r.xp, 'goal'); const parts = []; for (const k in r.mats) parts.push(fdGive('mat', k, r.mats[k], true) + ' ' + MATS[k].name); RT.dirty = true; rsfx('pick3'); sparkBurst(P.x, P.y + 1, P.z, 18, 0x8fd0ff, 6); return suiMsg('Reward: ' + r.gold + ' gold, ' + r.xp + ' xp' + (parts.length ? ', ' + parts.join(', ') : '')); }
+    if (id === 'A') { const r = questClaim(TOWN, q); if (!r) return suiMsg('Not finished yet', false); RP.gold += r.gold; RUN.gold += r.gold; rpgGainXp(r.xp, 'goal'); const parts = []; for (const k in r.mats) { const put = fdGive('mat', k, r.mats[k], true); parts.push(put + ' ' + MATS[k].name + (put < r.mats[k] ? ' (stack full, rest sold)' : '')); } RT.dirty = true; rsfx('pick3'); sparkBurst(P.x, P.y + 1, P.z, 18, 0x8fd0ff, 6); return suiMsg('Reward: ' + r.gold + ' gold, ' + r.xp + ' xp' + (parts.length ? ', ' + parts.join(', ') : '')); }
     if (id === 'X' && (q.id === 'kill_fam' || q.id === 'rift_fam') && q.fam) { if (!RP.riftUnlocked) return suiMsg('Rifts unlock after the finale', false); const t = Math.max(1, Math.min(Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1), q.tier || 1)); return townLeave('rift', { tier: t, seed: suiRiftSeedFor(t, q.fam, q.seed || RP.riftSeed) }); } return;
   }
   if (!RP.riftUnlocked) return; const mx = Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1), t = clamp(SUI.row + 1, 1, mx);
@@ -8576,7 +8576,7 @@ function suiModel() {
   return suiBase();
 }
 function suiDo(id) {
-  if (!SUI.open) return; const M = SUI.M || suiModel(); if (M.build && id === 'A') { suiUpgrade(M.build); SUI.dirty = true; return; } const a = M.acts.find(x => x.id === id); if (a && a.off) { suiMsg(a.why || 'Not available', false); return; } if (!a && id !== 'A') return; SUI.acts++;
+  if (!SUI.open) return; const M = suiModel(); if (M.build && id === 'A') { suiUpgrade(M.build); SUI.dirty = true; return; } const a = M.acts.find(x => x.id === id); if (a && a.off) { suiMsg(a.why || 'Not available', false); return; } if (!a && id !== 'A') return; SUI.acts++;
   try { switch (SUI.kind) { case 'cook': case 'alchemy': suiDoCook(id); break; case 'forge': suiDoForge(id); break; case 'gembench': suiDoGem(id); break; case 'market': suiDoMarket(id); break; case 'stash': suiDoStash(id); break; case 'board': suiDoBoard(id); break; case 'hall': suiDoHall(id); break; case 'garden': suiDoGarden(id); break; case 'pack': suiDoPack(id); break; case 'portal': suiDoPortal(id); break; case 'dlg': suiDoDlg(id); break; } } catch (err) { console.error('station action', err); suiMsg('Something went wrong', false); }
   SUI.dirty = true; RT.dirty = true;
 }
@@ -9115,7 +9115,7 @@ function mobGuardianType() { return MOB_BOSS_BY_ACT[1 + ((RIFT ? RIFT.seed : 0) 
 window.__mobs = {
   spawn(type, o = {}) { const f = o.dist != null ? o.dist : 6, x = o.x != null ? o.x : P.x + Math.sin(P.yaw + (o.side || 0)) * f, z = o.z != null ? o.z : P.z + Math.cos(P.yaw + (o.side || 0)) * f, y = floorAt(x, z, P.y + 4); if (!(y > -1e8)) return null; const e = rpgSpawnEnemy(type, x, z, { y, tier: o.tier || 'normal', aff: o.aff, mlvl: o.mlvl || RP.level + 1, aggroR: o.aggroR != null ? o.aggroR : 20, r: o.r || 4, seed: o.seed, pack: o.pack }); return e ? mobInfo(e) : null; },
   flatSpot(r = 6, minHero = 0) { const best = []; for (let x = -60; x <= 60; x += 2) for (let z = -60; z <= 60; z += 2) { const f0 = floorAt(x, z, P.y + 3); if (!(f0 > -1e8)) continue; let ok = true; for (let k = 0; k < 16 && ok; k++) { const a = k / 16 * TAU, f = floorAt(x + Math.cos(a) * r, z + Math.sin(a) * r, f0 + 3); if (!(f > -1e8) || Math.abs(f - f0) > 0.05) ok = false; } for (let k = 0; k < 8 && ok; k++) { const a = k / 8 * TAU, f = floorAt(x + Math.cos(a) * r * 0.5, z + Math.sin(a) * r * 0.5, f0 + 3); if (!(f > -1e8) || Math.abs(f - f0) > 0.05) ok = false; } if (ok) best.push([x, f0, z, Math.hypot(x, z)]); } best.sort((a, b) => a[3] - b[3]); return best[0] || null; },
-  quiet() { if (RIFT) { RIFT.spawnT = 1e9; RIFT.limit = 1e9; } return !!RIFT; },
+  quiet() { if (RIFT) { RIFT.spawnT = 1e9; RIFT.limit = 1e9; RIFT.need = 1e9; } return !!RIFT; },
   all() { return ENEMIES.filter(e => e.mob).map(e => ({ type: e.type, alive: e.alive, state: e.state, mst: e.mob.st, dead: e.mob.dead, vis: e.mesh.visible, y: e.y, fy: e.fy })); },
   list() { return ENEMIES.filter(e => e.mob && e.alive && e.state !== 'dead').map(mobInfo); }, tells() { return TELLS.map(T => ({ shape: T.shape, kind: T.kind, t: +T.t.toFixed(2), dur: T.dur, parts: T.parts.length })); }, projectiles() { return MPJ.filter(p => p.on).length; }, clouds() { return CLOUDS.filter(c => c.on).length; }, waves() { return WAVES.filter(w => w.on).length;},
   log() { return MOBX.log.slice(); }, clearLog() { MOBX.log.length = 0; }, types: MOB_IDS, boss() { return MOBX.boss ? mobInfo(MOBX.boss) : null; }, instanced() { const o = {}; for (const id in MOBI) o[id] = MOBI[id].n; return o; }, kills: () => Object.assign({}, MOBX.kills),
@@ -9123,7 +9123,7 @@ window.__mobs = {
   find(type) { const e = ENEMIES.find(x => x.mob && x.alive && x.type === type); return e ? mobInfo(e) : null; }, hurt(type, v, ak = 'punch') { const e = ENEMIES.find(x => x.mob && x.alive && x.type === type); if (!e) return null; return rpgDamageEnemy(e, v, ak, P); }, setFraction(type, f) { const e = ENEMIES.find(x => x.mob && x.alive && x.type === type); if (!e) return false; e.rpg.hp = e.rpg.maxhp * f; return true; },
   defs: MOB_DEFS, atks: MOB_ATK, core: { mobNew, mobTick, mobDie, mobShieldFactor, MOB_STEP },
 };
-function mobInfo(e) { const m = e.mob; return { type: e.type, st: m.st, atk: m.atk, x: e.x, y: e.y, z: e.z, fy: e.fy, hover: m.hover, hidden: m.hidden, alert: m.alert, phase: m.phase, vuln: m.vuln, hp: e.rpg ? e.rpg.hp : 0, maxhp: e.rpg ? e.rpg.maxhp : 0, tier: e.rpg ? e.rpg.tier : '', name: e.rpg ? e.rpg.name : '', shield: m.shieldT, dead: m.dead, pack: m.pack, stunT: m.stunT, visible: e.mesh.visible, bodyVisible: e.body.visible, idx: ENEMIES.indexOf(e) }; }
+function mobInfo(e) { const m = e.mob; return { type: e.type, st: m.st, atk: m.atk, x: e.x, y: e.y, z: e.z, fy: e.fy, hover: m.hover, hidden: m.hidden, alert: m.alert, phase: m.phase, vuln: m.vuln, hp: e.rpg ? e.rpg.hp : 0, maxhp: e.rpg ? e.rpg.maxhp : 0, tier: e.rpg ? e.rpg.tier : '', name: e.rpg ? e.rpg.name : '', shield: m.shieldT, dead: m.dead, pack: m.pack, stunT: m.stunT, visible: e.mesh.visible, bodyVisible: e.body.visible, idx: ENEMIES.indexOf(e), d: m.d, aggro: m.aggro, t: m.t, gcd: m.gcd, macc: e.macc, fs: m.fsm.currentState && m.fsm.currentState.Name, hx: P.x }; }
 { const d0 = window.__dbg; window.__dbg = () => { const d = d0(); d.mobs = { n: ENEMIES.filter(e => e.mob && e.alive && e.state !== 'dead').length, tells: TELLS.length, proj: MPJ.filter(p => p.on).length, boss: MOBX.boss ? MOBX.boss.type : null }; return d; }; }
 // </mob-game>
 

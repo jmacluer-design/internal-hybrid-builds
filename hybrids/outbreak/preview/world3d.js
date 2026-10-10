@@ -108,7 +108,7 @@ export class World3D {
   frame(dt, now) {
     const t0 = performance.now(); this.frameNo++; this.time += dt; U.time.value = this.time;
     if (this.rebuild && !this.rebuilding) { this.rebuild = false; this.rebuilding = true; this.buildWorld(this.worldSeed).then(() => { this.dyn.rebuildPools(); this.rebuilding = false; }); }
-    this.resize(false);
+    this.resize(false); if (this.preFrame) this.preFrame(dt);
     const st = this.state, hour = this.hourOverride != null ? this.hourOverride : this.hour;
     this.camRig.update(dt);
     const T = this.camRig.t, focus = this._focus || (this._focus = new THREE.Vector3()); focus.set(T.x, T.y, T.z);
@@ -130,6 +130,15 @@ export class World3D {
     if (this.slowFor > 2.5) { this.slowFor = 0; if (this.qScale > this.tier.minFrameDpr + 0.01) { this.qScale = Math.max(this.tier.minFrameDpr, this.qScale - 0.15); this.resize(true); } else { const i = TIER_ORDER.indexOf(this.tierName); if (i < TIER_ORDER.length - 1) this.setTier(TIER_ORDER[i + 1]); } }
     else if (this.fastFor > 6 && this.qScale < 1) { this.fastFor = 0; this.qScale = Math.min(1, this.qScale + 0.1); this.resize(true); }
   }
+  // test / debug hook: render one frame and read the canvas back (same task, so no preserveDrawingBuffer is needed). Returns luminance stats + a 16x9 signature.
+  pixelStats(dt = 0.016) {
+    this.frame(dt); const gl = this.renderer.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, px = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    let sum = 0, sum2 = 0, n = 0; const sig = new Float32Array(16 * 9), cnt = new Float32Array(16 * 9), seen = new Set(); let r = 0, g = 0, b = 0;
+    for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) { const o = (y * w + x) * 4, l = 0.2126 * px[o] + 0.7152 * px[o + 1] + 0.0722 * px[o + 2]; sum += l; sum2 += l * l; n++; r += px[o]; g += px[o + 1]; b += px[o + 2]; const cell = Math.min(8, Math.floor((1 - y / h) * 9)) * 16 + Math.min(15, Math.floor(x / w * 16)); sig[cell] += l; cnt[cell]++; seen.add((px[o] >> 4) | ((px[o + 1] >> 4) << 4) | ((px[o + 2] >> 4) << 8)); }
+    for (let i = 0; i < sig.length; i++) sig[i] = cnt[i] ? sig[i] / cnt[i] : 0; const mean = sum / n;
+    return { w, h, mean, variance: sum2 / n - mean * mean, colours: seen.size, rgb: [r / n, g / n, b / n], sig: Array.from(sig) };
+  }
+  sigDiff(a, b) { let d = 0; for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]); return d / a.length; }
   dispose() { this.stop(); this.renderer.dispose(); }
 }
 export async function createWorld3D(o, progress) { const w = new World3D(o); await w.init(progress); return w; }

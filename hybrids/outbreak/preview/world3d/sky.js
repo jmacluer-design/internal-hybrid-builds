@@ -20,18 +20,18 @@ export const U = {
 // hour -> look. zen/mid/hor sky colours, sun colour + intensity, hemisphere sky/ground + intensity, fog colour + density, exposure
 const K = (h, o) => Object.assign({ h }, o);
 const KEYS = [
-  K(0,    { zen: 0x03061a, mid: 0x0a1233, hor: 0x16203f, sun: 0x000000, sunI: 0,    hs: 0x2a3f7a, hg: 0x10141f, hi: 0.78, fog: 0x0d1432, fd: 0.00125, ex: 1.2,  stars: 1,   moon: 0.62 }),
-  K(4.5,  { zen: 0x040822, mid: 0x0e1840, hor: 0x1d2650, sun: 0x000000, sunI: 0,    hs: 0x2a3f7a, hg: 0x10141f, hi: 0.78, fog: 0x101a3c, fd: 0.00125, ex: 1.2,  stars: 1,   moon: 0.5 }),
-  K(5.6,  { zen: 0x1a2a66, mid: 0x5a4a82, hor: 0xe08a70, sun: 0xff8a4a, sunI: 0.6,  hs: 0x6b7db8, hg: 0x2a2a30, hi: 0.7,  fog: 0x6a5470, fd: 0.0012,  ex: 1.12, stars: 0.4, moon: 0.2 }),
-  K(6.5,  { zen: 0x2f5ec4, mid: 0xc08a9a, hor: 0xffb070, sun: 0xffb27a, sunI: 1.9,  hs: 0x9bb4ec, hg: 0x4a4030, hi: 0.78, fog: 0xe0b090, fd: 0.001,   ex: 1.04, stars: 0,   moon: 0 }),
-  K(8,    { zen: 0x2f6fd4, mid: 0x86b8ee, hor: 0xf3dcb8, sun: 0xfff0d2, sunI: 3.0,  hs: 0x9cc2ff, hg: 0x6a6048, hi: 0.82, fog: 0xc6d8e6, fd: 0.00082, ex: 1.0,  stars: 0,   moon: 0 }),
-  K(12.5, { zen: 0x2a6ccf, mid: 0x78b0ec, hor: 0xcfe4f4, sun: 0xfff6e2, sunI: 3.5,  hs: 0x9cc6ff, hg: 0x78704f, hi: 0.86, fog: 0xbcd2e6, fd: 0.00075, ex: 1.0,  stars: 0,   moon: 0 }),
-  K(17,   { zen: 0x2f66c0, mid: 0x92b8e4, hor: 0xf4dbb0, sun: 0xffe2aa, sunI: 3.0,  hs: 0x9cb8f0, hg: 0x6e6244, hi: 0.82, fog: 0xd2d2d6, fd: 0.00085, ex: 1.02, stars: 0,   moon: 0 }),
-  K(19,   { zen: 0x32529c, mid: 0xcc8a8e, hor: 0xffa062, sun: 0xff9a52, sunI: 2.1,  hs: 0xa8a8dc, hg: 0x4e4234, hi: 0.76, fog: 0xe8a888, fd: 0.001,   ex: 1.06, stars: 0,   moon: 0 }),
-  K(20.2, { zen: 0x1b2c68, mid: 0x7a4c7c, hor: 0xff6a48, sun: 0xff7440, sunI: 0.95, hs: 0x6a6ab0, hg: 0x2e2630, hi: 0.68, fog: 0x8a5068, fd: 0.0012,  ex: 1.12, stars: 0.2, moon: 0.2 }),
-  K(21.4, { zen: 0x0a1242, mid: 0x262a62, hor: 0x713a5c, sun: 0xff5030, sunI: 0.12, hs: 0x3a4a8c, hg: 0x161824, hi: 0.72, fog: 0x2c2650, fd: 0.0013,  ex: 1.18, stars: 0.8, moon: 0.45 }),
-  K(23,   { zen: 0x03061a, mid: 0x0a1233, hor: 0x16203f, sun: 0x000000, sunI: 0,    hs: 0x2a3f7a, hg: 0x10141f, hi: 0.78, fog: 0x0d1432, fd: 0.00125, ex: 1.2,  stars: 1,   moon: 0.62 }),
-  K(24,   { zen: 0x03061a, mid: 0x0a1233, hor: 0x16203f, sun: 0x000000, sunI: 0,    hs: 0x2a3f7a, hg: 0x10141f, hi: 0.78, fog: 0x0d1432, fd: 0.00125, ex: 1.2,  stars: 1,   moon: 0.62 }),
+  K(0,    { zen: 0x060b22, mid: 0x0f1c42, hor: 0x203056, sun: 0x000000, sunI: 0,    hs: 0x56699c, hg: 0x1c2230, hi: 1.0, fog: 0x121c3c, fd: 0.00115, ex: 1.18, stars: 1,   moon: 1.0 }),
+  K(4.5,  { zen: 0x070e2e, mid: 0x142250, hor: 0x26356a, sun: 0x000000, sunI: 0,    hs: 0x56699c, hg: 0x1c2230, hi: 1.0, fog: 0x16224e, fd: 0.00115, ex: 1.18, stars: 1,   moon: 0.9 }),
+  K(5.6,  { zen: 0x1d2f72, mid: 0x6a5890, hor: 0xe8946e, sun: 0xff9050, sunI: 0.9,  hs: 0x7b8cc8, hg: 0x2e2e36, hi: 0.85, fog: 0x7a6078, fd: 0.0012,  ex: 1.14, stars: 0.4, moon: 0.4 }),
+  K(6.5,  { zen: 0x2f5ec4, mid: 0xc08a9a, hor: 0xffb070, sun: 0xffb27a, sunI: 2.0,  hs: 0x9bb4ec, hg: 0x4a4030, hi: 0.78, fog: 0xe0b090, fd: 0.001,   ex: 1.04, stars: 0,   moon: 0 }),
+  K(8,    { zen: 0x2f6fd4, mid: 0x86b8ee, hor: 0xf3dcb8, sun: 0xffeccc, sunI: 2.8,  hs: 0x9cc2ff, hg: 0x5e5640, hi: 0.68, fog: 0xc6d8e6, fd: 0.00082, ex: 1.0,  stars: 0,   moon: 0 }),
+  K(12.5, { zen: 0x2a6ccf, mid: 0x78b0ec, hor: 0xcfe4f4, sun: 0xfff2d8, sunI: 3.0,  hs: 0x9cc6ff, hg: 0x5a5440, hi: 0.62, fog: 0xbcd2e6, fd: 0.00075, ex: 0.9,  stars: 0,   moon: 0 }),
+  K(17,   { zen: 0x2f66c0, mid: 0x92b8e4, hor: 0xf4dbb0, sun: 0xffe2aa, sunI: 2.9,  hs: 0x9cb8f0, hg: 0x6e6244, hi: 0.7,  fog: 0xd2d2d6, fd: 0.00085, ex: 1.02, stars: 0,   moon: 0 }),
+  K(19,   { zen: 0x32529c, mid: 0xcc8a8e, hor: 0xffa062, sun: 0xff9a52, sunI: 2.4,  hs: 0xa8a8dc, hg: 0x5a4a3a, hi: 0.82, fog: 0xe8a888, fd: 0.001,   ex: 1.08, stars: 0,   moon: 0 }),
+  K(20.2, { zen: 0x1f3070, mid: 0x8a5484, hor: 0xff7650, sun: 0xff7a48, sunI: 1.5,  hs: 0x7a7ac0, hg: 0x3a3040, hi: 0.95, fog: 0x9a5a70, fd: 0.0012,  ex: 1.14, stars: 0.2, moon: 0.4 }),
+  K(21.4, { zen: 0x0c1648, mid: 0x2c3070, hor: 0x80406a, sun: 0xff5a38, sunI: 0.25, hs: 0x566ca8, hg: 0x20283a, hi: 1.0, fog: 0x30305c, fd: 0.0013,  ex: 1.22, stars: 0.8, moon: 0.85 }),
+  K(23,   { zen: 0x060b22, mid: 0x0f1c42, hor: 0x203056, sun: 0x000000, sunI: 0,    hs: 0x56699c, hg: 0x1c2230, hi: 1.0, fog: 0x121c3c, fd: 0.00115, ex: 1.18, stars: 1,   moon: 1.0 }),
+  K(24,   { zen: 0x060b22, mid: 0x0f1c42, hor: 0x203056, sun: 0x000000, sunI: 0,    hs: 0x56699c, hg: 0x1c2230, hi: 1.0, fog: 0x121c3c, fd: 0.00115, ex: 1.18, stars: 1,   moon: 1.0 }),
 ];
 const COLS = ['zen', 'mid', 'hor', 'sun', 'hs', 'hg', 'fog'];
 const NUMS = ['sunI', 'hi', 'fd', 'ex', 'stars', 'moon'];
@@ -112,7 +112,7 @@ export class Atmosphere {
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 18), this.skyMat); this.sky.frustumCulled = false; this.sky.renderOrder = -100; scene.add(this.sky);
     this.hemi = new THREE.HemisphereLight(0x9ec4ff, 0x6b5a3a, 0.8); scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(0xffe0b0, 3); scene.add(this.sun, this.sun.target);
-    this.moon = new THREE.DirectionalLight(0x8fa8ff, 0.4); scene.add(this.moon, this.moon.target);
+    this.moon = new THREE.DirectionalLight(0xb4c6ff, 0.4); scene.add(this.moon, this.moon.target);
     scene.fog = new THREE.FogExp2(0x90a0b8, 0.0008);
     this.weather = { kind: 'clear', w: 0, target: 0 }; this.flash = 0; this.nextFlash = 8; this.flashPulse = 0;
     this.moonDir = new THREE.Vector3(); this.hourF = 12; this.sunElev = 1; this.daylight = 1;
@@ -192,7 +192,7 @@ export class Atmosphere {
     const su = this.skyMat.uniforms; su.uStars.value = c.stars; su.uMoon.value = c.moon; su.uMoonDir.value.copy(this.moonDir); su.uCloud.value = lerp(0.38, 0.86, w); su.uFlash.value = fl;
     this.hemi.color.copy(c.hs); this.hemi.groundColor.copy(c.hg); this.hemi.intensity = c.hi * (1 + 0.6 * fl);
     this.sun.color.copy(c.sun); this.sun.intensity = c.sunI * (1 + 0.5 * fl);
-    this.moon.intensity = c.moon * 0.75 * clamp(this.moonDir.y * 3, 0, 1) * (1 - 0.5 * w); this.moon.position.copy(focus).addScaledVector(this.moonDir, 120); this.moon.target.position.copy(focus);
+    this.moon.intensity = c.moon * 1.9 * clamp(this.moonDir.y * 3, 0, 1) * (1 - 0.5 * w); this.moon.position.copy(focus).addScaledVector(this.moonDir, 120); this.moon.target.position.copy(focus);
     this.sun.visible = c.sunI > 0.01; this.moon.visible = this.moon.intensity > 0.01;
     const R = this.tier.shadowR || 60, texel = (R * 2) / Math.max(this.tier.shadow, 512);
     const fx = Math.round(focus.x / texel) * texel, fz = Math.round(focus.z / texel) * texel; // snap to texels -> no shadow shimmer when the camera pans

@@ -10,7 +10,11 @@ export class Models {
   async load(names, onProgress) {
     let done = 0;
     await Promise.all(names.map(async n => {
-      try { this.gltf[n] = await this.loader.loadAsync(this.base + n + '.glb'); } catch (e) { this.failed[n] = String(e && e.message || e); console.warn('[outbreak 3d] model "' + n + '" failed, using the procedural fallback:', this.failed[n]); }
+      try {
+        // plain fetch + parse (instead of GLTFLoader.load's streaming FileLoader): same result, no half-cancelled progress streams
+        const res = await fetch(this.base + n + '.glb'); if (!res.ok) throw new Error('HTTP ' + res.status); const buf = await res.arrayBuffer(); this.bytes += buf.byteLength;
+        this.gltf[n] = await new Promise((ok, bad) => this.loader.parse(buf, this.base, ok, bad));
+      } catch (e) { this.failed[n] = String(e && e.message || e); console.warn('[outbreak 3d] model "' + n + '" failed, using the procedural fallback:', this.failed[n]); }
       done++; if (onProgress) onProgress(done, names.length);
     }));
   }

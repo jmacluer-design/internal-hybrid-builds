@@ -127,8 +127,8 @@ export function patch(mat, o) {
 
 export const GLSL_NOISE = `
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }
-float fbm3(vec2 p){ return vn(p) * 0.5 + vn(p * 2.03 + 3.1) * 0.3 + vn(p * 4.1 + 9.7) * 0.2; }
+float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0); return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }
+float fbm3(vec2 p){ const mat2 R = mat2(0.80, 0.60, -0.60, 0.80); float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a * vn(p); p = R * p * 2.03 + 17.1; a *= 0.5; } return s / 0.9375; }
 `;
 
 // ------------------------------------------------------------------------------------------------------------------ terrain
@@ -174,23 +174,33 @@ export function makeTerrainMaterial(gen) {
     fHead: `varying vec3 vWP; varying vec3 vWN; uniform vec4 uSeason; uniform float uWet; uniform float uTime; ${GLSL_NOISE}
       uniform vec2 uBaseC; uniform float uCompound;`,
     fColor: `{
-      vec2 p = vWP.xz; float slope = 1.0 - clamp(normalize(vWN).y, 0.0, 1.0);
-      float macro = fbm3(p * 0.0028 + 11.0), meso = fbm3(p * 0.021), micro = vn(p * 0.55) * 0.6 + vn(p * 2.3) * 0.4;
-      vec3 grassA = vec3(0.17, 0.27, 0.10), grassB = vec3(0.30, 0.36, 0.14), dry = vec3(0.42, 0.36, 0.20), dirt = vec3(0.33, 0.25, 0.17), rock = vec3(0.34, 0.33, 0.31), sand = vec3(0.58, 0.52, 0.38);
-      vec3 g = mix(grassA, grassB, smoothstep(0.3, 0.75, macro)); g = mix(g, dry, smoothstep(0.55, 0.9, meso) * 0.55);
-      g *= uSeason.rgb; g *= 0.82 + 0.36 * micro;
-      vec3 c = mix(g, dirt, smoothstep(0.62, 0.8, fbm3(p * 0.012 + 4.0)) * 0.55);
-      c = mix(c, rock, smoothstep(0.32, 0.55, slope));
+      vec2 p = vWP.xz; vec3 N0 = normalize(vWN); float slope = 1.0 - clamp(N0.y, 0.0, 1.0);
+      float dcam = length(vWP - cameraPosition); float detail = 1.0 - smoothstep(35.0, 320.0, dcam); float fine = 1.0 - smoothstep(12.0, 90.0, dcam);
+      float macro = fbm3(p * 0.0026 + 11.0), meso = fbm3(p * 0.018), micro = mix(0.5, vn(p * 0.9) * 0.55 + vn(p * 3.7) * 0.45, detail), grain = mix(0.5, vn(p * 14.0), fine);
+      vec3 grassA = vec3(0.115, 0.20, 0.07), grassB = vec3(0.235, 0.29, 0.10), dry = vec3(0.37, 0.31, 0.16), dirt = vec3(0.30, 0.22, 0.15), rock = vec3(0.33, 0.32, 0.30), sand = vec3(0.56, 0.50, 0.36);
+      vec3 g = mix(grassA, grassB, smoothstep(0.28, 0.72, macro)); g = mix(g, dry, smoothstep(0.52, 0.86, meso) * 0.6); g = mix(g, grassA * 0.7, smoothstep(0.66, 0.86, fbm3(p * 0.045 + 3.0)) * 0.5);
+      g *= uSeason.rgb; g *= 0.78 + 0.42 * micro; g *= 0.92 + 0.16 * grain;
+      vec3 c = mix(g, dirt * (0.8 + 0.4 * micro), smoothstep(0.64, 0.82, fbm3(p * 0.011 + 4.0)) * 0.6);
+      c = mix(c, rock * (0.8 + 0.4 * micro), smoothstep(0.3, 0.52, slope));
       float coast = smoothstep(1290.0, 1420.0, (-vWP.x - vWP.z) * 0.70711) * smoothstep(5.0, 0.0, vWP.y); c = mix(c, sand, coast * 0.9);
       float urb = 0.0;
       ${dc.map((d, i) => `{ vec4 q = ${d}; float t = length(p - q.xy) / q.z; urb = max(urb, (1.0 - smoothstep(0.15, 1.15, t)) * q.w); }`).join('\n      ')}
-      vec3 paved = vec3(0.30, 0.30, 0.31) * (0.86 + 0.3 * vn(p * 0.8)); paved = mix(paved, paved * 0.8, smoothstep(0.4, 0.8, vn(p * 0.09)));
-      c = mix(c, mix(dirt * 0.9, paved, 0.55), smoothstep(0.16, 0.5, urb) * 0.78);
-      float cd = length(p - uBaseC); float comp = (1.0 - smoothstep(uCompound - 6.0, uCompound + 4.0, cd));
-      vec3 gravel = vec3(0.37, 0.34, 0.30) * (0.8 + 0.4 * vn(p * 1.7)); gravel = mix(gravel, vec3(0.32, 0.30, 0.28), smoothstep(0.5, 0.8, vn(p * 0.2)));
-      c = mix(c, gravel, comp);
-      c = mix(c, vec3(0.86, 0.9, 0.95) * (0.9 + 0.1 * micro), uSeason.w * smoothstep(-0.1, 0.35, normalize(vWN).y) * (1.0 - comp * 0.6));
-      c *= 1.0 - 0.3 * uWet;
+      vec3 paved = vec3(0.26, 0.26, 0.27) * (0.86 + 0.3 * micro); paved = mix(paved, paved * 0.78, smoothstep(0.4, 0.8, vn(p * 0.09)));
+      c = mix(c, mix(dirt * 0.85, paved, 0.55), smoothstep(0.16, 0.5, urb) * 0.78);
+      // the colony compound: a cracked concrete yard cut into 7.5 m slabs with weeds, stains, oil and a gravel apron
+      float cd = length(p - uBaseC); float comp = 1.0 - smoothstep(uCompound - 8.0, uCompound + 3.0, cd), yard = 1.0 - smoothstep(uCompound - 26.0, uCompound - 8.0, cd);
+      vec2 sp = p / 7.5, si = floor(sp), sf = fract(sp); float ed = min(min(sf.x, 1.0 - sf.x), min(sf.y, 1.0 - sf.y)) * 7.5;
+      float joint = 1.0 - smoothstep(0.02, 0.1 + 0.06 * (1.0 - fine), ed);
+      vec3 slab = vec3(0.30, 0.30, 0.295) * (0.84 + 0.22 * h21(si + 7.0)) * (0.88 + 0.18 * micro); slab *= 0.9 + 0.12 * fbm3(p * 0.25);
+      float crack = 1.0 - smoothstep(0.0, 0.016 + 0.02 * (1.0 - detail), abs(fbm3(p * 0.55 + si * 1.7) - 0.5)); slab = mix(slab, vec3(0.1, 0.1, 0.1), crack * 0.55);
+      slab = mix(slab, vec3(0.1, 0.095, 0.09), smoothstep(0.62, 0.82, fbm3(p * 0.06 + 9.0)) * 0.55); // oil / soot stains
+      slab = mix(slab, vec3(0.16, 0.24, 0.09), (joint * 0.5 + crack * 0.7) * smoothstep(0.42, 0.7, fbm3(p * 0.3 + 5.0)) * 0.7); // weeds in the joints
+      slab = mix(slab, vec3(0.04), joint * 0.55);
+      vec3 gravel = vec3(0.30, 0.27, 0.235) * (0.78 + 0.4 * micro) * (0.9 + 0.2 * grain); gravel = mix(gravel, vec3(0.28, 0.27, 0.25), smoothstep(0.5, 0.8, vn(p * 0.2)));
+      vec3 cyard = mix(gravel, slab, yard); c = mix(c, cyard, comp);
+      float paint = step(abs(fract((p.x + 3.0) / 5.2) - 0.5), 0.024) * step(abs(p.y - 36.0), 14.0) * step(abs(p.x - 22.0), 28.0) * step(0.5, h21(si + 3.0)); c = mix(c, vec3(0.78, 0.72, 0.52), paint * yard * 0.5);
+      c = mix(c, vec3(0.86, 0.9, 0.95) * (0.92 + 0.08 * micro), uSeason.w * smoothstep(-0.1, 0.35, N0.y) * (1.0 - comp * 0.55));
+      c *= 1.0 - 0.32 * uWet * (0.4 + 0.6 * comp);
       diffuseColor.rgb = c;
     }`,
     fRough: 'roughnessFactor = mix(roughnessFactor, 0.55, uWet);',

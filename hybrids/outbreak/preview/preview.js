@@ -13,6 +13,8 @@
   if (qs.get('bench') === '0') document.body.classList.add('nobench');
 
   const P = { auto: qs.get('auto') !== '0', mode: 'survival', player: { x: 0, y: 0 }, heading: 20, uiReady: false, queue: [], counts: { out: 0, ui: 0, batches: 0 }, log: [], hudLast: null, clockLast: null, stateLast: null, catalog: null, errors: [] };
+  let W3D = null, W3DUI = null;   // the optional 3D world (world3d.js) and its shell integration (world3d/ui.js)
+  const world = { on: false, view: '2d', failed: '' };
   const mem = new Map();
   const store = {
     get: k => { try { const v = localStorage.getItem('ob.' + k); return v === null ? null : v; } catch (e) { return mem.has(k) ? mem.get(k) : null; } },
@@ -49,11 +51,12 @@
         for (const ev of d.events) { P.log.push(ev.type + (ev.id ? ' ' + ev.id : '') + (ev.kind ? ' ' + ev.kind : '') + (ev.text ? ': ' + ev.text : '')); }
         if (P.log.length > 60) P.log.splice(0, P.log.length - 60);
         if (d.reset) toUI('events', d.events); else toUI('events', d.events);
+        if (W3D) W3D.onEvents(d.events);
         break;
       case 'outbreak:state': P.stateLast = d; toUI('state', d); break;
       case 'outbreak:hud': P.hudLast = d; toUI('hud', d); break;
       case 'outbreak:clock': P.clockLast = d; break;
-      case 'outbreak:catalog': P.catalog = d; toUI('catalog', d); break;
+      case 'outbreak:catalog': P.catalog = d; toUI('catalog', d); if (W3D) W3D.setCatalog(d); break;
       case 'outbreak:ui': P.counts.ui++; toUI(d.name, d.data); break;
       default: break;
     }
@@ -64,6 +67,7 @@
     toUI('mode', { mode: P.mode });
     document.querySelectorAll('#bench [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === P.mode));
     drawBackdrop(true);
+    if (W3DUI) W3DUI.onMode(P.mode);
   }
   // callbacks the NUI page posts (fetch('https://outbreak/<name>') in game)
   const bridge = {
@@ -83,7 +87,9 @@
         case 'ui': L.P_ui(String(data.name), JSON.stringify(data.data || {})); break;
         case 'mode': setMode(data.mode); break;
         case 'place': if (data.op && data.op !== 'commit') break; L.P_order(JSON.stringify({ id: 'colony', kind: 'place_blueprint', target: { bp: data.bp, pos: { x: data.x, y: data.y, z: 0 } } })); break;
-        default: break; // screen / focus / mouse / key: nothing to do without a game
+        case 'key': if (W3DUI) W3DUI.key(data.k, !!data.down); break;      // camera keys the NUI forwards to the game client: here they drive the 3D camera
+        case 'focus': if (W3DUI && data) W3DUI.focus(+data.x, +data.y); break; // 'centre the camera here' (roster, minimap)
+        default: break; // screen / mouse: nothing to do without a game
       }
     },
   };
@@ -93,6 +99,7 @@
   function rnd(seed) { return () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   let lastDaylight = -1;
   function drawBackdrop(force) {
+    if (world.on) return; // the 3D canvas replaces this stand-in
     const day = P.hudLast ? P.hudLast.daylight : 1;
     if (!force && Math.abs(day - lastDaylight) < 0.02) return;
     lastDaylight = day;
@@ -123,6 +130,64 @@
     cx.fillStyle = fog; cx.fillRect(0, H * 0.55, W, H * 0.3);
   }
   addEventListener('resize', () => drawBackdrop(true));
+
+
+  // ----------------------------------------------------------------------------------------------------- 3D world (optional)
+  // Default view is 3D when WebGL2 works (?world=2d forces the flat map, ?world=3d forces 3D; the choice is remembered). world3d.js and three.js load lazily, so a
+  // browser without WebGL (or a failed load) keeps the 2D preview exactly as it was.
+  const cv3 = $('#world3d');
+  const webgl2 = () => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch (e) { return false; } };
+  const wantView = () => { const q = qs.get('world'); if (q === '2d' || q === '3d') return q; try { const v = localStorage.getItem('ob.world'); if (v === '2d' || v === '3d') return v; } catch (e) { /* storage blocked */ } return 'auto'; };
+  let w3dStarting = null;
+  function showWorld(on) {
+    world.on = !!on; world.view = on ? '3d' : '2d'; cv3.hidden = !on; cv.style.display = on ? 'none' : '';
+    document.body.classList.toggle('w3d-low', !!(on && W3D && W3D.tierName === 'low'));
+    document.querySelectorAll('#bench [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === world.view));
+    if (!on) drawBackdrop(true);
+  }
+  async function startWorld3d() {
+    if (W3D) return W3D; if (w3dStarting) return w3dStarting;
+    w3dStarting = (async () => {
+      const loading = document.querySelector('#loading') || (() => { const d = document.createElement('div'); d.id = 'loading'; document.querySelector('#stage').append(d); return d; })();
+      loading.textContent = 'Building the 3D world…'; loading.style.display = '';
+      try {
+        const mod = await import('./world3d.js'); const wq = {}; for (const k of ['q', 'w3d', 'nomodels', 'pdb']) if (qs.has(k)) wq[k] = qs.get(k);
+        let seed = 1; try { seed = JSON.parse(L.P_status()).seed || 1; } catch (e) { /* default */ }
+        const w = await mod.createWorld3D({ canvas: cv3, labels: $('#w3d-labels'), query: wq, catalog: P.catalog, seed }, what => { loading.textContent = what === 'models' ? 'Loading 3D models…' : 'Building the settlement…'; });
+        const ui = await import('./world3d/ui.js');
+        W3D = w;
+        W3DUI = ui.attachWorldUI({ W: w, nui, labels: $('#w3d-labels'), preview: { getPlayer: () => P.player, setPlayer: (x, y) => { P.player = { x, y }; sendPlayer(); } },
+          setView: v => setWorldView(v), setQuality: q => setQuality(q), getQuality: () => { try { return localStorage.getItem('ob.quality') || 'auto'; } catch (e) { return 'auto'; } } });
+        w.preFrame = dt => W3DUI.tick(dt);
+        if (P.catalog) w.setCatalog(P.catalog);
+        try { w.setState(JSON.parse(L.P_state())); } catch (e) { /* state not ready yet */ }
+        w.onTier = name => document.body.classList.toggle('w3d-low', name === 'low' && world.on);
+        return w;
+      } catch (e) {
+        console.warn('[outbreak] 3D world unavailable, staying on the 2D map:', e); world.failed = String(e && e.message || e); P.errors.push('world3d: ' + world.failed); W3D = null; W3DUI = null; return null;
+      } finally { loading.remove(); w3dStarting = null; }
+    })();
+    return w3dStarting;
+  }
+  async function setWorldView(v) {
+    try { localStorage.setItem('ob.world', v); } catch (e) { /* ignore */ }
+    if (v === '3d') {
+      if (!webgl2()) { showWorld(false); return false; }
+      const w = await startWorld3d(); if (!w) { showWorld(false); return false; }
+      showWorld(true); if (W3D.manual) W3D.frame(0.016); else W3D.start(); W3DUI.enable(true); W3DUI.onMode(P.mode); return true;
+    }
+    if (W3D) { W3DUI.enable(false); W3D.stop(); }
+    showWorld(false); return true;
+  }
+  function setQuality(q) {
+    try { localStorage.setItem('ob.quality', q); } catch (e) { /* ignore */ }
+    if (!W3D) return; if (q === 'auto') { const probe = Object.assign(document.createElement('canvas'), {}); W3D.tierAuto = true; W3D.setTier(W3D.autoTier || W3D.tierName); } else { W3D.tierAuto = false; W3D.setTier(q); }
+  }
+  function pull3d() { // the sim pushes full state once a second and only in colony mode; the 3D world wants 4 Hz in every mode
+    if (!W3D || !world.on || !W3D.ready || document.hidden || W3D.frozen) return;
+    try { W3D.setState(JSON.parse(L.P_state())); } catch (e) { P.errors.push('w3d state: ' + e.message); }
+  }
+  setInterval(pull3d, 250);
 
   // ------------------------------------------------------------------------------------------------------- main loop
   let last = performance.now();
@@ -184,6 +249,13 @@
     $('#b-log').textContent = P.log.slice(-14).join('\n');
   }
 
+
+  document.querySelectorAll('#bench [data-view]').forEach(b => (b.onclick = () => setWorldView(b.dataset.view)));
+  $('#b-qual').onchange = e => setQuality(e.target.value);
+  $('#b-chase').onclick = () => { if (W3DUI) W3DUI.toggleChase(); };
+  $('#b-camhome').onclick = () => { if (W3D) W3D.camRig.setTarget(0, 14, 150); };
+  setInterval(() => { const el = $('#b-3dstat'); if (!el || document.body.classList.contains('nobench')) return; if (!W3D || !world.on) { el.textContent = world.failed ? '3D unavailable: ' + world.failed : world.view === '2d' ? '2D map (3D off)' : '-'; return; } const s = W3D.stats; el.textContent = `3D ${s.tier}${W3D.tierAuto ? ' (auto: ' + W3D.tierReason + ')' : ''}  ${s.fps.toFixed(0)} fps  ${s.calls} draws  ${(s.triangles / 1000).toFixed(0)}k tris  dpr ${s.dpr.toFixed(2)}\n${(W3D.gpu || '').slice(0, 60)}`; }, 700);
+
   // --------------------------------------------------------------------------------------------------- test / script API
   window.__preview = {
     P, lua: L,
@@ -208,7 +280,14 @@
     whyNot(bp, x, y) { return L.P_why_not(bp, x, y); },
     drawBackdrop,
     pushState() { L.P_ui('request_state', '{}'); },
+    world3d: () => W3D, world3dUI: () => W3DUI, worldView: () => world.view, worldFailed: () => world.failed, setWorldView, setQuality,
+    ready3d: () => (world.view === '3d' ? !!(W3D && W3D.ready) : true),
   };
+  // 3D world: default on when WebGL2 works (decided before the loading overlay goes away, so the first frame is already the right view)
+  {
+    const want = wantView(), use3d = (want === '3d' || want === 'auto') && webgl2();
+    if (use3d) { setWorldView('3d').then(ok => { if (!ok) showWorld(false); window.__world3dStarted = true; }); } else { showWorld(false); window.__world3dStarted = true; }
+  }
   handlePost = bridge.post; // from here on the NUI's callbacks reach the host; replay what it posted while the Lua sim was starting
   for (const [n, d] of pending.splice(0)) bridge.post(n, d);
   window.__previewReady = true;

@@ -141,29 +141,32 @@ export function makeKitMaterial(wall = false) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------ the layer
+const WHITE = [1, 1, 1];
 export class KitSet {
   constructor(kits, caps) {
-    this.kits = kits; this.group = new THREE.Group(); this.mat = makeKitMaterial(false); this.wmat = makeKitMaterial(true); this.meshes = {}; this.recs = {};
+    this.kits = kits; this.group = new THREE.Group(); this.mat = makeKitMaterial(false); this.wmat = makeKitMaterial(true); this.meshes = {}; this.recs = {}; this.tr = {};
     for (const [name, k] of Object.entries(kits)) {
       const cap = caps[name] || 64, g = k.geo, m = new THREE.InstancedMesh(g, name === 'wallSeg' ? this.wmat : this.mat, cap);
       g.setAttribute('aParams', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4)); m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
-      m.count = 0; m.frustumCulled = false; m.castShadow = true; m.receiveShadow = true; m.name = 'kit:' + name; this.group.add(m); this.meshes[name] = m; this.recs[name] = [];
+      m.count = 0; m.frustumCulled = false; m.castShadow = true; m.receiveShadow = true; m.name = 'kit:' + name; this.group.add(m); this.meshes[name] = m; this.recs[name] = []; this.tr[name] = [];
     }
   }
   clear() { for (const k of Object.keys(this.recs)) this.recs[k].length = 0; }
+  // persistent building count by kit (transients excluded)
   // rec: { x, y, z, rot, sx, sy, sz, col:[r,g,b], prog, pow, hp, seed }
-  add(name, rec) { const l = this.recs[name]; if (l && l.length < this.meshes[name].instanceMatrix.count) l.push(rec); }
+  add(name, rec) { const l = this.recs[name]; if (l && l.length + this.tr[name].length < this.meshes[name].instanceMatrix.count) l.push(rec); }
+  addT(name, rec) { const l = this.tr[name]; if (l && this.recs[name].length + l.length < this.meshes[name].instanceMatrix.count) l.push(rec); } // transient: drawn for one flush only
   flush() {
     for (const [name, m] of Object.entries(this.meshes)) {
-      const l = this.recs[name], M = m.instanceMatrix.array, C = m.instanceColor.array, P = m.geometry.attributes.aParams.array;
-      l.length = Math.min(l.length, m.instanceMatrix.count);
-      for (let i = 0; i < l.length; i++) {
-        const r = l[i], c = Math.cos(r.rot), s = Math.sin(r.rot), o = i * 16, sx = r.sx || 1, sy = r.sy || 1, sz = r.sz || 1;
+      const l = this.recs[name], t = this.tr[name], M = m.instanceMatrix.array, C = m.instanceColor.array, P = m.geometry.attributes.aParams.array, cap = m.instanceMatrix.count, n = Math.min(cap, l.length + t.length);
+      for (let i = 0; i < n; i++) {
+        const r = i < l.length ? l[i] : t[i - l.length], c = Math.cos(r.rot), s = Math.sin(r.rot), o = i * 16, sx = r.sx || 1, sy = r.sy || 1, sz = r.sz || 1;
         M[o] = c * sx; M[o + 1] = 0; M[o + 2] = -s * sx; M[o + 3] = 0; M[o + 4] = 0; M[o + 5] = sy; M[o + 6] = 0; M[o + 7] = 0; M[o + 8] = s * sz; M[o + 9] = 0; M[o + 10] = c * sz; M[o + 11] = 0; M[o + 12] = r.x; M[o + 13] = r.y; M[o + 14] = r.z; M[o + 15] = 1;
-        const col = r.col || [1, 1, 1]; C[i * 3] = col[0]; C[i * 3 + 1] = col[1]; C[i * 3 + 2] = col[2]; P[i * 4] = r.prog == null ? 1 : r.prog; P[i * 4 + 1] = r.pow || 0; P[i * 4 + 2] = r.hp == null ? 1 : r.hp; P[i * 4 + 3] = r.seed || 0;
+        const col = r.col || WHITE; C[i * 3] = col[0]; C[i * 3 + 1] = col[1]; C[i * 3 + 2] = col[2]; P[i * 4] = r.prog == null ? 1 : r.prog; P[i * 4 + 1] = r.pow || 0; P[i * 4 + 2] = r.hp == null ? 1 : r.hp; P[i * 4 + 3] = r.seed || 0;
       }
-      m.count = l.length; m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; m.geometry.attributes.aParams.needsUpdate = true;
+      t.length = 0; m.count = n; m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; m.geometry.attributes.aParams.needsUpdate = true;
     }
   }
   counts() { const o = {}; for (const [k, l] of Object.entries(this.recs)) o[k] = l.length; return o; }
+  drawn() { const o = {}; for (const [k, m] of Object.entries(this.meshes)) o[k] = m.count; return o; }
 }
