@@ -155,8 +155,9 @@ const TUNING = {
   vr: {
     scales: [16, 12, 9],            // table size small / medium / large -> hero 10.6 / 14.2 / 18.9 cm
     sizeDefault: 1,
-    drop: 0.55, fwd: 0.62,          // the hero's ground sits 0.55 m below the eyes and 0.62 m in front of them (re-measured on recentre)
-    tableMin: 0.5, tableMax: 1.2,   // clamp of that ground height above the real floor
+    drop: 0.7, fwd: 0.65,           // the hero's ground sits 0.7 m below the eyes and 0.65 m in front of them (re-measured on recentre)
+    tableMin: 0.45, tableMax: 1.2,  // clamp of that ground height above the real floor
+    clear: 0.3,                     // the rig floats up whenever terrain under the head rises closer than this (hills beside the table)
     followXZ: 3.2, followY: 3.0,    // 1/s damping of the table following the hero (heavy: world slides gently, never snaps)
     slackUp: 9, slackDown: 6,       // (world m) vertical slack: jumps do not move the table, only ground-level changes do
     snapDeg: 30, snapOn: 0.75, snapOff: 0.35, smoothDegPerSec: 110, stickDead: 0.18,
@@ -3027,7 +3028,7 @@ try { const o = JSON.parse(localStorage.getItem('sw_vr') || 'null'); if (o) { if
 function vrSaveCfg() { try { localStorage.setItem('sw_vr', JSON.stringify(vrCfg)); } catch (e) { } }
 function vrFbScale() { let v = VRT.fbScale; try { const u = parseFloat(new URLSearchParams(location.search).get('vrscale')); if (u >= 0.5 && u <= 1.5) v = u; } catch (e) { } return v; }
 Object.assign(VR, {
-  prompt: false, built: false, wasPlay: false, headOk: false, needAnchor: true, snapFollow: true, first: true, floorY: 0,
+  prompt: false, built: false, lift: 0, fy: 0, wasPlay: false, headOk: false, needAnchor: true, snapFollow: true, first: true, floorY: 0,
   hpx: 0, hpy: 1.6, hpz: 0, gx: 0, gz: -1, ax: 0, ay: 0.9, az: -0.6, hx: 0, hy: 0, hz: 0, gy: 0, lpx: 0, lpy: 0, lpz: 0,
   snapArmed: true, turns: 0, haptics: 0, fire: false, place: false, fireHand: 1, eT: 0, xHold: 0, xDone: false, fade: 0, capAng: 0,
   pinch: [false, false], perfT: 0, perfN: 0, avgMs: 0, autoLite: false, soft: false, prevQ: 'high', sessionFeatures: '', gazeLocked: false,
@@ -3207,7 +3208,7 @@ function vrDrawWrist() {
   const n = ACT_SHARDS[G.act] || 0; for (let i = 0; i < n; i++) { const x = 90 + i * (n > 4 ? 100 : 118), y = 350, on = i < G.shards; c.save(); c.translate(x, y); c.rotate(PI / 4); rrect(c, -30, -30, 60, 60, 7); c.fillStyle = on ? '#ffc54a' : 'rgba(255,255,255,.12)'; c.fill(); c.lineWidth = 4; c.strokeStyle = on ? '#fff2b8' : 'rgba(255,230,160,.5)'; c.stroke(); c.restore(); }
   c.fillStyle = '#9fb4c8'; c.font = '700 34px ' + VFONT; c.fillText('TIME', 48, 468); c.fillText('SCORE', 470, 468);
   c.fillStyle = '#fff4d8'; c.font = '900 78px ' + VFONT; c.fillText(fmtTime(G.t), 48, 548); c.fillText(String(G.score), 470, 548);
-  c.fillStyle = '#53e0d0'; c.font = '800 42px ' + VFONT; c.fillText(G.nsd >= 0 ? 'NEXT SHARD  ' + G.nsd + ' m' : 'ALL SHARDS FOUND', 48, 686);
+  c.fillStyle = '#53e0d0'; c.font = '800 42px ' + VFONT; c.fillText(G.nsd >= 0 ? 'NEXT SHARD  ' + G.nsd + ' m' : (G.shardsTotal > 0 && G.shards >= G.shardsTotal ? 'ALL SHARDS FOUND' : ''), 48, 686);
   p.tex.needsUpdate = true;
 }
 
@@ -3279,7 +3280,7 @@ async function vrEnter() {
 }
 function vrExit() { if (VR.session) { try { VR.session.end(); } catch (e) { } } }
 function vrOnStart() {
-  VR.presenting = true; VR.entering = false; VR.frames = 0; VR.needAnchor = true; VR.snapFollow = true; VR.first = true; VR.wasPlay = G.state === 'play'; VR.pinch[0] = VR.pinch[1] = false; VR.fade = 0; VR.perfT = VR.perfN = 0; VR.autoLite = false;
+  VR.presenting = true; VR.entering = false; VR.frames = 0; VR.needAnchor = true; VR.snapFollow = true; VR.first = true; VR.lift = 0; VR.wasPlay = G.state === 'play'; VR.pinch[0] = VR.pinch[1] = false; VR.fade = 0; VR.perfT = VR.perfN = 0; VR.autoLite = false;
   const sess = VR.session = renderer.xr.getSession();
   sess.addEventListener('visibilitychange', vrOnVis); sess.addEventListener('selectstart', vrOnSelect); sess.addEventListener('selectend', vrOnSelect);
   const rs = renderer.xr.getReferenceSpace(); if (rs && rs.addEventListener) rs.addEventListener('reset', () => { VR.needAnchor = true; });
@@ -3331,7 +3332,7 @@ function vrHead(rdt) {
   const xc = renderer.xr.getCamera(), cs = xc.cameras; VR.headOk = cs.length > 0; if (!VR.headOk) return;
   const c0 = cs[0], c1 = cs.length > 1 ? cs[1] : c0;
   VR.hpx = (c0.position.x + c1.position.x) * 0.5; VR.hpy = (c0.position.y + c1.position.y) * 0.5; VR.hpz = (c0.position.z + c1.position.z) * 0.5;
-  _va.set(0, 0, -1).applyQuaternion(c0.quaternion); _vb.set(0, 1, 0).applyQuaternion(c0.quaternion); // heading = forward + up*(looking-down amount): stable while you look down at the table
+  _va.set(0, 0, -1).applyQuaternion(c0.quaternion); _vb.set(0, 1, 0).applyQuaternion(c0.quaternion); VR.fy = _va.y; // heading = forward + up*(looking-down amount): stable while you look down at the table
   const w = Math.max(0, -_va.y); let gx = _va.x + _vb.x * w, gz = _va.z + _vb.z * w; const l = Math.hypot(gx, gz); if (l > 1e-4) { gx /= l; gz /= l; } else { gx = VR.gx; gz = VR.gz; }
   VR.gx = gx; VR.gz = gz; const c = Math.cos(VR.yaw), s = Math.sin(VR.yaw); const ty = Math.atan2(gx * c + gz * s, -gx * s + gz * c);
   CAM.yaw += angDiff(CAM.yaw, ty) * (VR.first ? 1 : 1 - Math.exp(-14 * rdt)); VR.first = false; // the sim's camera-relative movement basis IS the head yaw
@@ -3370,10 +3371,11 @@ function vrUiMode() { return G.state === 'menu' ? 'start' : G.state === 'pause' 
 function vrUiOpen(mode) {
   UI.mode = mode; UI.hot[0] = UI.hot[1] = -1; UI.hotKey = -1; const on = mode !== 'none'; UI.main.mesh.visible = on; UI.how.mesh.visible = on && (mode === 'start' || mode === 'pause'); if (!on) return;
   vrBuildButtons(mode);
-  const hx = VR.hpx, hz = VR.hpz, gx = VR.gx, gz = VR.gz, y = Math.max(0.95, VR.hpy + VR.floorY - 0.12) - VR.floorY;
-  vrPlacePanel(UI.main, hx + gx * 1.3, y, hz + gz * 1.3, hx, hz);
-  const a = -0.62, ca = Math.cos(a), sa = Math.sin(a), dx = gx * ca + gz * sa, dz = -gx * sa + gz * ca; // how-to panel: 35 deg to the right
-  vrPlacePanel(UI.how, hx + dx * 1.2, y - 0.03, hz + dz * 1.2, hx, hz);
+  const hx = VR.hpx, hz = VR.hpz, gx = VR.gx, gz = VR.gz, pit = clamp(Math.asin(clamp(VR.fy, -1, 1)), -0.5, 0.09); // panel sits where you are looking, but never steeper than ~28 deg down
+  const y = Math.max(0.6, VR.hpy + VR.floorY + Math.sin(pit) * 1.3) - VR.floorY, hd = Math.cos(pit) * 1.3;
+  vrPlacePanel(UI.main, hx + gx * hd, y, hz + gz * hd, hx, hz);
+  const a = -0.95, ca = Math.cos(a), sa = Math.sin(a), dx = gx * ca + gz * sa, dz = -gx * sa + gz * ca; // how-to panel: ~54 deg to the right of the menu
+  vrPlacePanel(UI.how, hx + dx * 1.15, y - 0.02, hz + dz * 1.15, hx, hz);
   vrDrawMain(); toastPollForce();
 }
 function vrUiClick(id) {
@@ -3449,7 +3451,13 @@ function vrRig(dt, rdt) {
   VR.hx += (P.x - VR.hx) * kx; VR.hz += (P.z - VR.hz) * kx; VR.hy += (VR.gy - VR.hy) * ky;
   const c = Math.cos(VR.yaw), s = Math.sin(VR.yaw);
   rig.rotation.y = VR.yaw; rig.scale.set(sc, sc, sc);
-  rig.position.set(VR.hx - sc * (c * VR.ax + s * VR.az), VR.hy - sc * VR.ay, VR.hz - sc * (-s * VR.ax + c * VR.az)); // the anchor (a point on the real table) stays glued to the damped hero
+  const bx = VR.hx - sc * (c * VR.ax + s * VR.az), by = VR.hy - sc * VR.ay, bz = VR.hz - sc * (-s * VR.ax + c * VR.az);
+  { // hills beside the table must never reach the eyes: float the rig up (damped, up fast / down slow) when the ground under the head gets closer than VRT.clear metres
+    const ex = bx + sc * (c * VR.hpx + s * VR.hpz), ey = by + sc * VR.hpy, ez = bz + sc * (-s * VR.hpx + c * VR.hpz), r = 0.28 * sc; let need = 0;
+    for (let i = 0; i < 5; i++) { const px = ex + (i === 0 ? 0 : (i & 1 ? r : -r)), pz = ez + (i < 3 ? 0 : (i === 3 ? r : -r)), g = WC.hf ? hfGround(px, pz) : floorAt(px, pz, ey + 1.5); if (g > -1e8) need = Math.max(need, g + VRT.clear * sc - ey); }
+    VR.lift += (need - VR.lift) * (1 - Math.exp(-(need > VR.lift ? 4 : 1.2) * rdt));
+  }
+  rig.position.set(bx, by + VR.lift, bz); // the anchor (a point on the real table) stays glued to the damped hero
   CP.set(rig.position.x + sc * (c * VR.hpx + s * VR.hpz), rig.position.y + sc * VR.hpy, rig.position.z + sc * (-s * VR.hpx + c * VR.hpz));
   scene.fog.density = VRT.fog * (ATM.fogD / 0.0038); // fog is measured in REAL metres here: it hazes the table out at ~3-5 m (act 3's thicker mist scales along)
   ptMat.uniforms.uWS.value = sc; moteMat.uniforms.uWS.value = sc;
