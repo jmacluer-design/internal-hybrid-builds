@@ -2,3 +2,4 @@
 # Add a game here only after it passes its headless checks. Unlisted games stay out of the live site.
 parkcraft.html
 souls64.html
+webcraft.html
