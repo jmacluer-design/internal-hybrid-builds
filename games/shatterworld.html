@@ -1419,7 +1419,7 @@ function stepHero(dt) {
     }
     // ----- jumps -----
     if (P.jumpBuf > 0 && P.act !== 'pound_land' && !locked) {
-      P.jumpBuf = 0; P.grounded = false; P.groundedT = 1;
+      P.jumpBuf = 0; P.zBuf = 0; P.grounded = false; P.groundedT = 1;
       const sp = Math.hypot(P.vx, P.vz), face = P.yaw;
       if (P.crouch && sp > 5.5) { // long jump
         const s = Math.min(Math.max(sp, 6) * T.longJump.mult, T.longJump.cap); P.vx = Math.sin(face) * s; P.vz = Math.cos(face) * s; P.vy = T.longJump.vy; setAct('long'); P.airKind = 'long'; P.stats.jumps++; sfx('long'); heroKick(hero, -9); puff(P.x, P.y + 0.1, P.z, 6, 0.9);
@@ -1516,6 +1516,7 @@ function moveHero(dt) {
   if (!landed && prevGrounded && P.vy <= 0 && P.act === 'ground') {
     const sd = 0.34; if (scan(P.x, gy - sd, P.z, h) && S.top <= gy + 0.01 && S.top >= gy - sd - 0.001) { gy = S.top + 0.0005; landed = true; P.vy = 0; }
   }
+  if (WC.hf && !VG.on) { P.x = clamp(P.x, -61.5, 61.5); P.z = clamp(P.z, -61.5, 61.5); } // invisible rim of the valley
   P.gy = gy; P.y = GF > 0 ? gy : -gy;
   const wasAir = !P.grounded; P.grounded = landed;
   if (landed && wasAir) onHeroLand();
