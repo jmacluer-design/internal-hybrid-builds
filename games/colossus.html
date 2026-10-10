@@ -186,7 +186,7 @@
       <div class="k"><kbd>M</kbd><span>mute</span></div>
       <div class="k"><kbd>ESC</kbd><span>pause</span></div>
     </div>
-    <p class="padline"><b>Controller:</b> left stick move · right stick look · A jump · <b>RT hold = swing</b> · LT zip · X yank (J) · B dive (Z) · LB / R3 respawn (Q) · RB / L3 sprint (Shift) · Start confirms / pauses.</p>
+    <p class="padline"><b>Controller:</b> left stick move · right stick look · A jump · <b>RT hold = swing</b> · LT zip · X yank (J) · B dive (Z) · LB / R3 respawn (Q) · RB / L3 sprint (Shift) · Start confirms / pauses (press again to leave).</p>
     <p class="padline"><b>Phone pad:</b> left stick = WASD · right stick = look · JUMP = Space · fire (hold) = swing · place = zip · A = J yank · B = Z dive · shift = sprint · q = respawn. When a hand closes around you, mash fire and place alternately.</p>
     <div class="row">
       <button class="cta" id="cta" type="button">RAISING THE VALLEY...</button>
@@ -212,7 +212,7 @@
   <div class="card pausecard">
     <h2 style="margin:0 0 .3em;font-family:var(--serif);letter-spacing:.2em">PAUSED</h2>
     <p class="lead" style="margin:.3em auto 1em">Click to get back on the wire.</p>
-    <button class="cta" id="ctaResume" type="button">RESUME</button>
+    <div class="row" style="justify-content:center"><button class="cta" id="ctaResume" type="button">RESUME</button><button class="cta" id="ctaMenu" type="button" style="background:linear-gradient(180deg,#3b484c,#232c2f);box-shadow:0 5px 0 #0f1416">MENU</button></div>
   </div>
 </div>
 
@@ -349,7 +349,7 @@ function buildTextures(){
       mix3(o, c0, c1, n); mix3(t, o, c2, smooth(0.55, 0.85, m) * 0.55); const k = 0.9 + g * 0.2; out[0] = t[0] * k; out[1] = t[1] * k; out[2] = t[2] * k;
     });
     const ctx = c.getContext('2d'), R = mulberry32(5); strokeLines(ctx, crackLines(R, 9, S), 'rgba(30,26,18,.4)', 1.2, S);
-    TEX.ground = toTex(c, 70);
+    TEX.ground = toTex(c, 105);
   }
   // pale weathered stone (pillars, ruins): strata + cracks + pits
   { const c0 = [102, 100, 94], c1 = [182, 176, 160], o = [0, 0, 0];
@@ -2994,7 +2994,7 @@ let locked = false, noLock = false, wantLock = false;
 function requestLock(){ wantLock = true; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { noLock = true; locked = false; }); } catch (e) { noLock = true; locked = false; } }
 document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (locked) noLock = false; if (!locked && gstate === 'playing' && wantLock && !noLock) pauseGame(); });
 document.addEventListener('pointerlockerror', () => { locked = false; noLock = true; });
-$('cta').addEventListener('click', startGame); $('cta2').addEventListener('click', startGame); $('ctaResume').addEventListener('click', resumeGame);
+$('cta').addEventListener('click', startGame); $('cta2').addEventListener('click', startGame); $('ctaResume').addEventListener('click', resumeGame); $('ctaMenu').addEventListener('click', goMenu);
 $('pause').addEventListener('click', e => { if (e.target.id === 'pause') resumeGame(); });
 window.addEventListener('keydown', e => {
   let k = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase(); if (k === ' ' || k === 'spacebar') k = ' ';
@@ -3031,7 +3031,7 @@ function padFire(down){
 }
 function padPlace(down){ if (down === undefined || down) { INP.zipLatch = true; if (gstate === 'dead' && performance.now() - endedAt > 900) startGame(); } }
 function padLook(dx, dy){ INP.padLookX = Math.abs(dx) < 0.12 ? 0 : dx; INP.padLookY = Math.abs(dy) < 0.12 ? 0 : dy; }
-function padMenu(){ goMenu(); }
+function padMenu(){ if (gstate === 'playing') pauseGame(); else goMenu(); }
 
 // ============================================================================
 //  main loop (fixed 120 Hz physics, interpolated render)

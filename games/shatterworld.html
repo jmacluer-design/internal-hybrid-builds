@@ -696,7 +696,7 @@ function applyAtmosphere() {
   U.sunCol.value.copy(ATM.sun).multiplyScalar(1.0);
   sun.color.copy(ATM.sun); sun.intensity = ATM.sunI; hemi.color.copy(ATM.hemiS); hemi.groundColor.copy(ATM.hemiG); hemi.intensity = ATM.hemiI * (Q.lite ? 2.1 : 1); if (envRT) scene.environment = Q.lite ? null : envRT.texture;
   scene.fog.color.copy(ATM.fog); scene.fog.density = ATM.fogD; skyMat.uniforms.uCloud.value = ATM.cloud; skyMat.uniforms.uStars.value = ATM.stars;
-  scene.environmentIntensity = ATM.env; renderer.toneMappingExposure = ATM.exp;
+  scene.environmentIntensity = ATM.env; renderer.toneMappingExposure = ATM.exp; if (typeof beamMat !== 'undefined') beamMat.uniforms.uCol.value.copy(ATM.sun);
 }
 setAtmosphere(1, 1, 0); applyAtmosphere();
 
@@ -1215,6 +1215,35 @@ function buildFarMountains() {
 }
 
 // ============================================================================
+// SUN SHAFTS: soft additive light shafts slanting through the valley (axial billboards) - volumetric-looking god rays on top of the screen-space pass
+// ============================================================================
+const SHAFT_N = 9, shafts = [];
+const shaftMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+  uniforms: { uTime: U.time, uCol: { value: new THREE.Color(1, 0.8, 0.5) }, uAmt: { value: 1 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform float uTime; uniform vec3 uCol; uniform float uAmt; varying vec2 vUv;
+void main(){ float x = abs(vUv.x - 0.5) * 2.0; float edge = pow(1.0 - x, 2.2); float along = smoothstep(0.0, 0.18, vUv.y) * (1.0 - smoothstep(0.55, 1.0, vUv.y));
+  float streak = 0.65 + 0.35 * sin(vUv.x * 22.0 + uTime * 0.25) * sin(vUv.x * 9.0 - uTime * 0.17);
+  gl_FragColor = vec4(uCol * 1.4, edge * along * streak * 0.16 * uAmt);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}` });
+{ const r = mulberry(909); for (let i = 0; i < SHAFT_N; i++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), shaftMat); m.frustumCulled = false; m.renderOrder = 8; m.userData = { ox: (r() - 0.5) * 70, oz: (r() - 0.2) * 70, w: 5 + r() * 7, ph: r() * 6 }; scene.add(m); shafts.push(m); } }
+const _sa = new THREE.Vector3(), _sr = new THREE.Vector3(), _sn = new THREE.Vector3(), _sm = new THREE.Matrix4(), _sc = new THREE.Vector3();
+function updateShafts() {
+  const on = Q.god && G.state !== 'dead' && act1Visible && !(G.trans && G.trans.from === 1 && G.trans.t > 1.5); shaftMat.uniforms.uAmt.value = on ? 1 : 0; for (const m of shafts) m.visible = on; if (!on) return;
+  shaftMat.uniforms.uCol.value.copy(ATM.sun);
+  const d = U.sunDir.value, ax = Math.floor(P.x / 48) * 48 + 24, az = Math.floor(P.z / 48) * 48 + 24; _sa.copy(d); const len = 46;
+  camera.getWorldDirection(_sc); const face = clamp(_sc.dot(d), 0, 1);
+  for (const m of shafts) {
+    const u = m.userData, bx = ax + u.ox, bz = az + u.oz, by = clamp(hfSample(bx, bz), -2, 40) - 4; m.position.set(bx + _sa.x * len * 0.5, by + _sa.y * len * 0.5, bz + _sa.z * len * 0.5);
+    _sr.set(bx - camera.position.x, by - camera.position.y, bz - camera.position.z).normalize(); _sr.crossVectors(_sa, _sr).normalize(); _sn.crossVectors(_sr, _sa).normalize(); _sm.makeBasis(_sr, _sa, _sn); m.quaternion.setFromRotationMatrix(_sm); m.scale.set(u.w, len, 1);
+    const dist = Math.hypot(bx - camera.position.x, bz - camera.position.z); m.material.uniforms; m.visible = dist < 90;
+  }
+  shaftMat.uniforms.uAmt.value = (0.35 + 0.9 * Math.pow(face, 1.5)) * (0.8 + 0.2 * Math.sin(U.time.value * 0.3));
+}
+
+// ============================================================================
 // THE PLUMBER (and friends): procedural cartoon rig with outline hull, squash & stretch, full pose-driven animation
 // ============================================================================
 const outlineMat = new THREE.MeshBasicMaterial({ color: 0x14080a, side: THREE.BackSide, fog: true });
@@ -1556,12 +1585,13 @@ function updateCamera(dt, rdt) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
+const _tgPose = { lx: 0, rx: 0, la: 0, ra: 0, lean: 0, side: 0, pitch: 0, hx: 0, hy: 0, bob: 0, roll: 0 }; // reused every frame (no per-frame allocation)
 let heroVis = { yaw: 0.6, t: 0, fid: 0, fidT: 4, blink: 0 };
 function updateHeroVisual(dt, rdt) {
   const h = hero, v = heroVis; v.t += dt; const T = TUNING;
   v.yaw += angDiff(v.yaw, P.yaw) * Math.min(1, rdt * 22);
   const sp = P.speed, runK = clamp(sp / 10.2, 0, 1.35), g = P.grounded;
-  let t = { lx: 0, rx: 0, la: 0, ra: 0, lean: 0, side: 0, pitch: 0, hx: 0, hy: 0, bob: 0, roll: 0 }, k = 14;
+  const t = _tgPose; t.lx = t.rx = t.la = t.ra = t.lean = t.side = t.pitch = t.hx = t.hy = t.bob = t.roll = 0; let k = 14;
   const act = P.act;
   if (g && (act === 'ground' || act === 'punch')) {
     if (P.crouch) { t.lx = -1.25; t.rx = -1.25; t.lean = 0.7; t.bob = -0.22; t.la = -0.6; t.ra = -0.6; t.hx = -0.25; }
@@ -1645,7 +1675,7 @@ float vxK = max(vFx.x, vVoxW);
   float bevel = mix(0.8, 1.0, smoothstep(0.0, 0.055, ed)); diffuseColor.rgb *= mix(1.0, bevel, 0.6 + 0.4 * vxK);
   diffuseColor.rgb *= vAO; }`)
     .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-{ float gl = vFx.y; if (gl > 0.001) { float an = gl >= 10.0 ? 0.55 + 0.45 * sin(uTime * 2.4 + vCC.x * 0.6 + vCC.z * 0.45 + vCC.y * 0.3) : 1.0; gl = gl >= 10.0 ? gl - 10.0 : gl; totalEmissiveRadiance += diffuseColor.rgb * gl * an * 2.2; } }`)
+{ float gl = vFx.y; if (gl > 0.001) { float an = gl >= 10.0 ? 0.55 + 0.45 * sin(uTime * 2.4 + vCC.x * 0.6 + vCC.z * 0.45 + vCC.y * 0.3) : 1.0; gl = gl >= 10.0 ? gl - 10.0 : gl; totalEmissiveRadiance += diffuseColor.rgb * gl * an * 1.45; } }`)
     .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vxK, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.8, 0.42) * ringAt(vCC.xz) * 0.6;
 #include <opaque_fragment>`);
 };
@@ -2506,6 +2536,7 @@ function hurtHero(sx, sz) {
 }
 
 // ---- NPC twin ---------------------------------------------------------------------------------------------------------------
+const _npcPose = { lx: 0, rx: 0, la: 0, ra: 0, lean: 0, side: 0, pitch: 0, hx: 0, hy: 0, bob: 0, roll: 0 };
 const NPC = { x: 0, y: 0, z: 0, active: false, line: 0, lines: [], talkT: 0, near: false, ph: 0 };
 function updateNPC(dt, t) {
   twin.root.visible = NPC.active; if (!NPC.active) return;
@@ -2513,7 +2544,7 @@ function updateNPC(dt, t) {
   const want = d < 8 ? Math.atan2(dx, dz) : (NPC.base || 0); NPC.yaw = (NPC.yaw === undefined ? want : NPC.yaw) + angDiff(NPC.yaw === undefined ? want : NPC.yaw, want) * Math.min(1, dt * 5);
   const f = floorAt(NPC.x, NPC.z, NPC.y + 1.5); if (f > -1e8) NPC.y = f;
   twin.root.position.set(NPC.x, NPC.y, NPC.z); twin.root.rotation.y = NPC.yaw; NPC.ph += dt;
-  const talking = NPC.talkT > 0, s = Math.sin(NPC.ph * 2), tg = { lx: 0, rx: 0, la: s * 0.05, ra: -s * 0.05, lean: 0, side: 0, pitch: 0, hx: 0, hy: Math.sin(NPC.ph * 0.8) * 0.2, bob: s * 0.01, roll: 0 };
+  const talking = NPC.talkT > 0, s = Math.sin(NPC.ph * 2), tg = _npcPose; tg.lx = tg.rx = tg.lean = tg.side = tg.pitch = tg.roll = 0; tg.la = s * 0.05; tg.ra = -s * 0.05; tg.hx = 0; tg.hy = Math.sin(NPC.ph * 0.8) * 0.2; tg.bob = s * 0.01;
   if (NPC.near && !talking) { tg.ra = -2.7 + Math.sin(NPC.ph * 9) * 0.45; tg.side = 0.3; } if (talking) { tg.la = -0.9 + Math.sin(NPC.ph * 7) * 0.25; tg.hx = 0.1 + Math.sin(NPC.ph * 8) * 0.1; }
   poseTo(twin, tg, dt, 8); applyPose(twin, dt); twin.root.scale.setScalar(twin.S * 0.95);
   if (talking) { NPC.talkT -= dt; if (NPC.talkT <= 0 || d > 6) { $('talk').classList.remove('on'); NPC.talkT = 0; P.talk = 0; } }
@@ -2893,7 +2924,7 @@ function frame(rdt, doRender) {
   } else if (G.state === 'menu') { updateNPC(rdt, U.time.value); updateShards(rdt, U.time.value); updateCoins(rdt, U.time.value); acc = 0; }
   U.time.value += rdt;
   if (SH.on) { if (SH.kind === 'local') updateLocalShatter(rdt); else if (SH.kind === 'world') updateWorldShatter(rdt); else if (SH.kind === 'pulse') updatePulse(rdt); else if (SH.kind === 'finale') updateFinale(rdt); }
-  updateDrops(sdt); updateTerrainGeo(); updateCubes(Math.min(sdt, 1 / 20), rdt, U.time.value); updateParticles(sdt); updateStructures(sdt, U.time.value); updateMotes(U.time.value);
+  updateDrops(sdt); updateTerrainGeo(); updateCubes(Math.min(sdt, 1 / 20), rdt, U.time.value); updateParticles(sdt); updateStructures(sdt, U.time.value); updateMotes(U.time.value); updateShafts();
   updateHeroVisual(sdt, rdt); updateCamera(sdt, rdt);
   // shared uniforms
   U.hero.value.set(P.x, P.y, P.z); grassUniforms.uFieldC.value.set(P.x, P.z); sky.position.copy(camera.position); updateSun(P.x, P.y, P.z);
