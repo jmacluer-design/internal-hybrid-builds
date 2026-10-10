@@ -6104,7 +6104,7 @@ function ribbonMat(rain, r, g, b) { // uv.y = age along the trail (0 newest .. 1
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: `uniform float uTime; uniform float uRain; uniform vec3 uCol; uniform float uAlpha; varying vec2 vUv;
 vec3 hsv(float h){ vec3 k = clamp(abs(fract(vec3(h) + vec3(0.0, 0.6667, 0.3333)) * 6.0 - 3.0) - 1.0, 0.0, 1.0); return k; }
-void main(){ float e = smoothstep(0.0, 0.45, vUv.x) * smoothstep(1.0, 0.55, vUv.x); float a = e * pow(1.0 - vUv.y, 1.5) * uAlpha; vec3 c = uRain > 0.5 ? (0.55 + 0.75 * hsv(vUv.y * 1.1 - uTime * 0.5)) * 2.0 : uCol; gl_FragColor = vec4(c, a);
+void main(){ float e = smoothstep(0.0, 0.45, vUv.x) * smoothstep(1.0, 0.55, vUv.x); float a = e * pow(1.0 - vUv.y, 1.5) * uAlpha; vec3 c = uRain > 0.5 ? (0.12 + 1.0 * hsv(vUv.y * 1.1 - uTime * 0.5)) * 1.7 : uCol; gl_FragColor = vec4(c, a);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
 }` });
@@ -6140,7 +6140,7 @@ function ptRing(x, y, z, n, r, vup, life, size, c, vr = 0) { for (let k = 0; k <
 const PJN = 28, PJ = [];
 for (let i = 0; i < PJN; i++) PJ.push({ on: false, kind: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0, R: null, mul: 1, rad: 1, pierce: 0, hitN: 0, hits: [null, null, null, null, null, null, null, null], chain: 0, fork: 0, forked: false, bounces: 0, t: 0, phase: 0, sc: 1, rot: 0, trail: 0, spd: 0, ox: 0, oz: 0, dist: 0, elem: 'shatter', gy: 0 });
 const PJM = {}; { const mk = (geo, mat) => { const m = new THREE.InstancedMesh(geo, mat, PJN); m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(PJN * 3), 3); m.frustumCulled = false; m.count = 0; m.visible = false; m.renderOrder = 20; scene.add(m); return m; };
-  PJM.cube = mk(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.1, emissive: 0x6f8fb0, emissiveIntensity: 0.8 })); PJM.orb = mk(new THREE.SphereGeometry(1, 12, 9), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, toneMapped: false })); PJM.shard = mk(new THREE.OctahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, toneMapped: false })); }
+  PJM.cube = mk(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.1, emissive: 0x8fb0d8, emissiveIntensity: 1.5 })); PJM.orb = mk(new THREE.SphereGeometry(1, 12, 9), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, toneMapped: false })); PJM.shard = mk(new THREE.OctahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, toneMapped: false })); }
 const _pjD = new THREE.Object3D(), _pjC = new THREE.Color();
 function pjAlloc() { for (let i = 0; i < PJN; i++) if (!PJ[i].on) return PJ[i]; return null; }
 function pjSpawn(kind, R, x, y, z, vx, vy, vz, mul, o) {
@@ -6231,22 +6231,22 @@ function pjUpdate(dt) {
 const ZN = [], ZGEO_T = new THREE.CylinderGeometry(1, 0.28, 1, 24, 8, true).translate(0, 0.5, 0), ZGEO_S = new THREE.SphereGeometry(1, 26, 18);
 const zoneMat = kind => new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false, forceSinglePass: true, uniforms: { uTime: U.time, uCol: { value: new THREE.Color(1, 2, 2) }, uFade: { value: 1 } },
   vertexShader: 'varying vec3 vP; varying vec3 vN; varying vec3 vV; void main(){ vP = position; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
-  fragmentShader: kind ? `uniform float uTime; uniform vec3 uCol; uniform float uFade; varying vec3 vP; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - abs(dot(vN, vV)), 2.0); float ring = 0.5 + 0.5 * sin(vP.y * 9.0 - uTime * 3.0); float tick = smoothstep(0.96, 1.0, sin(atan(vP.z, vP.x) * 6.0 + uTime * 2.0) * 0.5 + 0.5); gl_FragColor = vec4(uCol * (0.5 + ring * 0.6 + tick), (f * 0.75 + tick * 0.3 + 0.08) * uFade);
+  fragmentShader: kind ? `uniform float uTime; uniform vec3 uCol; uniform float uFade; varying vec3 vP; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - abs(dot(vN, vV)), 2.0); float ring = 0.5 + 0.5 * sin(vP.y * 9.0 - uTime * 3.0); float tick = smoothstep(0.96, 1.0, sin(atan(vP.z, vP.x) * 6.0 + uTime * 2.0) * 0.5 + 0.5); gl_FragColor = vec4(uCol * (0.5 + ring * 0.6 + tick), (f * 0.7 + tick * 0.3 + 0.03) * uFade);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
-}` : `uniform float uTime; uniform vec3 uCol; uniform float uFade; varying vec3 vP; varying vec3 vN; varying vec3 vV; void main(){ float a = atan(vP.z, vP.x); float s = pow(0.5 + 0.5 * sin(a * 3.0 + vP.y * 10.0 - uTime * 9.0), 2.0); float f = pow(abs(dot(vN, vV)), 0.8); gl_FragColor = vec4(uCol * (0.6 + s), (0.15 + s * 0.6) * f * uFade * smoothstep(0.0, 0.1, vP.y) * smoothstep(1.05, 0.7, vP.y));
+}` : `uniform float uTime; uniform vec3 uCol; uniform float uFade; varying vec3 vP; varying vec3 vN; varying vec3 vV; void main(){ float a = atan(vP.z, vP.x); float s = pow(0.5 + 0.5 * sin(a * 3.0 + vP.y * 10.0 - uTime * 9.0), 2.0); float f = pow(abs(dot(vN, vV)), 0.8); gl_FragColor = vec4(uCol * (0.5 + s * 1.4), (0.04 + s * 0.5) * f * uFade * smoothstep(0.0, 0.1, vP.y) * smoothstep(1.05, 0.7, vP.y));
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
 }` });
 for (let i = 0; i < 4; i++) { const t = new THREE.Mesh(ZGEO_T, zoneMat(0)), s = new THREE.Mesh(ZGEO_S, zoneMat(1)); for (const m of [t, s]) { m.visible = false; m.frustumCulled = false; m.renderOrder = 17; scene.add(m); } ZN.push({ on: false, kind: 0, x: 0, y: 0, z: 0, t: 0, life: 1, rad: 1, tickT: 0, R: null, mul: 1, vx: 0, vz: 0, mt: t, ms: s, hit: 0 }); }
-function znSpawn(kind, R, x, y, z, vx, vz, mul) { let z0 = null; for (const q of ZN) if (!q.on) { z0 = q; break; } if (!z0) z0 = ZN[0]; z0.on = true; z0.kind = kind; z0.R = R; z0.x = x; z0.y = y; z0.z = z; z0.vx = vx; z0.vz = vz; z0.t = 0; z0.mul = mul; z0.tickT = 0.15; z0.rad = R.p.rad * R.area; z0.life = R.p.life * (R.area > 1.3 ? 1.15 : 1); z0.mt.visible = kind === 0; z0.ms.visible = kind === 1; const m = kind ? z0.ms : z0.mt; m.material.uniforms.uCol.value.copy(kind ? vcol('time', 0.9) : vcol('gust', 0.9)); }
+function znSpawn(kind, R, x, y, z, vx, vz, mul) { let z0 = null; for (const q of ZN) if (!q.on) { z0 = q; break; } if (!z0) z0 = ZN[0]; z0.on = true; z0.kind = kind; z0.R = R; z0.x = x; z0.y = y; z0.z = z; z0.vx = vx; z0.vz = vz; z0.t = 0; z0.mul = mul; z0.tickT = 0.15; z0.rad = R.p.rad * R.area; z0.life = R.p.life * (R.area > 1.3 ? 1.15 : 1); z0.mt.visible = kind === 0; z0.ms.visible = kind === 1; const m = kind ? z0.ms : z0.mt; m.material.uniforms.uCol.value.copy(kind ? vcol('time', 0.7) : vcol('gust', 0.4)); }
 function znUpdate(dt) {
   for (const q of ZN) {
     if (!q.on) continue; q.t += dt; if (q.t >= q.life) { q.on = false; q.mt.visible = q.ms.visible = false; fxRing(q.x, q.y, q.z, q.rad * 0.6, q.rad * 1.3, 0.4, q.kind ? VCOL.time : VCOL.gust, 0.7); continue; }
     const R = q.R, k = q.t / q.life, fadeIn = Math.min(1, q.t * 4), fadeOut = Math.min(1, (q.life - q.t) * 3), fade = fadeIn * fadeOut;
     if (q.kind === 0) { q.x += q.vx * dt; q.z += q.vz * dt; const f = floorAt(q.x, q.z, q.y + 2); if (f > -1e8) q.y = f; }
     const m = q.kind ? q.ms : q.mt; m.material.uniforms.uFade.value = fade; m.position.set(q.x, q.kind ? q.y + q.rad * 0.4 : q.y, q.z);
-    if (q.kind === 0) { m.scale.set(q.rad * (0.5 + 0.5 * fadeIn), q.rad * 1.9, q.rad * (0.5 + 0.5 * fadeIn)); m.rotation.y += dt * 4; if (Math.random() < 0.8) { const a = Math.random() * TAU, h = Math.random() * q.rad * 1.8, rr = q.rad * (0.3 + h / (q.rad * 1.8) * 0.7); pt(q.x + Math.cos(a) * rr, q.y + h, q.z + Math.sin(a) * rr, -Math.sin(a) * 5, 1.5, Math.cos(a) * 5, 0.5, 0.6, 0, vcol('gust', 1)); } gemPull(q.x, q.z, q.rad * 1.4, R.p.pull); }
+    if (q.kind === 0) { m.scale.set(q.rad * (0.5 + 0.5 * fadeIn) * 0.8, q.rad * 1.6, q.rad * (0.5 + 0.5 * fadeIn) * 0.8); m.rotation.y += dt * 4; if (Math.random() < 0.8) { const a = Math.random() * TAU, h = Math.random() * q.rad * 1.8, rr = q.rad * (0.3 + h / (q.rad * 1.8) * 0.7); pt(q.x + Math.cos(a) * rr, q.y + h, q.z + Math.sin(a) * rr, -Math.sin(a) * 5, 1.5, Math.cos(a) * 5, 0.5, 0.6, 0, vcol('gust', 1)); } gemPull(q.x, q.z, q.rad * 1.4, R.p.pull); }
     else { m.scale.setScalar(q.rad * (0.7 + 0.3 * fadeIn)); if (Math.random() < 0.5) { const a = Math.random() * TAU; pt(q.x + Math.cos(a) * q.rad * 0.9, q.y + 0.3 + Math.random() * q.rad * 0.6, q.z + Math.sin(a) * q.rad * 0.9, 0, 0.3, 0, 0.8, 0.5, 0, vcol('time', 0.9)); } }
     q.tickT -= dt; if (q.tickT <= 0) { q.tickT = R.p.tick; for (const o of ENEMIES) { if (!gemOk(o)) continue; const dx = o.x - q.x, dz = o.z - q.z; if (dx * dx + dz * dz < q.rad * q.rad * 1.05 && Math.abs(o.y - q.y) < q.rad * 1.4 + 1) { if (q.kind) { o.gSlowT = 0.7; o.gSlowAmt = Math.max(o.gSlowAmt || 0, Math.min(0.9, R.p.slow + R.slow)); } gemStrike(R, o, q.mul, q.x, q.z, q.kind ? 0 : 1.5); } } }
   }
@@ -6254,7 +6254,7 @@ function znUpdate(dt) {
 const FL = []; for (let i = 0; i < 8; i++) FL.push({ on: false, x: 0, z: 0, gy: 0, t: 0, delay: 1, R: null, mul: 1 });
 function gemMeteorHit(p) { const R = p.R, x = p.x, z = p.z, gy = p.gy, rad = R.p.rad * R.area; gsfx('gmeteorhit'); camShake(0.5); heroHitstop(0.05); fxRing(x, gy, z, 0.5, rad * 1.15, 0.5, VCOL.ember, 1); fxRing(x, gy, z, 0.3, rad * 0.7, 0.35, 0xfff0c0, 1, true); fxChunks(x, gy + 0.6, z, 12, 0x7a4a2a, 0.26, 7, gy); sparkBurst(x, gy + 0.6, z, 26, 0xff8a3c, 9); puff(x, gy + 0.3, z, 10, 1.6, 0xd8a070, 4, -1, 0.9); ptRing(x, gy + 0.2, z, 14, rad * 0.5, 2.5, 0.8, 1.0, vcol('ember', 1), 3);
   for (const o of ENEMIES) { if (!gemOk(o) || Math.hypot(o.x - x, o.z - z) > rad || Math.abs(o.y - gy) > 3.5) continue; gemStrike(R, o, p.mul, x, z, 8); } }
-function flUpdate(dt) { for (const f of FL) { if (!f.on) continue; f.t += dt; if (f.t >= f.delay) { f.on = false; const R = f.R; pjSpawn(5, R, f.x + 0.0, f.gy + 18, f.z, 0, -2, 0, f.mul, { sc: 0.9, gy: f.gy, life: 3, elem: 'ember', rad: R.p.rad }); } } }
+function flUpdate(dt) { for (const f of FL) { if (!f.on) continue; f.t += dt; if (f.t >= f.delay) { f.on = false; const R = f.R; pjSpawn(5, R, f.x + 0.0, f.gy + 18, f.z, 0, -2, 0, f.mul, { sc: 1.5, gy: f.gy, life: 3, elem: 'ember', rad: R.p.rad }); } } }
 
 // ---- echoes (support: repeat) -------------------------------------------------------------------------------------------------------------------------------------------------------------------
 for (let i = 0; i < 8; i++) GM.echoes.push({ on: false, t: 0, R: null, yaw: 0, mul: 1, k: 0 });
@@ -6295,7 +6295,7 @@ const mmOf = R => R.multi > 0 ? R.multiMore : 1;
 const SK = {
   cubetoss: { pose: 'throw', multi: 'spread', cat: 'ranged',
     windFx(c) { }, fire(c) { const R = c.R, n = 1 + (c.echo ? 0 : R.multi), mm = mmOf(R), o = gemHand(c.yaw); gsfx('gcube');
-      for (let k = 0; k < n; k++) { const a = c.yaw + (n > 1 ? (k - (n - 1) / 2) * 0.22 : 0); pjSpawn(1, R, o.x, o.y, o.z, Math.sin(a) * R.p.speed, 2.4, Math.cos(a) * R.p.speed, c.mul * mm, { rad: R.p.rad, sc: 0.34, life: 2.2 }); }
+      for (let k = 0; k < n; k++) { const a = c.yaw + (n > 1 ? (k - (n - 1) / 2) * 0.22 : 0); pjSpawn(1, R, o.x, o.y, o.z, Math.sin(a) * R.p.speed, 2.4, Math.cos(a) * R.p.speed, c.mul * mm, { rad: R.p.rad, sc: 0.55, life: 2.2 }); }
       fxRing(o.x, o.y - 0.9, o.z, 0.3, 1.5, 0.28, VCOL.shatter, 0.7); sparkBurst(o.x, o.y, o.z, 7, 0xbcd4ee, 5); heroKick(hero, 4); } },
   spinslam: { pose: 'spin', multi: 'repeat', cat: 'melee',
     windFx(c, dt) { if (Math.random() < dt * 40) { const a = Math.random() * TAU; pt(P.x + Math.cos(a) * 1.3, P.y + 0.15, P.z + Math.sin(a) * 1.3, -Math.sin(a) * 6, 0.5, Math.cos(a) * 6, 0.4, 0.8, 0, vcol('shatter', 0.8)); } },
@@ -6319,12 +6319,12 @@ const SK = {
       dashStart(R, dx / lh, dz / lh, lh, tm, c.mul, 'time', Math.max(-18, Math.min(18, dy / tm))); GM.dash.fy = P.yaw; fxRing(sx, sy, sz, 0.3, 2.6, 0.5, VCOL.time, 0.9); } },
   shardboomerang: { pose: 'throw', multi: 'spread', cat: 'ranged',
     windFx() { }, fire(c) { const R = c.R, n = 1 + (c.echo ? 0 : R.multi), mm = mmOf(R), o = gemHand(c.yaw); gsfx('gboom');
-      for (let k = 0; k < n; k++) { const a = c.yaw + (n > 1 ? (k - (n - 1) / 2) * 0.35 : 0); pjSpawn(3, R, o.x, o.y, o.z, Math.sin(a) * R.p.speed, 0.0, Math.cos(a) * R.p.speed, c.mul * mm, { rad: R.p.rad, sc: 0.62, life: 6, pierce: 99, chain: 0, fork: 0 }); }
+      for (let k = 0; k < n; k++) { const a = c.yaw + (n > 1 ? (k - (n - 1) / 2) * 0.35 : 0); pjSpawn(3, R, o.x, o.y, o.z, Math.sin(a) * R.p.speed, 0.0, Math.cos(a) * R.p.speed, c.mul * mm, { rad: R.p.rad, sc: 0.95, life: 6, pierce: 99, chain: 0, fork: 0 }); }
       fxRing(o.x, o.y - 0.9, o.z, 0.3, 1.6, 0.3, VCOL.sun, 0.75); sparkBurst(o.x, o.y, o.z, 8, 0xffd45a, 5); heroKick(hero, 4); } },
   cinderbloom: { pose: 'cast', multi: 'spread', cat: 'ranged',
     windFx(c, dt) { if (Math.random() < dt * 40) { const o = gemHand(c.yaw, 0.6); pt(o.x, o.y, o.z, (Math.random() - 0.5) * 2, 1.5, (Math.random() - 0.5) * 2, 0.4, 0.7, 0, vcol('ember', 1)); } },
     fire(c) { const R = c.R, n = R.p.orbs + (c.echo ? 0 : R.multi * 2) + (RT.S.powers.includes('cindercrown') ? 2 : 0), mm = mmOf(R), o = gemHand(c.yaw, 0.6); gsfx('gcinder');
-      for (let k = 0; k < n; k++) { const a = c.yaw + (k - (n - 1) / 2) * 0.42, sp = R.p.speed * (0.85 + (k % 2) * 0.2); pjSpawn(2, R, o.x, o.y, o.z, Math.sin(a) * sp, 5.2, Math.cos(a) * sp, c.mul * mm, { rad: R.p.rad, sc: 0.4, bounces: R.p.bounces, life: R.p.life }); }
+      for (let k = 0; k < n; k++) { const a = c.yaw + (k - (n - 1) / 2) * 0.42, sp = R.p.speed * (0.85 + (k % 2) * 0.2); pjSpawn(2, R, o.x, o.y, o.z, Math.sin(a) * sp, 5.2, Math.cos(a) * sp, c.mul * mm, { rad: R.p.rad, sc: 0.55, bounces: R.p.bounces, life: R.p.life }); }
       fxRing(o.x, o.y - 0.9, o.z, 0.3, 1.8, 0.35, VCOL.ember, 0.85); sparkBurst(o.x, o.y, o.z, 12, 0xff9a3c, 6); heroKick(hero, 5); } },
   whirlgale: { pose: 'cast', multi: 'repeat', cat: 'ranged',
     windFx() { }, fire(c) { const R = c.R, yw = c.yaw + (c.k ? (c.k % 2 ? 0.55 : -0.55) : 0), t = gemTarget(yw, R.p.dist, 4); gsfx('gwhirl'); znSpawn(0, R, t.x, t.y, t.z, Math.sin(yw) * R.p.speed, Math.cos(yw) * R.p.speed, c.mul); fxRing(t.x, t.y, t.z, 0.4, R.p.rad * 1.4, 0.5, VCOL.gust, 0.9); sparkBurst(t.x, t.y + 1, t.z, 14, 0x9ff8ee, 6); } },
@@ -6404,17 +6404,18 @@ function gemPoseApply(t, h, rdt, k) {
 }
 
 // ---- stepHero wrapper: dash physics + the class passives that change a core verb (float / glide / wall-run) -------------------------------------------------------------------------
-const GLIDE = { fall: 3.4 }; let wallRunT = 0;
+const GLIDE = { fall: 3.4, lim() { return FORM.id === 'gust' ? GEM_TUNING.form.glideFall : GLIDE.fall; } }; let wallRunT = 0;
 const _stepHero = stepHero;
 stepHero = function (dt) {
   if (GM.dash && GM.dash.on && !P.dead) { dashStep(dt); return; }
-  const fx = RT.S.fx, jh = INP.jump, air = !P.grounded && !P.dead && P.act !== 'pound' && P.act !== 'dive' && P.act !== 'long' && P.act !== 'slide';
+  let glideOn = false; const fx = RT.S.fx, jh = INP.jump, air = !P.grounded && !P.dead && P.act !== 'pound' && P.act !== 'dive' && P.act !== 'long' && P.act !== 'slide';
   if (air && jh && P.vy < 0) {
     if (fx.floatJump || (STAR.on && STAR.fx.jumpMul)) P.vy += TUNING.gravity * 0.42 * dt;                                    // Lou: hold jump to float
-    if (fx.glide || FORM.id === 'gust') { const lim = FORM.id === 'gust' ? GEM_TUNING.form.glideFall : GLIDE.fall; if (P.vy < -lim) P.vy = -lim + (P.vy + lim) * Math.exp(-14 * dt); if (!INP.mag) { P.vx += Math.sin(P.yaw) * 6 * dt; P.vz += Math.cos(P.yaw) * 6 * dt; } } // Petal / Gust form: glide
+    if (fx.glide || FORM.id === 'gust') { glideOn = true; if (!INP.mag) { P.vx += Math.sin(P.yaw) * 6 * dt; P.vz += Math.cos(P.yaw) * 6 * dt; } } // Petal / Gust form: glide
   }
   if (fx.wallRun && air && P.wallT > 0 && (INP.iz > 0 || jh) && wallRunT < 0.9) { wallRunT += dt; if (P.vy < 5.2) P.vy = 5.2; if (Math.random() < dt * 30) puff(P.x - P.wnx * 0.4, P.y + 0.8, P.z - P.wnz * 0.4, 1, 0.5, 0xbff8ff, 0.5, 1, 0.3); } if (P.grounded) wallRunT = 0;
   _stepHero(dt);
+  if (glideOn && !P.grounded && P.vy < -GLIDE.lim()) P.vy += (-GLIDE.lim() - P.vy) * 0.6; // brake AFTER gravity so the fall speed settles at the glide limit, in about 3 frames
 };
 
 // ==============================================================================================================================================================================================
@@ -6433,7 +6434,7 @@ function starTry(force) {
   const c = STAR_TINT[d.col] || STAR_TINT.rainbow; for (const r of STAR.rib) { r.reset(); const u = r.mesh.material.uniforms; u.uRain.value = d.col === 'rainbow' ? 1 : 0; u.uCol.value.setRGB(c[0], c[1], c[2]); u.uAlpha.value = 1; }
   // the collect-animation moment: slow-mo, rings of light, a beam, camera push, the music sting
   G.slow = 0.14; G.flash = Math.max(G.flash, 0.55); camShake(0.6); camCine(1.6, 1.8, 0.22, 0.07); gsfx('gstar'); gsfx('gstarup'); P.invuln = Math.max(P.invuln, STAR.dur + 2); P.vx *= 0.3; P.vz *= 0.3; GM.pose.kind = 'gather'; GM.pose.t = GM.pose.dur = 1.0; GM.pose.hand = 1;
-  fxRing(P.x, P.y, P.z, 0.4, 9, 1.0, 0xffd45a, 1); fxRing(P.x, P.y, P.z, 0.3, 6.5, 0.8, 0xffffff, 0.9, true); fxRing(P.x, P.y + 1.2, P.z, 0.3, 5, 1.2, 0xff6fb1, 0.9); fxRing(P.x, P.y + 2.4, P.z, 0.2, 4, 1.4, 0x53e0d0, 0.8); sparkBurst(P.x, P.y + 1, P.z, 50, 0xffd060, 11);
+  fxRing(P.x, P.y, P.z, 0.4, 9, 1.0, 0xffd45a, 1); fxRing(P.x, P.y, P.z, 0.3, 6.5, 0.8, 0xffffff, 0.45, true); fxRing(P.x, P.y + 1.2, P.z, 0.3, 5, 1.2, 0xff6fb1, 0.9); fxRing(P.x, P.y + 2.4, P.z, 0.2, 4, 1.4, 0x53e0d0, 0.8); sparkBurst(P.x, P.y + 1, P.z, 50, 0xffd060, 11);
   STAR.beam.visible = true; STAR.beam.position.set(P.x, P.y + 35, P.z); starOverlay(true); GM.dirty = true; rpgBanner(d.name.toUpperCase(), 'STAR POWER', true); RT.dirty = true; return true;
 }
 function starBegin() { // end of the wind-up: the run proper
@@ -6453,7 +6454,7 @@ function gemQuake(r, mul, kb, elem, chunks) { // an AoE ring at the hero's feet 
 }
 function starGroundTick(dt) { // the world core idea, made a power: shatter the ground under the hero to blocks and let it rebuild behind
   STAR.gT -= dt; const R = STAR.fx.trailR || 2.4;
-  if (!VG.on && WC.hf && !SH.on && act1Visible) { STAR.owns = true; WV.x = P.x; WV.z = P.z; WV.R1 = R * 1.7 + 3.2; WV.R2 = -1; WV.band = 3.4; WV.glow = 0.3; syncWave(); }
+  if (!VG.on && WC.hf && !SH.on && act1Visible) { STAR.owns = true; WV.x = P.x; WV.z = P.z; WV.R1 = R * 1.35 + 2.0; WV.R2 = -1; WV.band = 3.4; WV.glow = 0.3; syncWave(); }
   if (STAR.gT > 0) return; STAR.gT = 0.055;
   if (VG.on) { let n = 0; for (let i = 0; i < cubeHi && n < 12; i++) { if (C.st[i] !== ST.SET) continue; const dx = C.x[i] - P.x, dz = C.z[i] - P.z; if (dx * dx + dz * dz > R * R || C.y[i] > P.y + 0.6 || C.y[i] < P.y - 2.6 || Math.random() > 0.45) continue;
       C.st[i] = ST.BALL; C.vy[i] = 3 + Math.random() * 5; C.vx[i] = (Math.random() - 0.5) * 3; C.vz[i] = (Math.random() - 0.5) * 3; C.wx[i] = (Math.random() - 0.5) * 8; C.wy[i] = (Math.random() - 0.5) * 8; C.wz[i] = (Math.random() - 0.5) * 8; C.delay[i] = 0.45 + Math.random() * 0.4; C.glow[i] = 0.9; C.owner[i] = -1; C.vox[i] = 1; n++; } }
@@ -6495,7 +6496,7 @@ function starTick(rdt, sdt) {
 function gemHeroTint() { // hero glow while Star Power / a form is on (flat: material emissive; in VR the merged mesh is untouched and the trail + rings carry the effect)
   const m = hero.mats; if (!m) return; const on = STAR.on, tint = on || FORM.id; STAR.vis += (STAR.visT - STAR.vis) * Math.min(1, 6 * (1 / 60)); if (Math.abs(STAR.vis - 1) > 0.002) hero.root.scale.setScalar(hero.S * P.size * STAR.vis);
   if (tint) { STAR.tinted = true; let r, g, b; if (on) { if (STAR.def.col === 'rainbow') { _hc.setHSL(STAR.hue, 0.85, 0.55); r = _hc.r; g = _hc.g; b = _hc.b; } else { const c = STAR_TINT[STAR.def.col] || STAR_TINT.gold; r = c[0] * 0.5; g = c[1] * 0.5; b = c[2] * 0.5; } } else { const c = FORM.id === 'cinder' ? STAR_TINT.ember : STAR_TINT.mint; r = c[0] * 0.35; g = c[1] * 0.35; b = c[2] * 0.35; }
-    for (const k in m) { const mt = m[k]; if (mt && mt.emissive) { mt.emissive.setRGB(r, g, b); mt.emissiveIntensity = on ? 0.9 : 0.55; } } }
+    for (const k in m) { const mt = m[k]; if (mt && mt.emissive) { mt.emissive.setRGB(r, g, b); mt.emissiveIntensity = on ? 0.5 : 0.35; } } }
   else if (STAR.tinted) { STAR.tinted = false; for (const k in m) { const mt = m[k]; if (mt && mt.emissive && mt.color) mt.emissive.copy(mt.color); } }
 }
 
@@ -6910,7 +6911,7 @@ window.__gems = {
   sockets(row) { const it = gemRowItem(row); return it ? Object.assign(gemSockets(it), { gems: (it.gems || []).map(g => g ? { id: g.id, lv: g.lv, u: g.u } : null) }) : null; }, bag() { return RP.gems.map(g => g ? { id: g.id, lv: g.lv, xp: g.xp, u: g.u, lk: !!g.lk } : null); }, stashList() { return RP.stash.map(g => g ? { id: g.id, lv: g.lv, u: g.u } : null); }, hot() { return RP.hot.slice(); },
   xp(uid, n) { const a = gemFindActive(uid); if (a) { gemGainXp(a.gem, n); return a.gem.lv; } for (const g of RP.gems) if (g && g.u === uid) { gemGainXp(g, n); return g.lv; } return -1; }, setLevel(uid, lv) { const a = gemFindActive(uid); const g = a ? a.gem : RP.gems.find(q => q && q.u === uid); if (g) { g.lv = lv; g.xp = 0; GM.dirty = true; } },
   setSpark(v) { GM.spark = v; }, fillSpark() { GM.spark = GM.sparkMax; GM.cd.fill(0); GM.cast = null; GM.queued = -1; }, spark() { return { spark: GM.spark, max: GM.sparkMax }; }, cd() { return GM.cd.slice(); }, state() { return gemDbg(); },
-  star(force) { return starTry(!!force); }, starEnd() { starEnd(true); }, setStar(v) { STAR.meter = v; }, starState() { return { meter: STAR.meter, on: STAR.on, run: STAR.run, t: STAR.t, dur: STAR.dur, kind: STAR.def ? STAR.def.id : null, hits: STAR.hits, chain: STAR.chain, vis: STAR.vis, enemyScale: GM.enemyScale, speedK: RT.speedK, jumpK: RT.jumpK, run_speed: TUNING.run, jump0: TUNING.jump[0], owns: STAR.owns, wv: [WV.R1, WV.R2] }; },
+  star(force) { return starTry(!!force); }, starEnd() { starEnd(true); }, setStar(v) { STAR.meter = v; }, starState() { return { rib: STAR.rib[0].len + ':' + STAR.rib[0].mesh.visible + ':' + (STAR.rib[0].mesh.material.uniforms.uAlpha.value), meter: STAR.meter, on: STAR.on, run: STAR.run, t: STAR.t, dur: STAR.dur, kind: STAR.def ? STAR.def.id : null, hits: STAR.hits, chain: STAR.chain, vis: STAR.vis, enemyScale: GM.enemyScale, speedK: RT.speedK, jumpK: RT.jumpK, run_speed: TUNING.run, jump0: TUNING.jump[0], owns: STAR.owns, wv: [WV.R1, WV.R2] }; },
   form(id) { if (id) formStart(id); else formEnd(); return FORM.id; }, formState() { return { id: FORM.id, t: FORM.t, pickups: FPK.filter(p => p.on).length }; }, spawnForm(id, dist = 3) { formSpawn(id, P.x + Math.sin(P.yaw) * dist, P.y, P.z + Math.cos(P.yaw) * dist); },
   fx() { return { proj: PJ.filter(p => p.on).length, zones: ZN.filter(z => z.on).length, falls: FL.filter(f => f.on).length, burns: BN.filter(b => b.on).length, echoes: GM.echoes.filter(e => e.on).length, dash: !!(GM.dash && GM.dash.on), arcs: ARC_POOL.filter(a => a.on).length, beams: GBEAM_POOL.filter(a => a.on).length, slashes: SLASH_POOL.filter(a => a.on).length, ribbons: STAR.rib.filter(r => r.mesh.visible).length + (GM.ribDash && GM.ribDash.mesh.visible ? 1 : 0), cast: !!GM.cast, pose: GM.pose.kind }; },
   clearFx() { gemClearFx(); }, tune: GEM_TUNING, defs: { skills: GEM_SKILLS.map(s => s.id), supports: GEM_SUPPORTS.map(s => s.id) }, core: { gemResolve, gemFinal, gemSockets, gemTable, gemCompareSupport, gemGen, gemCollect, gemXpNext },

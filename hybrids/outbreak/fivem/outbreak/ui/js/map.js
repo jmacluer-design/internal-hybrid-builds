@@ -333,7 +333,7 @@
     // zone names are drawn AFTER the buildings and piles (so nothing covers them), on a dark pill, and never over each other: a label that would overlap
     // one already drawn tries the other side of its zone, then is skipped (zoom in to see it)
     drawZoneLabels(ctx, st) {
-      if (this.s <= 1.4) return;
+      if (this.s <= 2.2) return; // at a wider zoom the names would sit on top of the colonists
       const fs = Math.max(10, this.rem * 0.68), placed = [];
       ctx.font = '600 ' + fs + 'px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
       for (const z of st.zones) {
