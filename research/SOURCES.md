@@ -24,11 +24,21 @@ Shallow clones live OUTSIDE this repo (never committed). Re-pull with e.g.
 | [d07RiV/diabloweb](https://github.com/d07RiV/diabloweb) | c61ef19 (2022-05-17) | none found at repo root (verify before reuse) | Diablo 1 in the browser via WASM (built from the d07RiV/devilution fork); shareware `spawn.mpq` runs without your files, full game needs your own DIABDAT.MPQ uploaded locally |
 | [flareteam/flare-engine](https://github.com/flareteam/flare-engine) | 1969bae (2026-10-04) | GPL-3.0 (`COPYING`) | C++/SDL2 2D Diablo-style action RPG engine with INI-style moddable data; has an Emscripten HTML5 build |
 | [PathOfBuildingCommunity/PathOfBuilding](https://github.com/PathOfBuildingCommunity/PathOfBuilding) | 16de4b8 (2026-09-08) | MIT | PoE build planner (Lua): `src/TreeData` (passive tree), `src/Data` (gems, bases, bosses, mods), `src/Modules` (damage calc). 1.1 GB |
+| [ryankopf/colony](https://github.com/ryankopf/colony) | e9a8f2b (2023-08-20) | MIT / Apache-2.0 | Bevy colony sim, early: `src/needs.rs`, `task_system/`, `thinking_system.rs`, `movetoward_system.rs` (A*), `seasons.rs`, `spoilage_system.rs`, `monstergenerator_system.rs` |
+| [Blecki/dwarfcorp](https://github.com/Blecki/dwarfcorp) | 45a1c39 (2020-07-04) | modified MIT (code free; art/audio/music not redistributable) | C#/XNA 3D dwarf colony: `DwarfCorp/TaskManagement/Tasks`, `DwarfCorp/Components/AI`. 735 MB with assets |
+| [indiv0/colonize](https://github.com/indiv0/colonize) | 47b6236 (2021-07-31) | GPL-3.0 | Rust/Bevy "Dwarf Fortress / RimWorld-like"; only fBm voxel terrain, no jobs or mood yet |
+| [pardeike/Harmony](https://github.com/pardeike/Harmony) | 38ba4c6 (2026-10-09) | MIT | .NET runtime patching library used by nearly every RimWorld mod; `Documentation/`, `Harmony/` |
+| [demiurgeQuantified/StatsAPI](https://github.com/demiurgeQuantified/StatsAPI) | 7de1361 (2024-11-18) | none found (verify before reuse) | Project Zomboid: Lua reimplementation of stat calculations and moodles; archived |
+| [gotmayonase/pz-modding-guide](https://github.com/gotmayonase/pz-modding-guide) | ce2ec95 (2026-04-05) | none found (verify before reuse) | Project Zomboid Build 42 modding guide (mod structure, item/recipe scripting, Lua, multiplayer) |
+| [FWolfe/Zomboid-Modding-Guide](https://github.com/FWolfe/Zomboid-Modding-Guide) | 8d3a126 (2023-01-21) | none found (verify before reuse) | Older Zomboid modding guide, archived |
+| [cocolabs/pz-zdoc](https://github.com/cocolabs/pz-zdoc) | 7b87b08 (2021-03-20) | `LICENSE.txt` | ZomboidDoc: compiles an annotated Lua library from the modding API for IDE autocomplete |
+| [PZ-Wiki-Modding/PZ-API-Docs](https://github.com/PZ-Wiki-Modding/PZ-API-Docs) | 62e4651 (2026-09-24) | `LICENSE` | Compiled Project Zomboid modder API documentation |
 
 ## Found, not pulled (verify before relying on)
 - Curated lists: [bobeff/open-source-games](https://github.com/bobeff/open-source-games) (Xonotic, Cube 2, Red Eclipse, Liblast, Surreal Engine, OpenGOAL, SRB2, OpenMW, Veloren, SuperTuxKart, Zelda TP decomp...)
 - GTA-style bases: OpenLiberty ([openfw-game](https://github.com/openfw-game), Godot, needs your GTA data), re3-gd, GTA7 (three.js vertical slice)
 - Diablo 2 / PoE: OpenDiablo2 (Go, GPL-3.0, archived 2021; successor [AbyssEngine](https://github.com/AbyssEngine), not playable), PoESkillTree (C#), poe-optimizer, poe2-toolkit (MIT, TypeScript passive-tree extraction), BYTEPATH (MIT arcade shooter with a huge skill tree). No open-source PoE clone game found.
+- RimWorld / Project Zomboid: both are closed-source commercial games (no code to clone). Not pulled: DFHack (C++), noxfutura (Rust, Dwarf Fortress-like, stale), DwarfCorp-like browser sims (Colony Adventure, Pixel Colony: no confirmed public source)
 - Action-RPG candidates not pulled: Veloren (GPL-3.0, official source on GitLab), Loot Master (GPL-3.0, GitLab), OpenMW / Daggerfall Unity / OpenEnroth (engine remakes; large)
 - Swing prototype: GabrielGameDev/SpiderMan2DWebSwing (Unity, 2D; linked from its itch.io page, unopened)
 - No open-source repo found for: web-swing city traversal, Flick-It skating, colossus climbing.
