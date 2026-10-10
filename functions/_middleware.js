@@ -5,7 +5,12 @@
 //
 // Rotate:  PATCH /accounts/<id>/pages/projects/internal-hybrid-builds  {"deployment_configs":{"production":{"env_vars":{"SITE_PASS":{"type":"secret_text","value":"<new>"},"SITE_USER":{"type":"secret_text","value":"<login email>"}}}}}
 //          (or dashboard: Workers & Pages -> internal-hybrid-builds -> Settings -> Variables and Secrets), then redeploy.
-// Swap for Cloudflare Access (email login) later by deleting this file.
+//
+// Second door (optional): Cloudflare Access email login. Put an Access app (one-time PIN, allowlisted emails) on the
+// *.pages.dev hostname and set the secrets ACCESS_TEAM (team name, i.e. <team>.cloudflareaccess.com) and ACCESS_AUD
+// (the app's Audience tag). A request carrying a valid Access JWT then passes without the password. Both unset = Access
+// is ignored and nothing changes. The JWT is verified here (signature, audience, issuer, expiry), never just trusted.
+// Setup: ACCESS.md.
 
 const enc = new TextEncoder();
 
@@ -31,6 +36,39 @@ function credsFrom(header) {
   } catch (_) { return null; }
 }
 
+// ---- Cloudflare Access JWT verification (RS256, keys from https://<team>.cloudflareaccess.com/cdn-cgi/access/certs)
+const b64u = (str) => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(str.length / 4) * 4, '=')), c => c.charCodeAt(0));
+let jwks = { team: '', at: 0, keys: [] };
+
+async function accessKeys(team, force) {
+  if (!force && jwks.team === team && Date.now() - jwks.at < 3600e3) return jwks.keys;
+  if (jwks.team === team && Date.now() - jwks.at < 60e3) return jwks.keys; // don't hammer the certs endpoint
+  const r = await fetch(`https://${team}.cloudflareaccess.com/cdn-cgi/access/certs`);
+  if (!r.ok) throw new Error('certs ' + r.status);
+  jwks = { team, at: Date.now(), keys: (await r.json()).keys || [] };
+  return jwks.keys;
+}
+
+async function accessOk(request, env) {
+  const jwt = request.headers.get('Cf-Access-Jwt-Assertion');
+  if (!jwt || !env.ACCESS_TEAM || !env.ACCESS_AUD) return false;
+  try {
+    const [h, p, sig] = jwt.split('.');
+    if (!h || !p || !sig) return false;
+    const head = JSON.parse(new TextDecoder().decode(b64u(h)));
+    if (head.alg !== 'RS256') return false;
+    let jwk = (await accessKeys(env.ACCESS_TEAM, false)).find(k => k.kid === head.kid);
+    if (!jwk) jwk = (await accessKeys(env.ACCESS_TEAM, true)).find(k => k.kid === head.kid); // key rotation
+    if (!jwk) return false;
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    if (!(await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64u(sig), enc.encode(h + '.' + p)))) return false;
+    const c = JSON.parse(new TextDecoder().decode(b64u(p)));
+    const now = Date.now() / 1000;
+    const aud = Array.isArray(c.aud) ? c.aud : [c.aud];
+    return aud.includes(env.ACCESS_AUD) && c.iss === `https://${env.ACCESS_TEAM}.cloudflareaccess.com` && typeof c.exp === 'number' && c.exp > now && !(c.nbf && c.nbf > now + 60);
+  } catch (_) { return false; }
+}
+
 export async function onRequest({ request, env, next }) {
   if (!env.SITE_PASS) {
     return new Response('gate not configured', { status: 503, headers: { 'Cache-Control': 'no-store' } });
@@ -39,7 +77,7 @@ export async function onRequest({ request, env, next }) {
   // evaluate both compares unconditionally so a wrong username and a wrong password take the same path
   const passOk = given !== null && await safeEqual(given.pass, env.SITE_PASS);
   const userOk = !env.SITE_USER || (given !== null && await safeEqual(given.user.trim().toLowerCase(), env.SITE_USER.trim().toLowerCase()));
-  if (!passOk || !userOk) {
+  if (!(passOk && userOk) && !(await accessOk(request, env))) {
     return new Response('Private.', {
       status: 401,
       headers: {
