@@ -266,6 +266,7 @@
   .hk { display:flex; flex-direction:column; align-items:center; gap:1px; } .hk b { font-size:.7em; color:#fff4d8; } .hk small { font-size:.56em; letter-spacing:.06em; color:#a9bccb; }
   .gdP { font-weight:600; line-height:1.4; color:#cfe0ec; font-size:.9em; margin:.2em 0; } .gdSep { height:1px; background:rgba(255,255,255,.14); margin:.4em 0; } .gdH { margin:.7em 0 .25em; font-size:.7em; letter-spacing:.24em; color:#9fd8ff; font-weight:800; }
   .gdBar { position:relative; height:1.3em; border-radius:999px; background:rgba(255,255,255,.1); overflow:hidden; margin:.3em 0; } .gdBar i { position:absolute; inset:0 auto 0 0; background:linear-gradient(90deg,#53e0d0,#8af7e6); } .gdBar span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:.7em; font-weight:800; color:#04202a; }
+  .gdAct { margin-top:auto; display:grid; grid-template-columns:1fr 1fr; gap:6px; padding-top:.7em; } .gdAct button { font:inherit; font-size:.72em; font-weight:800; letter-spacing:.08em; padding:.5em .4em; border-radius:12px; border:1.5px solid rgba(255,255,255,.3); background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.05)); color:#eaf6ff; cursor:pointer; } .gdAct button:first-child { background:linear-gradient(180deg,#fff2b0,#ffc54a); color:#2a1400; border-color:rgba(255,235,170,.7); } .gdAct button:disabled { opacity:.35; cursor:default; } .gdAct button:last-child { grid-column:1 / 3; }
   .gdHint { padding:.4em .7em; border-radius:10px; background:rgba(83,224,208,.16); border:1px solid #53e0d0; color:#bffff6; font-weight:800; letter-spacing:.08em; font-size:.8em; margin-bottom:.5em; } .gdFoot { margin-top:auto; font-size:.66em; letter-spacing:.06em; color:#8195a6; line-height:1.4; padding-top:.5em; }
   /* character select */
   #chars { background:none; z-index:10; } #chars.hidden { display:none !important; }
@@ -6850,6 +6851,14 @@ function gemDetailLines(sel) { // shared by the DOM tab and the VR panel
   return L;
 }
 function gemCellHTML(spec, g, focus, extra) { const d = g && GEM_BY_ID[g.id]; return `<div class="gc${focus ? ' focus' : ''}${g ? ' t' + d.tier : ''}${extra || ''}" data-gz="${spec}">${g ? `<canvas data-gu="${spec}"></canvas><span class="gl">${g.lv}</span>${g.lk ? '<span class="gk">&#9679;</span>' : ''}` : ''}</div>`; }
+function gemActLabels(sel, tg) { // labels of the five actions for the current selection (shared by the DOM tab and the VR panel)
+  const zone = sel.zone, hasG = !!sel.gem, skill = hasG && gemIsSkill(sel.gem.id);
+  return {
+    A: tg && zone === 'gem' ? 'PLACE HERE' : zone === 'gem' ? (hasG ? 'SOCKET' : '-') : zone === 'sock' ? (hasG ? 'TAKE OUT' : 'SOCKET A GEM') : zone === 'stash' ? (hasG ? 'TAKE' : '-') : 'CYCLE SKILL',
+    X: zone === 'sock' ? (skill ? 'BIND HOTBAR' : '-') : zone === 'gem' ? (hasG ? 'TO STASH' : '-') : zone === 'stash' ? (hasG ? 'TO BAG' : '-') : 'CLEAR SLOT',
+    Y: hasG ? (sel.gem.lk ? 'UNLOCK' : 'LOCK') : '-', RT: zone === 'gem' ? 'SALVAGE x2' : zone === 'sock' && sel.key !== 'core' ? 'RESOCKET x2' : '-', LT: 'SORT GEM BAG',
+  };
+}
 function gemsHTML() {
   const sel = guSel(), tg = GU.tgt;
   const rows = GEM_ROWS.map((k, r) => {
@@ -6863,11 +6872,12 @@ function gemsHTML() {
   const lead = tg ? `<div class="gdHint">CHOOSE A GEM FOR THE <b>${GEM_COLORS[gemSockets(gemRowItem(GEM_ROWS[tg.row])).colors[tg.j]].name.toUpperCase()}</b> SOCKET  &middot;  B cancels</div>` : '';
   return `<div class="pnl colSk"><h3>SOCKETS &middot; LINKS</h3>${rows}<div class="gdFoot">Linked sockets (the bar between them) share supports. Matching gem and socket colour: +1 level.</div></div>
   <div class="pnl colGem"><h3>HOTBAR</h3><div class="hotRow">${hot}</div><h3>GEM BAG ${RP.gems.filter(Boolean).length} / ${GEM_TUNING.bagN}</h3><div class="gemGrid">${bag}</div><h3 style="margin-top:.5em">SHARED STASH ${RP.stash.filter(Boolean).length} / ${GEM_TUNING.stashN}</h3><div class="stashGrid">${stash}</div></div>
-  <div class="pnl colTip" id="gemTip">${lead}${det}</div>`;
+  <div class="pnl colTip" id="gemTip">${lead}${det}<div class="gdAct">${(() => { const L = gemActLabels(sel, tg); return ['A', 'X', 'Y', 'RT', 'LT'].map(k => `<button data-ga="${k}"${L[k] === '-' ? ' disabled' : ''}>${L[k]}</button>`).join(''); })()}</div></div>`;
 }
 function gemsPaint(body) { body.querySelectorAll('canvas[data-gu]').forEach(cv => { const g = guGemAt(cv.dataset.gu); if (g) gemDrawIcon(cv, g); }); }
 const _rpgRenderInv3 = rpgRenderInv; rpgRenderInv = function () { _rpgRenderInv3(); if (RUI.open && RUI.tab === 5 && !VR.presenting) { gemsPaint($('invBody')); const K = (cls, t, lab) => `<span><i class="kk ${cls}">${t}</i>${lab}</span>`; $('invFoot').innerHTML = K('a', 'A', 'Socket / take') + K('x', 'X', 'Hotbar / stash') + K('y', 'Y', 'Lock') + K('t', 'RT', 'Salvage / resocket (x2)') + K('t', 'LT', 'Sort') + K('t', 'LB RB', 'Tabs') + K('b', 'B', 'Close'); } };
 $('inv').addEventListener('click', e => {
+  if (RUI.open && RUI.tab === 5) { const b = e.target.closest('[data-ga]'); if (b && !b.disabled) { guAct(b.dataset.ga); return; } }
   if (!RUI.open || RUI.tab !== 5) return; const el = e.target.closest('[data-gz]'); if (!el) return; const q = el.dataset.gz.split(':'), now = performance.now(), key = el.dataset.gz, dbl = GU.lastK === key && now - GU.lastT < 450; GU.lastK = key; GU.lastT = now;
   if (q[0] === 'sock') { GU.zone = 'sock'; GU.row = +q[1]; GU.j = +q[2]; } else { GU.zone = q[0]; GU.i = +q[1]; } if (dbl || (GU.tgt && q[0] === 'gem')) guAct('A'); else { rsfx('ui'); rpgRenderInv(); }
 });
@@ -7024,10 +7034,7 @@ function rvGems(c) {
         case 'cmp': rvTxt(c, (l.up ? '▲ ' : l.dn ? '▼ ' : '● ') + l.t, x, y, 28, l.c || '#a9bccb', 700, 'left', iw); y += 36; break;
       }
     }
-    const bw = (iw - 14) / 2, by = y0 + hh - 236, zone = sel.zone, hasG = !!sel.gem, skill = hasG && gemIsSkill(sel.gem.id);
-    const aL = tg && zone === 'gem' ? 'PLACE HERE' : zone === 'gem' ? (hasG ? 'SOCKET' : '-') : zone === 'sock' ? (hasG ? 'TAKE OUT' : 'SOCKET A GEM') : zone === 'stash' ? (hasG ? 'TAKE' : '-') : 'CYCLE SKILL';
-    const xL = zone === 'sock' ? (skill ? 'BIND HOTBAR' : '-') : zone === 'gem' ? (hasG ? 'TO STASH' : '-') : zone === 'stash' ? (hasG ? 'TO BAG' : '-') : 'CLEAR SLOT';
-    const rL = zone === 'gem' ? 'SALVAGE x2' : zone === 'sock' && sel.key !== 'core' ? 'RESOCKET x2' : '-';
+    const bw = (iw - 14) / 2, by = y0 + hh - 236, hasG = !!sel.gem, AL = gemActLabels(sel, tg), aL = AL.A, xL = AL.X, rL = AL.RT;
     rvBtn(c, 'ga:A', x, by, bw, 66, aL, { primary: aL !== '-', dim: aL === '-', fs: 32, r: 18 }); rvBtn(c, 'ga:X', x + bw + 14, by, bw, 66, xL, { dim: xL === '-', fs: 30, r: 18 });
     rvBtn(c, 'ga:Y', x, by + 78, bw, 66, hasG ? (sel.gem.lk ? 'UNLOCK' : 'LOCK') : '-', { dim: !hasG, fs: 32, r: 18 }); rvBtn(c, 'ga:RT', x + bw + 14, by + 78, bw, 66, rL, { dim: rL === '-', fs: 30, r: 18 });
     rvBtn(c, 'ga:LT', x, by + 156, iw, 62, 'SORT GEM BAG', { fs: 30, r: 18 });
