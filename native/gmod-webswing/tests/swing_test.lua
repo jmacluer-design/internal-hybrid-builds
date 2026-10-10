@@ -130,6 +130,18 @@ T.test("angular momentum about the vertical axis is conserved (conical swing)", 
 	T.lt(r.maxOver, 0.01)
 end)
 
+T.test("the rope does no work: energy drift is second order in dt", function()
+	local g, L = 600, 1000
+	local range = g * L * (1 - cos(rad(60)))
+	local function drift(dt)
+		local r = swing({ g = g, L = L, angle = 60, seconds = 10, dt = dt })
+		return max(abs(r.Emax - r.E0), abs(r.Emin - r.E0)) / range
+	end
+	local d1, d2 = drift(1 / 33), drift(1 / 66)
+	T.note("drift %.5f%% at 33 Hz, %.5f%% at 66 Hz (ratio %.1f; 4 means second order)", d1 * 100, d2 * 100, d1 / d2)
+	T.gt(d1 / d2, 3, "should shrink about 4x when dt halves")
+end)
+
 T.test("a slack rope does nothing", function()
 	local vx, vy, vz, corr = M.constrain(0, 0, 0, 100, 50, -20, 0, 0, 500, 1000, 1 / 66, 600)
 	T.eq(vx, 100) T.eq(vy, 50) T.eq(vz, -20) T.eq(corr, 0)
@@ -236,7 +248,7 @@ local function scoreOf(h, vel, withSim)
 end
 
 T.test("assist: rejects anchors that are too close, too far or not above the body", function()
-	T.eq(scoreOf({ 300, 0, 300 }, 0, false), -math.huge, "too close")
+	T.eq(scoreOf({ 200, 0, 250 }, 0, false), -math.huge, "too close")
 	T.eq(scoreOf({ 4000, 0, 3000 }, 0, false), -math.huge, "out of range")
 	T.eq(scoreOf({ 1000, 0, 20 }, 0, false), -math.huge, "level with the body")
 	T.eq(scoreOf({ 1000, 0, -300 }, 0, false), -math.huge, "below the body")
@@ -266,7 +278,7 @@ end)
 
 T.test("assist: pickBest returns the best candidate's index and ignores rejects", function()
 	local C = {
-		300, 0, 300, -1, 0, 0,     -- too close
+		200, 0, 250, -1, 0, 0,     -- too close
 		2200, 0, 450, -1, 0, 0,    -- far and low
 		900, 0, 800, -1, 0, 0,     -- near and high
 		-800, 0, 700, 1, 0, 0,     -- behind

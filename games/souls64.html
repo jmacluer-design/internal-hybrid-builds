@@ -200,8 +200,9 @@ const $ = id => document.getElementById(id);
 /* ---------- renderer / scene ---------- */
 const canvas = $('c');
 let renderer;
+const SOFT_GL = (() => { try { const c = document.createElement('canvas'), gl = c.getContext('webgl') || c.getContext('experimental-webgl'); if (!gl) return false; const ext = gl.getExtension('WEBGL_debug_renderer_info'), r = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : String(gl.getParameter(gl.RENDERER)); const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); return /swiftshader|llvmpipe|software|softpipe|basic render/i.test(r); } catch (e) { return false; } })();
 try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: !SOFT_GL, powerPreference: 'high-performance' });
 } catch (err) {
   document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99;background:#05070c;color:#d66;font:18px Georgia">WebGL is not available in this browser.</div>');
   throw err;
@@ -529,6 +530,28 @@ function buildArena() {
   { const m = mesh(new THREE.TorusGeometry(24, 3, 5, 5, Math.PI), ruinMat, 0, -4, -96, arena, false, false); m.rotation.z = 0; }
 }
 buildArena();
+/* merge static arena meshes that share a material (fewer draw calls) */
+function mergeStaticMeshes(parent) {
+  const groups = new Map();
+  for (const c of parent.children) { if (!c.isMesh || Array.isArray(c.material) || !c.geometry.index) continue; const k = c.material.uuid + (c.castShadow ? 'c' : 'n') + (c.receiveShadow ? 'r' : 'n'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(c); }
+  const v = new THREE.Vector3(), nrm = new THREE.Vector3(), nm = new THREE.Matrix3();
+  for (const list of groups.values()) {
+    if (list.length < 3) continue; let vc = 0, ic = 0; for (const m of list) { vc += m.geometry.attributes.position.count; ic += m.geometry.index.count; }
+    const pos = new Float32Array(vc * 3), nor = new Float32Array(vc * 3), uv = new Float32Array(vc * 2), idx = new Uint32Array(ic); let vo = 0, io = 0;
+    for (const m of list) {
+      m.updateMatrix(); nm.getNormalMatrix(m.matrix); const g = m.geometry, p = g.attributes.position, n = g.attributes.normal, u = g.attributes.uv;
+      for (let i = 0; i < p.count; i++) {
+        v.fromBufferAttribute(p, i).applyMatrix4(m.matrix); pos.set([v.x, v.y, v.z], (vo + i) * 3);
+        nrm.fromBufferAttribute(n, i).applyMatrix3(nm).normalize(); nor.set([nrm.x, nrm.y, nrm.z], (vo + i) * 3); uv.set([u.getX(i), u.getY(i)], (vo + i) * 2);
+      }
+      for (let i = 0; i < g.index.count; i++) idx[io + i] = g.index.array[i] + vo;
+      vo += p.count; io += g.index.count; parent.remove(m); g.dispose();
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    const mm = new THREE.Mesh(geo, list[0].material); mm.castShadow = list[0].castShadow; mm.receiveShadow = list[0].receiveShadow; parent.add(mm);
+  }
+}
+mergeStaticMeshes(arena);
 
 /* ambient embers (GPU-animated) */
 const embers = (() => {
@@ -2323,6 +2346,16 @@ $('cta').addEventListener('click', () => startGame());
 $('cta2').addEventListener('click', () => retry());
 $('pause').addEventListener('click', () => resumeGame());
 window.addEventListener('resize', resize);
+const QUAL = { q: 1, max: 1, soft: false, shadows: true, applied: -1 };
+function detectSoftwareGL() {
+  try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); const r = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : String(gl.getParameter(gl.RENDERER)); return /swiftshader|llvmpipe|software|softpipe|basic render/i.test(r); } catch (e) { return false; }
+}
+function applyQuality() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1) * QUAL.q; renderer.setPixelRatio(dpr); renderer.setSize(window.innerWidth, window.innerHeight, false);
+  const sh = QUAL.shadows && QUAL.q > 0.7; if (moon.castShadow !== sh) moon.castShadow = sh; QUAL.applied = QUAL.q;
+  U_SCALE.value = window.innerHeight * renderer.getPixelRatio() / (2 * Math.tan(camera.fov * Math.PI / 360));
+}
+function setQuality(q, hold) { QUAL.q = clamp(q, 0.15, 1); QUAL.hold = !!hold; applyQuality(); }
 function resize() {
   const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.fov = cam.fov; camera.updateProjectionMatrix();
@@ -2364,7 +2397,7 @@ let lastT = performance.now(), acc = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   let dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
-  pollInput();
+  const _p0 = performance.now(); pollInput();
   // keyboard / pad confirm on overlays
   const menuOpen = !$('menu').classList.contains('hidden');
   if (menuOpen && (game.state === 'menu' || game.menuPaused) && (I.ePress || I.bufJump > 0 || I.bufFire > 0 || keys.has('enter'))) startGame();
@@ -2376,13 +2409,23 @@ function frame(now) {
     if (n >= 24) acc = 0;
     I.ePress = false;
   } else { I.ePress = false; }
+  const _p1 = performance.now();
   if (!game.paused) { updateCamera(dt); updateVisuals(dt); } else updateCamera(0);
-  updateHUD(dt);
+  updateHUD(dt); const _p2 = performance.now();
   // graceful degradation: when the GPU cannot keep up (software rendering, weak iGPU), keep input + simulation at full rate and draw less often
-  if (lastRenderAt > 0) { const gap = now - lastRenderAt; if (gap > 45) skipUntil = now + Math.min(700, gap * 1.4); else if (gap < 30) skipUntil = 0; lastRenderAt = 0; }
-  if (now >= skipUntil) { renderer.render(scene, camera); lastRenderAt = now; }
+  // adaptive resolution: software GL / weak iGPUs get a smaller internal resolution so input and simulation stay responsive
+  if (!QUAL.hold) {
+    if (lastRenderAt > 0) {
+      const gap = now - lastRenderAt; lastRenderAt = 0;
+      if (gap > 40) { slowFrames++; fastFrames = 0; if (slowFrames >= 2 && QUAL.q > 0.15) { QUAL.q = Math.max(0.15, QUAL.q * (gap > 200 ? 0.5 : 0.78)); slowFrames = 0; applyQuality(); } }
+      else if (gap < 22) { fastFrames++; slowFrames = 0; if (fastFrames > 150 && QUAL.q < QUAL.max) { QUAL.q = Math.min(QUAL.max, QUAL.q * 1.2); fastFrames = 0; applyQuality(); } }
+      else { slowFrames = 0; }
+    }
+  } else lastRenderAt = 0;
+  const _p3 = performance.now(); renderer.render(scene, camera); lastRenderAt = now; PERF.sim = PERF.sim * .9 + (_p1 - _p0) * .1; PERF.vis = PERF.vis * .9 + (_p2 - _p1) * .1; PERF.render = PERF.render * .9 + (performance.now() - _p3) * .1;
 }
-let lastRenderAt = 0, skipUntil = 0;
+const PERF = { sim: 0, vis: 0, render: 0 };
+let lastRenderAt = 0, slowFrames = 0, fastFrames = 0;
 
 /* ---------- debug / test API ---------- */
 window.__dbg = () => {
@@ -2402,17 +2445,21 @@ Object.assign(window.__game, {
   tp(x, z, y) { H.x = x; H.z = z; H.y = y != null ? y : Math.max(0, groundAt(x, z, 30)); H.vx = H.vy = H.vz = 0; H.grounded = y == null; if (y != null) setAct('fall'); },
   setBossHp(v) { B.hp = clamp(v, 1, B.max); }, setHp(v) { H.hp = clamp(v, 0, 8); },
   stagger() { if (B.state === 'idle' || B.state === 'attack') { B.stagger = BT.staggerMax; bossStaggerAdd(1); } },
-  cam, attack(id) { if (B.state === 'idle') { startAttack(id); } }, boss: B, hero: H, state: game,
+  cam, quality(q, hold) { setQuality(q, hold); return { q: QUAL.q, soft: QUAL.soft }; }, attack(id) { if (B.state === 'idle') { startAttack(id); } }, boss: B, hero: H, state: game,
   skipIntro() { if (game.state === 'intro') { game.introT = 4.3; B.state = 'idle'; B.eye = 1; bossSolid.walk = false; bossSolid.top = BT.topStand; } },
   killHero() { if (game.state === 'fight') { H.inv = 0; hurtHero(99, B.x, B.z, 'test'); } }, killBoss() { B.hp = 1; B.phase = 2; bossDamage(5, 0, 'test'); },
   step(sec) { pollInput(); const n = Math.round(sec / TUNING.step); for (let i = 0; i < n; i++) { if (hitStop > 0) { hitStop -= TUNING.step; continue; } simStep(TUNING.step * 1); } I.ePress = false; },
-  info() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }; },
+  perf() { return PERF; }, info() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }; },
   bombAt(x, z) { const b = spawnBomb('arena', x, baseH(x, z) + .65, z, 'idle'); return !!b; }
 });
 
 /* ---------- boot ---------- */
 game.best = loadBest(); $('best').textContent = bestText();
 resetWorld('menu'); resize();
+QUAL.soft = SOFT_GL; if (QUAL.soft) { QUAL.max = 0.25; QUAL.q = 0.2; applyQuality(); }
+for (const k of Object.keys(MK)) freeMarker(getMarker(k));
+{ const hidden = []; scene.traverse(o => { if (!o.visible && (o.isMesh || o.isPoints || o.isSprite)) { hidden.push(o); o.visible = true; } }); try { renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) {} hidden.forEach(o => { o.visible = false; }); }
+try { const qp = new URLSearchParams(location.search).get('q'); if (qp === 'high') { QUAL.soft = false; QUAL.max = 1; setQuality(1, true); } } catch (e) {}
 requestAnimationFrame(frame);
 
 // shelf bridge v3: own server /api -> Supabase (if configured) -> localStorage
@@ -2450,6 +2497,70 @@ requestAnimationFrame(frame);
   }
   poll();
 })();
+// <gamepad-shim>
+// gamepad shim v1: standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
+// Pasted verbatim inside each game's module <script> (needs the contract globals: keys, padFire, padPlace, padLook, padMenu).
+// Mapping (Xbox name / PlayStation name):
+//   left stick = WASD   right stick = look   A/Cross = jump   X/Square = J   B/Circle = Z   Y/Triangle = E
+//   RT/R2 = primary (fire)   LT/L2 = secondary (ADS / place / zip)   LB/L1 = Q   RB/R1 and L3 = Shift   R3 = Q
+//   D-pad = arrow keys   Start/Options = confirm on menu screens, pause/back-to-menu in game   Select/Create = back to menu
+// Browser quirk: the pad is invisible to the page until you press any button once.
+(function(){
+  if(!navigator.getGamepads) return;
+  const DZ=0.16, held=new Set(), was={};
+  const toast=(()=>{ let el,t; return msg=>{
+    if(!el){ el=document.createElement('div');
+      el.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;padding:7px 14px;border-radius:8px;'+
+        'background:rgba(10,12,20,.86);color:#cfe;font:12px ui-monospace,monospace;border:1px solid #3a5;pointer-events:none;transition:opacity .4s;';
+      document.body.appendChild(el); }
+    el.textContent=msg; el.style.opacity=1; clearTimeout(t); t=setTimeout(()=>{ el.style.opacity=0; },2600); }; })();
+  const setKey=(k,on)=>{ if(on){ if(!held.has(k)){ held.add(k); keys.add(k); } } else if(held.has(k)){ held.delete(k); keys.delete(k); } };
+  const axisKeys=(neg,pos,v)=>{ setKey(neg, held.has(neg)? v<-0.22 : v<-0.38); setKey(pos, held.has(pos)? v>0.22 : v>0.38); };
+  const shown=el=>{ if(!el) return false; const s=getComputedStyle(el);
+    return s.display!=='none'&&s.visibility!=='hidden'&&+s.opacity>0.01&&el.getClientRects().length>0; };
+  const click=id=>{ const el=document.getElementById(id); if(shown(el)){ el.click(); return true; } return false; };
+  const edge=(name,on,down,up)=>{ if(on&&!was[name]){ was[name]=1; down&&down(); } else if(!on&&was[name]){ was[name]=0; up&&up(); } };
+  const call=(f,...a)=>{ if(typeof f==='function') f(...a); };
+  const pick=()=>{ for(const g of navigator.getGamepads()) if(g&&g.connected) return g; return null; };
+  let lookLive=false;
+  function releaseAll(){ [...held].forEach(k=>setKey(k,false)); Object.keys(was).forEach(k=>{ if(was[k]) edge(k,false,null,()=>{}); });
+    if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+    if(typeof padFire==='function') padFire(false); if(typeof padPlace==='function') padPlace(false); }
+  addEventListener('gamepadconnected',e=>toast('controller connected: '+String(e.gamepad.id).replace(/\s*\(.*$/,'').slice(0,42)));
+  addEventListener('gamepaddisconnected',()=>{ releaseAll(); toast('controller disconnected'); });
+  addEventListener('blur',releaseAll);
+  window.__rumble=(strong,weak,ms)=>{ const g=pick(), a=g&&g.vibrationActuator;
+    if(a&&a.playEffect) a.playEffect('dual-rumble',{duration:ms||80,strongMagnitude:strong||0,weakMagnitude:weak||0}).catch(()=>{}); };
+  window.__gpDbg=()=>({ connected:!!pick(), held:[...held] });
+  function frame(){
+    const g=pick();
+    if(g){
+      const b=i=>{ const x=g.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+      // sticks (radial deadzone)
+      const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ) return [0,0]; const s=(Math.min(m,1)-DZ)/(1-DZ)/m; return [x*s,y*s]; };
+      const [lx,ly]=dz(g.axes[0]||0,g.axes[1]||0);
+      axisKeys('a','d',lx); axisKeys('w','s',ly);
+      const [rx,ry]=dz(g.axes[2]||0,g.axes[3]||0);
+      const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+      if(rx||ry){ lookLive=true; call(typeof padLook==='function'?padLook:null,cv(rx),cv(ry)); }
+      else if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+      // face / shoulder buttons -> keys
+      setKey(' ',b(0)); setKey('z',b(1)); setKey('j',b(2)); setKey('e',b(3));
+      setKey('q',b(4)||b(11)); setKey('shift',b(5)||b(10));
+      setKey('arrowup',b(12)); setKey('arrowdown',b(13)); setKey('arrowleft',b(14)); setKey('arrowright',b(15));
+      // triggers -> primary / secondary
+      edge('rt',b(7),()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); },()=>call(typeof padFire==='function'?padFire:null,false));
+      edge('lt',b(6),()=>call(typeof padPlace==='function'?padPlace:null,true),()=>call(typeof padPlace==='function'?padPlace:null,false));
+      // A also confirms on start / retry screens; Start confirms there, pauses in game
+      edge('a',b(0),()=>{ if(!click('cta')) click('cta2'); });
+      edge('start',b(9),()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); });
+      edge('select',b(8),()=>call(typeof padMenu==='function'?padMenu:null));
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+// </gamepad-shim>
 </script>
 </body>
 </html>

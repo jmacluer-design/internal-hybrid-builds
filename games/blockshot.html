@@ -295,7 +295,7 @@ const TUNING = {
   },
   spawn: { first: 7, dayCap: 4, nightCap: 10, capGrowEvery: 50, capGrowMax: 8, perRoleDay: 2.4, perRoleNight: 1.0, minDist: 20, maxDist: 38, despawn: 66, speedGrow: 0.25 },
   tnt: { radius: 4, fuseHit: 0.3, fuseChain: [0.12, 0.5], playerDmg: 110, mobDmg: 220, knock: 11 },
-  grenade: { speed: 16, up: 3.2, gravity: 22, fuse: 1.6, radius: 4, max: 3, regen: 8, cooldown: 0.9 },
+  grenade: { speed: 16, up: 3.2, gravity: 22, fuse: 1.8, landFuse: 0.9, radius: 4, max: 3, regen: 8, cooldown: 0.9 },
   streak: { uavAt: 3, strikeEvery: 5, uavTime: 20, bombs: 9, bombRadius: 3.2, strikeDelay: 1.6, strikeLen: 22 },
   score: { kill: 100, head: 50, streakBonus: 50 },
 };
@@ -834,11 +834,11 @@ let worldSeed = 1;
 function terrainHeight(x, z, seed) {
   const n1 = fbm2(x * 0.011, z * 0.011, 5, seed), n2 = fbm2(x * 0.032 + 50, z * 0.032 + 90, 3, seed + 7);
   const dx0 = (x - 63.5) / 64, dz0 = (z - 63.5) / 64, d0 = Math.sqrt(dx0 * dx0 + dz0 * dz0);
-  let h = 26 + (n1 - 0.5) * 56 + (n2 - 0.5) * 9 + 7 * (1 - smoothstep(0, 0.75, d0));
+  let h = 29.5 + (n1 - 0.5) * 56 + (n2 - 0.5) * 9 + 6 * (1 - smoothstep(0, 0.75, d0));
   const m = Math.max(0, fbm2(x * 0.0085 + 300, z * 0.0085 + 300, 4, seed + 3) - 0.5);
   h += m * m * 300;
   h = lerp(h, Math.max(h, 24.5), 1 - smoothstep(0.22, 0.5, d0));      // guaranteed dry land core around the spawn
-  const dx = (x - 63.5) / 64, dz = (z - 63.5) / 64, d = Math.sqrt(dx * dx + dz * dz), edge = smoothstep(0.6, 1.02, d);
+  const dx = (x - 63.5) / 64, dz = (z - 63.5) / 64, d = Math.pow(Math.pow(Math.abs(dx), 4) + Math.pow(Math.abs(dz), 4), 0.25), edge = smoothstep(0.8, 1.04, d);
   h = h * (1 - edge) + 12 * edge;
   return Math.max(2, Math.min(WY - 12, Math.floor(h)));
 }
@@ -2177,7 +2177,7 @@ function updateNades(dt) {
   for (let i = nades.length - 1; i >= 0; i--) {
     const n = nades[i]; n.fuse -= dt; n.vy -= GR.gravity * dt;
     const pv = n.vy;
-    if (moveAxis(n, 1, n.vy * dt)) { n.vy = Math.abs(pv) > 2.5 ? -pv * 0.4 : 0; n.vx *= 0.72; n.vz *= 0.72; if (Math.abs(pv) > 3) sfx.bounce(n.x, n.y, n.z); }
+    if (moveAxis(n, 1, n.vy * dt)) { if (pv < 0) n.fuse = Math.min(n.fuse, GR.landFuse); n.vy = Math.abs(pv) > 2.5 ? -pv * 0.4 : 0; n.vx *= 0.72; n.vz *= 0.72; if (Math.abs(pv) > 3) sfx.bounce(n.x, n.y, n.z); }
     if (moveAxis(n, 0, n.vx * dt)) { n.vx *= -0.45; sfx.bounce(n.x, n.y, n.z); }
     if (moveAxis(n, 2, n.vz * dt)) { n.vz *= -0.45; sfx.bounce(n.x, n.y, n.z); }
     n.beep -= dt; if (n.beep <= 0) { n.beep = Math.max(0.1, n.fuse * 0.3); sfx.beep(n.x, n.y, n.z); }

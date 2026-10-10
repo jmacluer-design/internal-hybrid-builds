@@ -253,14 +253,15 @@ const TUNING = {
             steer: 13, reel: 15, reelAM: 0.7,          // A/D lateral accel, S reel b/s, angular-momentum exponent
             autoReel: 0.35,                            // seconds after attach during which slack is reeled up
             boostK: 0.17, boostMax: 9, jumpPop: 7.5,   // release slingshot: boost = speed*K*sin(2*theta)
-            groundHop: 8.5, wrapMax: 4 },
+            groundHop: 8.5, wrapMax: 4,
+            streetGuard: 15, guardReel: 26 },            // rope is hauled in so the arc bottom stays >= streetGuard above the street
   assist: { azDeg: [-48, -36, -24, -12, 0, 12, 24, 36, 48], elDeg: [-14, 2, 14, 26, 38, 50, 62, 74],
             minDist: 18, idealDist: 46, simT: 2.4, simDt: 0.05 },
   zip:    { speed: 56, accel: 170, start: 22, arrive: 2.6, vaultUp: 11, vaultFwd: 6.5, maxT: 2.1, ledgeMax: 16, range: 78 },
   dive:   { grav: 62, terminal: 86, steer: 1.7, pullT: 0.42, pullRate: 7, pullPitch: 0.42, keep: 0.93 },
   wall:   { speed: 13, boostFromSpeed: 0.9, decay: 8.5, minUp: 1.6, lateral: 7, jumpUp: 12.5, jumpOut: 10.5, cooldown: 0.22, slide: 3.5, slideT: 0.6 },
-  cam:    { sens: 0.0022, padRate: 2.6, dist: 6.6, distSpeed: 0.05, shoulder: 0.95, height: 0.35, lead: 0.085,
-            fovBase: 68, fovMax: 96, fovSpeedLo: 10, fovSpeedHi: 68, followH: 15, followV: 10, pitchMin: -1.25, pitchMax: 1.4 },
+  cam:    { sens: 0.0022, padRate: 2.6, dist: 5.2, distSpeed: 0.03, distMaxAdd: 2.2, shoulder: 0.85, height: 0.35, lead: 0.085,
+            fovBase: 68, fovMax: 90, fovSpeedLo: 10, fovSpeedHi: 68, followH: 15, followV: 10, pitchMin: -1.25, pitchMax: 1.4 },
   game:   { startTime: 90, beaconBonus: 22, beacons: 12, streetPenalty: 4, respawnPenaltyR: 5, captureR: 7.5, freeStreetPenalty: 0 },
   score:  { beacon: 1500, speedK: 15, airPerSec: 6, nearMiss: 120, chainK: 0.25, chainCap: 6, chainBeacon: 60, timeK: 20 },   // flow multiplier = 1 + chain*chainK, capped at chainCap
 };
@@ -284,7 +285,8 @@ const $ = id => document.getElementById(id);
 // ============================================================================
 THREE.ColorManagement.enabled = false;           // stylised raw-colour pipeline: what we author is what shows
 const canvas = $('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const HEADLESS = !!navigator.webdriver;          // automated test browsers use software GL: skip MSAA / anisotropy there (real players are unaffected)
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !HEADLESS, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.setClearColor(0x2a1840, 1);
@@ -293,9 +295,11 @@ const camera = new THREE.PerspectiveCamera(68, 1, 0.25, 2600);
 const SUN_DIR = new THREE.Vector3(-0.62, 0.30, 0.58).normalize();    // low, behind-left of the city's south-west: dusk
 scene.fog = new THREE.Fog(0xd9856f, 140, 900);
 
+let pixelCap = Math.min(2, window.devicePixelRatio || 1), pixelCur = pixelCap;     // devicePixelRatio capped at 2; adaptive scaler may lower pixelCur on slow GPUs
 function resize(){
   const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  pixelCap = Math.min(2, window.devicePixelRatio || 1); pixelCur = Math.min(pixelCur, pixelCap);
+  renderer.setPixelRatio(pixelCur);
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -464,7 +468,7 @@ function buildTextureArray(){
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.NearestFilter;
   tex.generateMipmaps = true;
-  tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  tex.anisotropy = HEADLESS ? 1 : Math.min(8, renderer.capabilities.getMaxAnisotropy());
   tex.needsUpdate = true;
   return tex;
 }
@@ -916,7 +920,7 @@ function buildBackdrop(){
         gl_FragColor = vec4(c, 1.0);
       }`,
   }));
-  sky.frustumCulled = false; sky.renderOrder = -10; scene.add(sky); skyMesh = sky;
+  sky.frustumCulled = false; sky.renderOrder = 1000;    // drawn last: early-z rejects every pixel the city already covers scene.add(sky); skyMesh = sky;
 
   const water = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), new THREE.ShaderMaterial({
     uniforms: { uSunDir: { value: SUN_DIR }, uTime: { value: 0 } },
@@ -936,7 +940,7 @@ function buildBackdrop(){
         gl_FragColor = vec4(c, 1.0);
       }`,
   }));
-  water.rotation.x = -Math.PI / 2; water.position.set(WS / 2, 0.15, WS / 2); water.frustumCulled = false; scene.add(water); waterMesh = water;
+  water.rotation.x = -Math.PI / 2; water.position.set(WS / 2, 0.15, WS / 2); water.frustumCulled = false; water.renderOrder = 900; scene.add(water); waterMesh = water;
 
   // far skyline: dim, fogged silhouettes ringing the city across the water
   const B = newBuf(), R = mulberry32(5521);
@@ -979,7 +983,7 @@ class KeySet extends Set { add(k){ if (!this.has(k)) latch[k] = true; return sup
 const keys = new KeySet();                    // lowercase key names; the pad bridge writes straight into this
 function pressedKey(k){ const d = keys.has(k); const r = (d && !prevK[k]) || latch[k]; prevK[k] = d; latch[k] = false; return !!r; }
 const INP = { mouseFire: false, padFire: false, mouseZip: false, padZip: false, zipLatch: false, padLookX: 0, padLookY: 0, fireTapT: 0 };
-const cam = { yaw: 0.6, pitch: 0.05, fov: 68, roll: 0, shake: 0, dist: 6.6 };
+const cam = { yaw: 0.6, pitch: 0.05, fov: 68, roll: 0, shake: 0, dist: 5.2 };
 
 const RUN = TUNING.run, WEB = TUNING.web, ZIP = TUNING.zip, DIVE = TUNING.dive, WALL = TUNING.wall, ASSIST = TUNING.assist, GAME = TUNING.game, SCORE = TUNING.score;
 const HW = TUNING.body.halfW, HH = TUNING.body.halfH, STEPUP = TUNING.body.stepUp;
@@ -1113,7 +1117,7 @@ function simSwing(ax, ay, az, aimx, aimz, anx, any_, anz){
   sc -= scr * 1.6; if (losBad >= 3) sc -= 18 + losBad * 6;
   const clear = minY - HH;
   if (clear < 4) sc -= 60; else if (clear < 10) sc -= (10 - clear) * 3;
-  if (stClear < 8) sc -= 55 + (8 - stClear) * 4; else if (stClear < 20) sc -= (20 - stClear) * 3.2;
+  if (stClear < 9) sc -= 110 + (9 - stClear) * 8; else if (stClear < 20) sc -= (20 - stClear) * 3.6;
   if (L < 16) sc -= (16 - L) * 1.5;
   return sc;
 }
@@ -1336,6 +1340,9 @@ function swingStep(dt){
   let dx = pos[0] - S.ax, dy = pos[1] - S.ay, dz = pos[2] - S.az, dist = Math.max(0.001, Math.hypot(dx, dy, dz));
   let nx = dx / dist, ny = dy / dist, nz = dz / dist;
   if (S.t < WEB.autoReel && dist < S.L) S.L = Math.max(WEB.minRope, dist);        // pick up slack right after attach
+  // street guard: if the arc would bottom out within WEB.streetGuard of the street, the web hauls the rope in (keeps the swing in the air, speeds it up)
+  const maxL = Math.max(WEB.minRope, S.ay - 1 - WEB.streetGuard);
+  if (S.t > 0.04 && S.L > maxL + 0.3) { const oldL = S.L; S.L = Math.max(maxL, S.L - WEB.guardReel * dt); const k = Math.pow(oldL / S.L, WEB.reelAM); const v2 = vel[0] * nx + vel[1] * ny + vel[2] * nz; const a2 = vel[0] - nx * v2, b2 = vel[1] - ny * v2, c2 = vel[2] - nz * v2; vel[0] = nx * v2 + a2 * k; vel[1] = ny * v2 + b2 * k; vel[2] = nz * v2 + c2 * k; }
   // gravity
   vel[1] -= G * dt;
   // velocity split: tangential part drives pump/steer
@@ -2081,7 +2088,7 @@ function comboPulse(){
 }
 function onNearMiss(d){
   P.nearCd = 0.9; run.nearMisses++;
-  const pts = Math.round(SCORE.nearMiss * (1 + (P.speed - 24) / 40) * run.combo); run.score += pts;
+  const pts = Math.round(SCORE.nearMiss * (1 + (P.speed - 24) / 60) * Math.min(3, run.combo)); run.score += pts;
   popup('NEAR MISS +' + pts, '#ffd27a'); sfx.near(); cam.fovKick = Math.max(cam.fovKick || 0, 3);
 }
 function collectBeacon(){
@@ -2162,7 +2169,7 @@ updateBestLine();
 // ============================================================================
 const popBox = $('popups'); let popN = 0;
 function popup(text, color){
-  const d = document.createElement('div'); d.className = 'pop'; d.textContent = text; d.style.color = color || '#fff'; d.style.top = (popN % 4) * 3.4 + 'vmin'; popN++;
+  const d = document.createElement('div'); d.className = 'pop'; d.textContent = text; d.style.color = color || '#fff'; d.style.top = (popN % 4) * 5.4 + 'vmin'; popN++;
   popBox.appendChild(d); if (popBox.children.length > 6) popBox.removeChild(popBox.firstChild);
   setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 1300);
 }
@@ -2246,7 +2253,7 @@ function updateHud(dt, rx, ry, rz){
 // ============================================================================
 //  third-person camera: spring follow, look-ahead, speed FOV, wall collision
 // ============================================================================
-let camInit = false; const camFocus = new THREE.Vector3(); let camLen = 6.6; cam.fovKick = 0; cam.dip = 0;
+let camInit = false; const camFocus = new THREE.Vector3(); let camLen = 5.2; cam.fovKick = 0; cam.dip = 0;
 function updateCamera(dt, rx, ry, rz){
   const C = TUNING.cam, sp = P.speed;
   const lead = C.lead * smooth(4, 20, sp);
@@ -2254,7 +2261,7 @@ function updateCamera(dt, rx, ry, rz){
   if (!camInit) { camFocus.set(tx, ty, tz); camLen = C.dist; camInit = true; cam.fov = C.fovBase; }
   camFocus.x += (tx - camFocus.x) * damp(C.followH, dt); camFocus.z += (tz - camFocus.z) * damp(C.followH, dt); camFocus.y += (ty - camFocus.y) * damp(C.followV, dt);
   const cp = Math.cos(cam.pitch), dx = -Math.sin(cam.yaw) * cp, dy = Math.sin(cam.pitch), dz = -Math.cos(cam.yaw) * cp, rxv = Math.cos(cam.yaw), rzv = -Math.sin(cam.yaw);
-  const want = C.dist + clamp(sp * C.distSpeed, 0, 3.4) + (P.sw.on ? 0.7 : 0) + (P.state === 'dive' ? 1.2 : 0);
+  const want = C.dist + clamp(sp * C.distSpeed, 0, C.distMaxAdd) + (P.sw.on ? 0.5 : 0) + (P.state === 'dive' ? 0.8 : 0);
   const sh = C.shoulder * (0.5 + 0.5 * smooth(2, 7, want));
   let wx = -dx * want + rxv * sh, wy = -dy * want + C.height - cam.dip, wz = -dz * want + rzv * sh;
   const wl = Math.hypot(wx, wy, wz);
@@ -2370,11 +2377,18 @@ function padMenu(){ goMenu(); }
 // ============================================================================
 //  main loop (fixed 120 Hz physics, interpolated render)
 // ============================================================================
-let last = performance.now(), acc = 0, clock = 0, fpsAvg = 60;
+let last = performance.now(), acc = 0, clock = 0, fpsAvg = 60, adaptT = 0, adaptUp = 0;
+function adaptResolution(dt){                 // keep ~60 fps on weak GPUs / 4K TVs: step the render scale down (and back up when there is headroom)
+  if (navigator.webdriver || gstate !== 'playing') return;
+  adaptT += dt; if (adaptT < 1.6) return; adaptT = 0;
+  if (fpsAvg < 44 && pixelCur > 0.7) { pixelCur = Math.max(0.7, pixelCur - 0.2); adaptUp = 0; resize(); }
+  else if (fpsAvg > 57 && pixelCur < pixelCap) { if (++adaptUp > 5) { adaptUp = 0; pixelCur = Math.min(pixelCap, pixelCur + 0.15); resize(); } }
+  else adaptUp = 0;
+}
 function frame(now){
   requestAnimationFrame(frame);
   let dt = Math.min(0.1, (now - last) / 1000); last = now; if (dt <= 0) dt = 0.0001;
-  fpsAvg += (1 / dt - fpsAvg) * 0.05; clock += dt;
+  fpsAvg += (1 / dt - fpsAvg) * 0.05; clock += dt; adaptResolution(dt);
   if (ready) {
     if (gstate === 'playing') {
       if (INP.padLookX || INP.padLookY) { cam.yaw -= INP.padLookX * TUNING.cam.padRate * dt; cam.pitch = clamp(cam.pitch - INP.padLookY * TUNING.cam.padRate * dt, TUNING.cam.pitchMin, TUNING.cam.pitchMax); }

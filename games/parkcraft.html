@@ -933,7 +933,7 @@ const LQ = (() => { try {
   if (/[?&]hq\b/.test(location.search)) return false; if (/[?&]lq\b/.test(location.search)) return true;
   const c = document.createElement('canvas'), gl = c.getContext('webgl'); if (!gl) return false; const e = gl.getExtension('WEBGL_debug_renderer_info');
   return !!e && /swiftshader|llvmpipe|software|softpipe/i.test(String(gl.getParameter(e.UNMASKED_RENDERER_WEBGL))); } catch (e) { return false; } })();
-const LQ_SCALE = (() => { const m = /[?&]lqs=([0-9.]+)/.exec(location.search); return m ? clamp(+m[1], 0.2, 1) : 0.75; })();      // software GL renders at 75% resolution (override: ?lqs=0.5)
+const LQ_SCALE = (() => { const m = /[?&]lqs=([0-9.]+)/.exec(location.search); return m ? clamp(+m[1], 0.2, 1) : 0.4; })();      // software GL renders at 40% resolution (override: ?lqs=0.5)
 const renderer = new THREE.WebGLRenderer({ antialias: !LQ, powerPreference: 'high-performance', preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -993,7 +993,7 @@ function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let 
 
 // ground: painted concrete plaza (canvas) + dark outer apron
 function makeParkTexture() {
-  const S = 2048, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'), U = S / (HALF * 2), rr = mulberry(5);
+  const S = LQ ? 1024 : 2048, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'), U = S / (HALF * 2), rr = mulberry(5);
   g.fillStyle = '#7b8093'; g.fillRect(0, 0, S, S);
   for (let sx = 0; sx < 20; sx++) for (let sz = 0; sz < 20; sz++) { const t = rr(); g.fillStyle = t > 0.5 ? `rgba(255,255,255,${(t - 0.5) * 0.10})` : `rgba(10,5,40,${(0.5 - t) * 0.16})`; g.fillRect(sx * 4 * U, sz * 4 * U, 4 * U, 4 * U); }
   for (let i = 0; i < 26000; i++) { g.fillStyle = rr() > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,30,0.07)'; const s = 1 + rr() * 2; g.fillRect(rr() * S, rr() * S, s, s); }
@@ -1026,7 +1026,7 @@ function makeParkTexture() {
   g.fillStyle = '#383a52'; g.fillRect(0, 0, 128, 128); for (let i = 0; i < 900; i++) { g.fillStyle = rr() > .5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.12)'; g.fillRect(rr() * 128, rr() * 128, 2, 2); }
   g.strokeStyle = 'rgba(15,12,40,.5)'; g.lineWidth = 2; g.strokeRect(0, 0, 128, 128);
   const at = new THREE.CanvasTexture(ac); at.colorSpace = THREE.SRGBColorSpace; at.wrapS = at.wrapT = THREE.RepeatWrapping; at.repeat.set(120, 120); at.anisotropy = LQ ? 1 : 4;
-  const am = new THREE.Mesh(new THREE.PlaneGeometry(960, 960), new THREE.MeshLambertMaterial({ map: at }));
+  const am = new THREE.Mesh(new THREE.PlaneGeometry(960, 960), LQ ? new THREE.MeshLambertMaterial({ color: 0x383a52 }) : new THREE.MeshLambertMaterial({ map: at }));
   am.rotation.x = -PI / 2; am.position.y = -0.02; am.receiveShadow = true; scene.add(am);
 }
 scene.add(worldGroup); scene.add(neonMesh);
@@ -2070,6 +2070,7 @@ function updateLoops() {
   LOOP.drag.g.gain.setTargetAtTime(gr && sk.braking && sp > 0.5 ? 0.14 : 0, t, 0.04);
 }
 let slowFrames = 0, fpsAvg = 16, lastFrame = performance.now();
+const PERF = { render: 0, frame: 0, n: 0 };
 function renderFrame() {
   const now = performance.now(), dtr = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now; frameN++;
   fpsAvg += ((dtr * 1000) - fpsAvg) * 0.05;
@@ -2106,9 +2107,16 @@ function renderFrame() {
     if (aimPiece) hiBox.material.color.set(0xff4466);
   } else { ghost.visible = false; ghostEdge.visible = false; hiBox.visible = false; }
   updateHUD(dtr); updateLoops();
-  renderer.render(scene, camera);
+  const tr0 = performance.now(); renderer.render(scene, camera); PERF.render += performance.now() - tr0; PERF.n++; PERF.frame += performance.now() - now;
 }
-function frame() { advance(performance.now()); renderFrame(); requestAnimationFrame(frame); }
+let lastDraw = 0;
+function frame() {
+  const now = performance.now(); advance(now);
+  // software GL: cap drawing to ~14 fps (4 fps behind menus) so rAF callbacks (pad polling, timers) stay responsive
+  const gap = !LQ ? 0 : (state === 'play' ? 100 : 250);
+  if (now - lastDraw >= gap) { lastDraw = now; renderFrame(); }
+  requestAnimationFrame(frame);
+}
 
 /* =====================================================================
    DEBUG / TEST HOOKS
@@ -2140,6 +2148,8 @@ Object.assign(window.__game, {
   setTime(t) { S.time = t; },
   addScore(n) { S.score += n; },
   flush() { flushWorld(); },
+  scene, renderer, camera,
+  perf() { const r = { renderMs: PERF.render / Math.max(1, PERF.n), frameJsMs: PERF.frame / Math.max(1, PERF.n), n: PERF.n }; PERF.render = PERF.frame = PERF.n = 0; return r; },
   info() { const i = renderer.info; return { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, w: renderer.domElement.width, h: renderer.domElement.height, lq: LQ }; },
   freeze(b) { dbgFreeze = !!b; },
 });
@@ -2152,6 +2162,9 @@ if (!loadPark()) buildStarter();
 flushWorld(); flushWorld(); flushWorld(); flushWorld(); flushWorld(); flushWorld();
 buildHotbar(); resetCones(); respawnAtSpawn(); refreshBest(); setModeUI(); setOverlay('menu');
 for (let i = 0; i < 6; i++) flushWorld();
+// warm up: compile every shader program (incl. build-mode ghost) and draw once before the page reports 'load', so the first interactive frames don't stall
+try { ghost.visible = ghostEdge.visible = hiBox.visible = blob.visible = true; rebuildGhost(); renderer.compile(scene, camera); renderFrame(); } catch (e) { }
+ghost.visible = ghostEdge.visible = hiBox.visible = false; lastDraw = performance.now();
 requestAnimationFrame(frame);
 
 // shelf bridge v3: own server /api -> Supabase (if configured) -> localStorage
