@@ -9,6 +9,7 @@ local Peds = require("server.peds")
 local Buildings = require("server.buildings")
 local Ground = require("server.ground")
 local Selftest = require("shared.selftest")
+local Phone = require("server.phone")
 
 local Cmd = { list = {}, stats = { run = 0, denied = 0, failed = 0 } }
 
@@ -80,6 +81,18 @@ function Cmd.register()
 		ff = { left = minutes, total = minutes, player = p }
 		ff_step()
 	end)
+	-- a server-side getter for the phone e2e (tools/phone_e2e.sh) and for you: what the SIM holds, independent of any page. `outbreak_prio c1` lists every work priority of c1,
+	-- `outbreak_prio c1 cook` one of them. A priority set from a phone (order priority) shows up here.
+	command("outbreak_prio", "outbreak_prio <colonist id> [work]  print the work priorities the sim holds", function(p, a)
+		local w = host().world
+		local c = w and a[1] and w:colonist(a[1])
+		if not c then return reply(p, "no such colonist: " .. tostring(a[1])) end
+		local colonist = require("sim.colonist")
+		local out = {}
+		for _, wt in ipairs(colonist.WORK) do if not a[2] or a[2] == wt then out[#out + 1] = wt .. "=" .. tostring(colonist.priority(c, wt)) end end
+		reply(p, "prio " .. c.id .. " " .. table.concat(out, " "))
+	end)
+	command("outbreak_phone", "phone companion status: sessions, calls, refusals", function(p) reply(p, Phone.describe()) end)
 	command("outbreak_hash", "print the sim state hash", function(p) reply(p, host().world and host().world:hash() or "no world") end)
 	command("outbreak_audit", "item conservation check", function(p) local ok, rep = host():debug("audit", {}); reply(p, ok and "audit OK" or ("audit FAILED: " .. table.concat(rep.problems or {}, "; "))) end)
 	command("outbreak_peds", "ped / object budget and counters", function(p)

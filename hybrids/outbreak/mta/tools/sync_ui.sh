@@ -1,9 +1,11 @@
 #!/bin/sh
 # Reuses the finished vanilla NUI (fivem/outbreak/ui) UNCHANGED in the MTA resource:
 #   * every file of the vanilla ui/ folder is copied BYTE-IDENTICALLY into mta/outbreak/ui/ (index.html, css/, js/, fonts/);
-#   * mta/outbreak/ui/mta.html (the page the MTA browser loads) is GENERATED from the vanilla index.html by inserting exactly one line,
+#   * mta/outbreak/ui/mta.html (the page the MTA browser loads in the GTA client) is GENERATED from the vanilla index.html by inserting exactly one line,
 #     <script src="mta-bridge.js"></script>, before the first vanilla script, so the bridge runs before js/core.js;
-#   * mta/outbreak/ui/mta-bridge.js is our own file (not copied, not touched by this script).
+#   * mta/outbreak/ui/phone.html (the page a PHONE browser loads from MTA's HTTP server at /outbreak/) is GENERATED the same way: <script src="phone-bridge.js"> before js/core.js, plus
+#     <base href="/outbreak/ui/"> (the default page is served at /outbreak/, the assets live under /outbreak/ui/), the home-screen title / icons / manifest and a plain <title>;
+#   * the MTA-only files are our own and are neither copied nor touched by this script: mta-bridge.js, phone-bridge.js, phone-manifest.json, phone-icon-*.png (mta/tools/gen_phone_icons.py).
 # `sync_ui.sh check` verifies all of that without writing (used by the tests).
 set -eu
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -11,6 +13,8 @@ src="$(cd "$here/../../fivem/outbreak/ui" && pwd)"
 dst="$here/../outbreak/ui"
 mode="${1:-copy}"
 bridge_line='<script src="mta-bridge.js"></script>'
+phone_line='<script src="phone-bridge.js"></script>'
+OWN='mta-bridge.js phone-bridge.js phone-manifest.json phone-icon-180.png phone-icon-192.png phone-icon-512.png'
 
 generate() { # stdout = mta.html
 	awk -v line="$bridge_line" '
@@ -20,22 +24,45 @@ generate() { # stdout = mta.html
 	' "$src/index.html"
 }
 
+generate_phone() { # stdout = phone.html
+	awk -v line="$phone_line" '
+		!b && /<meta charset="utf-8">/ { print; print "<base href=\"/outbreak/ui/\">"; b = 1; next }
+		!t && /<title>/ { print "<title>Outbreak</title>"; t = 1; next }
+		!l && /<link rel="icon" href="data:,">/ {
+			print "<link rel=\"icon\" type=\"image/png\" href=\"phone-icon-192.png\">"
+			print "<link rel=\"apple-touch-icon\" href=\"phone-icon-180.png\">"
+			print "<link rel=\"manifest\" href=\"phone-manifest.json\" crossorigin=\"use-credentials\">"
+			print "<meta name=\"apple-mobile-web-app-title\" content=\"Outbreak\">"
+			l = 1; next
+		}
+		!d && /<script src="js\/core.js"><\/script>/ { print line; d = 1 }
+		{ print }
+		END { if (!b || !t || !l || !d) exit 3 }
+	' "$src/index.html"
+}
+
+own_excludes() { for f in $OWN mta.html phone.html; do printf ' -x %s' "$f"; done; }
+
 if [ "$mode" = "check" ]; then
 	rc=0
-	if ! diff -rq -x mta.html -x mta-bridge.js "$src" "$dst" >/dev/null 2>&1; then echo "OUT OF SYNC: ui/ differs from fivem/outbreak/ui"; diff -rq -x mta.html -x mta-bridge.js "$src" "$dst" | head -8; rc=1; fi
+	# shellcheck disable=SC2046
+	if ! diff -rq $(own_excludes) "$src" "$dst" >/dev/null 2>&1; then echo "OUT OF SYNC: ui/ differs from fivem/outbreak/ui"; diff -rq $(own_excludes) "$src" "$dst" | head -8; rc=1; fi
 	tmp="$(mktemp)"
 	if generate > "$tmp" && [ -f "$dst/mta.html" ] && cmp -s "$tmp" "$dst/mta.html"; then :; else echo "OUT OF SYNC: ui/mta.html is not the generated entry page"; rc=1; fi
+	if generate_phone > "$tmp" && [ -f "$dst/phone.html" ] && cmp -s "$tmp" "$dst/phone.html"; then :; else echo "OUT OF SYNC: ui/phone.html is not the generated phone entry page"; rc=1; fi
 	rm -f "$tmp"
-	[ -f "$dst/mta-bridge.js" ] || { echo "MISSING: ui/mta-bridge.js"; rc=1; }
-	[ "$rc" = 0 ] && echo "ui copy in sync (vanilla files byte-identical, mta.html generated, mta-bridge.js present)"
+	for f in $OWN; do [ -f "$dst/$f" ] || { echo "MISSING: ui/$f"; rc=1; }; done
+	[ "$rc" = 0 ] && echo "ui copy in sync (vanilla files byte-identical, mta.html + phone.html generated, bridges / manifest / icons present)"
 	exit $rc
 fi
 
 mkdir -p "$dst"
-keep="$(mktemp)"; [ -f "$dst/mta-bridge.js" ] && cp "$dst/mta-bridge.js" "$keep" || : > "$keep"
-find "$dst" -mindepth 1 -maxdepth 1 ! -name mta-bridge.js -exec rm -rf {} +
+keep="$(mktemp -d)"
+for f in $OWN; do [ -f "$dst/$f" ] && cp "$dst/$f" "$keep/$f" || :; done
+find "$dst" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 cp -R "$src"/. "$dst"/
 generate > "$dst/mta.html"
-[ -s "$keep" ] && cp "$keep" "$dst/mta-bridge.js"
-rm -f "$keep"
-echo "synced ui ($(find "$dst" -type f | wc -l) files, mta.html generated)"
+generate_phone > "$dst/phone.html"
+for f in $OWN; do [ -f "$keep/$f" ] && cp "$keep/$f" "$dst/$f" || :; done
+rm -rf "$keep"
+echo "synced ui ($(find "$dst" -type f | wc -l) files, mta.html + phone.html generated)"

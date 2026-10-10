@@ -39,6 +39,10 @@ C.server = {
 	respawn_ms = 6000,         -- delay before a dead owner respawns at the base
 	-- the sim's `TUNING.horde.max_materialized` (ped budget for horde + raiders). MTA's ped pool has about 140 slots and cannot be resized: see README "Ped budget".
 	max_materialized = 60,
+	-- the phone companion (server/phone.lua): a phone browser shows the colony and gives orders over MTA's HTTP port. Needs an MTA account with the ACL right resource.outbreak.http (README "Phone").
+	phone = true,              -- off: phoneApi answers "switched off" (the HTTP page is still served to accounts that may see it)
+	phone_sessions = 6,        -- phone pages kept at once (the least recently used one is evicted)
+	phone_session_s = 60,      -- a phone page that has not called for this long is forgotten (it just signs in again)
 }
 
 -- ----- peds (server side) --------------------------------------------------------------------------------------------
@@ -182,6 +186,9 @@ function C.apply(get)
 	local st = tostring(get("store", s.store))
 	s.store = (st == "sqlite") and "sqlite" or "file"
 	s.max_materialized = U.clamp(math.floor(U.num(get("max_materialized", s.max_materialized), s.max_materialized)), 4, 120)
+	s.phone = b(get("phone", s.phone and "1" or "0"))
+	s.phone_sessions = U.clamp(math.floor(U.num(get("phone_sessions", s.phone_sessions), s.phone_sessions)), 1, 20)
+	s.phone_session_s = U.clamp(math.floor(U.num(get("phone_session_s", s.phone_session_s), s.phone_session_s)), 10, 3600)
 	p.max_peds = U.clamp(math.floor(U.num(get("max_peds", p.max_peds), p.max_peds)), 8, 130)
 	p.pool_guard = U.clamp(math.floor(U.num(get("pool_guard", p.pool_guard), p.pool_guard)), 20, 140)
 	p.max_objects = U.clamp(math.floor(U.num(get("max_objects", p.max_objects), p.max_objects)), 20, 1100)

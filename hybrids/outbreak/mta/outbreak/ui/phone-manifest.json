@@ -1,0 +1,15 @@
+{
+  "name": "Outbreak (phone companion)",
+  "short_name": "Outbreak",
+  "description": "Live view and orders for the Outbreak colony on the MTA:SA server (private, no GTA client needed).",
+  "start_url": "/outbreak/",
+  "scope": "/outbreak/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#06090f",
+  "theme_color": "#06090f",
+  "icons": [
+    { "src": "phone-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "phone-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

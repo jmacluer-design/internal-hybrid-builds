@@ -19,6 +19,7 @@ local files = {
 	"mock_test",           -- the mock itself: side filtering, 5.1 library fidelity, event semantics, file API
 	"selftest_test",       -- the recorded determinism hash under this runtime
 	"server_test",         -- handshake, trust model, persistence, commands, clock, the owner's body
+	"phone_test",          -- the phone companion's server half: login rights, the NUI's messages over polling, orders through the same handlers, guards
 	"peds_test",           -- colonists, hordes, raiders, traders, buildings, piles, ground, ped budget, failure injection
 	"client_test",         -- ui bridge, camera, noise, placement, survival, driver, ground
 	"integration_test",    -- scripted sim run through server + client + page

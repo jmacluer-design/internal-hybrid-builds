@@ -1,0 +1,20 @@
+	<!-- Outbreak phone companion (mta/README.md "Phone"). Two logins: `phone` may look and give orders, `phoneview` may only look. Add the accounts you create with
+	     `addaccount <name> <password>` to the two groups below (rename the user.* objects). MTA checks resource.outbreak.http itself (HTTP login + page + API); server/phone.lua
+	     checks phone_view / phone_control for what an account may do. Everyone else keeps the default (general.http denied): they get a 401. -->
+	<group name="OutbreakPhone">
+		<acl name="OutbreakPhone"/>
+		<object name="user.phone"/>
+	</group>
+	<group name="OutbreakPhoneView">
+		<acl name="OutbreakPhoneView"/>
+		<object name="user.phoneview"/>
+	</group>
+	<acl name="OutbreakPhone">
+		<right name="resource.outbreak.http" access="true"/>
+		<right name="resource.outbreak.phone_view" access="true"/>
+		<right name="resource.outbreak.phone_control" access="true"/>
+	</acl>
+	<acl name="OutbreakPhoneView">
+		<right name="resource.outbreak.http" access="true"/>
+		<right name="resource.outbreak.phone_view" access="true"/>
+	</acl>

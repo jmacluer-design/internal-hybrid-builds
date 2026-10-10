@@ -15,7 +15,7 @@ local here = (arg and arg[0] or "function_check.lua"):gsub("\\", "/"):match("^(.
 package.path = here .. "/?.lua;" .. package.path
 local Defs = require("mta_defs")
 
-local opt = { resource = here .. "/../outbreak", src = nil, luac = os.getenv("LUAC") or "luac5.4", list = false, markdown = false, quiet = false, allow = { OB_BOOT = true, OutbreakHost = true, OutbreakClient = true } }
+local opt = { resource = here .. "/../outbreak", src = nil, luac = os.getenv("LUAC") or "luac5.4", list = false, markdown = false, quiet = false, allow = { OB_BOOT = true, OutbreakHost = true, OutbreakClient = true, phoneApi = true } }
 do
 	local a, i = { ... }, 1
 	while i <= #a do

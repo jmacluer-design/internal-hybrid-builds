@@ -122,6 +122,31 @@ function Mock:destroy_element(e)
 	return true
 end
 
+-- an MTA account for the HTTP call interface. rights = list of ACL rights granted to user.<name> (e.g. "resource.outbreak.phone_control")
+function Mock:account(name, rights, guest)
+	local acc = { __account = true, name = name, guest = guest and true or false }
+	for _, r in ipairs(rights or {}) do self.acl["user." .. name .. ":" .. r] = true end
+	return acc
+end
+
+-- what MTA does for POST /<resource>/call/<fn> after the login and the ACL checks (CResource::HandleRequestCall): sets the globals user / requestHeaders / hostname / url on the SERVER
+-- sandbox while the exported function runs, then restores them, and returns the function's results. `headers` = { name = value } as the browser sent them.
+function Mock:http_call(account, headers, fn, ...)
+	local env = self.sides.server.env
+	local f = rawget(env, fn)
+	if type(f) ~= "function" then return nil, "no such exported function: " .. tostring(fn) end
+	local old = { user = rawget(env, "user"), requestHeaders = rawget(env, "requestHeaders"), hostname = rawget(env, "hostname"), url = rawget(env, "url") }
+	rawset(env, "user", account)
+	rawset(env, "requestHeaders", headers or {})
+	rawset(env, "hostname", "127.0.0.1")
+	rawset(env, "url", "/" .. self.resource.name .. "/call/" .. fn)
+	local res = { pcall(f, ...) }
+	for k, v in pairs(old) do rawset(env, k, v) end
+	rawset(env, "form", nil)
+	if not res[1] then return nil, tostring(res[2]) end
+	return res[2]
+end
+
 function Mock:add_player(name, serial)
 	local p = self:new_element("player", { name = name, serial = serial or ("SERIAL" .. tostring(#(self.players or {}) + 1)), x = 2.0, y = 0.0, z = terrain(2.0, 0.0) + 1.0, health = 100, spawned = false,
 		dead = false, weapons = {}, controls = {}, inbox = {}, local_to_client = (#(self.players or {}) == 0) }, self.root)
@@ -146,6 +171,15 @@ function Mock:parse_meta()
 	for tag in text:gmatch("<script%s+([^>]-)/>") do
 		local src, kind = tag:match('src="([^"]+)"'), tag:match('type="([^"]+)"') or "server"
 		self.meta.scripts[#self.meta.scripts + 1] = { src = src, type = kind }
+	end
+	self.meta.html, self.meta.exports = {}, {}
+	for tag in text:gmatch("<html%s+([^>]-)/>") do -- HTTP pages: served to a logged-in browser, never downloaded by a GTA client
+		local src = tag:match('src="([^"]+)"')
+		self.meta.html[#self.meta.html + 1] = { src = src, default = tag:match('default="true"') ~= nil, raw = tag:match('raw="true"') ~= nil }
+		self.meta.files[src] = { download = false, html = true }
+	end
+	for tag in text:gmatch("<export%s+([^>]-)/>") do
+		self.meta.exports[#self.meta.exports + 1] = { name = tag:match('function="([^"]+)"'), type = tag:match('type="([^"]+)"'), http = tag:match('http="true"') ~= nil }
 	end
 	for tag in text:gmatch("<file%s+([^>]-)/>") do
 		local src = tag:match('src="([^"]+)"')
@@ -215,6 +249,8 @@ function Mock:make_side(name)
 		__index = function(_, k)
 			-- MTA's event-context variables are nil outside a handler that sets them (`client` exists only in remote server events): reading them is not an error
 			if k == "source" or k == "this" or k == "client" or k == "eventName" or k == "sourceResource" or k == "sourceResourceRoot" or k == "sourceTimer" then return nil end
+			-- the HTTP call interface sets these while an exported function runs for a web request (CResource::HandleRequestCall) and they are nil otherwise
+			if name == "server" and (k == "user" or k == "requestHeaders" or k == "form" or k == "cookies" or k == "hostname" or k == "url") then return nil end
 			error(string.format("mock: global '%s' is not defined on the %s (MTA would give nil, then fail on the call)", tostring(k), name), 2)
 		end,
 		__newindex = function(t, k, v) m.global_writes[name][k] = true; rawset(t, k, v) end,

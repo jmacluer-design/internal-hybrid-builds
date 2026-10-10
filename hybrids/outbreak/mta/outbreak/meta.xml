@@ -20,6 +20,9 @@
 		<setting name="spawn_player" value="1"/>
 		<setting name="store" value="file"/>
 		<setting name="max_materialized" value="60"/>
+		<setting name="phone" value="1"/>
+		<setting name="phone_sessions" value="6"/>
+		<setting name="phone_session_s" value="60"/>
 		<setting name="max_peds" value="96"/>
 		<setting name="pool_guard" value="120"/>
 		<setting name="max_objects" value="400"/>
@@ -31,6 +34,11 @@
 	<script src="bootstrap_mta.lua" type="shared"/>
 	<script src="server/main.lua" type="server"/>
 	<script src="client/main.lua" type="client"/>
+
+	<!-- the phone companion: the page is served by the HTTP server at /<resource>/ (default page; MTA asks for a login and checks the ACL right resource.<resource>.http), the one exported function
+	     is what the page calls (POST /<resource>/call/phoneApi, http="true" makes it reachable that way); see README "Phone" -->
+	<html src="ui/phone.html" default="true" raw="true"/>
+	<export function="phoneApi" type="server" http="true"/>
 
 	<!-- files the CLIENT downloads: the modules client/main.lua requires, and the browser page with its css / js / fonts (http://mta/local/ui/mta.html) -->
 	<file src="shared/json.lua"/>
@@ -85,6 +93,11 @@
 	<file src="ui/js/zones.js"/>
 	<file src="ui/mta-bridge.js"/>
 	<file src="ui/mta.html"/>
+	<file src="ui/phone-bridge.js"/>
+	<file src="ui/phone-icon-180.png"/>
+	<file src="ui/phone-icon-192.png"/>
+	<file src="ui/phone-icon-512.png"/>
+	<file src="ui/phone-manifest.json"/>
 
 	<!-- server-only files (download="false"): read by the server with fileOpen, never sent to a client -->
 	<file src="server/buildings.lua" download="false"/>
@@ -95,6 +108,7 @@
 	<file src="server/inject.lua" download="false"/>
 	<file src="server/net.lua" download="false"/>
 	<file src="server/peds.lua" download="false"/>
+	<file src="server/phone.lua" download="false"/>
 	<file src="server/props.lua" download="false"/>
 	<file src="server/raiders.lua" download="false"/>
 	<file src="server/store.lua" download="false"/>

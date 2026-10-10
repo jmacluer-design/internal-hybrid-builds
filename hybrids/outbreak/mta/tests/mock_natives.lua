@@ -50,8 +50,18 @@ return function(Mock, K)
 		end
 		N.hasObjectPermissionTo = function(obj, right, default)
 			if is_el(obj) and obj.type == "player" then return m.acl[tostring(obj.name) .. ":" .. right] == true end
+			if type(obj) == "string" then -- "user.<account>" (the HTTP callers): an explicit grant in m.acl["user.<account>:<right>"], else the default
+				local kind, name = obj:match("^(%a+)%.(.+)$")
+				if kind == "user" then
+					local v = m.acl["user." .. name .. ":" .. tostring(right)]
+					if v ~= nil then return v and true or false end
+				end
+			end
 			return default or false
 		end
+		-- accounts of the HTTP call interface (Mock:account / Mock:http_call)
+		N.getAccountName = function(acc) if type(acc) == "table" and acc.__account then return acc.name end return false end
+		N.isGuestAccount = function(acc) return type(acc) == "table" and acc.__account == true and acc.guest == true end
 
 		-- ------------------------------------------------------------------------------------------------------------ timers
 		N.setTimer = function(fn, interval, times, ...)

@@ -21,6 +21,7 @@ local Props = require("server.props")
 local Peds = require("server.peds")
 local World = require("server.world")
 local Cmd = require("server.commands")
+local Phone = require("server.phone")
 local Selftest = require("shared.selftest")
 
 local host
@@ -75,6 +76,7 @@ local function on_start()
 	end)
 
 	Net.register()
+	Phone.register()
 	Cmd.register()
 	start_game()
 
@@ -104,3 +106,7 @@ addEventHandler("onResourceStop", resourceRoot, on_stop)
 
 -- exposed for the test harness and other resources
 function OutbreakHost() return host end
+
+-- the phone companion's HTTP entry point (meta.xml <export function="phoneApi" type="server" http="true"/>): POST /outbreak/call/phoneApi with a JSON array body [op, sid, a, b].
+-- MTA has already logged the caller in (HTTP Basic -> account) and checked resource.outbreak.http; server/phone.lua checks the phone_view / phone_control rights and the CSRF header.
+function phoneApi(op, sid, a, b) return Phone.api(op, sid, a, b) end

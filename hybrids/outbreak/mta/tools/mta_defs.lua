@@ -88,7 +88,9 @@ D.lua_globals = {
 -- stock Lua 5.1 functions that MTA replaces with a disabled stub (CLuaMain::InitSecurity)
 D.disabled_globals = { "dofile", "loadfile", "require", "loadlib", "getfenv", "newproxy" }
 D.mta_globals_both = { "root", "resource", "resourceRoot", "resourceName", "source", "this", "eventName", "sourceResource", "sourceResourceRoot", "sourceTimer", "exports", "inspect" }
-D.mta_globals_server = { "client" }
+-- `client` exists in a remotely triggered event; user / requestHeaders / form / cookies / hostname / url are set by CResource::HandleRequestCall (mtasa-blue Server/mods/deathmatch/logic/CResource.cpp)
+-- while an exported function runs for an HTTP request (call interface), and are nil otherwise
+D.mta_globals_server = { "client", "user", "requestHeaders", "form", "cookies", "hostname", "url" }
 D.mta_globals_client = { "guiRoot", "localPlayer" }
 
 -- library fields that do NOT exist in MTA's Lua 5.1 (or are disabled): flagged when used as  table.unpack  etc.

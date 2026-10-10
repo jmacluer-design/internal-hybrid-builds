@@ -31,7 +31,9 @@ end
 -- ---------------------------------------------------------------------------------------------------------------- outgoing
 -- the `send(topic, payload)` of shared/host.lua. OUT events (and a resync marked reset) also drive the server's own modules, unless this is a client-only resync (a client that
 -- joined or whose page reloaded must be brought up to date without touching the peds and objects the server already has).
+-- Net.on_send is a hook for server/phone.lua (the phone companion): it sees every OUT message before the owner check, so a phone works with no GTA client connected.
 function Net.send(topic, payload)
+	if Net.on_send then Net.on_send(topic, payload) end
 	if topic == P.NET.events and type(payload) == "table" and not ctx.client_only then
 		if payload.reset then ctx.reset_all() end
 		local evs = payload.events
@@ -78,14 +80,38 @@ local function from_owner()
 	return true
 end
 
--- a token bucket for orders and UI actions (the host rate-limits IN events itself)
-local ui_tokens, ui_last = scfg.max_ui_per_sec, nil
-local function ui_token()
-	local now = getTickCount()
-	if ui_last then ui_tokens = math.min(scfg.max_ui_per_sec * 2, ui_tokens + (now - ui_last) / 1000 * scfg.max_ui_per_sec) end
-	ui_last = now
-	if ui_tokens < 1 then Net.stats.flood_dropped = Net.stats.flood_dropped + 1; return false end
-	ui_tokens = ui_tokens - 1
+-- a token bucket for orders and UI actions (the host rate-limits IN events itself). `rate` is a function so a setting change is seen; the phone companion makes its own bucket
+function Net.make_bucket(rate)
+	local tokens, last = rate(), nil
+	return function()
+		local now = getTickCount()
+		if last then tokens = math.min(rate() * 2, tokens + (now - last) / 1000 * rate()) end
+		last = now
+		if tokens < 1 then Net.stats.flood_dropped = Net.stats.flood_dropped + 1; return false end
+		tokens = tokens - 1
+		return true
+	end
+end
+local ui_token = Net.make_bucket(function() return scfg.max_ui_per_sec end)
+
+-- the two entry points every order / UI action takes AFTER the sender has been authenticated: the in-game owner's remote events below and the phone companion (server/phone.lua) call the
+-- SAME functions, so both get the same validation (host:on_order sanitizes with shared/protocol.lua, host:ui_action knows the actions) and the same flood guard (a bucket each)
+function Net.do_order(ev, token)
+	if not (token or ui_token)() then return false, "rate" end
+	Net.stats.orders = Net.stats.orders + 1
+	local ok, err = pcall(ctx.host.on_order, ctx.host, ev)
+	if not ok then ctx.log("error", "order failed: " .. tostring(err)); return false, "error" end
+	return true
+end
+
+function Net.do_ui(name, data, token, phone)
+	if type(name) ~= "string" or #name > 32 then return reject("ui_action: bad name"), "bad" end
+	if not (token or ui_token)() then return false, "rate" end
+	if name:sub(1, 6) == "debug_" and not (scfg.debug or (scfg.owner_admin and not phone)) then return reject("ui_action: debug refused"), "debug" end
+	Net.stats.ui_actions = Net.stats.ui_actions + 1
+	if name == "screens" and type(data) == "table" and not phone then ctx.colony_mode = data.colony == true end -- in colony view the player ped is only a camera anchor
+	local ok, err = pcall(ctx.host.ui_action, ctx.host, name, data)
+	if not ok then ctx.log("error", "ui_action " .. name .. " failed: " .. tostring(err)); return false, "error" end
 	return true
 end
 
@@ -144,21 +170,12 @@ function Net.register()
 
 	addEventHandler(NET.order, resourceRoot, function(ev)
 		if not from_owner() then return end
-		if not ui_token() then return end
-		Net.stats.orders = Net.stats.orders + 1
-		local ok, err = pcall(ctx.host.on_order, ctx.host, ev)
-		if not ok then ctx.log("error", "order failed: " .. tostring(err)) end
+		Net.do_order(ev)
 	end)
 
 	addEventHandler(NET.ui_action, resourceRoot, function(name, data)
 		if not from_owner() then return end
-		if type(name) ~= "string" or #name > 32 then return reject("ui_action: bad name") end
-		if not ui_token() then return end
-		if name:sub(1, 6) == "debug_" and not (scfg.debug or scfg.owner_admin) then return reject("ui_action: debug refused") end
-		Net.stats.ui_actions = Net.stats.ui_actions + 1
-		if name == "screens" and type(data) == "table" then ctx.colony_mode = data.colony == true end -- in colony view the player ped is only a camera anchor
-		local ok, err = pcall(ctx.host.ui_action, ctx.host, name, data)
-		if not ok then ctx.log("error", "ui_action " .. name .. " failed: " .. tostring(err)) end
+		Net.do_ui(name, data)
 	end)
 
 	-- one of our armed peds streamed in on the owner's client: give its weapon again; the ped must be one of ours, the sender the owner, the source the resource root

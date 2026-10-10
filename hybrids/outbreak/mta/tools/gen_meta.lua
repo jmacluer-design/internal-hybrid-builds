@@ -36,7 +36,8 @@ local function bool(v) return v and "1" or "0" end
 local settings = {
 	{ "seed", s.seed }, { "profile", s.profile }, { "colonists", s.colonists }, { "timescale", s.time_scale }, { "tick_ms", s.tick_ms }, { "autoload", bool(s.autoload) },
 	{ "autosave", s.autosave_s }, { "owner_admin", bool(s.owner_admin) }, { "owner_name", s.owner_name }, { "debug", bool(s.debug) }, { "selftest", bool(s.selftest) },
-	{ "spawn_player", bool(s.spawn_player) }, { "store", s.store }, { "max_materialized", s.max_materialized }, { "max_peds", p.max_peds }, { "pool_guard", p.pool_guard },
+	{ "spawn_player", bool(s.spawn_player) }, { "store", s.store }, { "max_materialized", s.max_materialized }, { "phone", bool(s.phone) }, { "phone_sessions", s.phone_sessions },
+	{ "phone_session_s", s.phone_session_s }, { "max_peds", p.max_peds }, { "pool_guard", p.pool_guard },
 	{ "max_objects", p.max_objects }, { "origin", string.format("%.2f,%.2f,%.2f", Config.origin.x, Config.origin.y, Config.origin.z) }, { "ui_mode", c.ui_mode },
 }
 for _, kv in ipairs(settings) do add(string.format('\t\t<setting name="%s" value="%s"/>', kv[1], tostring(kv[2]))) end
@@ -47,6 +48,11 @@ add('\t<script src="bootstrap_mta.lua" type="shared"/>')
 add('\t<script src="server/main.lua" type="server"/>')
 add('\t<script src="client/main.lua" type="client"/>')
 add('')
+add('\t<!-- the phone companion: the page is served by the HTTP server at /<resource>/ (default page; MTA asks for a login and checks the ACL right resource.<resource>.http), the one exported function')
+add('\t     is what the page calls (POST /<resource>/call/phoneApi, http="true" makes it reachable that way); see README "Phone" -->')
+add('\t<html src="ui/phone.html" default="true" raw="true"/>')
+add('\t<export function="phoneApi" type="server" http="true"/>')
+add('')
 add('\t<!-- files the CLIENT downloads: the modules client/main.lua requires, and the browser page with its css / js / fonts (http://mta/local/ui/mta.html) -->')
 for _, f in ipairs(list("shared", "-name '*.lua'")) do
 	local name = f:match("^shared/(.+)%.lua$")
@@ -55,7 +61,9 @@ end
 for _, f in ipairs(list("client", "-name '*.lua'")) do
 	if f ~= "client/main.lua" then add('\t<file src="' .. f .. '"/>') end
 end
-for _, f in ipairs(list("ui")) do add('\t<file src="' .. f .. '"/>') end
+for _, f in ipairs(list("ui")) do
+	if f ~= "ui/phone.html" then add('\t<file src="' .. f .. '"/>') end -- (served as the <html> item above, behind the login)
+end
 add('')
 add('\t<!-- server-only files (download="false"): read by the server with fileOpen, never sent to a client -->')
 for _, f in ipairs(list("server", "-name '*.lua'")) do
