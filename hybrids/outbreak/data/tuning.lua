@@ -152,7 +152,7 @@ TUNING.world = {
 		water_bottle = 16, soda_can = 6,
 		bandage = 8, painkillers = 3, antibiotics = 4, surgical_kit = 1, cloth_scrap = 14,
 		scrap_wood = 26, scrap_metal = 12, nails = 12, duct_tape = 3, wire = 3, electronics = 2,
-		fuel_can = 5, firewood = 10, ammo_9mm = 60,
+		fuel_can = 5, firewood = 10, ammo_9mm = 60, ammo_shell = 24,
 	},
 	start_buildings = { { "campfire", 14, 8 }, { "workbench", 18, -6 }, { "bed", -12, 10 }, { "bed", -12, 14 } },
 	main_zone = { x = 10, y = 10, tiles = 10, prio = 2 },

@@ -11,6 +11,8 @@ local function d(id, t) t.id = id; D[id] = t end
 d("orchard", { name = "Orchard Heights", kind = "residential", x = 520, y = 300, radius = 260, danger = 1, travel = 15, loot = "residential", zombies = 5 })
 d("old_town", { name = "Old Town", kind = "mixed", x = -420, y = 380, radius = 240, danger = 2, travel = 20, loot = "commercial", zombies = 9 })
 d("mill_flats", { name = "Mill Flats", kind = "residential", x = -760, y = -520, radius = 300, danger = 2, travel = 25, loot = "residential", zombies = 11 })
+d("millworks", { name = "Millworks Yard", kind = "industrial", x = -300, y = -900, radius = 220, danger = 2, travel = 28, loot = "industrial", zombies = 12 })
+d("precinct", { name = "Eastgate Precinct", kind = "police", x = 760, y = 640, radius = 180, danger = 3, travel = 32, loot = "police", zombies = 15 })
 d("dockside", { name = "Dockside Row", kind = "industrial", x = -1150, y = 820, radius = 320, danger = 3, travel = 35, loot = "industrial", zombies = 16 })
 d("depot", { name = "Crossroads Depot", kind = "fuel", x = 260, y = -640, radius = 160, danger = 2, travel = 22, loot = "garage", zombies = 10 })
 d("hollow_mall", { name = "Hollow Mall", kind = "commercial", x = 980, y = -740, radius = 280, danger = 3, travel = 40, loot = "commercial", zombies = 20 })

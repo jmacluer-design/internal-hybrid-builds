@@ -25,14 +25,14 @@ local floor = math.floor
 M.CFG = {
 	period = 10,            -- minutes between policy runs
 	draft_radius = 420,     -- hordes closer than this (and big enough) get everyone to arms
-	max_open_sites = 2,
+	max_open_sites = 3,
 	reserve_wood = 6, reserve_metal = 4,
 	exped_cooldown = 120,
 	food_days_low = 4,
 	build_plan = {
 		{ "bed", "per_colonist" },
-		{ "wall", 4 }, { "rain_collector", 1 }, { "door", 1 }, { "wall", 8 }, { "crate", 1 },
-		{ "watchtower", 1 }, { "generator", 1 }, { "barricade", 2 },
+		{ "wall", 4 }, { "barricade", 3 }, { "rain_collector", 1 }, { "door", 1 }, { "wall", 8 }, { "crate", 1 },
+		{ "watchtower", 1 }, { "barricade", 6 }, { "generator", 1 }, { "wall", 12 }, { "watchtower", 2 },
 		{ "stove", 1 }, { "lamp", 2 }, { "medical_bed", 1 }, { "water_tank", 1 }, { "watchtower", 2 },
 		{ "rain_collector", 2 }, { "crate", 2 }, { "lamp", 3 }, { "radio_mast", 1 }, { "workbench", 2 },
 		{ "bed", "extra" },
@@ -218,14 +218,18 @@ local function pick_district(w, crew_n, needs_list, max_travel)
 			for i = 1, #needs_list do
 				local nd = needs_list[i]
 				local t = d.loot
-				if nd == "food" and (t == "rural" or t == "residential" or t == "commercial") then match = match + 3 end
-				if nd == "food" and t == "rural" then match = match + 1 end
-				if nd == "meds" and t == "medical" then match = match + 4 end
-				if nd == "meds" and (t == "residential" or t == "commercial") then match = match + 1 end
-				if nd == "fuel" and (t == "industrial" or t == "garage" or t == "rural") then match = match + 3 end
-				if nd == "materials" and t == "industrial" then match = match + 3 end
-				if nd == "ammo" and (t == "military" or t == "police") then match = match + 3 end
-				if nd == "general" then match = match + 1 end
+				local m = 0
+				if nd == "food" and (t == "rural" or t == "residential" or t == "commercial") then m = m + 3 end
+				if nd == "food" and t == "rural" then m = m + 1 end
+				if nd == "meds" and t == "medical" then m = m + 4 end
+				if nd == "meds" and (t == "residential" or t == "commercial") then m = m + 1 end
+				if nd == "fuel" and (t == "industrial" or t == "garage" or t == "rural") then m = m + 3 end
+				if nd == "fuel" and t == "garage" then m = m + 1 end
+				if nd == "materials" and t == "industrial" then m = m + 4 end
+				if nd == "materials" and (t == "garage" or t == "rural") then m = m + 1 end
+				if nd == "ammo" and (t == "military" or t == "police") then m = m + 3 end
+				if nd == "general" then m = m + 1 end
+				match = match + m / i -- earlier (more urgent) needs weigh more
 			end
 			local score = match * 2 - d.danger * 0.9 - d.travel / 45
 			if not bscore or score > bscore then best, bscore = id, score end
@@ -248,7 +252,10 @@ local function manage_expeditions(w, sink, st)
 	if food_days < M.CFG.food_days_low then needs_list[#needs_list + 1] = "food" end
 	if total(w, "bandage") < 4 or total(w, "antibiotics") < 1 then needs_list[#needs_list + 1] = "meds" end
 	if total(w, "fuel_can") < 3 then needs_list[#needs_list + 1] = "fuel" end
-	if total(w, "scrap_wood") < 12 or total(w, "scrap_metal") < 8 then needs_list[#needs_list + 1] = "materials" end
+	local defense = blueprints.defense(w)
+	if total(w, "scrap_wood") < 18 or total(w, "scrap_metal") < 10 or (defense < 70 + 5 * clock.day(now) and total(w, "scrap_wood") < 40) then
+		needs_list[#needs_list + 1] = "materials"
+	end
 	if total(w, "ammo_9mm") + total(w, "ammo_shell") + total(w, "ammo_rifle") < 40 then needs_list[#needs_list + 1] = "ammo" end
 	if #needs_list == 0 then
 		if clock.day(now) % 2 == 1 then return end

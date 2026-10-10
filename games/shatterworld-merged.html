@@ -70,6 +70,7 @@
   #deadS { font-size:clamp(13px,2vw,22px); line-height:1.7; letter-spacing:.08em; color:#fff0cc; max-width:80vw; }
   #pause { background:rgba(6,12,20,.55); flex-direction:column; gap:10px; font-size:clamp(14px,2vw,22px); letter-spacing:.2em; }
   #pause small { font-size:.6em; letter-spacing:.12em; color:#bcd; }
+  #pause #pauseBtns { position:absolute; left:0; right:0; bottom:8vh; display:flex; flex-direction:column; align-items:center; gap:8px; } /* merge: buttons live at the bottom so a click in the middle of the screen always resumes (the INVENTORY button used to push BACK TO MENU under the cursor) */
   #boot { position:fixed; inset:0; z-index:30; background:#0b1722; display:flex; align-items:center; justify-content:center; color:#ffd66b; letter-spacing:.4em; font-size:14px; transition:opacity .8s; }
   #boot.off { opacity:0; pointer-events:none; }
   @media (max-height:460px) { .cheat { grid-template-columns:repeat(4,1fr); font-size:10px; line-height:1.35; padding:6px 10px; gap:2px 12px; } #logo{ width:min(520px,60vw);} .mwrap{ gap:4px; } .tag{ display:none; } #hp{ width:46px; height:46px; }
@@ -256,7 +257,7 @@
   </div>
 </div>
 <div id="dead" class="ovl hidden"><h1 id="deadT">TRY AGAIN</h1><div id="deadS"></div><button id="cta2">RETRY</button></div>
-<div id="pause" class="ovl hidden"><div>PAUSED</div><small>click or press Start to resume</small><button id="toMenuBtn" style="margin-top:14px;font:inherit;letter-spacing:.2em;font-size:12px;color:#eaf6ff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:.4em 1.4em;cursor:pointer">BACK TO MENU</button></div>
+<div id="pause" class="ovl hidden"><div>PAUSED</div><small>click or press Start to resume</small><div id="pauseBtns"><button id="toMenuBtn" style="font:inherit;letter-spacing:.2em;font-size:12px;color:#eaf6ff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:.4em 1.4em;cursor:pointer">BACK TO MENU</button></div></div>
 <!-- <rpg> in-game layer: HUD, nameplates, damage numbers, inventory + perk-pick overlays -->
 <div id="rpgRoot" class="hidden">
   <div id="rpgChill"></div><div id="rpgHit"></div>
@@ -4320,7 +4321,7 @@ function buildBrute() {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const arms = [];
   part(body, SPH, mBruteA, 0, 0.62, 0, 0.58, 0.5, 0.52, 0.06); part(body, SPH, mBruteA, 0, 1.08, 0.12, 0.3, 0.27, 0.28, 0.06); for (const s of [-1, 1]) part(body, SPH, mBruteGlow, s * 0.12, 1.12, 0.37, 0.06, 0.045, 0.03, 0);
   for (const s of [-1, 1]) { const a = new THREE.Group(); a.position.set(s * 0.6, 0.85, 0.05); body.add(a); part(a, CYL, mBruteA, 0, -0.28, 0, 0.13, 0.5, 0.13, 0.05); part(a, SPH, mBruteB, 0, -0.62, 0.05, 0.24, 0.22, 0.24, 0.06); arms.push(a); part(body, CYL, mBruteB, s * 0.24, 0.14, 0, 0.17, 0.3, 0.19, 0.05); }
-  for (let i = 0; i < 5; i++) { const m = new THREE.Mesh(spikeGeo, mBruteB); const a = (i - 2) * 0.5; m.position.set(Math.sin(a) * 0.4, 0.9 + Math.cos(a) * 0.12, -0.42); m.rotation.x = -PI / 2 - 0.2; m.rotation.z = -a * 0.5; m.scale.set(0.1, 0.3, 0.1); body.add(m); }
+  for (let i = 0; i < 5; i++) { const m = new THREE.Mesh(spikeGeo, mBruteB); const a = (i - 2) * 0.5; m.position.set(Math.sin(a) * 0.4, 0.9 + Math.cos(a) * 0.12, -0.42); m.rotation.x = -PI / 2 - 0.2; m.rotation.z = -a * 0.5; m.scale.set(0.1, 0.3, 0.1); body.add(m); (body.userData.vrp || (body.userData.vrp = [])).push(m); } // vrp: merged into one mesh in VR
   g.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); return { g, body, arms };
 }
 function buildHopper() {
@@ -4339,7 +4340,7 @@ function buildSpitter() {
 const _addEnemy = addEnemy;
 addEnemy = function (spec) {
   if (spec.type !== 'brute' && spec.type !== 'hopper' && spec.type !== 'spitter') return _addEnemy(spec);
-  const m = spec.type === 'brute' ? buildBrute() : spec.type === 'hopper' ? buildHopper() : buildSpitter(); m.g.scale.setScalar(spec.type === 'brute' ? 1.65 : 1.3); m.g.position.set(spec.x, spec.y, spec.z); scene.add(m.g);
+  const m = spec.type === 'brute' ? buildBrute() : spec.type === 'hopper' ? buildHopper() : buildSpitter(); m.g.scale.setScalar(spec.type === 'brute' ? 1.65 : 1.3); m.g.position.set(spec.x, spec.y, spec.z); scene.add(m.g); if (VR.merge) vrMergeApply(m.g, true); // same VR draw-call diet as the original walker / shell
   const e = { type: spec.type, x: spec.x, y: spec.y, z: spec.z, hx: spec.x, hz: spec.z, r: spec.r || 3, dir: 1, ang: Math.random() * TAU, vy: 0, state: 'walk', t: 0, mesh: m.g, body: m.body, arms: m.arms, alive: true, ceil: !!spec.ceil, kx: 0, kz: 0, h: spec.type === 'brute' ? 1.3 : 0.8, ph: Math.random() * 6 };
   ENEMIES.push(e); return e;
 };
@@ -4653,7 +4654,7 @@ function rpgSpawnAct() {
 }
 function rpgPending() { if (RT.pend && !RIFT && !G.trans && !SH.on && !G.finale && G.state === 'play') { const p = RT.pend; RT.pend = null; if (p.act === G.act) rpgSpawnAct(); } }
 
-// ---- inventory / character RUI: pad-first, mouse + keyboard too -------------------------------------------------------------------------------------------------------------------
+// ---- inventory / character UI (state object RUI): pad-first, mouse + keyboard too -------------------------------------------------------------------------------------------------------------------
 const RUI = { stale: null, open: false, tab: 0, zone: 'bag', i: 0, from: 'play', rr: null, armed: null, hid: [], sheetRow: 0, cdx: 0, perkRow: 0, riftRow: 0, lastClick: { k: '', t: 0 } };
 const TAB_NAMES = ['ITEMS', 'SHEET', 'PERKS', 'CODEX', 'RIFT'], CHIPS = ['SORT', 'SALVAGE COMMONS', 'SALVAGE MAGIC', 'HIDE COMMONS'];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -4960,7 +4961,7 @@ function menuKey(k) {
   else if ((k === 'arrowup' || k === 'w') && RP.riftUnlocked) { RP.riftTier = sat(RP.riftTier + 1, 1, Math.min(RPG_TUNING.rift.maxTier, RP.bestRift + 1)); RP.riftSeed = 0; rsfx('ui'); rpgRenderMenu(); } else if ((k === 'arrowdown' || k === 's') && RP.riftUnlocked) { RP.riftTier = sat(RP.riftTier - 1, 1, 99); RP.riftSeed = 0; rsfx('ui'); rpgRenderMenu(); }
   else if (k === 'j' && RP.riftUnlocked) rpgStartRift(RP.riftTier, RP.riftSeed || null); else if (k === 'e' || k === 'i' || k === 'tab') openInv(RP.pending ? 2 : null);
 }
-$('pause').insertAdjacentHTML('beforeend', '<small id="pauseInv">Y / I / Tab: inventory &amp; character</small><button id="pauseInvBtn" style="margin-top:6px;font:inherit;letter-spacing:.2em;font-size:12px;color:#2a1400;background:linear-gradient(180deg,#fff2b0,#ffc54a 55%,#ff9c2b);border:0;border-radius:999px;padding:.4em 1.4em;cursor:pointer;font-weight:800">INVENTORY</button>');
+$('pauseBtns').insertAdjacentHTML('beforeend', '<small id="pauseInv">Y / I / Tab: inventory &amp; character &middot; VR: hold Y</small><button id="pauseInvBtn" style="font:inherit;letter-spacing:.2em;font-size:12px;color:#2a1400;background:linear-gradient(180deg,#fff2b0,#ffc54a 55%,#ff9c2b);border:0;border-radius:999px;padding:.4em 1.4em;cursor:pointer;font-weight:800">INVENTORY</button>');
 $('pauseInvBtn').addEventListener('mousedown', e => e.stopPropagation()); // the global mousedown handler resumes the game on any click in the pause overlay
 $('pauseInvBtn').addEventListener('click', e => { e.stopPropagation(); openInv(); });
 $('menu').querySelector('.cheat').insertAdjacentHTML('beforeend', '<div class="wide"><kbd>LOOT &amp; LEVELS</kbd> I / Tab / Y inventory (pauses) &middot; walk over loot to pick up &middot; F hide commons &middot; RMB tap near enemies = Rewind Pulse (1 charge) &middot; Rifts unlock after the finale</div>');

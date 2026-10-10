@@ -350,7 +350,7 @@ local function finish(w, x, how)
 		end
 		release_crew(w, x, true)
 		w:emit({ type = "loot_spawn", container = pile and ("pile:" .. pile.id) or "none", items = bundle, source = "expedition",
-			expedition = x.id, district = d.id })
+			expedition = x.id, district = d.id, pos = U.pos_copy(pile and pile.pos or w:garage_pos()) })
 		w:emit({ type = "expedition", phase = "return", id = x.id, district = d.id, crew = U.copy(x.crew), loot = bundle })
 		w:notify("info", string.format("Expedition back from %s: %d crew, %d items.", d.name, alive, U.sum_map(bundle)))
 		w:stat("expeditions_done", 1)

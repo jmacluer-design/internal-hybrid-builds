@@ -17,6 +17,6 @@ rc("bandage", { work_type = "craft", station = "craft_station", inputs = { cloth
 rc("nails", { work_type = "craft", station = "craft_station", inputs = { scrap_metal = 1 }, outputs = { nails = 6 }, work = 15,
 	skill = "construction", skill_min = 0, want = { "nails", 8 } })
 rc("ammo_9mm", { work_type = "craft", station = "craft_station", inputs = { scrap_metal = 2 }, outputs = { ammo_9mm = 15 }, work = 30,
-	skill = "construction", skill_min = 3, want = { "ammo_9mm", 60 } })
+	skill = "construction", skill_min = 3, want = { "ammo_9mm", 45 } })
 
 return R

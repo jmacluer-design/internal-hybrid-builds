@@ -9,18 +9,18 @@ local function e(item, w, mn, mx, rare) return { item = item, w = w, min = mn or
 
 tbl("residential", { 2, 5 }, {
 	e("canned_beans", 10, 2, 5), e("canned_veg", 8, 2, 5), e("canned_fruit", 5, 1, 3), e("soda_can", 6, 1, 3), e("water_bottle", 8, 1, 4),
-	e("rice_bag", 5, 1, 2), e("cloth_scrap", 8, 2, 6), e("bandage", 4, 1, 3), e("painkillers", 3, 1, 2), e("scrap_wood", 3, 1, 2),
-	e("duct_tape", 3, 1, 1), e("baseball_bat", 1, 1, 1, true), e("pistol", 0.7, 1, 1, true), e("ammo_9mm", 2, 6, 18), e("energy_bar", 4, 2, 5),
+	e("rice_bag", 5, 1, 2), e("cloth_scrap", 8, 2, 6), e("bandage", 4, 1, 3), e("painkillers", 3, 1, 2), e("scrap_wood", 5, 1, 3), e("scrap_metal", 2, 1, 2),
+	e("duct_tape", 1, 1, 1), e("baseball_bat", 1, 1, 1, true), e("pistol", 0.7, 1, 1, true), e("ammo_9mm", 2, 6, 18), e("energy_bar", 4, 2, 5),
 	e("firewood", 4, 1, 3), e("jewelry", 1, 1, 2, true), e("electronics", 2, 1, 2), e("antibiotics", 1.2, 1, 1, true),
 })
 tbl("commercial", { 3, 6 }, {
 	e("canned_beans", 7, 2, 6), e("canned_veg", 6, 2, 6), e("canned_fruit", 5, 1, 4), e("energy_bar", 8, 2, 6), e("soda_can", 8, 2, 6),
-	e("water_bottle", 8, 2, 6), e("cloth_scrap", 8, 2, 8), e("electronics", 5, 1, 3), e("duct_tape", 4, 1, 2), e("jewelry", 3, 1, 3, true),
+	e("water_bottle", 8, 2, 6), e("cloth_scrap", 8, 2, 8), e("electronics", 5, 1, 3), e("duct_tape", 1, 1, 2), e("jewelry", 3, 1, 3, true),
 	e("radio_set", 1, 1, 1, true), e("wire", 4, 1, 3), e("toolbox", 1, 1, 1, true), e("bandage", 3, 1, 3), e("rice_bag", 4, 1, 2),
 })
 tbl("industrial", { 3, 6 }, {
-	e("scrap_metal", 12, 1, 4), e("scrap_wood", 8, 1, 4), e("nails", 8, 1, 3), e("wire", 7, 1, 3), e("concrete_bag", 4, 1, 2),
-	e("fuel_can", 4, 1, 2), e("duct_tape", 5, 1, 2), e("electronics", 4, 1, 3), e("toolbox", 2, 1, 1, true), e("crowbar", 2, 1, 1, true),
+	e("scrap_metal", 12, 2, 6), e("scrap_wood", 10, 2, 6), e("nails", 6, 1, 3), e("wire", 6, 1, 3), e("concrete_bag", 3, 1, 2),
+	e("fuel_can", 4, 1, 2), e("duct_tape", 2, 1, 2), e("electronics", 4, 1, 3), e("toolbox", 2, 1, 1, true), e("crowbar", 1, 1, 1, true),
 	e("sandbag", 4, 1, 4), e("firewood", 3, 1, 3), e("cloth_scrap", 3, 2, 4),
 })
 tbl("medical", { 3, 6 }, {
@@ -34,11 +34,11 @@ tbl("military", { 3, 6 }, {
 })
 tbl("rural", { 2, 5 }, {
 	e("canned_veg", 6, 2, 6), e("rice_bag", 6, 1, 4), e("dried_meat", 6, 2, 5), e("firewood", 8, 2, 5), e("fuel_can", 4, 1, 2),
-	e("water_bottle", 4, 1, 3), e("scrap_wood", 5, 1, 3), e("ammo_shell", 2, 4, 10), e("shotgun", 1, 1, 1, true), e("machete", 1, 1, 1, true),
+	e("water_bottle", 4, 1, 3), e("scrap_wood", 7, 2, 5), e("ammo_shell", 2, 4, 10), e("shotgun", 1, 1, 1, true), e("machete", 1, 1, 1, true),
 	e("cloth_scrap", 3, 1, 4),
 })
 tbl("garage", { 2, 4 }, {
-	e("fuel_can", 10, 1, 2), e("scrap_metal", 6, 1, 3), e("toolbox", 3, 1, 1, true), e("duct_tape", 4, 1, 2), e("crowbar", 3, 1, 1, true),
+	e("fuel_can", 10, 1, 2), e("scrap_metal", 8, 1, 4), e("toolbox", 3, 1, 1, true), e("duct_tape", 1, 1, 2), e("crowbar", 1, 1, 1, true),
 	e("soda_can", 5, 1, 3), e("energy_bar", 4, 1, 3), e("wire", 3, 1, 2),
 })
 tbl("police", { 2, 5 }, {

@@ -159,25 +159,30 @@ end
 
 local function check_all(w, label)
 	local ok, rep = w:audit()
-	if not ok then T.truthy(false, label .. ": conservation broken: " .. tostring(rep.problems[1])) end
+	T.truthy(ok, label .. ": conservation broken: " .. tostring(rep.problems[1]))
 	local rok, rerr = jobs.check_reservations(w)
-	if not rok then T.truthy(false, label .. ": reservations: " .. tostring(rerr)) end
+	T.truthy(rok, label .. ": reservations: " .. tostring(rerr))
+	local bad
 	for i = 1, #w.s.colonists do
 		local c = w.s.colonists[i]
 		local nok, nerr = needs.check(c)
-		if not nok then T.truthy(false, label .. ": " .. c.id .. " " .. tostring(nerr)) end
-		if c.dead then T.truthy(false, label .. ": a dead colonist is still in the roster") end
+		if not nok then bad = bad or (c.id .. " " .. tostring(nerr)) end
+		if c.dead then bad = bad or (c.id .. " dead but still in the roster") end
 		for id, n in pairs(c.inv.items) do -- order-free
-			if n <= 0 then T.truthy(false, label .. ": non-positive inventory count") end
+			if n <= 0 then bad = bad or "non-positive inventory count" end
 		end
 	end
-	if horde.materialized_count(w) > TUNING.horde.max_materialized then T.truthy(false, label .. ": materialization cap exceeded") end
+	T.truthy(bad == nil, label .. ": " .. tostring(bad))
+	local hbad
+	if horde.materialized_count(w) > TUNING.horde.max_materialized then hbad = "materialization cap exceeded" end
 	for _, h in ipairs(w.s.hordes) do
-		if h.size <= 0 or h.size ~= h.size then T.truthy(false, label .. ": bad horde size") end
-		if h.mat and h.mat.count > h.size then T.truthy(false, label .. ": more real peds than horde members") end
+		if h.size <= 0 or h.size ~= h.size then hbad = hbad or "bad horde size" end
+		if h.mat and h.mat.count > h.size then hbad = hbad or "more real peds than horde members" end
 	end
+	T.truthy(hbad == nil, label .. ": " .. tostring(hbad))
 	local d = w.s.director
-	if d.budget < -1e-9 or d.budget ~= d.budget then T.truthy(false, label .. ": director budget invalid") end
+	T.truthy(d.budget >= -1e-9 and d.budget == d.budget, label .. ": director budget invalid")
+	T.finite(w.s.t, label .. ": clock")
 end
 
 T.test("fuzz: 3 worlds x 700 random operations, conservation + invariants checked after EVERY operation", function()

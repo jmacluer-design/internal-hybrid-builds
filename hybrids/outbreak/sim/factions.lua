@@ -348,7 +348,7 @@ function M.trade(w, cid, give, take)
 	f.trades = f.trades + 1
 	M.adjust(w, c.faction, U.min(FT.trade_goodwill_cap, tv * FT.trade_goodwill_gain))
 	w:stat("trades", 1)
-	w:emit({ type = "loot_spawn", container = "pile:" .. pile.id, items = got, source = "trade", faction = c.faction })
+	w:emit({ type = "loot_spawn", container = "pile:" .. pile.id, items = got, source = "trade", faction = c.faction, pos = U.pos_copy(pile.pos) })
 	w:add_thought_all("caravan_trade")
 	return true, "ok", gv, tv
 end

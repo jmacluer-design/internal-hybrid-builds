@@ -85,12 +85,14 @@ end
 
 H.time_set = function(w, ev)
 	local s = w.s
-	local hour = tonumber(ev.hour) or clock.hour(s.t)
-	local minute = tonumber(ev.minute) or 0
-	hour = U.clamp(floor(hour), 0, 23)
-	minute = U.clamp(floor(minute), 0, 59)
-	local day = tonumber(ev.day) and floor(ev.day) or clock.day(s.t)
-	if day < 1 then day = 1 end
+	local function num(v, default)
+		v = tonumber(v)
+		if v == nil or not U.finite(v) then return default end
+		return v
+	end
+	local hour = U.clamp(floor(num(ev.hour, clock.hour(s.t))), 0, 23)
+	local minute = U.clamp(floor(num(ev.minute, 0)), 0, 59)
+	local day = U.clamp(floor(num(ev.day, clock.day(s.t))), 1, 100000)
 	s.t = clock.at(day, hour, minute)
 	s.day = clock.day(s.t)
 	for i = 1, #s.colonists do s.colonists[i].dirty = true end

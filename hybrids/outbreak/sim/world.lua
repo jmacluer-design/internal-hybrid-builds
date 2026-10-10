@@ -117,11 +117,14 @@ function World:setup_default(opts)
 		local c = colonist.new(rng, { id = self:new_id("c"), focus = focus[(i - 1) % #focus + 1], joined = s.t,
 			pos = { x = b.x + rng:range(-12, 12), y = b.y + rng:range(-12, 12), z = b.z } })
 		self:add_colonist(c)
-		if i % 3 == 1 then
+		if i % 4 == 1 then
 			self:create(c.inv, "pistol", 1, "start")
 			self:create(c.inv, "ammo_9mm", 30, "start")
-		elseif i % 3 == 2 then
+		elseif i % 4 == 2 then
 			self:create(c.inv, "machete", 1, "start")
+		elseif i % 4 == 3 then
+			self:create(c.inv, "shotgun", 1, "start")
+			self:create(c.inv, "ammo_shell", 12, "start")
 		else
 			self:create(c.inv, "baseball_bat", 1, "start")
 		end
