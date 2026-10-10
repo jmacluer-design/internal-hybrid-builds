@@ -12,8 +12,8 @@ for (const { f, q } of games) {
     await g.wait(1500);
     const clicked = await g.eval(() => { const b = document.getElementById('cta'); if (b) { b.click(); return true; } return false; });
     await g.wait(2500); await g.hold('w', 1200); await g.press(' ', 120); await g.hold('d', 600); await g.wait(800);
-    let frames = []; for (let i = 0; i < 12 && frames.length < 20; i++) { await g.wait(1500); frames = await g.eval(() => window.__perf.hist.map(h => [h.calls, h.tris, h.js, h.instDraws])); }
-    const st = await g.eval(() => ({ w: __perf.w, h: __perf.h, tex: __perf.texBytes, progs: __perf.progs, total: __perf.frames, heap: performance.memory ? performance.memory.usedJSHeapSize : 0 }));
+    let frames = []; for (let i = 0; i < 12 && frames.length < 20; i++) { await g.wait(1500); frames = await g.eval(() => window.__ibperf.hist.map(h => [h.calls, h.tris, h.js, h.instDraws])); }
+    const st = await g.eval(() => ({ w: __ibperf.w, h: __ibperf.h, tex: __ibperf.texBytes, progs: __ibperf.progs, total: __ibperf.frames, heap: performance.memory ? performance.memory.usedJSHeapSize : 0 }));
     rows.push({ name, n: frames.length, calls: med(frames.map(x => x[0])), callsP95: p95(frames.map(x => x[0])), tris: med(frames.map(x => x[1])), inst: med(frames.map(x => x[3])),
       js: med(frames.map(x => x[2])), jsP95: p95(frames.map(x => x[2])), buf: st.w + 'x' + st.h, texMB: Math.round(st.tex / 1048576), progs: st.progs, heapMB: Math.round(st.heap / 1048576), errors: g.errors.length });
     await g.close();

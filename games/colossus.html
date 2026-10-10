@@ -1899,6 +1899,7 @@ function findSwingAnchor(){
   aimDir(_ad); const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, chest = pos[1] + 0.4;
   ANCH.ok = false; ANCH.kind = 'none';
   const wp = activeWP();
+  if (wp && wpSnap(null, cx, cy, cz, _ad[0], _ad[1], _ad[2], ASSIST.wpSnapDeg) && !segBlocked(pos[0], chest, pos[2], wp.wp.x, wp.wp.y, wp.wp.z, 1 | 4, null)) return anchOut('wp', wp.col, wp.wp.x, wp.wp.y, wp.wp.z, wp.wn.x, wp.wn.y, wp.wn.z, wp);
   if (castRay(cx, cy, cz, _ad[0], _ad[1], _ad[2], WEB.range + cam.dist + 4, 1, null)) {
     const hx = RH.x, hy = RH.y, hz = RH.z, col = RH.col, nx = RH.nx, ny = RH.ny, nz = RH.nz;
     const dp = Math.hypot(hx - pos[0], hy - chest, hz - pos[2]);
@@ -3047,6 +3048,7 @@ G_.clingTo = (name) => { const c = CN[name]; if (!c) return false; colFromBone(c
 G_.P = P; G_.TI = TI; G_.cam_ = cam; G_.WPS = WPS; G_.CN = CN; G_.RUINS = RUINS; G_.stats = stats; G_.run = run; G_.hAt = hAt; G_.keys = keys;
 G_.ray = (ox, oy, oz, dx, dy, dz, m) => { const ok = castRay(ox, oy, oz, dx, dy, dz, m || 200, 0, null); return ok ? { t: RH.t, col: RH.col ? RH.col.name : 'terrain', x: RH.x, y: RH.y, z: RH.z } : null; };
 G_.setHP = n => { P.hp = n; };
+G_.anch = () => { const ok = findSwingAnchor(); const w = activeWP(); aimDir(_ad); return { ok, kind: ANCH.kind, a: [ANCH.x, ANCH.y, ANCH.z], wp: ANCH.wp ? ANCH.wp.id : null, cam: [camera.position.x, camera.position.y, camera.position.z], aim: [_ad[0], _ad[1], _ad[2]], active: w ? w.id : null, wpPos: w ? [w.wp.x, w.wp.y, w.wp.z] : null, snap: w ? !!wpSnap(null, camera.position.x, camera.position.y, camera.position.z, _ad[0], _ad[1], _ad[2], ASSIST.wpSnapDeg) : null }; };
 G_.grabNow = () => { if (P.state !== 'grabbed') { TI.awake = true; beginAttack('grab'); } };
 G_.mash = () => { P.grab.prog = 1; };
 G_.respawn = () => respawnPlayer(true);

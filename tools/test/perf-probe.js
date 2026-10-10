@@ -1,6 +1,6 @@
 // injected before page scripts: counts WebGL work per animation frame without touching game code
 (() => {
-  const S = window.__perf = { hist: [], cur: { calls: 0, tris: 0, instDraws: 0, t0: 0 }, texBytes: 0, progs: 0, w: 0, h: 0, frames: 0 };
+  const S = window.__ibperf = { hist: [], cur: { calls: 0, tris: 0, instDraws: 0, t0: 0 }, texBytes: 0, progs: 0, w: 0, h: 0, frames: 0 };
   const TRI = (mode, n) => mode === 4 ? n / 3 : (mode === 5 || mode === 6) ? Math.max(0, n - 2) : 0;
   for (const C of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) {
     if (!C) continue; const P = C.prototype;
@@ -17,7 +17,7 @@
   }
   const raf = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = cb => raf(ts => {
-    const S2 = window.__perf, prev = S2.cur;
+    const S2 = window.__ibperf, prev = S2.cur;
     if (prev.t0) { prev.js = prev.jsEnd - prev.t0; S2.hist.push(prev); if (S2.hist.length > 240) S2.hist.shift(); }
     S2.cur = { calls: 0, tris: 0, instDraws: 0, t0: performance.now() }; S2.frames++;
     try { return cb(ts); } finally { S2.cur.jsEnd = performance.now(); }
