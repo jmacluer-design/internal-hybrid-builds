@@ -55,7 +55,7 @@ const API = location.origin;
 const BUILD = '__BUILD__'; // stamped by deploy.sh; busts edge caches so a new build never serves a stale copy
 const SUPA = (()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
 const games = [
- {id:'shatterworld', name:'SHATTERWORLD', desc:'a realistic valley shatters into blocks and rebuilds around a Mario-style hero · wall-jump, ground-pound, rewind · 2 acts · Xbox/PS pad', file:'games/shatterworld.html', bytes:285428},
+ {id:'shatterworld', name:'SHATTERWORLD', desc:'a realistic valley shatters into blocks and rebuilds around a Mario-style hero · wall-jump, ground-pound, rewind · 2 acts · Xbox/PS pad · VR: open in Quest Browser and press ENTER VR', file:'games/shatterworld.html', bytes:341884},
  {id:'colossus', name:'COLOSSUS', desc:'web-swing a ruined valley, latch onto a 76-unit titan, climb it and tear its sigils loose · 3 phases · smooth non-voxel world · Xbox/PS pad', file:'games/colossus.html', bytes:274836},
  {id:'blockshot', name:'BLOCKSHOT', desc:'MW2 gunplay in a Minecraft world · AR / SMG / sniper with ADS + recoil, shoot-to-break blocks, TNT, zombies, archers, creepers, UAV + airstrike · Xbox/PS pad', file:'games/blockshot.html', bytes:210143},
  {id:'webcraft', name:'WEBCRAFT', desc:'swing the block city · pendulum web-swing, zip, wall-run, dive, yank · 12-beacon run vs. the clock · Xbox/PS pad', file:'games/webcraft.html', bytes:188502},

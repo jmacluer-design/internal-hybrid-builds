@@ -20,7 +20,7 @@ function M.init(w)
 	local rng = w:rng("grid")
 	w.s.grid = {
 		power = { dies_t = clock.at(rng:int(G.mains_power_dies_day[1], G.mains_power_dies_day[2]), rng:int(0, 23), 0),
-			mains_dead = false, outage_until = 0, supply = 0, demand = 0, mains_on = true, gens_running = 0 },
+			mains_dead = false, outage_until = 0, supply = 0, demand = 0, mains_on = true, gens_running = 0, ok = true },
 		water = { dies_t = clock.at(rng:int(G.mains_water_dies_day[1], G.mains_water_dies_day[2]), rng:int(0, 23), 0),
 			mains_dead = false, outage_until = 0, tank = G.tank_start_l, ok = true },
 		weather = { kind = "clear", until_t = 0 },

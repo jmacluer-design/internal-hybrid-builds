@@ -12,6 +12,7 @@ d("orchard", { name = "Orchard Heights", kind = "residential", x = 520, y = 300,
 d("old_town", { name = "Old Town", kind = "mixed", x = -420, y = 380, radius = 240, danger = 2, travel = 20, loot = "commercial", zombies = 9 })
 d("mill_flats", { name = "Mill Flats", kind = "residential", x = -760, y = -520, radius = 300, danger = 2, travel = 25, loot = "residential", zombies = 11 })
 d("dockside", { name = "Dockside Row", kind = "industrial", x = -1150, y = 820, radius = 320, danger = 3, travel = 35, loot = "industrial", zombies = 16 })
+d("depot", { name = "Crossroads Depot", kind = "fuel", x = 260, y = -640, radius = 160, danger = 2, travel = 22, loot = "garage", zombies = 10 })
 d("hollow_mall", { name = "Hollow Mall", kind = "commercial", x = 980, y = -740, radius = 280, danger = 3, travel = 40, loot = "commercial", zombies = 20 })
 d("saint_anne", { name = "Saint Anne Clinic", kind = "medical", x = 340, y = 1180, radius = 200, danger = 4, travel = 45, loot = "medical", zombies = 24 })
 d("foundry", { name = "Foundry Quarter", kind = "industrial", x = -1500, y = -300, radius = 330, danger = 4, travel = 50, loot = "industrial", zombies = 26 })

@@ -18,7 +18,7 @@ function M.table_ids() return U.keys(DATA.tables) end
 -- returns { item_id = count }
 function M.roll(rng, table_id, opts)
 	opts = opts or {}
-	local t = DATA.tables[table_id]
+	local t = type(table_id) == "table" and table_id or DATA.tables[table_id]
 	if not t then error("unknown loot table: " .. tostring(table_id), 2) end
 	local danger = opts.danger or 1
 	local rare_mul = 1 + M.DANGER_RARE_BONUS * (danger - 1)

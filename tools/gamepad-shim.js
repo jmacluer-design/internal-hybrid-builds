@@ -1,4 +1,4 @@
-// gamepad shim v1: standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
+// gamepad shim v1 (+ __gpPoll hook for XR loops): standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
 // Pasted verbatim inside each game's module <script> (needs the contract globals: keys, padFire, padPlace, padLook, padMenu).
 // Mapping (Xbox name / PlayStation name):
 //   left stick = WASD   right stick = look   A/Cross = jump   X/Square = J   B/Circle = Z   Y/Triangle = E
@@ -21,7 +21,7 @@
   const click=id=>{ const el=document.getElementById(id); if(shown(el)){ el.click(); return true; } return false; };
   const edge=(name,on,down,up)=>{ if(on&&!was[name]){ was[name]=1; down&&down(); } else if(!on&&was[name]){ was[name]=0; up&&up(); } };
   const call=(f,...a)=>{ if(typeof f==='function') f(...a); };
-  const pick=()=>{ for(const g of navigator.getGamepads()) if(g&&g.connected) return g; return null; };
+  const pick=()=>{ const gs=navigator.getGamepads(); for(let i=0;i<gs.length;i++){ const g=gs[i]; if(g&&g.connected&&g.mapping!=='xr-standard') return g; } return null; };
   let lookLive=false;
   function releaseAll(){ [...held].forEach(k=>setKey(k,false)); Object.keys(was).forEach(k=>{ if(was[k]) edge(k,false,null,()=>{}); });
     if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
@@ -32,16 +32,22 @@
   window.__rumble=(strong,weak,ms)=>{ const g=pick(), a=g&&g.vibrationActuator;
     if(a&&a.playEffect) a.playEffect('dual-rumble',{duration:ms||80,strongMagnitude:strong||0,weakMagnitude:weak||0}).catch(()=>{}); };
   window.__gpDbg=()=>({ connected:!!pick(), held:[...held] });
-  function frame(){
+  // hot path is allocation-free (it also runs every XR frame): shared scratch + static edge callbacks
+  const _dz=[0,0]; let cur=null;
+  const bb=i=>{ const x=cur.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+  const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ){ _dz[0]=0; _dz[1]=0; return _dz; } const s=(Math.min(m,1)-DZ)/(1-DZ)/m; _dz[0]=x*s; _dz[1]=y*s; return _dz; };
+  const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+  const onRtDown=()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); }, onRtUp=()=>call(typeof padFire==='function'?padFire:null,false);
+  const onLtDown=()=>call(typeof padPlace==='function'?padPlace:null,true), onLtUp=()=>call(typeof padPlace==='function'?padPlace:null,false);
+  const onA=()=>{ if(!click('cta')) click('cta2'); }, onStart=()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); }, onSelect=()=>call(typeof padMenu==='function'?padMenu:null);
+  function poll(){
     const g=pick();
     if(g){
-      const b=i=>{ const x=g.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+      cur=g; const b=bb;
       // sticks (radial deadzone)
-      const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ) return [0,0]; const s=(Math.min(m,1)-DZ)/(1-DZ)/m; return [x*s,y*s]; };
-      const [lx,ly]=dz(g.axes[0]||0,g.axes[1]||0);
+      let d=dz(g.axes[0]||0,g.axes[1]||0); const lx=d[0], ly=d[1];
       axisKeys('a','d',lx); axisKeys('w','s',ly);
-      const [rx,ry]=dz(g.axes[2]||0,g.axes[3]||0);
-      const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+      d=dz(g.axes[2]||0,g.axes[3]||0); const rx=d[0], ry=d[1];
       if(rx||ry){ lookLive=true; call(typeof padLook==='function'?padLook:null,cv(rx),cv(ry)); }
       else if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
       // face / shoulder buttons -> keys
@@ -49,14 +55,15 @@
       setKey('q',b(4)||b(11)); setKey('shift',b(5)||b(10));
       setKey('arrowup',b(12)); setKey('arrowdown',b(13)); setKey('arrowleft',b(14)); setKey('arrowright',b(15));
       // triggers -> primary / secondary
-      edge('rt',b(7),()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); },()=>call(typeof padFire==='function'?padFire:null,false));
-      edge('lt',b(6),()=>call(typeof padPlace==='function'?padPlace:null,true),()=>call(typeof padPlace==='function'?padPlace:null,false));
+      edge('rt',b(7),onRtDown,onRtUp);
+      edge('lt',b(6),onLtDown,onLtUp);
       // A also confirms on start / retry screens; Start confirms there, pauses in game
-      edge('a',b(0),()=>{ if(!click('cta')) click('cta2'); });
-      edge('start',b(9),()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); });
-      edge('select',b(8),()=>call(typeof padMenu==='function'?padMenu:null));
+      edge('a',b(0),onA);
+      edge('start',b(9),onStart);
+      edge('select',b(8),onSelect);
     }
-    requestAnimationFrame(frame);
   }
+  function frame(){ poll(); requestAnimationFrame(frame); }
+  window.__gpPoll=poll; // window rAF does not run while an immersive session is presenting (Quest Browser): the game's XR loop calls this every XR frame
   requestAnimationFrame(frame);
 })();

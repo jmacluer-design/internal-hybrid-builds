@@ -92,35 +92,41 @@ function M.plan(w, opts)
 	local s = w.s
 	local d = DISTRICTS[opts.district]
 	if not d then return nil, "unknown_district" end
-	local v
-	if opts.vehicle then v = M.vehicle(w, opts.vehicle) else v = M.free_vehicle(w) end
-	if not v or v.state ~= "home" then return nil, "no_vehicle" end
-	if v.hp < 20 then return nil, "vehicle_damaged" end
-	for i = 1, #s.exped do if s.exped[i].vehicle == v.id then return nil, "vehicle_busy" end end
-	local cans = M.fuel_cans_needed(d, v.kind)
-	local stock = 0
-	for i = 1, #s.zones do stock = stock + (s.zones[i].items.items.fuel_can or 0) end
-	if stock < cans then return nil, "no_fuel" end
+	local foot = (opts.mode == "foot")
+	local v, cans
+	if foot then
+		if d.travel > X.foot.max_travel then return nil, "too_far_on_foot" end
+		cans = 0
+	else
+		if opts.vehicle then v = M.vehicle(w, opts.vehicle) else v = M.free_vehicle(w) end
+		if not v or v.state ~= "home" then return nil, "no_vehicle" end
+		if v.hp < 20 then return nil, "vehicle_damaged" end
+		for i = 1, #s.exped do if s.exped[i].vehicle == v.id then return nil, "vehicle_busy" end end
+		cans = M.fuel_cans_needed(d, v.kind)
+		local stock = 0
+		for i = 1, #s.zones do stock = stock + (s.zones[i].items.items.fuel_can or 0) end
+		if stock < cans then return nil, "no_fuel" end
+	end
 	local x = {
-		id = w:new_id("x"), district = d.id, vehicle = v.id, state = "forming", crew = {},
+		id = w:new_id("x"), district = d.id, vehicle = v and v.id or "", mode = foot and "foot" or "vehicle", state = "forming", crew = {},
 		want_crew = U.clamp(opts.size or 2, X.crew_min, X.crew_max), min_crew = opts.min_crew or X.crew_min,
-		form_deadline = s.t + TUNING.jobs.sign_up_minutes, loot = items.new(X.vehicles[v.kind].trunk_g),
+		form_deadline = s.t + TUNING.jobs.sign_up_minutes, loot = items.new(foot and X.foot.trunk_g or X.vehicles[v.kind].trunk_g),
 		fuel_cans = cans, planned = s.t, t_out = 0, t_loot = 0, t_back = 0, hurt = 0,
 	}
 	s.exped[#s.exped + 1] = x
-	v.state = "reserved"
+	if v then v.state = "reserved" end
 	if opts.crew then
 		x.want_crew = #opts.crew
 		for i = 1, #opts.crew do
 			local c = w:colonist(opts.crew[i])
-			if c and colonist.is_available(c) and M.join(w, x.id, c) then end
+			if c and colonist.is_available(c) then M.join(w, x.id, c) end
 		end
 		if #x.crew == 0 then
 			M.cancel(w, x.id, "no_crew")
 			return nil, "no_crew"
 		end
 	end
-	w:emit({ type = "notify", level = "info", text = string.format("Expedition to %s is forming (%d crew wanted).", d.name, x.want_crew) })
+	w:emit({ type = "notify", level = "info", text = string.format("Expedition to %s is forming (%d crew wanted%s).", d.name, x.want_crew, foot and ", on foot" or "") })
 	return x
 end
 
@@ -257,6 +263,7 @@ local function roll_ambush(w, x, where)
 	local d = DISTRICTS[x.district]
 	local crew = crew_list(w, x)
 	local p = M.risk(d, crew, clock.is_night(w.s.t))
+	if x.mode == "foot" then p = U.min(0.95, p * X.foot.risk_mult) end
 	if not rng:chance(p) then return nil end
 	local res = ambush(w, x, where)
 	if res and res.outcome ~= "repelled" then
@@ -281,18 +288,20 @@ local function depart(w, x)
 	local rng = w:rng("exped")
 	local d = DISTRICTS[x.district]
 	local v = M.vehicle(w, x.vehicle)
-	-- pay the fuel
-	local left = x.fuel_cans
-	for i = 1, #s.zones do
-		if left <= 0 then break end
-		local got = w:destroy(s.zones[i].items, "fuel_can", left, "fuel")
-		left = left - got
+	if v then
+		-- pay the fuel
+		local left = x.fuel_cans
+		for i = 1, #s.zones do
+			if left <= 0 then break end
+			local got = w:destroy(s.zones[i].items, "fuel_can", left, "fuel")
+			left = left - got
+		end
+		if left > 0 then -- the fuel was taken while we were forming: abort
+			M.cancel(w, x.id, "no_fuel")
+			return
+		end
 	end
-	if left > 0 then -- the fuel was taken while we were forming: abort
-		M.cancel(w, x.id, "no_fuel")
-		return
-	end
-	local speed = X.vehicles[v.kind].speed
+	local speed = v and X.vehicles[v.kind].speed or X.foot.speed
 	local var = X.trip_variance
 	local out = d.travel / speed * rng:range(var[1], var[2])
 	local look = rng:int(X.loot_minutes[1], X.loot_minutes[2]) * (d.radius / 260)
@@ -301,12 +310,10 @@ local function depart(w, x)
 	x.t_out = s.t + floor(out + 0.5)
 	x.t_loot = x.t_out + floor(look + 0.5)
 	x.t_back = x.t_loot + floor(back + 0.5)
-	v.state = "away"
-	local names = {}
-	for i = 1, #x.crew do local c = w:colonist(x.crew[i]); if c then names[#names + 1] = c.name end end
-	w:emit({ type = "expedition", phase = "depart", id = x.id, district = d.id, vehicle = v.id, crew = U.copy(x.crew),
+	if v then v.state = "away" end
+	w:emit({ type = "expedition", phase = "depart", id = x.id, district = d.id, vehicle = x.vehicle, mode = x.mode, crew = U.copy(x.crew),
 		eta = x.t_back, pos = w:district_pos(d.id) })
-	w:emit({ type = "notify", level = "info", text = string.format("Expedition to %s departs with %d crew.", d.name, #x.crew) })
+	w:emit({ type = "notify", level = "info", text = string.format("Expedition to %s departs with %d crew%s.", d.name, #x.crew, x.mode == "foot" and " on foot" or "") })
 end
 
 local function finish(w, x, how)

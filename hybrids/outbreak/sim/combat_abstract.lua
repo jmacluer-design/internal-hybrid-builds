@@ -136,9 +136,11 @@ function M.resolve(rng, spec)
 			barrier_left = barrier_left - wear
 			wall_damage = wall_damage + wear
 		end
-		local n_hits = math.ceil(dmg / CT.hit_hp)
+		-- hits are quantized (a hit is about hit_hp); the fractional part is a chance of one more hit
+		local n_hits = math.floor(dmg / CT.hit_hp)
+		if rng:float() < dmg / CT.hit_hp - n_hits then n_hits = n_hits + 1 end
 		if n_hits > 0 and dmg > 0 then
-			local per = dmg / n_hits
+			local per = CT.hit_hp
 			for _ = 1, n_hits do
 				-- pick a random living defender
 				local pool = {}
@@ -147,7 +149,7 @@ function M.resolve(rng, spec)
 				local id = rng:pick(pool)
 				local kind
 				if raider_mix and (mix.raider or 0) > 0 and rng:chance(0.7) then kind = "bullet"
-				elseif rng:chance(CT.bite_share) then kind = "bite" else kind = "scratch" end
+				elseif rng:chance(CT.bite_share * (1 - 0.6 * enclosure)) then kind = "bite" else kind = "scratch" end
 				hits[#hits + 1] = { id = id, kind = kind, amount = per }
 				hp_left[id] = hp_left[id] - per
 				if hp_left[id] <= 0 then

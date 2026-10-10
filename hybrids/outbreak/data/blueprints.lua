@@ -37,7 +37,7 @@ bp("stove", { name = "Electric stove", cat = "production", materials = { scrap_m
 	skill_min = 1, needs = { workbench = 1 }, hp = 100, power_use = 800, tags = { cook_station = true, needs_power = true }, max = 2, value = 10 })
 
 bp("generator", { name = "Fuel generator", cat = "power", materials = { scrap_metal = 6, electronics = 2, wire = 2 }, work = 90,
-	skill_min = 2, needs = { workbench = 1 }, hp = 120, power_gen = 2400, fuel_cap_min = 720, max = 3, tags = { generator = true }, value = 14 })
+	skill_min = 2, needs = { workbench = 1 }, hp = 120, power_gen = 2400, fuel_cap_min = 1500, max = 3, tags = { generator = true }, value = 14 })
 
 bp("watchtower", { name = "Watchtower", cat = "defense", materials = { scrap_wood = 10, scrap_metal = 4, nails = 4 }, work = 150,
 	skill_min = 2, needs = { wall = 2, workbench = 1 }, hp = 300, defense = 14, perimeter = 1, tags = { guard_post = true }, guard_slots = 1, max = 4, value = 14 })

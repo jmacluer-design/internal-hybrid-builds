@@ -8,7 +8,7 @@ local items = require("sim.items")
 
 local M = {}
 
-M.G_PER_TILE = 12000 -- default capacity per tile
+M.G_PER_TILE = 20000 -- default capacity per tile
 
 function M.new(id, name, pos, tiles, prio, filter, cap_extra)
 	return {

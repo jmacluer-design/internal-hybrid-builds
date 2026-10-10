@@ -13,14 +13,14 @@ local I = {}
 local function def(id, d) d.id = id; I[id] = d end
 
 -- food ------------------------------------------------------------------------------------
-def("canned_beans", { name = "Canned beans", cat = "food", w = 400, stack = 8, value = 3, food = { hunger = 30, mood = "ate_canned", pref = 3 } })
-def("canned_veg", { name = "Canned vegetables", cat = "food", w = 400, stack = 8, value = 3, food = { hunger = 26, mood = "ate_canned", pref = 3 } })
-def("canned_fruit", { name = "Canned fruit", cat = "food", w = 350, stack = 8, value = 3, food = { hunger = 20, thirst = 6, mood = "ate_sweet", pref = 4 } })
-def("ration_pack", { name = "Ration pack", cat = "food", w = 500, stack = 6, value = 5, food = { hunger = 45, mood = "ate_canned", pref = 5 } })
-def("energy_bar", { name = "Energy bar", cat = "food", w = 80, stack = 20, value = 2, food = { hunger = 12, mood = "ate_sweet", pref = 2 } })
-def("dried_meat", { name = "Dried meat strips", cat = "food", w = 150, stack = 12, value = 4, food = { hunger = 26, mood = "ate_canned", pref = 3 } })
-def("stew", { name = "Hot stew", cat = "food", w = 600, stack = 6, value = 6, food = { hunger = 55, mood = "ate_fine_meal", pref = 9 } })
-def("cooked_rice", { name = "Cooked rice", cat = "food", w = 500, stack = 6, value = 4, food = { hunger = 40, mood = "ate_cooked", pref = 7 } })
+def("canned_beans", { name = "Canned beans", cat = "food", w = 400, stack = 8, value = 3, food = { hunger = 35, mood = "ate_canned", pref = 3 } })
+def("canned_veg", { name = "Canned vegetables", cat = "food", w = 400, stack = 8, value = 3, food = { hunger = 32, mood = "ate_canned", pref = 3 } })
+def("canned_fruit", { name = "Canned fruit", cat = "food", w = 350, stack = 8, value = 3, food = { hunger = 24, thirst = 6, mood = "ate_sweet", pref = 4 } })
+def("ration_pack", { name = "Ration pack", cat = "food", w = 500, stack = 6, value = 5, food = { hunger = 52, mood = "ate_canned", pref = 5 } })
+def("energy_bar", { name = "Energy bar", cat = "food", w = 80, stack = 20, value = 2, food = { hunger = 14, mood = "ate_sweet", pref = 2 } })
+def("dried_meat", { name = "Dried meat strips", cat = "food", w = 150, stack = 12, value = 4, food = { hunger = 30, mood = "ate_canned", pref = 3 } })
+def("stew", { name = "Hot stew", cat = "food", w = 600, stack = 6, value = 6, food = { hunger = 62, mood = "ate_fine_meal", pref = 9 } })
+def("cooked_rice", { name = "Cooked rice", cat = "food", w = 500, stack = 6, value = 4, food = { hunger = 44, mood = "ate_cooked", pref = 7 } })
 def("rice_bag", { name = "Bag of rice", cat = "ingredient", w = 1000, stack = 5, value = 3 })
 
 -- drink -----------------------------------------------------------------------------------

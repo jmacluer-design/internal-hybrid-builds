@@ -67,7 +67,7 @@ function M.new(rng, opts)
 		kills = 0,
 		joined = opts.joined or 0,
 		prio = {},
-		allow_amputation = true,
+		allow_amputation = false,
 		ref = nil,
 	}
 	c.skills = opts.skills or skills.new(rng, opts.focus)

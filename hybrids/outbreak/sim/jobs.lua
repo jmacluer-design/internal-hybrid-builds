@@ -125,23 +125,20 @@ local function speed_of(w, c, skill)
 	return s
 end
 
-local function is_personal(c, id)
-	local d = items.defs[id]
-	if d.cat == "weapon" then return true end
-	if d.cat == "ammo" then
-		-- keep ammo for the best weapon only, up to personal_ammo rounds
-		local _, wd = colonist.best_weapon(c)
-		if wd and wd.weapon.ammo == id then return (c.inv.items[id] or 0) <= J.personal_ammo end
-		return false
-	end
-	return false
-end
-
--- items a colonist carries that should be stocked
-local function haulables(c)
+-- What a colonist should unload: everything except their best weapon (one) and ~personal_ammo rounds for it.
+-- Returns an array of { id, n } (sorted by id).
+local function haul_amounts(c)
 	local out = {}
+	local best_id, wd = colonist.best_weapon(c)
 	for _, id in ipairs(U.keys(c.inv.items)) do
-		if not is_personal(c, id) then out[#out + 1] = id end
+		local n = c.inv.items[id]
+		local d = items.defs[id]
+		if d.cat == "weapon" then
+			if id == best_id then n = n - 1 end
+		elseif d.cat == "ammo" then
+			if wd and wd.weapon.ammo == id then n = n - J.personal_ammo end
+		end
+		if n > 0 then out[#out + 1] = { id = id, n = n } end
 	end
 	return out
 end
@@ -180,6 +177,7 @@ M.activity_for = activity_for
 -- step actions. Each entry: begin(w,c,job,st) tick(w,c,job,st,dt) done(w,c,job,st) -> false aborts the job
 -- ---------------------------------------------------------------------------------------------
 local ACT = {}
+local unload
 
 -- take n of an item from a zone into the colonist's inventory
 ACT.take_zone = { done = function(w, c, job, st)
@@ -188,6 +186,10 @@ ACT.take_zone = { done = function(w, c, job, st)
 	if not z or (z.items.items[d.item] or 0) <= 0 then z = stockpile.find_source(zones(w), d.item, c.pos) end
 	if not z then return false end
 	local moved = items.transfer(z.items, c.inv, d.item, d.n)
+	if moved <= 0 and items.can_add(c.inv, d.item) < 1 then
+		unload(w, c) -- inventory full: stock what we carry, then try again
+		moved = items.transfer(z.items, c.inv, d.item, d.n)
+	end
 	if moved <= 0 then return false end
 	job.data.carried = job.data.carried or {}
 	job.data.carried[d.item] = (job.data.carried[d.item] or 0) + moved
@@ -210,9 +212,10 @@ ACT.pickup_pile = { done = function(w, c, job, st)
 end }
 
 -- unload everything haulable into the best zones; leftovers go on the ground here
-ACT.drop_zone = { done = function(w, c, job, st)
-	for _, id in ipairs(haulables(c)) do
-		local n = c.inv.items[id] or 0
+unload = function(w, c)
+	local pile
+	for _, a in ipairs(haul_amounts(c)) do
+		local id, n = a.id, a.n
 		local guard = 0
 		while n > 0 and guard < 6 do
 			guard = guard + 1
@@ -222,17 +225,14 @@ ACT.drop_zone = { done = function(w, c, job, st)
 			if moved <= 0 then break end
 			n = n - moved
 		end
-	end
-	local pile
-	for _, id in ipairs(haulables(c)) do -- nothing accepts it: leave it on the ground rather than carry it forever
-		local n = c.inv.items[id] or 0
-		if n > 0 then
+		if n > 0 then -- nothing accepts it: leave it on the ground rather than carry it forever
 			pile = pile or w:pile_for(c.pos)
 			items.transfer(c.inv, pile.items, id, n)
 		end
 	end
-	return true
-end }
+end
+
+ACT.drop_zone = { done = function(w, c, job, st) unload(w, c); return true end }
 
 ACT.drop_site = { done = function(w, c, job, st)
 	local b = w:building(st.data.site)
@@ -332,6 +332,32 @@ ACT.medicate = { done = function(w, c, job, st)
 	end
 	p.dirty = true
 	p.report = true
+	return true
+end }
+
+-- a downed patient cannot reach food or water: a doctor-type worker brings it
+ACT.feed_tank = { done = function(w, c, job, st)
+	local got = grid.draw_water(w, TUNING.grid.drink_l)
+	if got <= 0 then return false end
+	job.data.litres = got
+	return true
+end }
+
+ACT.feed_apply = { done = function(w, c, job, st)
+	local p = w:colonist(st.data.patient)
+	if not p or p.dead then return false end
+	if job.data.litres then
+		needs.drink(p, job.data.litres / TUNING.grid.drink_l * TUNING.grid.drink_points)
+		job.data.litres = nil
+	else
+		local id = st.data.item
+		if (c.inv.items[id] or 0) <= 0 then return false end
+		local d = items.defs[id]
+		w:destroy(c.inv, id, 1, "eat")
+		needs.eat(p, d.food)
+	end
+	p.report = true
+	p.dirty = true
 	return true
 end }
 
@@ -690,11 +716,11 @@ local function plan_haul(w, c, d)
 end
 
 local function plan_unload(w, c)
-	local hs = haulables(c)
+	local hs = haul_amounts(c)
 	if #hs == 0 then return nil end
 	local dest
 	for i = 1, #hs do
-		dest = stockpile.find_dest(zones(w), hs[i], c.pos)
+		dest = stockpile.find_dest(zones(w), hs[i].id, c.pos)
 		if dest then break end
 	end
 	local pos = dest and dest.pos or nil
@@ -766,6 +792,7 @@ local function plan_make(w, c, d)
 	if not station or station.state ~= "built" then return nil end
 	local r = RECIPES[d.data.recipe]
 	if skills.level(c, r.skill) < r.skill_min then return nil end
+	if stockpile.total(zones(w), r.want[1]) >= r.want[2] then return nil end -- stale: demand already met
 	local steps = {}
 	local need = {}
 	for id, n in pairs(r.inputs) do need[id] = n end -- order-free copy
@@ -791,6 +818,14 @@ end
 local function plan_med(w, c, d, kind)
 	local p = w:colonist(d.data.patient)
 	if not p or p.dead then return nil end
+	-- the board can be a few minutes stale: re-check that the treatment is still wanted
+	if kind == "tend" and needs.bleeding(p) <= 0.0001 then return nil end
+	if kind == "medicate" then
+		if w.s.t < (p.medicated_until or 0) then return nil end
+		local bitten = false
+		for k = 1, #p.wounds do if p.wounds[k].bite and p.wounds[k].age < 720 then bitten = true end end
+		if not (bitten or p.inf.stage == "symptomatic" or p.inf.stage == "terminal") then return nil end
+	end
 	if kind == "tend" then
 		local item = d.data.item
 		local z = stockpile.find_source(zones(w), item, c.pos)
@@ -824,6 +859,31 @@ local function plan_med(w, c, d, kind)
 	end
 end
 
+local function plan_feed(w, c, d)
+	local p = w:colonist(d.data.patient)
+	if not p or p.dead or not p.downed then return nil end
+	local want_drink = p.thirst >= 50 and p.thirst * 1.3 >= p.hunger
+	local steps = {}
+	if want_drink and grid.water_available(w) then
+		steps[1] = step(w:water_pos(), J.drink_min, "feed_tank", { patient = p.id })
+		steps[2] = step(p.pos, 1, "feed_apply", { patient = p.id })
+	else
+		local pred
+		if want_drink then
+			pred = function(id, def) if def.food and (def.food.thirst or 0) >= 10 then return (def.food.pref or 1) + def.food.thirst end end
+		else
+			pred = function(id, def) if def.food and (def.food.hunger or 0) >= 8 then return (def.food.pref or 1) + def.food.hunger end end
+		end
+		local id, z = stockpile.find_item(zones(w), pred, c.pos)
+		if not id then return nil end
+		steps[1] = step(z.pos, J.take_min, "take_zone", { item = id, n = 1, zone = z.id })
+		steps[2] = step(p.pos, 1, "feed_apply", { patient = p.id, item = id })
+	end
+	local job = new_job("feed", "doctor", d.urgency >= 3 and CLASS.URGENT or CLASS.WORK, d.key, { kind = "colonist", id = p.id }, steps)
+	job.caps[d.key] = 1
+	return job
+end
+
 local function plan_guard(w, c, d)
 	local job = new_job("guard", "guard", CLASS.WORK, d.key, { kind = "post", id = d.data.post }, {
 		step(d.pos, J.guard_shift_min, "guard", { post = d.data.post }),
@@ -843,6 +903,8 @@ end
 local function plan_refuel(w, c, d)
 	local g = w:building(d.data.gen)
 	if not g or g.state ~= "built" then return nil end
+	if g.fuel_min > BP[g.bp].fuel_cap_min - 1000 then return nil end -- the board entry is stale: already topped up
+	if stockpile.total(zones(w), "fuel_can") <= J.fuel_reserve then return nil end
 	local z = stockpile.find_source(zones(w), "fuel_can", c.pos)
 	if not z then return nil end
 	local job = new_job("refuel", "haul", CLASS.WORK, d.key, { kind = "building", id = g.id }, {
@@ -890,17 +952,25 @@ end
 
 local function plan_equip(w, c, o)
 	local steps = {}
-	local z = stockpile.find_source(zones(w), o.item, c.pos)
+	local z, have0 = stockpile.find_source(zones(w), o.item, c.pos)
 	if not z then return nil end
-	steps[1] = step(z.pos, J.take_min, "take_zone", { item = o.item, n = 1, zone = z.id })
-	local wd = items.defs[o.item].weapon
-	if wd and wd.ammo then
-		local az, have = stockpile.find_source(zones(w), wd.ammo, c.pos)
-		if az then
-			local want = J.personal_ammo - (c.inv.items[wd.ammo] or 0)
-			if want > 0 then
-				local n = have < want and have or want
-				steps[2] = step(az.pos, J.take_min, "take_zone", { item = wd.ammo, n = n, zone = az.id })
+	local idef = items.defs[o.item]
+	if idef.cat == "ammo" then
+		local want = J.personal_ammo - (c.inv.items[o.item] or 0)
+		if want <= 0 then return nil end
+		local n = have0 < want and have0 or want
+		steps[1] = step(z.pos, J.take_min, "take_zone", { item = o.item, n = n, zone = z.id })
+	else
+		steps[1] = step(z.pos, J.take_min, "take_zone", { item = o.item, n = 1, zone = z.id })
+		local wd = idef.weapon
+		if wd and wd.ammo then
+			local az, have = stockpile.find_source(zones(w), wd.ammo, c.pos)
+			if az then
+				local want = J.personal_ammo - (c.inv.items[wd.ammo] or 0)
+				if want > 0 then
+					local n = have < want and have or want
+					steps[2] = step(az.pos, J.take_min, "take_zone", { item = wd.ammo, n = n, zone = az.id })
+				end
 			end
 		end
 	end
@@ -978,7 +1048,7 @@ function M.refresh(w)
 			end
 		end
 		-- generator fuel
-		if b.state == "built" and BP[b.bp].power_gen and b.fuel_min <= BP[b.bp].fuel_cap_min - 500 and has_item(tot, "fuel_can") then
+		if b.state == "built" and BP[b.bp].power_gen and b.fuel_min <= BP[b.bp].fuel_cap_min - 1000 and (tot.fuel_can or 0) > J.fuel_reserve then
 			add({ key = "refuel:" .. b.id, kind = "refuel", work = "haul", target = { kind = "building", id = b.id }, pos = b.pos,
 				data = { gen = b.id }, urgency = (b.fuel_min < 120) and 3 or 2 })
 		end
@@ -1029,6 +1099,10 @@ function M.refresh(w)
 				local item = (has_item(tot, "first_aid_kit") and (bleed > 0.3 or #p.wounds >= 3)) and "first_aid_kit" or (has_item(tot, "bandage") and "bandage" or "first_aid_kit")
 				add({ key = "tend:" .. p.id, kind = "tend", work = "doctor", target = { kind = "colonist", id = p.id }, pos = p.pos,
 					data = { patient = p.id, item = item }, urgency = (bleed >= J.treat_bleed_urgent or p.downed) and 3 or 2 })
+			end
+			if p.downed and (p.thirst >= 50 or p.hunger >= 60) then
+				add({ key = "feed:" .. p.id, kind = "feed", work = "doctor", target = { kind = "colonist", id = p.id }, pos = p.pos,
+					data = { patient = p.id }, urgency = (p.thirst >= 80 or p.hunger >= 85) and 3 or 2 })
 			end
 			-- bitten (visible bite wound) or visibly sick: antibiotics, once per cooldown
 			local bitten = false
@@ -1095,6 +1169,7 @@ local function plan_from_desc(w, c, d)
 	elseif k == "repair" then return plan_repair(w, c, d)
 	elseif k == "cook" or k == "craft" then return plan_make(w, c, d)
 	elseif k == "tend" or k == "medicate" or k == "amputate" then return plan_med(w, c, d, k)
+	elseif k == "feed" then return plan_feed(w, c, d)
 	elseif k == "guard" then return plan_guard(w, c, d)
 	elseif k == "scavenge" then return plan_join(w, c, d)
 	elseif k == "refuel" then return plan_refuel(w, c, d)
@@ -1116,21 +1191,26 @@ local function pick_board(w, c, urgent_only)
 			if ok and prio > 0 and can_reserve(w, d.key, d.cap) and not (c.ban and c.ban[d.key] and c.ban[d.key] > now) then
 				if d.skill and skills.level(c, d.skill) < (d.skill_min or 0) then ok = false end
 				if ok then
-					local eff = prio - floor((now - d.since) / J.aging_minutes)
+					local age = now - d.since
+					local eff = prio - floor(age / J.aging_minutes)
+					local aged = 1 -- 0 = this job waited its way up to the top and beats fresh jobs of the same priority
+					if eff <= 1 and prio > 1 then aged = 0 end
 					if eff < 1 then eff = 1 end
 					local dist = U.dist(c.pos, d.pos)
-					-- lexicographic: eff asc, work order asc, urgency desc, distance asc, key asc
+					-- lexicographic: eff asc, aged first (older first), work order asc, urgency desc, distance asc, key asc
 					local better = false
 					if not best then better = true
 					else
-						local e2, o2, u2, d2 = bk[1], bk[2], bk[3], bk[4]
+						local e2, a2, g2, o2, u2, d2 = bk[1], bk[2], bk[3], bk[4], bk[5], bk[6]
 						if eff ~= e2 then better = eff < e2
+						elseif aged ~= a2 then better = aged < a2
+						elseif aged == 0 and age ~= g2 then better = age > g2
 						elseif ORDER[d.work] ~= o2 then better = ORDER[d.work] < o2
 						elseif d.urgency ~= u2 then better = d.urgency > u2
 						elseif dist ~= d2 then better = dist < d2
 						else better = d.key < best.key end
 					end
-					if better then best = d; bk = { eff, ORDER[d.work], d.urgency, dist } end
+					if better then best = d; bk = { eff, aged, age, ORDER[d.work], d.urgency, dist } end
 				end
 			end
 		end
@@ -1212,6 +1292,7 @@ function M.update(w, c, dt, index)
 	end
 	if c.state == "downed" then c.state = "idle"; c.dirty = true end
 	if c.job then progress(w, c, dt) end
+	if c.dead or c.state == "away" then return end -- the job itself may have sent the colonist away (expedition) or removed them
 	local due = (not c.job) or c.dirty or now >= (c.reeval_t or 0)
 	if not due then return end
 	local newjob = M.pick(w, c)

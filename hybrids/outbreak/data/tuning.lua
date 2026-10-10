@@ -58,7 +58,7 @@ TUNING.colonist = {
 
 -- needs ----------------------------------------------------------------------------------------
 TUNING.needs = {
-	hunger_per_min = 0.0833333333,   -- 100 points in 20 h
+	hunger_per_min = 0.0625,         -- 100 points in 26.7 h (about 2.6 meals a day)
 	thirst_per_min = 0.1388888889,   -- 100 points in 12 h
 	fatigue_awake_per_min = 0.0925925926, -- 100 points in 18 h awake
 	fatigue_sleep_per_min = 0.2380952381, -- recover 100 points in 7 h of good sleep
@@ -81,8 +81,8 @@ TUNING.needs = {
 	speed_floor = 0.2,
 	-- wound kinds: bleed range (hp/min), pain, infection chance
 	wounds = {
-		bite    = { bleed_min = 0.10, bleed_max = 0.45, pain = 18, infect = 0.55 },
-		scratch = { bleed_min = 0.02, bleed_max = 0.10, pain = 5,  infect = 0.10 },
+		bite    = { bleed_min = 0.10, bleed_max = 0.45, pain = 18, infect = 0.30 },
+		scratch = { bleed_min = 0.02, bleed_max = 0.10, pain = 5,  infect = 0.04 },
 		cut     = { bleed_min = 0.05, bleed_max = 0.30, pain = 10, infect = 0.02 },
 		bullet  = { bleed_min = 0.20, bleed_max = 0.65, pain = 22, infect = 0.00 },
 		blunt   = { bleed_min = 0.00, bleed_max = 0.00, pain = 9,  infect = 0.00 },
@@ -145,6 +145,98 @@ TUNING.skills = {
 	xp_per_kill = 4,
 	start_level_max = 4,
 }
+-- world setup + containers ----------------------------------------------------------------------------------------
+TUNING.world = {
+	start_items = { -- the starting stockpile (created in the ledger as "start")
+		canned_beans = 12, canned_veg = 8, ration_pack = 4, rice_bag = 2, dried_meat = 4, energy_bar = 6,
+		water_bottle = 16, soda_can = 6,
+		bandage = 8, painkillers = 3, antibiotics = 4, surgical_kit = 1, cloth_scrap = 14,
+		scrap_wood = 26, scrap_metal = 12, nails = 12, duct_tape = 3, wire = 3, electronics = 2,
+		fuel_can = 5, firewood = 10, ammo_9mm = 60,
+	},
+	start_buildings = { { "campfire", 14, 8 }, { "workbench", 18, -6 }, { "bed", -12, 10 }, { "bed", -12, 14 } },
+	main_zone = { x = 10, y = 10, tiles = 10, prio = 2 },
+	med_zone = { x = 12, y = 4, tiles = 2, prio = 4 },
+	container_respawn_days = 7,    -- an emptied adapter container refills after this many days
+	pile_merge_dist = 6,
+	noise_ping_gen = 30,
+	refugee_items = { water_bottle = 1, canned_beans = 1 },
+	refugee_armed_chance = 0.3,
+	max_dead_kept = 40,
+}
+
+-- director (storyteller) -----------------------------------------------------------------------------------
+-- threat points per day = mult(profile, day) * (base_pts + colonist_k * colonists + wealth_k * sqrt(wealth) + day_k * (day - 1))
+-- The budget accrues continuously (capped) and is SPENT by threat events: an event can only fire if the budget
+-- covers its cost, so threat can never exceed what the colony's size, wealth and age have earned.
+TUNING.director = {
+	eval_interval = 30,
+	base_pts = 8, colonist_k = 3.5, wealth_k = 1.2, day_k = 0.9,
+	budget_cap_days = 2.5,       -- budget never exceeds this many days of accrual
+	start_grace_days = 1.0,      -- no events at all during the first day
+	log_cap = 160,
+	by_day_keep = 60,
+	profiles = {
+		calm = {
+			desc = "Long quiet stretches, small threats, more help arriving.",
+			mult0 = 0.50, mult1 = 0.60,               -- multiplier at day 1 / day 30 (linear in between)
+			threat_gap = { 1.3, 2.8 }, threat_gap_late = { 1.2, 2.6 }, -- days between threat-channel events (day 1 / day 30)
+			boon_gap = { 1.5, 3.0 },
+			spend_frac = { 0.45, 0.75 },
+			surge_chance = 0,
+			weights = { horde_wave = 0.7, gang_raid = 0.5, infection_outbreak = 0.6, helicopter_flyover = 0.5, power_outage = 1.0, water_outage = 1.0,
+				storm = 1.2, caravan = 1.5, supply_drop = 0.8, refugee_arrival = 1.3 },
+		},
+		escalating = {
+			desc = "Gentle start, steadily rising pressure.",
+			mult0 = 0.55, mult1 = 1.9,
+			threat_gap = { 1.8, 3.2 }, threat_gap_late = { 0.35, 0.85 },
+			boon_gap = { 2.0, 4.0 },
+			spend_frac = { 0.55, 0.85 },
+			surge_chance = 0.10,
+			weights = { horde_wave = 1.0, gang_raid = 1.0, infection_outbreak = 1.0, helicopter_flyover = 1.0, power_outage = 1.0, water_outage = 1.0,
+				storm = 1.0, caravan = 1.0, supply_drop = 1.0, refugee_arrival = 1.0 },
+		},
+		chaos = {
+			desc = "Relentless: short gaps, big spikes, little rest.",
+			mult0 = 1.4, mult1 = 2.1,
+			threat_gap = { 0.25, 0.8 }, threat_gap_late = { 0.15, 0.55 },
+			boon_gap = { 3.0, 6.0 },
+			spend_frac = { 0.60, 0.95 },
+			surge_chance = 0.30,
+			weights = { horde_wave = 1.5, gang_raid = 1.4, infection_outbreak = 1.2, helicopter_flyover = 1.6, power_outage = 1.2, water_outage = 1.2,
+				storm = 1.3, caravan = 0.6, supply_drop = 0.7, refugee_arrival = 0.6 },
+		},
+	},
+	-- boon sizes
+	supply_drop_rolls = { 4, 7 }, supply_drop_dist = { 60, 140 },
+	refugee_infected_chance = 0.12,
+	storm_damage = { 10, 28 }, storm_buildings = 3,
+	infection_victims_per_cost = 0.05, -- extra victims per spent point (max 3 total)
+}
+
+-- factions: raids, caravans, trade, relations ----------------------------------------------------------------
+TUNING.factions = {
+	raid_speed = 110,           -- units per minute while approaching (vehicles)
+	retreat_speed = 140,
+	raiders_per_point = 1 / 2.6, -- raider count = points * raid_power * this
+	raid_min = 2, raid_max = 16,
+	steal_g_per_raider = 3500,
+	rounds_before_retreat = 3,
+	raid_spawn_dist = { 1100, 1700 },
+	raid_goodwill_ceiling = 22,  -- factions friendlier than this rarely raid
+	kill_goodwill = -0.4,        -- goodwill lost per raider killed
+	goodwill_drift = 0.03,       -- fraction of the gap to the starting goodwill recovered per day
+	caravan_stay = 360,          -- minutes a caravan waits at the base
+	caravan_min_goodwill = -25,
+	price_goodwill = 400,        -- price factor = 1 -/+ goodwill / this
+	want_premium = 1.25,
+	trade_goodwill_gain = 0.12, trade_goodwill_cap = 3,
+	gift_goodwill_per_value = 0.35, gift_goodwill_cap = 12,
+	truce_min_value = 25, truce_per_hostility = 0.5, truce_days = 3,
+	raid_log_keep = 20,
+}
+
 -- hordes (abstract groups on a coarse grid) -------------------------------------------------------------
 TUNING.horde = {
 	R_materialize = 220,       -- a horde within this distance of an observer becomes real peds
@@ -155,17 +247,17 @@ TUNING.horde = {
 	top_up_min = 5,            -- minutes between top-up spawns while real peds were killed
 	observe_colonists = false, -- also materialize near colonists (leave false: colonists far from the player stay abstract)
 	speed = { walker = 55, runner = 120, brute = 70, screamer = 80 }, -- units per minute
-	wander_mult = 0.25,        -- fraction of speed while drifting
+	wander_mult = 0.06,        -- fraction of speed while drifting (hordes meander: ~1 km/day net)
 	seek_mult = 0.8,           -- fraction of speed while heading for a noise / the base
-	turn_chance_per_min = 0.04,
+	turn_chance_per_min = 0.02,
 	arrive_radius = 30,
 	linger_min = 25,           -- minutes spent at a noise before drifting again
-	noise_radius_per_loud = 7, -- attraction radius = loudness * this
+	noise_radius_per_loud = 3, -- attraction radius = loudness * this
 	noise_keep = 24,           -- noise log ring (for the UI)
 	noise = { gunshot = 110, shotgun = 140, rifle = 150, melee = 20, vehicle = 45, explosion = 200, helicopter = 170, screamer = 90,
 		alarm = 130, building = 25, footsteps = 8, loot = 15, supply_drop = 120, generator = 30 },
 	generator_noise_every = 60, -- running generators ping this often
-	base_target_chance = 0.12, -- chance a drifting horde near the alert radius heads for the base anyway
+	base_target_chance = 0.02, -- per-hour chance a drifting horde near the alert radius heads for the base anyway
 	assault_round_min = 10,    -- minutes between abstract assault rounds
 	assault_radius = 90,       -- hordes this close to the base centre assault it
 	assault_rounds = 6,        -- combat_abstract rounds per assault round
@@ -174,7 +266,7 @@ TUNING.horde = {
 	dissipate_frac = 0.04,
 	min_size_to_keep = 3,
 	max_total = 900,           -- abstract zombies in the whole world
-	ambient_count = 9, ambient_size = { 6, 38 },
+	ambient_count = 6, ambient_size = { 4, 20 },
 	spawn_dist = { 1500, 2200 }, -- waves appear this far from the base
 	alert_min_size = 8, alert_hold = 30,
 	-- composition of a wave by pacing/threat: shares of the point budget spent on each type
@@ -188,10 +280,11 @@ TUNING.expedition = {
 		pickup = { name = "Pickup truck", speed = 1.15, trunk_g = 60000, hp = 80 },
 	},
 	start_vehicles = { "van" },
+	foot = { speed = 0.4, trunk_g = 30000, max_travel = 30, risk_mult = 1.25 }, -- vehicle-less runs: no fuel, nearby districts only
 	crew_min = 1, crew_max = 4,
-	fuel_min_per_can = 90,       -- round-trip minutes one fuel can covers (cans = ceil(round trip / this))
+	fuel_min_per_can = 150,      -- round-trip minutes one fuel can covers (cans = ceil(round trip / this))
 	loot_minutes = { 30, 70 },   -- time spent searching (scaled by district radius)
-	loot_rolls = { 4, 8 },       -- base weighted rolls per run
+	loot_rolls = { 7, 12 },      -- base weighted rolls per run
 	loot_per_scav_levels = 3,    -- +1 roll per this many total scavenging levels in the crew
 	trip_variance = { 0.85, 1.2 },
 	-- ambush chance per leg (travel there / looting / travel back share one roll set) by district danger 1..5
@@ -231,6 +324,7 @@ TUNING.jobs = {
 	binge_min = 20,
 	wander_radius = 160,
 	sign_up_minutes = 60,      -- how long an expedition waits for volunteers
+	fuel_reserve = 2,          -- generators are only refuelled while the stock holds more than this many cans (expeditions first)
 }
 
 -- power / water grid + weather --------------------------------------------------------------------
@@ -238,7 +332,7 @@ TUNING.grid = {
 	mains_cap_w = 1400,         -- what the (failing) city grid can supply
 	mains_power_dies_day = { 7, 13 },  -- city power fails for good on a random day in this range
 	mains_water_dies_day = { 4, 9 },   -- city water stops for good on a random day in this range
-	gen_min_per_l = 25,         -- generator runtime minutes per litre of fuel
+	gen_min_per_l = 50,         -- generator runtime minutes per litre of fuel (a 20 L can = 1000 min)
 	tank_base_l = 60,           -- water storage with no tanks built
 	tank_start_l = 40,
 	mains_water_fill = 3.0,     -- L/min added to the tank while the water mains are up
@@ -261,15 +355,15 @@ TUNING.combat = {
 	},
 	order = { "walker", "runner", "brute", "screamer", "raider" }, -- deterministic iteration order
 	rounds = 6,               -- rounds per resolve() call (about 2 game minutes each)
-	k_kill = 0.30,            -- attacker power removed per defender power per round
-	k_damage = 0.45,          -- defender hp lost per attacker power per round (before walls)
+	k_kill = 0.90,            -- attacker power removed per defender power per round
+	k_damage = 0.40,          -- defender hp lost per attacker power per round (before walls)
 	var_lo = 0.6, var_hi = 1.4, -- per-round randomness band (idea: CDDA's 0.6..1.4 skill roll band)
 	hit_hp = 9,               -- one "hit" is about this much hp
-	bite_share = 0.5,         -- share of zombie hits that are bites (rest scratches)
+	bite_share = 0.3,         -- share of zombie hits that are bites (rest scratches)
 	barrier_k = 18,           -- wall_mult = 1 / (1 + barrier / barrier_k)
 	wall_wear = 0.30,         -- barrier hp lost per attacker power per round
 	ranged_wall_bonus = 0.35, -- shooters fire over walls: kill bonus * enclosure
-	ammo_per_round = 2,       -- rounds fired per ranged defender per round
+	ammo_per_round = 4,       -- rounds fired per ranged defender per round
 	out_of_ammo = 0.4,        -- ranged defender without ammo fights at this fraction
 	guard_factor = 1.0,       -- readiness of colonists on guard / drafted
 	awake_factor = 0.55,      -- readiness of awake colonists who are working
