@@ -234,7 +234,7 @@ const QUALITY = {
   low:    { pr: 1,   shadow: 0,    bloom: 0, bloomRes: 0.5, msaa: 0, cap: 14000, grass: 9000,   water: 0, god: 0, trees: 0.4,  tex: 512, lite: 1 },
   // VR tiers (never persisted, never reachable from the flat quality cycle): no composer / bloom / god rays, one small shadow map, trimmed particles + cube cap + grass
   vr:     { pr: 1,   shadow: 1024, bloom: 0, bloomRes: 0.5, msaa: 0, cap: 16000, grass: 24000,  water: 1, god: 0, trees: 0.6,  tex: 512, lite: 1, vr: 1 },
-  vrlite: { pr: 1,   shadow: 0,    bloom: 0, bloomRes: 0.5, msaa: 0, cap: 8000,  grass: 9000,   water: 0, god: 0, trees: 0.35, tex: 512, lite: 1, vr: 1 },
+  vrlite: { pr: 1,   shadow: 512,  bloom: 0, bloomRes: 0.5, msaa: 0, cap: 8000,  grass: 9000,   water: 0, god: 0, trees: 0.35, tex: 512, lite: 1, vr: 1 },
 };
 const QORDER = ['high', 'medium', 'low'];
 let qName = 'high';
@@ -287,6 +287,7 @@ scene.fog = new THREE.FogExp2(0xe9c99a, 0.0062);
 // ---------------------------------------------------------------------------
 const U = {
   lite: { value: 0 },
+  liteT: { value: 0 },  // terrain detail level: = lite in flat play; 0.4 in VR (detail colour on, 8-fetch micro-normal off)
   time: { value: 0 },
   wave: { value: new THREE.Vector4(0, 0, -1, -1) },   // centre x, centre z, R1 (voxelise front), R2 (heal front)
   waveB: { value: new THREE.Vector4(9, 0, 0, 0) },     // band width, ring glow, flat-look amount, -
@@ -558,7 +559,7 @@ function buildTerrainGeo() {
 const terrMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.94, metalness: 0, side: THREE.DoubleSide });
 terrMat.customProgramCacheKey = () => 'terr1';
 terrMat.onBeforeCompile = sh => {
-  Object.assign(sh.uniforms, { uHS: { value: texHS }, uQH: { value: texQH }, uDrop: { value: texDrop }, uCol: { value: texCol }, uNm: { value: texNm }, uNoise: { value: NOISE }, uWave: U.wave, uWaveB: U.waveB, uLite: U.lite });
+  Object.assign(sh.uniforms, { uHS: { value: texHS }, uQH: { value: texQH }, uDrop: { value: texDrop }, uCol: { value: texCol }, uNm: { value: texNm }, uNoise: { value: NOISE }, uWave: U.wave, uWaveB: U.waveB, uLite: U.liteT });
   sh.vertexShader = sh.vertexShader
     .replace('#include <common>', `#include <common>
 uniform sampler2D uHS; uniform sampler2D uQH; uniform sampler2D uDrop; ${GLSL.vox}
@@ -603,7 +604,7 @@ float d1 = 0.5, d2 = nz(vWP.xz * 1.31, 1), d3 = 0.5;
 if (uLite < 0.5) { d1 = nz(vWP.xz * 0.23, 0); d3 = nz(vWP.xz * 5.7, 2); }
 vec3 aSm = texture(uCol, uvw).rgb * (0.80 + 0.46 * (d1 * 0.4 + d2 * 0.35 + d3 * 0.25));
 // fine micro-normal from the detail noise (grass tufts / pebbles read as relief even when blurry)
-if (uLite < 0.5) { float e = 0.012; float gx = nz(vWP.xz * 1.31 + vec2(e, 0.), 1) - nz(vWP.xz * 1.31 - vec2(e, 0.), 1); float gz = nz(vWP.xz * 1.31 + vec2(0., e), 1) - nz(vWP.xz * 1.31 - vec2(0., e), 1);
+if (uLite < 0.25) { float e = 0.012; float gx = nz(vWP.xz * 1.31 + vec2(e, 0.), 1) - nz(vWP.xz * 1.31 - vec2(e, 0.), 1); float gz = nz(vWP.xz * 1.31 + vec2(0., e), 1) - nz(vWP.xz * 1.31 - vec2(0., e), 1);
   float gx2 = nz(vWP.xz * 5.7 + vec2(e, 0.), 2) - nz(vWP.xz * 5.7 - vec2(e, 0.), 2); float gz2 = nz(vWP.xz * 5.7 + vec2(0., e), 2) - nz(vWP.xz * 5.7 - vec2(0., e), 2);
   nSm = normalize(nSm + vec3(-(gx * 1.4 + gx2 * 1.1), 0.0, -(gz * 1.4 + gz2 * 1.1)) * 1.6); }
 vec3 colT = aSm;
@@ -2597,7 +2598,7 @@ function updateNPC(dt, t) {
   if (talking) { NPC.talkT -= dt; if (NPC.talkT <= 0 || d > 6) { $('talk').classList.remove('on'); NPC.talkT = 0; P.talk = 0; } }
   if (NPC.near && edge.e) { edge.e = false; NPC.line = (NPC.line + 1) % NPC.lines.length; showTalk('TWIN', NPC.lines[NPC.line]); sfx('talk'); }
 }
-function showTalk(who, txt) { $('talkWho').textContent = who; $('talkTxt').textContent = txt; $('talk').classList.add('on'); NPC.talkT = 6; P.talk = 1; }
+function showTalk(who, txt) { G.talkWho = who; G.talkMsg = txt; G.talkSeq = (G.talkSeq | 0) + 1; $('talkWho').textContent = who; $('talkTxt').textContent = txt; $('talk').classList.add('on'); NPC.talkT = 6; P.talk = 1; }
 
 // ---- pipes, pads, low-gravity pockets ---------------------------------------------------------------------------------------
 const lowgMeshes = [];
@@ -2748,7 +2749,7 @@ const ACT_NAMES = { 1: 'ACT I · GOLDEN VALLEY', 2: 'ACT II · SKY ARCHIPELAGO',
 const ACT_SHARDS = { 1: 5, 2: 4, 3: 3 };
 try { G.best = +localStorage.getItem('sw_best') || 0; } catch (e) { }
 let toastT = 0;
-function toast(msg, ms = 2400) { const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms); }
+function toast(msg, ms = 2400) { G.toastMsg = msg; G.toastSeq = (G.toastSeq | 0) + 1; const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms); }
 function fmtTime(s) { s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function buildPie() { const svg = $('hp'); let h = '<circle r="46" fill="rgba(8,14,22,.55)" stroke="rgba(255,230,160,.55)" stroke-width="2"/>'; for (let i = 0; i < 3; i++) { const a0 = -PI / 2 + i * TAU / 3 + 0.06, a1 = -PI / 2 + (i + 1) * TAU / 3 - 0.06, r = 40, x0 = Math.cos(a0) * r, y0 = Math.sin(a0) * r, x1 = Math.cos(a1) * r, y1 = Math.sin(a1) * r; h += `<path id="hpw${i}" d="M0 0 L${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z" fill="#ff5a4a"/>`; } h += '<circle r="10" fill="#122" stroke="rgba(255,230,160,.6)" stroke-width="2"/>'; svg.innerHTML = h; }
 buildPie();
@@ -2967,7 +2968,7 @@ function frame(rdt, doRender) {
     // death
     deathCheck();
     PROMPT = ''; doRewind(sdt); updateCoins(sdt, U.time.value); updateShards(sdt, U.time.value); updateBlocks(sdt); updateNPC(sdt, U.time.value); updatePipesPads(sdt); updateRotators(sdt);
-    edge.e = false; const pe = $('prompt'); if (PROMPT) { pe.textContent = PROMPT; pe.classList.add('on'); } else pe.classList.remove('on');
+    edge.e = false; if (!VR.presenting) { const pe = $('prompt'); if (PROMPT) { pe.textContent = PROMPT; pe.classList.add('on'); } else pe.classList.remove('on'); }
     shardHudT -= rdt; if (shardHudT <= 0) { shardHudT = 0.25; let best = 1e9, bs = null; for (const s of SHARDS) if (!s.got) { const d = Math.hypot(s.x - P.x, s.y - P.y, s.z - P.z); if (d < best) { best = d; bs = s; } } G.nextShard = bs; G.nsd = bs ? Math.round(best) : -1; $('shardDist').textContent = bs ? 'NEXT SHARD ' + Math.round(best) + ' m' : ''; }
   } else if (G.state === 'menu') { updateNPC(rdt, U.time.value); updateShards(rdt, U.time.value); updateCoins(rdt, U.time.value); acc = 0; }
   U.time.value += rdt;
@@ -2979,9 +2980,10 @@ function frame(rdt, doRender) {
   waterMat.uniforms.uQ.value = Q.water; moteMat.uniforms.uCol.value.set(G.act === 3 ? 0x6ff0ff : G.act === 2 ? 0xffb6d8 : 0xffd27a);
   grassUniforms.uGrassOn.value = act1Visible ? 1 : 0;
   // flash overlays
-  if (G.flash > 0) { G.flash = Math.max(0, G.flash - rdt * 1.4); $('flash').style.opacity = G.flash.toFixed(3); $('flash').style.background = '#fff'; gradeFlash(G.flash * 0.15); } else if (G.flashRed > 0) { G.flashRed = Math.max(0, G.flashRed - rdt * 2); $('flash').style.background = '#ff3030'; $('flash').style.opacity = (G.flashRed * 0.35).toFixed(3); } else if ($('flash').style.opacity !== '0') $('flash').style.opacity = 0;
+  if (VR.presenting) { G.flash = Math.max(0, G.flash - rdt * 1.4); G.flashRed = Math.max(0, G.flashRed - rdt * 2); } // no full-field flashes in a headset (comfort); the DOM overlay is invisible there anyway
+  else if (G.flash > 0) { G.flash = Math.max(0, G.flash - rdt * 1.4); $('flash').style.opacity = G.flash.toFixed(3); $('flash').style.background = '#fff'; gradeFlash(G.flash * 0.15); } else if (G.flashRed > 0) { G.flashRed = Math.max(0, G.flashRed - rdt * 2); $('flash').style.background = '#ff3030'; $('flash').style.opacity = (G.flashRed * 0.35).toFixed(3); } else if ($('flash').style.opacity !== '0') $('flash').style.opacity = 0;
   if (gradePass) gradePass.uniforms.uChroma.value = (SH.on ? clamp(WV.glow, 0, 1.3) * 0.22 : 0);
-  if (G.state === 'play') { $('timeN').textContent = fmtTime(G.t); }
+  if (G.state === 'play' && !VR.presenting) { $('timeN').textContent = fmtTime(G.t); }
   updateMusic(rdt);
   if (doRender) renderFrame();
 }
@@ -3000,7 +3002,7 @@ function tick(now) {
   if (VR.presenting) { if (window.__gpPoll) window.__gpPoll(); vrPre(rdt); frame(rdt, true); vrPerf(real); } // the gamepad shim's own rAF loop is dead in VR: pump it from here
   else { frame(rdt, true); perfMonitor(real); }
 }
-function onQualityChanged() { U.lite.value = Q.lite; onGrassQuality(); onTreeQuality(); updateHUD(); }
+function onQualityChanged() { U.lite.value = Q.lite; U.liteT.value = Q.vr ? 0.4 : Q.lite; onGrassQuality(); onTreeQuality(); updateHUD(); }
 
 // ---- debug / test hooks ---------------------------------------------------------------------------------------------------------------
 window.__dbg = () => ({ frames: frameCount, stats: P.stats, rewinds: G.rewinds || 0, speed: P.speed, crouch: P.crouch, camWide: CAM.wide, talk: NPC.talkT > 0, npcNear: NPC.near, qScale, state: G.state, act: G.act, pos: [P.x, P.y, P.z], vel: [P.vx, P.vy, P.vz], hp: P.hp, big: P.big, score: G.score, coins: G.coins, shards: G.shards, totalShards: G.totalShards, grounded: P.grounded, pact: P.act, yaw: P.yaw, camYaw: CAM.yaw, camPitch: CAM.pitch, quality: qName, vox: voxAtCPU(P.x, P.z), cubes: cubeLive, trans: G.trans ? G.trans.kind : null, shk: SH.on ? SH.kind : null, wave: [WV.R1, WV.R2], gf: GF, muted, time: G.t, rewinding, deaths: G.deaths, fps: frameMs.length, locked, chain: P.chainN, wallT: P.wallT, invuln: P.invuln, nan: [P.x, P.y, P.z, P.vx, P.vy, P.vz, CAM.yaw, CAM.pitch].some(v => !Number.isFinite(v)), xr: vrDbg() });
@@ -3100,7 +3102,7 @@ function vrMergeApply(root, on) {
 function vrMergeAll(on) { VR.merge = on; vrMergeApply(hero.root, on); vrMergeApply(twin.root, on); for (const e of ENEMIES) vrMergeApply(e.mesh, on); }
 
 // ---- procedural Touch-style controller (no asset download) ---------------------------------------------------------------------------
-const UI = { mode: 'none', built: false, btns: [], hotKey: -1, laserLen: [1.2, 1.2], hit: [false, false], hot: [-1, -1], cap: { talk: '', talkOn: false, toast: '', toastOn: false, prompt: '', promptOn: false, who: '' }, capT: 0, wr: { sig: '' }, howShown: false };
+const UI = { mode: 'none', built: false, btns: [], hotKey: -1, laserLen: [1.2, 1.2], hit: [false, false], hot: [-1, -1], cap: { talk: '', talkOn: false, talkSeq: -1, toast: '', toastOn: false, toastSeq: -1, prompt: '', promptOn: false, who: '' }, capT: 0, wr: { sig: '' }, howShown: false };
 const vrCtrl = [null, null]; // three controller groups (target-ray space); their hand is data.handedness
 UI.ch = [null, null];        // controller group currently carrying the LEFT (0) / RIGHT (1) hand, or null
 function vrBuildControllerModel() {
@@ -3272,6 +3274,7 @@ async function vrEnter() {
     vrBuild(); VR.soft = detectSoftware(); VR.S = VRT.scales[vrCfg.size]; VR.prevQ = qName;
     applyQuality(vrCfg.q, true); // VR tier: no composer / bloom / god rays, small shadow map, trimmed grass + cubes (applied BEFORE the session starts so the canvas is still resizable)
     vrMergeAll(true); camera.near = VRT.near; camera.far = VRT.far; camera.updateProjectionMatrix();
+    try { renderer.compile(scene, camera); } catch (e) { } // warm every shader program now, while the page is still flat
     await renderer.xr.setSession(session);
   } catch (e) {
     VR.entering = false; try { if (session) await session.end(); } catch (e2) { }
@@ -3387,7 +3390,7 @@ function vrUiClick(id) {
     case 'menu': toMenu(); break;
     case 'size': vrCycleSize(); break;
     case 'turn': vrCfg.snap = vrCfg.snap ? 0 : 1; vrSaveCfg(); toast(vrCfg.snap ? 'Snap turn 30°' : 'Smooth turn'); UI.dirtyMain = true; break;
-    case 'qual': vrSetQuality(vrCfg.q === 'vr' ? 'vrlite' : 'vr'); toast(vrCfg.q === 'vr' ? 'VR graphics' : 'VR lite graphics (no shadows)'); UI.dirtyMain = true; break;
+    case 'qual': vrSetQuality(vrCfg.q === 'vr' ? 'vrlite' : 'vr'); toast(vrCfg.q === 'vr' ? 'VR graphics' : 'VR lite graphics (smaller shadows, fewer blocks)'); UI.dirtyMain = true; break;
     case 'exit': vrExit(); break;
   }
 }
@@ -3417,13 +3420,13 @@ function vrUiFrame(rdt) {
   for (let i = 0; i < 2; i++) { const c = vrCtrl[i], u = c.userData, h = u.hand === 'left' ? 0 : u.hand === 'right' ? 1 : -1; const show = open && h >= 0 && u.hasSrc && XI[h].has && c.visible; u.laser.visible = show; u.ret.visible = show && UI.hit[h]; if (show) u.laser.scale.z = Math.max(0.01, UI.laserLen[h] - 0.004); }
 }
 // DOM-driven captions (toast / NPC talk / prompt) are polled at ~8 Hz so every existing code path that writes them keeps working in VR
-const domToast = $('toast'), domTalk = $('talk'), domPrompt = $('prompt'), domTalkTxt = $('talkTxt'), domTalkWho = $('talkWho');
-function toastPollForce() { UI.capT = 0; }
-function vrCaptionPoll(rdt) {
-  UI.capT -= rdt; if (UI.capT > 0) return; UI.capT = 0.125; const k = UI.cap; let ch = false;
-  const to = domToast.classList.contains('on'), tt = to ? domToast.textContent : k.toast; if (to !== k.toastOn || tt !== k.toast) { k.toastOn = to; k.toast = tt; ch = true; }
-  const ta = domTalk.classList.contains('on'), tx = ta ? domTalkTxt.textContent : k.talk; if (ta !== k.talkOn || tx !== k.talk) { k.talkOn = ta; k.talk = tx; k.who = domTalkWho.textContent; ch = true; }
-  const po = domPrompt.classList.contains('on') && G.state === 'play', pt = po ? domPrompt.textContent : k.prompt; if (po !== k.promptOn || pt !== k.prompt) { k.promptOn = po; k.prompt = pt; ch = true; }
+const domToast = $('toast'), domTalk = $('talk');
+function toastPollForce() { }
+function vrCaptionPoll(rdt) { // allocation-free: DOM class reads + the sequence counters toast() / showTalk() bump; text is only fetched when it changed
+  const k = UI.cap; let ch = false;
+  const to = domToast.classList.contains('on'); if (to !== k.toastOn || G.toastSeq !== k.toastSeq) { k.toastOn = to; k.toastSeq = G.toastSeq; k.toast = G.toastMsg || ''; ch = true; }
+  const ta = domTalk.classList.contains('on'); if (ta !== k.talkOn || G.talkSeq !== k.talkSeq) { k.talkOn = ta; k.talkSeq = G.talkSeq; k.talk = G.talkMsg || ''; k.who = G.talkWho || ''; ch = true; }
+  const po = G.state === 'play' && PROMPT !== ''; if (po !== k.promptOn || (po && PROMPT !== k.prompt)) { k.promptOn = po; k.prompt = po ? PROMPT : k.prompt; ch = true; }
   if (ch) vrDrawCaption();
 }
 function vrWristSig() { // redraw the wrist panel only when something it shows changed
