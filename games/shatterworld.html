@@ -51,7 +51,7 @@
   .cheat { display:grid; grid-template-columns:repeat(3,1fr); gap:6px 18px; width:100%; padding:clamp(8px,1.6vh,16px) clamp(10px,2vw,22px); border-radius:16px; background:var(--glass); border:1px solid rgba(255,230,160,.22);
     text-align:left; font-size:clamp(10px,1.28vw,14px); line-height:1.5; }
   .cheat div { display:flex; gap:.7em; align-items:baseline; } .cheat kbd { min-width:5.6em; display:inline-block; text-align:center; font:inherit; font-weight:800; color:#14202c; background:linear-gradient(#fff6d4,#ffe08a); border-radius:6px; padding:0 .5em; box-shadow:0 2px 0 rgba(0,0,0,.35); white-space:nowrap; }
-  .cheat .wide { grid-column:1/-1; color:#bfe9ff; } .cheat .wide kbd { background:linear-gradient(#cfe9ff,#8fc7f3); }
+  .cheat .wide { grid-column:1/-1; color:#bfe9ff; } .cheat .wide kbd { min-width:7.6em; flex:none; background:linear-gradient(#cfe9ff,#8fc7f3); }
   .qrow { font-size:clamp(10px,1.3vw,14px); letter-spacing:.16em; display:flex; gap:8px; align-items:center; color:#d9e9f2; }
   .qrow button { font:inherit; letter-spacing:.14em; cursor:pointer; color:#eaf6ff; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.3); border-radius:999px; padding:.25em 1em; }
   .qrow button.on { background:var(--teal); color:#06221f; border-color:var(--teal); font-weight:800; }
