@@ -1,8 +1,9 @@
 // Private gate for the whole site (Cloudflare Pages Function, runs before every static asset).
-// HTTP Basic Auth: any username, password = Pages secret SITE_PASS. Fails CLOSED if the secret is missing.
+// HTTP Basic Auth: password = Pages secret SITE_PASS; username must equal Pages secret SITE_USER when that is set
+// (case-insensitive; if SITE_USER is unset any username works). Fails CLOSED if SITE_PASS is missing.
 // Same-origin fetches (pad -> /api/input, games -> /api/save) reuse the browser's cached credentials automatically.
 //
-// Rotate:  PATCH /accounts/<id>/pages/projects/internal-hybrid-builds  {"deployment_configs":{"production":{"env_vars":{"SITE_PASS":{"type":"secret_text","value":"<new>"}}}}}
+// Rotate:  PATCH /accounts/<id>/pages/projects/internal-hybrid-builds  {"deployment_configs":{"production":{"env_vars":{"SITE_PASS":{"type":"secret_text","value":"<new>"},"SITE_USER":{"type":"secret_text","value":"<login email>"}}}}}
 //          (or dashboard: Workers & Pages -> internal-hybrid-builds -> Settings -> Variables and Secrets), then redeploy.
 // Swap for Cloudflare Access (email login) later by deleting this file.
 
@@ -20,12 +21,13 @@ async function safeEqual(a, b) {
   return d === 0;
 }
 
-function passwordFrom(header) {
+function credsFrom(header) {
   if (!header.startsWith('Basic ')) return null;
   try {
-    const raw = atob(header.slice(6).trim());
+    // atob yields a binary string; decode as UTF-8 so non-ASCII passwords match
+    const raw = new TextDecoder().decode(Uint8Array.from(atob(header.slice(6).trim()), c => c.charCodeAt(0)));
     const i = raw.indexOf(':');
-    return i < 0 ? null : raw.slice(i + 1);
+    return i < 0 ? null : { user: raw.slice(0, i), pass: raw.slice(i + 1) };
   } catch (_) { return null; }
 }
 
@@ -33,8 +35,11 @@ export async function onRequest({ request, env, next }) {
   if (!env.SITE_PASS) {
     return new Response('gate not configured', { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
-  const given = passwordFrom(request.headers.get('Authorization') || '');
-  if (given === null || !(await safeEqual(given, env.SITE_PASS))) {
+  const given = credsFrom(request.headers.get('Authorization') || '');
+  // evaluate both compares unconditionally so a wrong username and a wrong password take the same path
+  const passOk = given !== null && await safeEqual(given.pass, env.SITE_PASS);
+  const userOk = !env.SITE_USER || (given !== null && await safeEqual(given.user.trim().toLowerCase(), env.SITE_USER.trim().toLowerCase()));
+  if (!passOk || !userOk) {
     return new Response('Private.', {
       status: 401,
       headers: {
