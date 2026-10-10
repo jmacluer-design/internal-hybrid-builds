@@ -1,0 +1,6 @@
+{
+  "name": "ib-test-tools",
+  "private": true,
+  "type": "module",
+  "dependencies": { "three": "0.169.0", "iwer": "2.5.0" }
+}
