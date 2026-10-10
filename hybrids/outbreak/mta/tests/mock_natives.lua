@@ -146,7 +146,7 @@ return function(Mock, K)
 				for _, c in ipairs(e.children) do
 					if not c.destroyed then
 						local visible = (c.created_by ~= "client") or is_client
-						if c.type == kind and visible and (not streamed or streamed_in(c)) then out[#out + 1] = c end
+						if c.type == kind and visible and not c.gone and (not streamed or streamed_in(c)) then out[#out + 1] = c end
 						walk(c)
 					end
 				end
@@ -230,8 +230,15 @@ return function(Mock, K)
 		N.getElementSyncer = function(ped)
 			el(ped, "getElementSyncer", PEDONLY)
 			if ped.syncer ~= nil then return ped.syncer or false end
-			if m.auto_syncer ~= false and m.player and streamed_in(ped) then return m.player end
-			return false
+			if m.auto_syncer == false then return false end
+			local best, best_d
+			for _, p in ipairs(m.players or {}) do
+				if not p.gone and not p.destroyed then
+					local d = dist2(ped, p)
+					if d <= STREAM and (not best_d or d < best_d) then best, best_d = p, d end
+				end
+			end
+			return best or false
 		end
 		N.setPedVoice = function(ped, vtype, vname) el(ped, "setPedVoice", PEDLIKE).voice = { vtype, vname }; ped.voice_sets = (ped.voice_sets or 0) + 1; return true end
 		N.setPedWeaponSlot = function(ped, slot)

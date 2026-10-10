@@ -2,7 +2,7 @@
 
 Private, non-commercial build for the owner's own PC and server. Rules followed: `BORROW-RULES.md` (search first and port; MIT / BSD / Zlib / Apache-2.0 / CC0 may be copied with the notice kept;
 LGPL / GPL / CC BY-SA allowed for this private build with a `borrowed:` mark in the code; nothing from commercial or reverse-engineered game dumps; names and art stay original).
-Nothing here comes from game dumps, ripped assets or reverse-engineered code. Copyleft notes: GPL / LGPL material is touched only under the "private build" rule, so the owner re-cleans
+Nothing here comes from game dumps, ripped assets or reverse-engineered code. One exception to the licence rule, by the owner's explicit decision (private fun project, risk accepted): code ported from two UNLICENSED repositories, kept apart in the section "PRIVATE USE ONLY (no licence upstream)" and marked `BORROWED-PRIVATE` in the code. Copyleft notes: GPL / LGPL material is touched only under the "private build" rule, so the owner re-cleans
 (replace or relicense) before ever sharing the resource. This file is the MTA adapter's own; the sim, the FiveM adapter and the vanilla UI that this resource reuses are listed in
 `../THIRD_PARTY.md` (that list applies here too: it covers `sim/`, `data/`, the shared host modules, the UI and the fonts).
 
@@ -13,8 +13,8 @@ Reference repositories were cloned (`git clone`, shallow or sparse) into `/home/
 | `multitheftauto/mtasa-resources` (commit 11677963, 2026-09-30) | MIT, (c) 2008-2020 mtasa-resources contributors | code pattern + data read at test time |
 | `rxi/json.lua` (commit dbf4b2dd) | MIT, (c) 2020 rxi | code (decode half) |
 | `multitheftauto/mtasa-blue` (sparse: `Client|Server|Shared .../luadefs`, `Client|Server .../lua`, `CClientGame.cpp`, `CGame.cpp`; commit 46d8fb2c) | GPL-3.0 | **read only**: names of functions and events, Lua sandbox rules |
-| `NullSystemWorks/mtadayz` (commit 954fa6b8) | custom, see below | **read only** (technique, facts) |
-| `mta-resources/deadwalkers` (commit 22c7d665) | none stated (all rights reserved) | **read only** (technique) |
+| `NullSystemWorks/mtadayz` (commit 954fa6b8) | custom: the authors keep the code; modification by collaborators allowed, distribution as your own forbidden | **ported for PRIVATE USE ONLY** (section below) |
+| `mta-resources/deadwalkers` (commit 22c7d665) | none stated (all rights reserved) | **read for comparison only** (its `slothbot/` is an older copy of the same Slothbot code; its own gamemode has no zombie logic) |
 
 Also fetched (not shipped): two raw `.cpp` files of mtasa-blue (`CPerPlayerEntity.cpp`, `CPlayerCamera.cpp`) from raw.githubusercontent.com for reading, and `lua-5.1.5.tar.gz` from lua.org (md5 checked) to build a
 test interpreter, `tools/build_lua51.sh` (PUC-Rio Lua is MIT; the binary lives under `~/.cache`, not in the resource).
@@ -35,19 +35,48 @@ test interpreter, `tools/build_lua51.sh` (PUC-Rio Lua is MIT; the binary lives u
 Reused from this repository (own code, not third party): `sim/` and `data/` (`tools/sync_sim.sh`), `shared/{host,protocol,view,survival,util,json,raymath,placement}.lua` (`tools/sync_shared.sh`),
 the vanilla NUI (`tools/sync_ui.sh`, byte-identical; fonts Inter and Barlow Condensed under the SIL OFL 1.1, licence files shipped in `outbreak/ui/fonts/`), `hybrids/outbreak/tests/tinytest.lua` (test harness).
 
+## PRIVATE USE ONLY (no licence upstream)
+
+**WARNING: the blocks below were ported from repositories that carry NO licence (mtadayz: "you are not allowed to replicate the code and distribute ... credits are not to be removed";
+deadwalkers: nothing). The owner decided to accept that risk for a private, non-commercial build that runs only on the owner's own server and PC. NEVER share, publish or redistribute
+the resource while any of these blocks is in it.** Credit: Slothman (Slothbot 2.7, the zombie AI that MTA DayZ ran on public servers) and the MTA DayZ authors (Marwin W., L, CiBeR96, 1B0Y).
+
+Every block is wrapped in `-- BORROWED-PRIVATE (unlicensed upstream, private use only): <repo>/<path>` ... `-- END BORROWED-PRIVATE` in the code. `mta/tools/list_private_blocks.sh` lists them with file and
+line numbers (`--check` exits 1 while any exists) and prints how to strip them. The tests pin the behaviour of each block (`tests/client_test.lua` driver tests, `tests/peds_test.lua`).
+Where the same code is also in `mta-resources/deadwalkers/slothbot/` (an older copy: its `sbclient.lua` has the sprint lines commented out) the row says so.
+
+| # | Source (repo/path, function) | What it is | Where in ours | Changes made |
+|---|---|---|---|---|
+| P1 | NullSystemWorks/mtadayz `slothbot/sbclient.lua` `chase_move`, `hunt_move` (also deadwalkers `slothbot/sbclient.lua`) | the facing angle `(360 - deg(atan2(dx, dy))) % 360` | `client/driver.lua` `heading` | none (a one-line formula) |
+| P2 | mtadayz `slothbot/sbclient.lua` `Bforward`, `Bstop` (deadwalkers: same, sprint commented out) | movement = the `forwards` control plus `sprint`; stop releases them | `client/driver.lua` `move_controls`, `stop_moving` | `walk` modifier for speed 1 added |
+| P3 | mtadayz `slothbot/sbclient.lua` `chase_move` | `isLineOfSightClear(px, py, pz+.6, tx, ty, tz+.6, true, false, false, true, false, false, false)`: which things block sight | `client/driver.lua` `in_sight` | none |
+| P4 | mtadayz `slothbot/sbserver.lua` `chase_move` | how far a ped with a weapon of each SLOT walks before it stands and shoots (pistol 14, shotgun 10, submachine 7, assault 14, rifle 22, heavy 12, special 2) | `client/driver.lua` `STOP_BY_SLOT` | table only; used on the client |
+| P5 | mtadayz `slothbot/sbclient.lua` `chase_shoot` | per weapon id: engagement distance, burst length (random 2000 to 5500 ms or fixed), pause after / cycle | `client/driver.lua` `WEAPONS`, `ranged_fire` | the broadcast through the server (`pedShootTrigger` -> `onGunShoot`) is dropped: the owner is the only client |
+| P6 | mtadayz `slothbot/sbclient.lua` `meleeShoot`, `chase_shoot` | the melee swing: `fire` on at 0, 800, 1400 ms for 300 ms each, `forwards` released for 2000 ms, next swing after 2300 ms, reach 2 m | `client/driver.lua` `SWING`, `D.swing_state` and the melee branch of `drive_one` | timers replaced by a pure function of elapsed time (testable) |
+| P7 | mtadayz `slothbot/sbserver.lua` `chase_move`, `hunt_move` | what a stuck ped (moved < 1 m / 1.2 m in 600 ms) does: seeing its target it jumps; otherwise `math.random(1, 7)`: 1 give up, 2 to 3 jump, 4 to 7 turn to a random angle and keep walking for 1.2 s (`1, 13` and 7 to 13 when walking a path) | `client/driver.lua` `D.stuck_decision`, `stuck_check` | runs on the client (where the positions are); limits scaled by 0.35 for walkers |
+| P8 | mtadayz `slothbot/sbserver.lua` `chase_move` | with a melee (slot 1) or heavy (slot 7) weapon: `setPedWeaponSlot(ped, 0)`, jump, restore the slot after 850 ms; `bot_Jump` releases the jump control after 800 ms | `client/driver.lua` `jump`, `release_timers` | timers replaced by deadlines checked in the step |
+| P9 | mtadayz `slothbot/sbclient.lua` `Streamin`, `sbserver.lua` `SetBotWeapon` ("StreamWeapon") | when a bot streams in: `setPedVoice(ped, "PED_TYPE_DISABLED", "")`, and the server gives its weapon again after 300 ms ("unstreamed peds lose all but 1 bullet") | `client/driver.lua` `D.on_stream_in`; `server/peds.lua` `give_weapon`, `restore_weapon`; `server/net.lua` the `outbreak:stream` handler | trust checks added (owner, `source == resourceRoot`, our ped); at most 5 re-gives per ped |
+| P10 | mtadayz `slothbot/sbclient.lua` `aidamage`, `stopTeamDamage`; `sbserver.lua` `onBotFindEnemy` / `assigntarget` | a bot that gets hit turns on the shooter; `cancelEvent()` on damage between friendly bots | `client/driver.lua` `D.on_ped_damage`; `client/survival.lua` `on_damage`; `server/zombies.lua` `Z.on_hit`; `server/net.lua` the `outbreak:hit` handler | the sim stays authoritative: the zombie's fist damage is cancelled (the server scripts it), the hit is a validated request with a rate limit |
+| P11 | mtadayz `slothbot/sbserver.lua` `assigncontroller` | the controller of a bot is its `getElementSyncer`, else the closest player; slothbot never calls `setElementSyncer` | `server/peds.lua` `assign_controller`, `assign_all`, `syncer_count` | element data `controller` not written (one client) |
+| P12 | mtadayz `slothbot/sbserver.lua` `setBotChase`, `chase_move` | a chase has an ELEMENT as its target; the client faces it while it is in sight and runs to the last seen spot when not | `server/zombies.lua` `chase` (attack intent with `tgt`); `client/driver.lua` `drive_one` | per-ped timer chains replaced by one step loop; the target position is also sent as a hint |
+| P13 | mtadayz `DayZ/tables/table_zombies.lua` `ZombiePedSkins` | the 26 SA skin ids MTA DayZ's zombies wear | `shared/mta_config.lua` `peds.zombie_models` (minus 56, which colonists wear) | data only |
+
+What these ports are NOT: no DayZ gameplay code (loot, blood, jobs, login), no models / textures / sounds, no path-node system (`pathpoint` elements, `findPath`), no guard / follow / team modes of slothbot, no
+`DayZ` damage numbers. Still ours: the intent protocol, the sim authority (counts, positions, damage, deaths), the caps (60 hostile, 96 total), persistence, the colony.
+
 ## Read only, nothing copied (and why)
 
 | Source | What was learned | Why nothing was copied |
 |---|---|---|
 | `multitheftauto/mtasa-blue` (GPL-3.0) | **Names only**: which of 1289 client / 874 server / 90 shared Lua functions exist on which side, 136 / 97 built-in events, the Lua sandbox (`CLuaMain.cpp`: opened libraries, disabled globals), that `engineSetPoolCapacity` cannot resize the ped pool | GPL-3.0 and only names are needed; `tools/mta_defs.lua` re-reads the clone, it does not contain GPL text. Without the clone `function_check` says so and exits 2 |
-| `NullSystemWorks/mtadayz` (custom: the authors keep the code and allow modification by "collaborators" but forbid replicating and distributing it) | the DayZ-style split "server decides, the syncer client executes" (slothbot), that zombies are ordinary peds with `setPedWalkingStyle` / `setPedAnimation`, an airfield coordinate list | the licence forbids redistributing the code. **Facts used** (not code): the idea; one coordinate pair (`origin` 235.30, 2430.10, 16.85, Verdant Meadows airfield, **unverified**); animation identifiers, all of which were then re-checked against the MIT freeroam animation list (row 5) |
-| `mta-resources/deadwalkers` (no licence file) | the same technique from a second implementation | no licence means all rights reserved |
+| `NullSystemWorks/mtadayz` (also read, not ported) | the airfield coordinate list | one coordinate pair (`origin` 235.30, 2430.10, 16.85, Verdant Meadows airfield, **unverified**); a fact, not code |
+| `mta-resources/deadwalkers` | its `slothbot/` is an older copy of Slothbot (compared with mtadayz's to see which lines are optional: the sprint toggles); the rest of the gamemode has no zombie logic | nothing copied from it that is not also in mtadayz |
 
 ## What could have been borrowed but was not
 
-* **A ready-made zombie behaviour for MTA.** `mtadayz` (slothbot, DayZ zombies) and `deadwalkers` are exactly this shape and would have been the fastest route to a working `client/driver.lua` and `server/zombies.lua`.
-  Not usable: custom no-redistribution terms and no licence. `client/driver.lua` and `server/zombies.lua` are therefore written from the technique plus the MIT race_ghost pattern (row 3).
-  If the owner accepts the private-use risk, those two files are the ones to replace first.
+* **A ready-made zombie behaviour for MTA.** `mtadayz` (slothbot, DayZ zombies) and `deadwalkers` are exactly this shape. They carry no usable licence, so the first version of `client/driver.lua` and
+  `server/zombies.lua` was written fresh; on the owner's decision (private use) the slothbot rules were then ported (section "PRIVATE USE ONLY"). Not ported even so: the path-node system, guard / follow / team modes,
+  the DayZ loot / blood / job code (none of it fits a sim-driven colony).
 * **`mtasa-resources/[editor]/freecam`** (MIT, `freecam.lua`): a free-flying camera. Not used: the colony camera is a top-down camera with a locked focus (pan / zoom / rotate by the page's keys and picking), which is the FiveM adapter's own `camera.lua` on MTA functions.
 * **The whole `webbrowser` resource** (MIT): only its flow was taken (row 2); its window UI is irrelevant to a full-screen game page.
 * **rxi/json.lua's encode half**: not needed, `shared/json.lua` (own code from the FiveM adapter) already encodes.

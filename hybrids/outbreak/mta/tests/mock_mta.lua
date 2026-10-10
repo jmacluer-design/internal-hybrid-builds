@@ -130,6 +130,13 @@ function Mock:add_player(name, serial)
 	return p
 end
 
+-- a player leaves: the server's onPlayerQuit fires and MTA no longer picks that player as a syncer
+function Mock:quit_player(p)
+	p.gone = true
+	local srv = self.sides.server
+	if srv and srv.started then self:trigger(srv, "onPlayerQuit", p, "Quit") end
+end
+
 -- ------------------------------------------------------------------------------------------------------------------------ meta.xml
 function Mock:parse_meta()
 	local f = assert(io.open(self.root_dir .. "/meta.xml", "rb"))

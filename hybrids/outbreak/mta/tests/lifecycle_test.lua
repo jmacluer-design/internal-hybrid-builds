@@ -98,7 +98,7 @@ T.test("restart: a new server on the same files loads the colony and rebuilds th
 	T.le(#m2:live("object"), objects_before + 6)
 	-- the owner leaves and comes back: ownership is cleared, the sim is saved, the world is untouched, the new session gets everything
 	local ctx = H.sreq(m2, "server.ctx")
-	m2:trigger(m2.sides.server, "onPlayerQuit", m2.player, "Quit")
+	m2:quit_player(m2.player)
 	T.eq(ctx.owner, nil)
 	local saves = H.host(m2).stats.saves
 	T.ge(saves, 1, "saved when the owner left")

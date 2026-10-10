@@ -19,7 +19,9 @@ function S.on_damage(attacker, weapon, bodypart, loss)
 	if source ~= localPlayer then return end
 	if ctx.colony_mode then cancelEvent(); return end
 	-- a zombie's visible fist swing (client/driver.lua) must not hurt twice: its damage is scripted on the server and reaches the sim as player_damage
+	-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/slothbot/sbclient.lua (stopTeamDamage: cancelEvent() on onClientPlayerDamage when the attacker is a bot of a friendly team)
 	if isElement(attacker) and getElementData(attacker, "ob") == "zombie" then cancelEvent(); return end
+	-- END BORROWED-PRIVATE
 	if type(loss) == "number" and loss > 0 then
 		S.stats.damage = S.stats.damage + 1
 		ctx.send({ type = "player_damage", amount = loss, kind = damage_kind(weapon) })
