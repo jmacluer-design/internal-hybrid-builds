@@ -51,7 +51,7 @@ T.test("meta.xml: the page is the default <html> item, phoneApi is exported with
 	for _, f in ipairs({ "ui/phone-bridge.js", "ui/phone-manifest.json", "ui/phone-icon-180.png", "ui/phone-icon-192.png", "ui/phone-icon-512.png", "ui/js/touch.js", "ui/css/mobile.css" }) do
 		T.truthy(m.client_files[f], f .. " is a downloadable <file> (public over HTTP like every client file: the page itself and the API are what the login protects)")
 	end
-	T.falsy(m.meta.files["server/phone.lua"].download, "server/phone.lua is server-only")
+	T.falsy(m.meta.files["server/phone.lua"], "server/phone.lua is not listed at all: every listed <file> is served over HTTP without a login, server code must not be")
 	for _, k in ipairs({ "phone", "phone_sessions", "phone_session_s" }) do T.truthy(m.meta.settings[k] ~= nil, "setting " .. k .. " is in meta.xml") end
 end)
 
