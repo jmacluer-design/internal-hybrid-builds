@@ -5393,13 +5393,13 @@ function vrRpgActions(rdt, L, R) { // inventory / perk pick open: the Touch cont
     if (R.rise & 8) uiKey('z');
     if (L.rise & 4) uiKey('j');
     if (L.rise & 2) uiKey('q'); if (R.rise & 2) uiKey('shift');
-    if (L.e & 8) { RV.yHold += rdt; RV.yFr++; if (RV.yHold >= 0.4 && RV.yFr >= 5 && !VR.yDone) { VR.yDone = true; closeInv(); } } else { if (RV.yFr > 0 && !VR.yDone && G.state === 'inv') uiKey('e'); RV.yHold = 0; RV.yFr = 0; VR.yDone = false; }
+    if (L.e & 8) { RV.yHold += rdt; RV.yFr++; if (RV.yHold >= 0.4 && RV.yFr >= 12 && !VR.yDone) { VR.yDone = true; closeInv(); } } else { if (RV.yFr > 0 && !VR.yDone && G.state === 'inv') uiKey('e'); RV.yHold = 0; RV.yFr = 0; VR.yDone = false; }
   } else { RV.yHold = 0; RV.yFr = 0; VR.yDone = false; }
 }
 // Y outside the inventory: a short tap is pause / resume (acted on at release); holding it for 0.4 s opens the inventory instead. Returns true when the inventory just opened.
 function vrYLogic(rdt, L) {
   if (L.rawRise & 8) { RV.yHold = 0; RV.yFr = 0; VR.yDone = false; VR.yArm = G.state; }
-  if (L.m & 8) { if (VR.yArm !== '') { RV.yHold += rdt; RV.yFr++; if (RV.yHold >= 0.4 && RV.yFr >= 5 && !VR.yDone) { VR.yDone = true; if (openInv()) { VR.yArm = ''; return true; } } } } // >= 5 frames as well as 0.4 s: a 2-frame tap on a slow emulator (rdt is 0.25 s per frame there) is still a tap
+  if (L.m & 8) { if (VR.yArm !== '') { RV.yHold += rdt; RV.yFr++; if (RV.yHold >= 0.4 && RV.yFr >= 12 && !VR.yDone) { VR.yDone = true; if (openInv()) { VR.yArm = ''; return true; } } } } /* >= 12 frames as well as 0.4 s (29 frames at 72 Hz): on a slow emulator rdt is 0.25 s per frame, so a 2-frame test tap would otherwise count as a hold */
   else { if (VR.yArm !== '' && !VR.yDone && VR.yArm === G.state) { if (G.state === 'play') pauseGame(); else if (G.state === 'pause') resumeGame(); } VR.yArm = ''; RV.yHold = 0; RV.yFr = 0; VR.yDone = false; }
   return false;
 }

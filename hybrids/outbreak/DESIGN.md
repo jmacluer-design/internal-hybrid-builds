@@ -4,6 +4,17 @@ Scope of this pass: the game-agnostic simulation of a zombie-survival + colony-m
 testable here under LuaJIT 2.1 and Lua 5.4. The FiveM adapter (peds, cameras, objects) and the NUI pages come later and build on the
 contract in `API.md`. Everything below is **unverified against any game**: it was built and tested against the sim's own mock harness.
 
+## 0. Quick start
+
+```
+tests/run.sh                 # whole suite under luajit AND lua5.4, cross-runtime hash compare, bench (about 3 minutes)
+tests/run.sh fast            # skip soak + bench (about 1.5 minutes)
+luajit tests/run.lua jobs    # one test file under one runtime
+luajit bin/sim-run.lua --days 30 --seed 7 --profile escalating [--colonists 6] [--step 1] [--no-policy] [--hash]
+luajit bin/balance.lua --seeds 200 --step 5            # survival-to-day-30 and events/day per profile
+luajit tests/bench.lua                                  # ms per tick
+```
+
 ## 1. Layout
 
 ```
@@ -115,8 +126,8 @@ the colony earned). Boons (caravan, supply drop, refugee) run on their own timer
 
 | profile | multiplier day 1 -> 30 | threat gap (days) | spend of budget | surge | feel |
 |---|---|---|---|---|---|
-| calm | 0.50 -> 0.60 | 1.3-2.8 -> 1.2-2.6 | 45-75% | 0 | long quiet stretches, boons weighted up |
-| escalating | 0.55 -> 1.25 | 1.8-3.2 -> 0.35-0.85 | 55-85% | 10% | gentle start, steady ramp |
+| calm | 0.50 -> 1.05 | 1.3-2.8 -> 1.2-2.6 | 45-80% | 0 | long quiet stretches, boons weighted up |
+| escalating | 0.55 -> 1.15 | 1.8-3.2 -> 0.35-0.85 | 55-85% | 10% | gentle start, steady ramp |
 | chaos | 0.80 -> 1.05 | 0.25-0.8 -> 0.15-0.55 | 60-95% | 30% | short gaps, spikes, little rest |
 
 (Isolated, with an immortal colony: calm leaves about 23 of 30 days free of threats, chaos about 2; escalating fires 2.3x more threat events in days 16-30 than in 1-15; `tests/director_test.lua` asserts all of this.)

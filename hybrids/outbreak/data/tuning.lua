@@ -204,7 +204,7 @@ TUNING.director = {
 	profiles = {
 		calm = {
 			desc = "Long quiet stretches, small threats, more help arriving.",
-			mult0 = 0.50, mult1 = 1.15,               -- multiplier at day 1 / day 30 (linear in between)
+			mult0 = 0.50, mult1 = 1.10,              -- multiplier at day 1 / day 30 (linear in between)
 			threat_gap = { 1.3, 2.8 }, threat_gap_late = { 1.2, 2.6 }, -- days between threat-channel events (day 1 / day 30)
 			boon_gap = { 1.5, 3.0 },
 			spend_frac = { 0.45, 0.80 },
