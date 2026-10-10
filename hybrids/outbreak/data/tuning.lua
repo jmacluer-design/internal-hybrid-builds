@@ -145,6 +145,34 @@ TUNING.skills = {
 	xp_per_kill = 4,
 	start_level_max = 4,
 }
+-- expeditions (abstract scavenging trips by vehicle) -------------------------------------------------
+TUNING.expedition = {
+	vehicles = {
+		van = { name = "Cargo van", speed = 1.0, trunk_g = 120000, hp = 100 },
+		pickup = { name = "Pickup truck", speed = 1.15, trunk_g = 60000, hp = 80 },
+	},
+	start_vehicles = { "van" },
+	crew_min = 1, crew_max = 4,
+	fuel_min_per_can = 90,       -- round-trip minutes one fuel can covers (cans = ceil(round trip / this))
+	loot_minutes = { 30, 70 },   -- time spent searching (scaled by district radius)
+	loot_rolls = { 4, 8 },       -- base weighted rolls per run
+	loot_per_scav_levels = 3,    -- +1 roll per this many total scavenging levels in the crew
+	trip_variance = { 0.85, 1.2 },
+	-- ambush chance per leg (travel there / looting / travel back share one roll set) by district danger 1..5
+	risk = { 0.10, 0.17, 0.27, 0.38, 0.52 },
+	night_risk_mult = 1.5,
+	skill_risk_cut = 0.025,      -- risk reduction per crew shooting+scavenging level (avg), floored at 30% of base
+	zombies_per_danger = 0.7,    -- fraction of district.zombies met in an ambush (random 0.4..1.0 of it)
+	runner_share = 0.20, brute_share = 0.04, screamer_share = 0.03, -- mix shares at danger >= 3 / 4 / 3
+	lost_chance = { 0.0, 0.01, 0.03, 0.06, 0.10 }, -- per surviving crew member after a bad ambush
+	vehicle_ambush_damage = { 4, 14 },
+	breakdown_chance = 0.06, breakdown_minutes = { 20, 45 },
+	cache_chance = 0.08, cache_rolls = 3,
+	vehicle_lost_if_wiped = 0.6,
+	vehicle_repair_per_min = 0.01,
+	log_keep = 12,
+}
+
 -- jobs ---------------------------------------------------------------------------------------------
 TUNING.jobs = {
 	board_interval = 5,        -- minutes between job-board rebuilds

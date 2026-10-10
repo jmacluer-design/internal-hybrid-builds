@@ -3447,7 +3447,7 @@ function rpgRiftSpec(tier, seed) {
 // =============================================================================================================================
 const RPG_SAVE_KEY = 'sw_rpg', BAG_N = 24, TB = JSON.parse(JSON.stringify(TUNING)); // TB = pristine copy: stat effects are always recomputed from it
 const RP = { // persistent progression (saved)
-  seed: 0x5EED1E5, n: 0, picks: 0, level: 1, xp: 0, free: 0, spent: { power: 0, agility: 0, resolve: 0 }, perks: {}, pending: 0, gold: 0, dust: 0,
+  seed: ((Math.random() * 4294967296) >>> 0) || 0x5EED1E5, n: 0, picks: 0, level: 1, xp: 0, free: 0, spent: { power: 0, agility: 0, resolve: 0 }, perks: {}, pending: 0, gold: 0, dust: 0,
   bag: new Array(BAG_N).fill(null), equipped: { cap: null, gloves: null, boots: null, body: null, charm1: null, charm2: null },
   bestRift: 0, riftUnlocked: false, diff: 0, diffUnlocked: 0, codex: {}, filter: false, totals: { kills: 0, elites: 0, legends: 0, runs: 0, rifts: 0, salvaged: 0, rerolls: 0 }, riftSeed: 0, riftTier: 1,
 };
@@ -3490,12 +3490,13 @@ function rpgLoad() {
   if (!s) try { const g = (JSON.parse(localStorage.getItem('ib_saves') || '{}') || {}).shatterworld; if (g && g.rpg) s = g.rpg; } catch (e) { } // shelf-bridge fallback copy
   return s ? rpgApplySnapshot(s) : false;
 }
-function rpgSaveNow() {
+function rpgSaveNow(light) { // light = localStorage only (periodic flush); full = also window.__save (server / Supabase / shelf copy), used at milestones
   RT.dirty = false; RT.lastFlush = RT.real; const snap = rpgSnapshot();
   try { localStorage.setItem(RPG_SAVE_KEY, JSON.stringify(snap)); } catch (e) { }
+  if (light && RT.real - (RT.lastServer || -99) < 20) return; RT.lastServer = RT.real;
   try { if (window.__save) window.__save({ rpg: snap, level: RP.level, bestRiftTier: RP.bestRift, legendaries: Object.keys(RP.codex).length }); } catch (e) { } // additive keys: existing best/score/time keep their meaning
 }
-function rpgFlush(force) { if (RT.dirty && (force || RT.real - RT.lastFlush > 2.5)) rpgSaveNow(); }
+function rpgFlush(force) { if (RT.dirty && (force || RT.real - RT.lastFlush > 2.5)) rpgSaveNow(!force); }
 
 // ---- stats -> existing TUNING (always recomputed from the pristine copy TB) ---------------------------------------------------------------------------
 function rpgStatState() { const L = RP.level, a = RPG_TUNING.autoPerLevel * (L - 1); return { level: L, alloc: { power: a + RP.spent.power, agility: a + RP.spent.agility, resolve: a + RP.spent.resolve }, equipped: RP.equipped, perks: RP.perks }; }
@@ -4465,7 +4466,7 @@ function rpgFrame(rdt, sdt) {
 function rpgDbg() {
   const alive = ENEMIES.filter(e => e.alive && e.state !== 'dead' && e.state !== 'squash'), cap = RP.level >= RPG_TUNING.levelCap;
   return { level: RP.level, xp: RP.xp, xpNext: cap ? 0 : rpgXpNext(RP.level), hp: Math.round(RT.hp * 10) / 10, maxHp: RT.max, shield: Math.round(RT.shield), gold: RP.gold, dust: RP.dust, bag: RP.bag.filter(Boolean).length, equipped: RPG_EQUIP.map(k => RP.equipped[k] ? rpgItemName(RP.equipped[k]) : null), loot: LOOT.length, enemies: alive.length, elites: alive.filter(e => e.rpg && e.rpg.tier !== 'normal').length, kills: RUN.kills,
-    perks: Object.assign({}, RP.perks), pending: RP.pending, free: RP.free, ui: UI.open ? { tab: UI.tab, zone: UI.zone, i: UI.i, rr: UI.rr ? UI.rr.row : -1 } : null, perkOpen: PK.open, rw: Math.round(RT.rw * 100) / 100, rwMax: RT.rwMax, diff: RP.diff, runDiff: RT.runDiff, riftUnlocked: RP.riftUnlocked, diffUnlocked: RP.diffUnlocked, bestRift: RP.bestRift, filter: RP.filter, chests: CHESTS.filter(c => !c.open).length, crates: CRATES.length, powers: RT.S.powers, codex: Object.keys(RP.codex).length, chill: Math.round(RT.chill * 100) / 100, projectiles: PROJ.filter(p => p.on).length,
+    perks: Object.assign({}, RP.perks), pending: RP.pending, free: RP.free, ui: UI.open ? { tab: UI.tab, zone: UI.zone, i: UI.i, rr: UI.rr ? UI.rr.row : -1 } : null, perkOpen: PK.open, rw: Math.round(RT.rw * 100) / 100, rwMax: RT.rwMax, diff: RP.diff, runDiff: RT.runDiff, riftUnlocked: RP.riftUnlocked, diffUnlocked: RP.diffUnlocked, bestRift: RP.bestRift, filter: RP.filter, chests: CHESTS.filter(c => !c.open).length, crates: CRATES.length, powers: RT.S.powers, codex: Object.keys(RP.codex).length, chill: Math.round(RT.chill * 100) / 100, projectiles: PROJ.filter(p => p.on).length, audio: AC ? AC.state : null,
     rift: RIFT ? { tier: RIFT.tier, seed: hexSeed(RIFT.seed), mods: RIFT.mods, t: Math.round(RIFT.t * 10) / 10, limit: RIFT.limit, prog: RIFT.prog, need: RIFT.need, phase: RIFT.phase, kills: RIFT.kills, done: RIFT.done, won: RIFT.won, guardian: !!(RIFT.guardian && RIFT.guardian.alive) } : null };
 }
 { const d0 = window.__dbg; window.__dbg = () => { const d = d0(); d.rpg = rpgDbg(); return d; }; }
@@ -4483,7 +4484,7 @@ window.__rpg = {
   dropLegendary(id, dist = 3) { const it = rpgGenItem(dseed(), { ilvl: 20, legendary: id }); spawnLoot('item', P.x + Math.sin(P.yaw) * dist, P.y + 0.3, P.z + Math.cos(P.yaw) * dist, it); return rpgItemName(it); },
   pick(i) { if (PK.open) perkPick(i); }, rift(tier, seed) { rpgStartRift(tier, seed); }, endRift(win) { if (RIFT) { RIFT.phase = 'fight'; rpgRiftEnd(!!win, win ? null : 'test'); } }, riftTime(t) { if (RIFT) RIFT.t = t; }, perk(id, rank) { if (rank) RP.perks[id] = rank; else delete RP.perks[id]; rpgRecalc(); },
   levelInfo() { if (!LV) return null; let h = 0; const s = LV.surf; if (s) for (let i = 0; i < s.n; i++) h = (Math.imul(h, 31) + s.x[i] * 73856093 ^ s.y[i] * 19349663 ^ s.z[i] * 83492791 ^ s.p[i]) | 0; return { act: LV.act, n: LV.n, hash: h, r: LV.arenaR || 0, groups: LV.groups.filter(Boolean).length, broken: LV.groups.filter(g => g && g.broken).length, lowg: LV.lowg.length, deathY: LV.deathY }; },
-  inLowG() { return !!P.inLowG; }, toMenu() { toMenu(); },
+  inLowG() { return !!P.inLowG; }, toMenu() { toMenu(); }, seed(n) { RP.seed = n >>> 0; RP.n = 0; },
   rt() { return { pulses: RT.pulses || 0, pulseNear: RT.pulseNear || 0, bellT: RT.bellT, pulseCd: RT.pulseCd, t: RT.t, real: RT.real, combo: RT.combo, goldStack: RT.goldStack, shield: RT.shield, chill: RT.chill, buffRun: RT.buffRun }; },
   save() { rpgSaveNow(); }, load() { const ok = rpgLoad(); rpgRecalc(); rpgRenderMenu(); return ok; }, snapshot: rpgSnapshot, unlockRifts() { RP.riftUnlocked = true; RP.diffUnlocked = Math.max(RP.diffUnlocked, 1); rpgRenderMenu(); },
   reset() { try { localStorage.removeItem(RPG_SAVE_KEY); } catch (e) { } const fresh = { v: 1, level: 1, xp: 0 }; rpgApplySnapshot(fresh); RP.bag = new Array(BAG_N).fill(null); for (const k of RPG_EQUIP) RP.equipped[k] = null; RP.perks = {}; RP.spent = { power: 0, agility: 0, resolve: 0 }; RP.free = 0; RP.pending = 0; RP.gold = RP.dust = 0; RP.codex = {}; RP.bestRift = 0; RP.riftUnlocked = false; RP.diff = RP.diffUnlocked = 0; rpgRecalc(); rpgHealFull(); rpgRenderMenu(); },
