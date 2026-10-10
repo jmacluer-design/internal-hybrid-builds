@@ -1,0 +1,73 @@
+/* Survival HUD: vitals (bottom-left), compass (top-centre), clock + weather (top-right), threat alert (right), key hints (bottom-centre). */
+#hud { position: absolute; inset: 0; pointer-events: none; opacity: var(--hud-opacity); z-index: 5; transition: opacity .3s; }
+:root[data-mode="colony"] #hud { display: none; }
+:root[data-screen]:not([data-screen=""]) #hud .hints { display: none; }
+
+/* ----- vitals ----- */
+#hud .vitals { position: absolute; left: 1.75rem; bottom: 1.75rem; width: 21rem; padding: 1rem 1.125rem 1rem; display: flex; flex-direction: column; gap: .875rem; animation: rise .5s var(--ease) both; }
+.hp-row { display: grid; grid-template-columns: 2.5rem 1fr; gap: .75rem; align-items: center; }
+.hp-ico { width: 2.5rem; height: 2.5rem; border-radius: .7rem; display: grid; place-items: center; color: var(--hp); background: rgba(255, 93, 108, .12); box-shadow: inset 0 0 0 1px rgba(255, 93, 108, .32); }
+.hp-ico .ic { width: 1.4rem; height: 1.4rem; }
+.hp-ico.crit { animation: pulse .9s infinite; }
+.hp-top { display: flex; align-items: baseline; gap: .4rem; margin-bottom: .35rem; }
+.hp-top .disp { font-size: 2rem; line-height: .9; letter-spacing: 0; }
+.hp-top .of { color: var(--dim); font-size: .8125rem; }
+.hp-top .lbl { margin-left: auto; }
+#hud .vitals .bar { --c: var(--hp); height: .5rem; }
+.gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+.gauge { position: relative; display: flex; flex-direction: column; align-items: center; gap: .25rem; }
+.gauge svg.ring { width: 3.75rem; height: 3.75rem; transform: rotate(-90deg); overflow: visible; }
+.gauge circle { fill: none; stroke-width: 3.6; stroke-linecap: round; }
+.gauge .trk { stroke: rgba(255, 255, 255, .09); }
+.gauge .val { stroke: var(--c); stroke-dasharray: 113.1; stroke-dashoffset: 113.1; transition: stroke-dashoffset .6s var(--ease), stroke .3s; filter: drop-shadow(0 0 .25rem var(--c)); }
+.gauge .gi { position: absolute; top: 1.2rem; left: 50%; transform: translateX(-50%); color: var(--c); display: grid; place-items: center; }
+.gauge .gi .ic { width: 1.35rem; height: 1.35rem; }
+.gauge .gv { font-family: var(--font-display); font-weight: 600; font-size: 1.125rem; line-height: 1; }
+.gauge .gl { font-size: .625rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-top: -.1rem; }
+.gauge.low .val { stroke: var(--warn); } .gauge.low .gi { color: var(--warn); }
+.gauge.crit .val { stroke: var(--bad); animation: pulse .9s infinite; } .gauge.crit .gi { color: var(--bad); }
+.status-row { display: flex; flex-wrap: wrap; gap: .4rem; min-height: 1.5rem; }
+.wt { display: grid; grid-template-columns: 1.25rem 1fr auto; gap: .6rem; align-items: center; font-size: .75rem; color: var(--muted); }
+.wt .bar { --c: var(--weight); height: .3125rem; }
+.wt.heavy .bar { --c: var(--warn); } .wt.over .bar { --c: var(--bad); }
+.wt .num { color: var(--text); font-weight: 600; }
+
+/* ----- compass ----- */
+#hud .compass { position: absolute; top: 1.25rem; left: 50%; transform: translateX(-50%); width: 30rem; height: 3rem; padding: 0; overflow: hidden; border-radius: 99rem; animation: rise .5s var(--ease) both; }
+#hud .compass canvas { width: 100%; height: 100%; display: block; }
+#hud .compass .deg { position: absolute; left: 50%; top: -.05rem; transform: translateX(-50%); font: 700 .6875rem var(--font-ui); color: var(--amber2); letter-spacing: .08em; }
+
+/* ----- clock ----- */
+#hud .clock { position: absolute; top: 1.25rem; right: 1.75rem; min-width: 15rem; padding: .75rem 1.125rem; display: grid; grid-template-columns: auto 1fr; gap: .25rem .875rem; align-items: center; animation: rise .5s var(--ease) both; }
+.clock .sun { grid-row: 1 / 3; width: 2.75rem; height: 2.75rem; border-radius: 50%; display: grid; place-items: center; color: var(--amber2); background: rgba(246, 180, 79, .12); box-shadow: inset 0 0 0 1px rgba(246, 180, 79, .3); }
+.clock .sun.night { color: #b9c6ff; background: rgba(120, 140, 255, .12); box-shadow: inset 0 0 0 1px rgba(150, 165, 255, .3); }
+.clock .sun .ic { width: 1.5rem; height: 1.5rem; }
+.clock .time { font-family: var(--font-display); font-weight: 600; font-size: 2.25rem; line-height: .95; letter-spacing: .02em; }
+.clock .meta { display: flex; align-items: center; gap: .6rem; font-size: .6875rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.clock .meta .ic { width: 1rem; height: 1rem; }
+.clock .meta .off { color: var(--bad); }
+.clock .meta .ok { color: var(--good); }
+
+/* ----- colony chip (top-left) ----- */
+#hud .colony-chip { position: absolute; top: 1.25rem; left: 1.75rem; display: flex; align-items: center; gap: .75rem; padding: .5rem 1rem .5rem .75rem; animation: rise .5s var(--ease) both; }
+.colony-chip .ic { color: var(--amber); width: 1.4rem; height: 1.4rem; }
+.colony-chip .big { font-family: var(--font-display); font-weight: 600; font-size: 1.375rem; line-height: 1; }
+.colony-chip small { display: block; font-size: .625rem; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+/* ----- threat ----- */
+#hud .threat { position: absolute; top: 7.25rem; right: 1.75rem; width: 15rem; padding: .875rem 1rem; display: flex; flex-direction: column; gap: .6rem; transition: opacity .4s, transform .4s var(--ease); }
+#hud .threat.idle { opacity: 0; transform: translateX(1rem); }
+#hud .threat .th-h { display: flex; align-items: center; gap: .5rem; }
+#hud .threat .th-h .ic { color: var(--c, var(--warn)); width: 1.25rem; height: 1.25rem; }
+#hud .threat .lvl { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; letter-spacing: .06em; text-transform: uppercase; color: var(--c, var(--warn)); line-height: 1; margin-left: auto; }
+.segbar { display: grid; grid-template-columns: repeat(10, 1fr); gap: .1875rem; }
+.segbar i { height: .5rem; border-radius: .15rem; background: rgba(255, 255, 255, .09); transition: background .3s; }
+.segbar i.on { background: var(--c, var(--warn)); box-shadow: 0 0 .5rem var(--c, var(--warn)); }
+#hud .threat .near { display: flex; align-items: center; gap: .6rem; font-size: .8125rem; }
+#hud .threat .near .arrow { width: 1.75rem; height: 1.75rem; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .07); color: var(--c, var(--warn)); }
+#hud .threat .near .arrow svg { width: 1rem; height: 1rem; transition: transform .3s; }
+#hud .threat.t-low { --c: var(--info); } #hud .threat.t-elevated { --c: var(--warn); } #hud .threat.t-high { --c: #ff7a3d; } #hud .threat.t-critical { --c: var(--bad); animation: glow 1.4s infinite; }
+
+/* ----- hints ----- */
+#hud .hints { position: absolute; left: 50%; bottom: 1.25rem; transform: translateX(-50%); display: flex; gap: 1.25rem; padding: .5rem 1rem; font-size: .75rem; color: var(--muted); border-radius: 99rem; }
+#hud .hints span { display: inline-flex; align-items: center; gap: .4rem; }

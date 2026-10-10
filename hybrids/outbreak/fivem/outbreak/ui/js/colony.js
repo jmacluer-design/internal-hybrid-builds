@@ -1,0 +1,1 @@
+(function(){ const OB=window.OB; OB.colony={init(){},enter(){},leave(){},update(){},setDock(){},toggleDraft(){}}; OB.map={updateAll(){}}; OB.build={cancel(){return false}}; for (const n of ['inventory','priorities','map','menu','summary']) OB.screens.reg(n,{build(){return OB.h('div.panel',{style:{padding:'2rem'}},n)}}); })();
