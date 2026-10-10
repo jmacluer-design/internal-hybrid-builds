@@ -3742,7 +3742,7 @@ function vrUiFrame(rdt) {
       UI.hot[h] = hot; hotKey |= (hot + 1) << (h * 8);
     }
     if (!rpm) {
-      if ((XI[1].rawRise & 4) && UI.btns.length) vrUiClick(UI.btns[0].id); // A confirms the primary button
+      if ((XI[1].rawRise & 4) && UI.btns.length && !GV.eat) vrUiClick(UI.btns[0].id); // A confirms the primary button
       if (hotKey !== UI.hotKey || UI.dirtyMain) { UI.hotKey = hotKey; UI.dirtyMain = false; if (UI.mode !== 'none') vrDrawMain(); }
     }
   }
@@ -6881,7 +6881,7 @@ $('inv').addEventListener('contextmenu', e => { if (!RUI.open || RUI.tab !== 5) 
 //  * CHARACTER SELECT: the same big panel with 6 cards; 3D figurines (baked into one mesh + one outline mesh each) stand on pedestals in front of the card windows and turn slowly.
 //  * haptic patterns for every skill / Star / gem event (vrGsfxHaptic).
 // ===============================================================================================================================================================================================
-const GV = { built: false, bar: null, hot: -1, sg: new Int32Array(16), flick: true, gHold: false, gAge: 0, chord: false, used: false, tapT: 0, figs: null, figRoot: null, backs: null, figOn: false, stickDir: 0, stickRep: 0, castFlash: 0 };
+const GV = { built: false, bar: null, hot: -1, sg: new Int32Array(16), flick: true, gHold: false, gAge: 0, chord: false, used: false, tapT: 0, figs: null, figRoot: null, backs: null, figOn: false, stickDir: 0, stickRep: 0, castFlash: 0, eat: false };
 const _gvP = new THREE.Vector3(), _gvQ = new THREE.Vector3(), _gvM = new THREE.Matrix4(), _gvMr = new THREE.Matrix4();
 const GV_BAR = { w: 0.26, h: 0.065, pw: 1024, ph: 256, x0: 18, pitch: 200, cell: 188, y0: 52 };
 
@@ -7104,11 +7104,11 @@ function gvClsActions(rdt, L, R) {
   let ax = R.has ? R.ax : 0, ay = R.has ? R.ay : 0; if (L.has && Math.hypot(L.ax, L.ay) > Math.hypot(ax, ay)) { ax = L.ax; ay = L.ay; }
   const on = GV.stickDir ? 0.3 : 0.62; let d = 0; if (Math.abs(ax) > Math.abs(ay)) { if (ax < -on) d = 1; else if (ax > on) d = 2; } else { if (ay < -on) d = 3; else if (ay > on) d = 4; }
   if (!d) GV.stickDir = 0; else if (d !== GV.stickDir) { GV.stickDir = d; GV.stickRep = 0.36; gvClsStep(d); } else { GV.stickRep -= rdt; if (GV.stickRep <= 0) { GV.stickRep = 0.2; gvClsStep(d); } }
-  if (R.rise & 4) clsConfirm(); else if ((R.rise & 8) || (L.rise & 8)) closeChars();
+  if (R.rise & 4) { GV.eat = true; clsConfirm(); } else if ((R.rise & 8) || (L.rise & 8)) { GV.eat = true; closeChars(); } // GV.eat: the same press must not also confirm the pause panel that comes back
 }
 
 // ---- per-frame + debug ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function gvPre(rdt) { gvFigTick(rdt); }
+function gvPre(rdt) { GV.eat = false; gvFigTick(rdt); }
 function gvDbg() { return { bar: !!GV.bar && GV.bar.mesh.visible && !!GV.bar.mesh.parent && UI.wrP.mesh.visible, barOpacity: GV.bar ? +GV.bar.mat.opacity.toFixed(2) : 0, hot: GV.hot, chord: GV.chord, flickArmed: GV.flick, figs: GV.figs ? GV.figs.length : 0, figVisible: !!GV.figRoot && GV.figRoot.visible && UI.rp.mesh.visible }; }
 GV.api = {
   cellPose(i) { // rig-local pose that puts the right controller TIP on cell i (the test drives the emulator with it)
