@@ -82,13 +82,11 @@
         case 'order': L.P_order(JSON.stringify(data)); break;
         case 'ui': L.P_ui(String(data.name), JSON.stringify(data.data || {})); break;
         case 'mode': setMode(data.mode); break;
-        case 'place': L.P_order(JSON.stringify({ id: 'colony', kind: 'place_blueprint', target: { bp: data.bp, pos: { x: data.x, y: data.y, z: 0 } } })); break;
+        case 'place': if (data.op && data.op !== 'commit') break; L.P_order(JSON.stringify({ id: 'colony', kind: 'place_blueprint', target: { bp: data.bp, pos: { x: data.x, y: data.y, z: 0 } } })); break;
         default: break; // screen / focus / mouse / key: nothing to do without a game
       }
     },
   };
-  handlePost = bridge.post;
-  for (const [n, d] of pending.splice(0)) bridge.post(n, d);
 
   // ------------------------------------------------------------------------------------------- stand-in world backdrop
   const cv = $('#world'), cx = cv.getContext('2d');
@@ -210,5 +208,7 @@
     drawBackdrop,
     pushState() { L.P_ui('request_state', '{}'); },
   };
+  handlePost = bridge.post; // from here on the NUI's callbacks reach the host; replay what it posted while the Lua sim was starting
+  for (const [n, d] of pending.splice(0)) bridge.post(n, d);
   window.__previewReady = true;
 })().catch(e => { document.body.insertAdjacentHTML('beforeend', '<pre style="color:#f88;position:fixed;inset:20px;z-index:99">preview failed: ' + (e && e.stack || e) + '</pre>'); console.error(e); window.__previewError = String(e); });

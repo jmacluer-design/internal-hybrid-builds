@@ -164,5 +164,5 @@ input[type=text], input[type=number], select { height: 2.25rem; padding: 0 .75re
   background: radial-gradient(ellipse at center, transparent 55%, rgba(255, 40, 60, .0) 70%, rgba(255, 40, 60, .38) 100%); }
 #vignette.on { opacity: 1; animation: pulse 1.8s infinite; }
 #vignette.low { background: radial-gradient(ellipse at center, transparent 50%, rgba(120, 0, 10, .55) 100%); }
-#preview-badge { position: absolute; left: 50%; bottom: .5rem; transform: translateX(-50%); z-index: 70; padding: .2rem .8rem; border-radius: 99rem; font-size: .6875rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+#preview-badge { position: absolute; left: 50%; bottom: .3rem; transform: translateX(-50%); z-index: 70; padding: .2rem .8rem; border-radius: 99rem; font-size: .6875rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
   background: rgba(10, 14, 22, .72); border: 1px solid rgba(246, 180, 79, .4); color: var(--amber2); pointer-events: none; }

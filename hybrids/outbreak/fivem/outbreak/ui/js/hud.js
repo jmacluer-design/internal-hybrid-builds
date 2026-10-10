@@ -29,6 +29,7 @@
     el.inf = h('span.chip', { style: { '--c': 'var(--infect)' }, hidden: true }, OB.icon('bio'), h('span', ''));
     el.pain = h('span.chip', { style: { '--c': 'var(--warn)' }, hidden: true }, OB.icon('alert'), h('span', 'Pain'));
     el.down = h('span.chip', { style: { '--c': 'var(--bad)' }, hidden: true }, OB.icon('skull'), h('span', 'Down'));
+    el.okc = h('span.chip', { style: { '--c': 'var(--good)' } }, OB.icon('check'), h('span', 'Stable'));
     el.gH = gauge('hunger', 'food', 'Food', 'var(--hunger)');
     el.gT = gauge('thirst', 'drop', 'Water', 'var(--thirst)');
     el.gF = gauge('fatigue', 'moon', 'Rest', 'var(--fatigue)');
@@ -37,7 +38,7 @@
     el.vitals = h('div.vitals.panel',
       h('div.hp-row', el.hpIco, h('div', h('div.hp-top', el.hpNum, el.hpMax, h('span.lbl', 'Health')), el.hpBar)),
       h('div.gauges', el.gH, el.gT, el.gF),
-      h('div.status-row', el.bleed, el.inf, el.pain, el.down),
+      h('div.status-row', el.okc, el.bleed, el.inf, el.pain, el.down),
       el.wt);
     OB.tip(el.vitals, () => '<div class="tt-h">Survival</div><div class="tt-r"><span>Food drains</span><span>~2.6 meals / day</span></div><div class="tt-r"><span>Water drains</span><span>~12 h to empty</span></div><div class="tt-r"><span>Rest</span><span>~18 h awake</span></div><div class="tt-r"><span>Infection</span><span>hidden while incubating</span></div>');
 
@@ -96,6 +97,7 @@
     OB.show(el.inf, d.infection !== 'none'); OB.setText(el.inf.lastChild, d.infection === 'terminal' ? 'Infection: terminal' : 'Infection: symptoms');
     OB.show(el.pain, d.pain >= 25);
     OB.show(el.down, !!d.downed);
+    OB.show(el.okc, !(d.bleeding > 0.02 || d.infection !== 'none' || d.pain >= 25 || d.downed));
     const frac = d.weight_max > 0 ? d.weight / d.weight_max : 0;
     el.wtBar.set(frac * 100);
     OB.toggle(el.wt, 'heavy', frac >= 0.75 && frac < 1); OB.toggle(el.wt, 'over', frac >= 1);

@@ -22,7 +22,7 @@
         if (k === 'class' || v == null || v === false) continue;
         if (k === 'text') el.textContent = v;
         else if (k === 'html') el.innerHTML = v;
-        else if (k === 'style') Object.assign(el.style, v);
+        else if (k === 'style') { for (const sk of Object.keys(v)) { if (sk.charAt(0) === '-') el.style.setProperty(sk, v[sk]); else el.style[sk] = v[sk]; } }
         else if (k === 'on') for (const ev of Object.keys(v)) el.addEventListener(ev, v[ev]);
         else if (k === 'attrs') for (const a of Object.keys(v)) el.setAttribute(a, v[a]);
         else if (k === 'dataset') Object.assign(el.dataset, v);
@@ -39,7 +39,7 @@
   OB.setAttr = (el, k, v) => { v = String(v); const key = '_a_' + k; if (el[key] !== v) { el[key] = v; el.setAttribute(k, v); } };
   OB.setStyle = (el, k, v) => { const key = '_s_' + k; if (el[key] !== v) { el[key] = v; el.style.setProperty(k, v); } };
   OB.toggle = (el, cls, on) => { on = !!on; const key = '_c_' + cls; if (el[key] !== on) { el[key] = on; el.classList.toggle(cls, on); } };
-  OB.show = (el, on) => { on = !!on; if (el._show !== on) { el._show = on; el.hidden = !on; } };
+  OB.show = (el, on) => { on = !!on; if (el._show !== on) { el._show = on; el.toggleAttribute('hidden', !on); } };
 
   // keyed child reconciliation: keeps DOM nodes alive between updates (cheap updates, preserved hover/focus/scroll)
   OB.reconcile = function (parent, list, keyFn, make, update) {

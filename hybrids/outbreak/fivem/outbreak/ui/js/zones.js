@@ -44,11 +44,11 @@
       h('div.zh', OB.icon(z.main ? 'crate' : 'zone'), h('b.grow.ell', ''), h('span.lbl', 'Priority'), prio),
       bar, h('div.zmeta.muted.t-xs', ''), top, chipsHost,
       h('div.row', h('button.btn.sm', { on: { click: () => OB.screens.open('inventory', { other: { kind: 'zone', id: z.id } }) } }, OB.icon('search'), 'Open contents')));
-    card.bar = bar; card.title = card.querySelector('.zh b'); card.prio = prio.querySelector('b'); card.meta = card.querySelector('.zmeta'); card.top = top; card.chipsHost = chipsHost;
+    card.bar = bar; card.ttl = card.querySelector('.zh b'); card.prio = prio.querySelector('b'); card.meta = card.querySelector('.zmeta'); card.top = top; card.chipsHost = chipsHost;
     return card;
   }
   function zoneUpdate(card, z) {
-    OB.setText(card.title, z.name + (z.main ? ' (main)' : ''));
+    OB.setText(card.ttl, z.name + (z.main ? ' (main)' : ''));
     OB.setText(card.prio, z.prio);
     const used = z.cap ? z.w / z.cap * 100 : 0;
     card.bar.set(used, used > 90 ? 'var(--bad)' : used > 70 ? 'var(--warn)' : 'var(--blue)');

@@ -32,7 +32,7 @@
     const bar = OB.$('#topbar');
     OB.clear(bar);
     bar.className = 'panel';
-    const brand = h('div.brand', OB.icon('bio'), h('div', h('b', 'OUTBREAK'), h('small', 'Colony command')));
+    const brand = h('div.brand', OB.icon('bio'), h('div', h('b', 'OUTBREAK'), h('small', 'Colony')));
     const res = h('div.resources');
     el.res = {};
     for (const r of RES) {
@@ -78,7 +78,7 @@
     set('ammo', r.ammo, 'rounds', r.ammo < 10 ? 'bad' : r.ammo < 40 ? 'warn' : 'ok');
     set('fuel', r.fuel, 'cans', r.fuel < 1 ? 'warn' : 'ok');
     set('material', r.material, 'pieces', 'ok');
-    set('power', r.power_ok ? F.n(r.power_supply) + ' W' : 'OFF', r.power_ok ? 'load ' + F.n(r.power_demand) : r.mains_power ? 'grid up' : 'blackout', r.power_ok ? 'ok' : 'bad', r.power_supply > 0 ? Math.min(100, r.power_demand / r.power_supply * 100) : 0);
+    set('power', r.power_ok ? (r.power_supply >= 1000 ? (r.power_supply / 1000).toFixed(1) + ' kW' : F.n(r.power_supply) + ' W') : 'OFF', r.power_ok ? 'load ' + F.n(r.power_demand) : r.mains_power ? 'grid up' : 'blackout', r.power_ok ? 'ok' : 'bad', r.power_supply > 0 ? Math.min(100, r.power_demand / r.power_supply * 100) : 0);
     set('wealth', F.n(r.wealth), 'points', 'ok');
     OB.setText(el.clockN, st.clock); OB.setText(el.day, 'Day ' + st.day); OB.setText(el.season, F.cap(st.season) + (st.weather.kind !== 'clear' ? ' · ' + F.cap(st.weather.kind) : ''));
     if (el.wx._k !== st.weather.kind) { el.wx._k = st.weather.kind; el.wx.replaceChildren(OB.icon(OB.weatherIcon(st.weather.kind))); }

@@ -137,7 +137,7 @@
       stat('Expeditions', st.expeditions_done || 0, 'truck'), stat('Survivors taken in', st.refugees || 0, 'person'), stat('Trades', st.trades || 0, 'trade'),
       stat('Mental breaks', st.mental_breaks || 0, 'alert'), stat('Infections cured', st.infections_cured || 0, 'cross'), stat('Wealth peak', d.wealth_peak || 0, 'star'));
     const charts = h('div.scharts');
-    for (const s of SERIES) charts.append(h('div.sc', h('div.row.between', h('b', s[1]), h('span.sw', { style: { background: s[2] } })), lineChart(d.history, s[0], s[2], s[3], chartTip)));
+    for (const s of SERIES) charts.append(h('div.schart', h('div.row.between', h('b', s[1]), h('span.sw', { style: { background: s[2] } })), lineChart(d.history, s[0], s[2], s[3], chartTip)));
     const lostEl = h('div.slost');
     for (const x of lost) lostEl.append(h('div.lrow', OB.icon(x.turns ? 'bio' : 'skull'), h('b.grow', OB.short(x.name)), h('span.muted.t-sm', 'day ' + x.day + ' · ' + (CAUSE[x.cause] || x.cause) + (x.turns ? ' · turned' : ''))));
     if (!lost.length) lostEl.append(h('div.muted.t-sm', 'Nobody has died. Yet.'));

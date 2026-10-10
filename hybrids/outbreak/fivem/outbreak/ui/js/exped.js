@@ -25,11 +25,11 @@
     OB.reconcile(active, st.expeditions, x => x.id, x => {
       const crew = h('div.crew'), st2 = h('span.chip', ''), cancel = h('button.btn.sm.ghost', { on: { click: () => OB.order('colony', 'cancel_expedition', { id: x.id }) } }, 'Cancel');
       const row = h('div.xrow', { dataset: { id: x.id } }, h('div.xh', OB.icon('truck'), h('b.grow', ''), st2), crew, h('div.muted.t-xs.xm', ''), cancel);
-      row.title = row.querySelector('b'); row.state = st2; row.crew = crew; row.meta = row.querySelector('.xm'); row.cancel = cancel;
+      row.ttl = row.querySelector('b'); row.state = st2; row.crew = crew; row.meta = row.querySelector('.xm'); row.cancel = cancel;
       return row;
     }, (row, x) => {
       const d = cat.districts.find(q => q.id === x.district);
-      OB.setText(row.title, d ? d.name : x.district);
+      OB.setText(row.ttl, d ? d.name : x.district);
       OB.setText(row.state, STATE_LABEL[x.state] || x.state);
       row.state.style.setProperty('--c', x.state === 'forming' ? 'var(--amber)' : x.state === 'returning' ? 'var(--good)' : 'var(--blue)');
       const sig = x.crew.join(',');

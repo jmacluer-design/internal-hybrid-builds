@@ -26,7 +26,7 @@
 .gauge .gl { font-size: .625rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-top: -.1rem; }
 .gauge.low .val { stroke: var(--warn); } .gauge.low .gi { color: var(--warn); }
 .gauge.crit .val { stroke: var(--bad); animation: pulse .9s infinite; } .gauge.crit .gi { color: var(--bad); }
-.status-row { display: flex; flex-wrap: wrap; gap: .4rem; min-height: 1.5rem; }
+.status-row { display: flex; flex-wrap: wrap; gap: .4rem; }
 .wt { display: grid; grid-template-columns: 1.25rem 1fr auto; gap: .6rem; align-items: center; font-size: .75rem; color: var(--muted); }
 .wt .bar { --c: var(--weight); height: .3125rem; }
 .wt.heavy .bar { --c: var(--warn); } .wt.over .bar { --c: var(--bad); }
@@ -69,5 +69,5 @@
 #hud .threat.t-low { --c: var(--info); } #hud .threat.t-elevated { --c: var(--warn); } #hud .threat.t-high { --c: #ff7a3d; } #hud .threat.t-critical { --c: var(--bad); animation: glow 1.4s infinite; }
 
 /* ----- hints ----- */
-#hud .hints { position: absolute; left: 50%; bottom: 1.25rem; transform: translateX(-50%); display: flex; gap: 1.25rem; padding: .5rem 1rem; font-size: .75rem; color: var(--muted); border-radius: 99rem; }
+#hud .hints { position: absolute; left: 50%; bottom: 2.2rem; transform: translateX(-50%); display: flex; gap: 1.25rem; padding: .5rem 1rem; font-size: .75rem; color: var(--muted); border-radius: 99rem; }
 #hud .hints span { display: inline-flex; align-items: center; gap: .4rem; }

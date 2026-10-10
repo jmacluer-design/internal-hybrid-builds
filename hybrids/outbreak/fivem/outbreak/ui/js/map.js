@@ -45,6 +45,7 @@
       this.region = false;
       this.userMoved = false;
       new ResizeObserver(() => this.resize()).observe(host);
+      this.resize();
       if (this.interactive) this.bind();
       else if (this.mode === 'mini') this.bindMini();
       this.loop = this.loop.bind(this);
@@ -58,6 +59,7 @@
       this.canvas.width = Math.round(W * this.dpr); this.canvas.height = Math.round(H * this.dpr);
       this.canvas.style.width = W + 'px'; this.canvas.style.height = H + 'px';
       this.dirty = true;
+      if (this.pendingFit !== undefined && W > 2 && H > 2) { const f = this.pendingFit; this.pendingFit = undefined; this.fit(f); }
     }
     setState(st) { this.state = st; this.dirty = true; if (this.follow && st.base && !this.userMoved) { const p = st.player || st.base; this.cx = p.x; this.cy = p.y; } }
     loop() {
@@ -86,9 +88,12 @@
     }
     fit(region) {
       this.region = !!region;
+      if (this.W <= 2 || this.H <= 2) this.resize();
+      if (this.W <= 2 || this.H <= 2) { this.pendingFit = region; return; } // not laid out yet: the resize observer re-fits
       const tm = (OB.S.catalog && OB.S.catalog.tuning.map) || { min_x: -2400, max_x: 2400, min_y: -2400, max_y: 2400 };
       if (region) { this.cx = 0; this.cy = 0; this.s = Math.min(this.W / (tm.max_x - tm.min_x + 400), this.H / (tm.max_y - tm.min_y + 400)); }
-      else { this.cx = 0; this.cy = 0; this.s = Math.min(this.W / 520, this.H / 330); }
+      else { this.cx = 0; this.cy = 0; this.s = Math.min(this.W / 400, this.H / 250); }
+      this.s = OB.clamp(this.s, 0.12, 16);
       this.userMoved = false; this.dirty = true;
     }
     // --------------------------------------------------------------------------------------------------------- hit test
@@ -207,11 +212,13 @@
     updateGhost(px, py) {
       const g = this.ghost, grid = 2;
       g.x = Math.round(this.wx(px) / grid) * grid; g.y = Math.round(this.wy(py) / grid) * grid;
+      if (g.zone) { g.ok = true; g.reason = 'ok'; return; }
       const v = OB.build.validate(g.bp, g.x, g.y);
       g.ok = v.ok; g.reason = v.reason;
     }
     commitGhost(multi) {
       const g = this.ghost; if (!g) return;
+      if (g.zone) { OB.zones.commit(g); this.pings.push({ x: g.x, y: g.y, t: performance.now(), c: '#7ee0c3' }); return; }
       if (!g.ok) { OB.toast('warn', OB.reason(g.reason), { title: 'Cannot build here' }); return; }
       OB.post('place', { op: 'commit', bp: g.bp, x: g.x, y: g.y });
       this.pings.push({ x: g.x, y: g.y, t: performance.now(), c: '#35d39a' });
@@ -268,20 +275,20 @@
       const steps = [10, 20, 50, 100, 200, 500, 1000].find(u => u * s >= 46) || 1000;
       const x0 = this.wx(0), x1 = this.wx(W), y1 = this.wy(0), y0 = this.wy(H);
       ctx.lineWidth = 1;
-      for (let x = Math.floor(x0 / steps) * steps; x <= x1; x += steps) {
+      for (let x = Math.floor(x0 / steps) * steps, n = 0; x <= x1 && n < 400; x += steps, n++) {
         const major = Math.round(x / steps) % 5 === 0;
         ctx.strokeStyle = major ? 'rgba(150,180,230,.16)' : 'rgba(150,180,230,.07)';
         const px = Math.round(this.sx(x)) + 0.5; ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
       }
-      for (let y = Math.floor(y0 / steps) * steps; y <= y1; y += steps) {
+      for (let y = Math.floor(y0 / steps) * steps, n = 0; y <= y1 && n < 400; y += steps, n++) {
         const major = Math.round(y / steps) % 5 === 0;
         ctx.strokeStyle = major ? 'rgba(150,180,230,.16)' : 'rgba(150,180,230,.07)';
         const py = Math.round(this.sy(y)) + 0.5; ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
       }
       if (this.layers.cells || s < 0.5) {
         ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,120,120,.22)';
-        for (let x = Math.floor(x0 / 200) * 200; x <= x1; x += 200) { const px = Math.round(this.sx(x)) + 0.5; ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke(); }
-        for (let y = Math.floor(y0 / 200) * 200; y <= y1; y += 200) { const py = Math.round(this.sy(y)) + 0.5; ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke(); }
+        for (let x = Math.floor(x0 / 200) * 200, n = 0; x <= x1 && n < 200; x += 200, n++) { const px = Math.round(this.sx(x)) + 0.5; ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke(); }
+        for (let y = Math.floor(y0 / 200) * 200, n = 0; y <= y1 && n < 200; y += 200, n++) { const py = Math.round(this.sy(y)) + 0.5; ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke(); }
         ctx.setLineDash([]);
       }
     }
@@ -338,7 +345,7 @@
     }
     drawBuildings(ctx, st, mini) {
       const s = this.s;
-      const bpS = Math.max(mini ? 4 : 10, Math.min(36, 3.4 * s));
+      const bpS = Math.max(mini ? 4 : 12, Math.min(40, 4.4 * s));
       for (const b of st.buildings) {
         const x = this.sx(b.x), y = this.sy(b.y);
         if (x < -40 || y < -40 || x > this.W + 40 || y > this.H + 40) continue;
@@ -412,7 +419,7 @@
       }
     }
     drawColonists(ctx, st, mini) {
-      const s = this.s, R = mini ? 5 : OB.clamp(1.7 * s, 10, 17);
+      const s = this.s, R = mini ? 5 : OB.clamp(2.3 * s, 12, 21);
       const sel = new Set(OB.S.sel);
       for (const c of st.colonists) {
         if (c.state === 'away') continue;
@@ -447,7 +454,12 @@
     }
     drawGhost(ctx) {
       const g = this.ghost; if (g.x == null) return;
-      const x = this.sx(g.x), y = this.sy(g.y), d = OB.bp(g.bp), h = Math.max(10, Math.min(36, 3.4 * this.s)) / 2;
+      if (g.zone) {
+        const x = this.sx(g.x), y = this.sy(g.y), half = Math.sqrt(g.tiles) * 2.1 * this.s;
+        ctx.fillStyle = 'rgba(126,224,195,.16)'; ctx.strokeStyle = '#7ee0c3'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.fillRect(x - half, y - half, half * 2, half * 2); ctx.strokeRect(x - half, y - half, half * 2, half * 2); ctx.setLineDash([]);
+        return;
+      }
+      const x = this.sx(g.x), y = this.sy(g.y), d = OB.bp(g.bp), h = Math.max(12, Math.min(40, 4.4 * this.s)) / 2;
       const col = g.ok ? '#35d39a' : '#ff5d6c';
       ctx.fillStyle = g.ok ? 'rgba(53,211,154,.18)' : 'rgba(255,93,108,.18)'; ctx.fillRect(x - h, y - h, h * 2, h * 2);
       ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.strokeRect(x - h, y - h, h * 2, h * 2); ctx.setLineDash([]);

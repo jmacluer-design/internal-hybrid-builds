@@ -39,7 +39,7 @@
       for (const x of days) {
         const b = byDay[x] || { threat: 0, hazard: 0, boon: 0 };
         const col = h('div.dcol', { title: 'Day ' + x + ': ' + b.threat + ' threats, ' + b.hazard + ' hazards, ' + b.boon + ' boons' },
-          h('div.dbars', h('i.bt', { style: { height: b.threat / max * 100 + '%' } }), h('i.bh', { style: { height: b.hazard / max * 100 + '%' } }), h('i.bb', { style: { height: b.boon / max * 100 + '%' } })), h('span' + (x === last ? '.now' : ''), String(x)));
+          h('div.dbars', h('i.ev-t', { style: { height: b.threat / max * 100 + '%' } }), h('i.ev-h', { style: { height: b.hazard / max * 100 + '%' } }), h('i.ev-b', { style: { height: b.boon / max * 100 + '%' } })), h('span' + (x === last ? '.now' : ''), String(x)));
         el.chart.append(col);
       }
     }
@@ -102,7 +102,7 @@
     const tabs = OB.seg([{ value: 'log', label: 'Director log' }, { value: 'notes', label: 'Messages' }], 'log', v => { tab = v; sig = ''; el.noteBox._s = ''; if (S.state) update(S.state); }, 'ctabs');
     root.append(el.meter,
       h('section.csec', h('div.row.between', h('span.lbl', 'Storyteller budget'), el.bnum), el.budget, h('div.row.between', el.rate, el.next), el.profile),
-      h('section.csec', h('div.lbl', 'Events per day'), el.chart, h('div.legend', h('span', h('i.bt'), 'threat'), h('span', h('i.bh'), 'hazard'), h('span', h('i.bb'), 'boon'))),
+      h('section.csec', h('div.lbl', 'Events per day'), el.chart, h('div.legend', h('span', h('i.ev-t'), 'threat'), h('span', h('i.ev-h'), 'hazard'), h('span', h('i.ev-b'), 'boon'))),
       h('section.csec', h('div.lbl', 'Tracked threats'), el.threats, el.noThreat),
       tabs, el.logBox, el.noteBox);
     OB.on('notes', () => { if (S.state && tab === 'notes') update(S.state); });
