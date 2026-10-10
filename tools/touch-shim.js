@@ -157,7 +157,7 @@ html.ibt-active,html.ibt-active body{overscroll-behavior:none}
   function layout(){
     W=win.innerWidth; Hh=win.innerHeight; const I=insets(), mn=Math.min(W,Hh);
     u=Math.max(56,Math.round(clamp(mn*.155,56,76)*S.size));
-    { const cap=Math.floor((Hh-I.t-I.b-(prof.fanLift||0)-65)/4.67); u=Math.max(56,Math.min(u,cap)); }   // the fan (outer arc top = ~4.7 u + lift) must stay below the MENU/gear row
+    { const cap=Math.floor((Hh-I.t-I.b-(prof.fanLift||0)-6)/5.65); u=Math.max(56,Math.min(u,cap)); }   // the fan (outer arc top = ~4.7 u + lift) must stay below the MENU/gear row (~1 u + 6 px)
     Rs=Math.round(clamp(u*.95,52,78)); Rl=Math.round(72/S.sens);
     const m=Math.max(10,Math.round(u*.2)); mir=S.left?-1:1;
     const eT=mir>0?I.r:I.l, eO=mir>0?I.l:I.r;                       // safe-area inset on the thumb side / the other side

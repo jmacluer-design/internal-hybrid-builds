@@ -135,7 +135,7 @@ function Net.register()
 		for i = 1, math.min(#list, 120) do
 			local ev = type(list[i]) == "table" and list[i].type == "noise" and P.sanitize_in(list[i]) or nil
 			if ev then
-				local gx, gy, gz = ctx.to_game(ev.pos.x, ev.pos.y, 0.0)
+				local gx, gy = ctx.to_game(ev.pos.x, ev.pos.y, 0.0)
 				Zombies.hear(gx, gy, Ground.z_at(gx, gy), ev.loudness)
 				if ev.kind == "explosion" then Zombies.blast(gx, gy, Ground.z_at(gx, gy), 25.0) end
 			end

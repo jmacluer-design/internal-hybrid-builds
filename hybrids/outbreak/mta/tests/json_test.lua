@@ -7,9 +7,9 @@ local E = require("shared.json")
 T.test("decodes objects, arrays, numbers, escapes, unicode and literals", function()
 	local t = D.decode([[ {"a":[1,2.5,-3e2,{"b":"xé\n\"q\""}],"c":true,"d":null,"e":false,"f":"😀"} ]])
 	T.eq(t.a[1], 1); T.eq(t.a[2], 2.5); T.eq(t.a[3], -300)
-	T.eq(t.a[4].b, "x\xc3\xa9\n\"q\"")
+	T.eq(t.a[4].b, "x\195\169\n\"q\"") -- decimal escapes: PUC Lua 5.1 (the version MTA embeds) has no \x escape
 	T.eq(t.c, true); T.eq(t.d, nil); T.eq(t.e, false)
-	T.eq(t.f, "\xf0\x9f\x98\x80", "a surrogate pair becomes one UTF-8 code point")
+	T.eq(t.f, "\240\159\152\128", "a surrogate pair becomes one UTF-8 code point")
 	T.eq(#D.decode("[]"), 0)
 end)
 

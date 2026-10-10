@@ -4,7 +4,7 @@
 -- and for ranged intents aim and fire in bursts. Collision and line of sight exist only here, which is why the movement belongs to the client.
 --
 -- intents (validated here, they come over the network): { ped, m = "stop"|"go"|"wander"|"attack"|"aim"|"flee", x, y, s = 0..3, r = stop radius, tgt = element, ranged = bool }
--- borrowed: the technique (face the target with setPedRotation, hold the "forwards" control, sprint / walk modifiers, fire in timed bursts, notice a stuck ped by its distance covered)
+-- reference only (not a borrow mark): the technique (face the target with setPedRotation, hold the "forwards" control, sprint / walk modifiers, fire in timed bursts, notice a stuck ped by its distance covered)
 --   is read from NullSystemWorks/mtadayz and mta-resources/deadwalkers "slothbot" (client side) which have no usable licence, so NOTHING is copied: this is a fresh implementation.
 local ctx = require("client.ctx")
 local NET = require("shared.mta_net")
@@ -16,8 +16,46 @@ local cfg = ctx.cfg
 local MODES = { stop = true, go = true, wander = true, attack = true, aim = true, flee = true }
 local CONTROLS = { "forwards", "walk", "sprint", "jump", "fire", "aim_weapon", "left", "right" }
 
+-- a cache of the control states and rotation we last set per ped: setPedControlState is only called when a state CHANGES (or every REFRESH_MS to heal a state the engine reset, e.g.
+-- after a stream-out / stream-in). Without it the loop is ~5000 calls per second with 60 zombies for nothing: the states persist in the engine until they are changed.
+local cache = setmetatable({}, { __mode = "k" })
+local REFRESH_MS = 1500
+
+local function ped_cache(ped)
+	local c = cache[ped]
+	if not c then c = { ctl = {}, at = -1e9, rot = nil, rot_at = -1e9 }; cache[ped] = c end
+	return c
+end
+
+local stepping_now = nil -- the tick of the step in progress (one getTickCount per step, not one per call)
+local function tick() return stepping_now or getTickCount() end
+
+local function set(ped, control, state)
+	local c = ped_cache(ped)
+	local now = tick()
+	if c.ctl[control] == state and now - (c.ctl_at and c.ctl_at[control] or -1e9) < REFRESH_MS then return end
+	c.ctl[control] = state
+	c.ctl_at = c.ctl_at or {}
+	c.ctl_at[control] = now
+	setPedControlState(ped, control, state)
+end
+
+local function rotate(ped, h)
+	local c = ped_cache(ped)
+	local now = tick()
+	if c.rot and math.abs(((h - c.rot) + 180) % 360 - 180) < 2.0 and now - c.rot_at < 500 then return end
+	c.rot, c.rot_at = h, now
+	setPedRotation(ped, h)
+end
+
 local function clear_controls(ped)
-	for _, c in ipairs(CONTROLS) do setPedControlState(ped, c, false) end
+	local c = cache[ped]
+	for _, control in ipairs(CONTROLS) do
+		if not c or c.ctl[control] ~= false then
+			if c then c.ctl[control] = false; c.ctl_at = c.ctl_at or {}; c.ctl_at[control] = tick() end
+			setPedControlState(ped, control, false)
+		end
+	end
 end
 D.clear_controls = clear_controls
 
@@ -27,13 +65,14 @@ D.heading = heading
 
 -- speed modes: 1 walk, 2 jog (default forwards), 3 sprint
 local function move_controls(ped, s)
-	setPedControlState(ped, "forwards", true)
-	setPedControlState(ped, "walk", s == 1)
-	setPedControlState(ped, "sprint", s >= 3)
+	set(ped, "forwards", true)
+	set(ped, "walk", s == 1)
+	set(ped, "sprint", s >= 3)
 end
 
 -- ---------------------------------------------------------------------------------------------------------------- network
 function D.on_drive(list)
+	stepping_now = nil -- (a step that raised would have left its tick behind)
 	if type(list) ~= "table" then return end
 	for i = 1, math.min(#list, 60) do
 		local it = list[i]
@@ -78,8 +117,8 @@ local function unstick(ped, it, px, py, now)
 		D.stats.stuck = D.stats.stuck + 1
 		it.side_until = now + 700
 		it.side_dir = (math.random() < 0.5) and 70.0 or -70.0
-		setPedControlState(ped, "jump", true)
-		setTimer(function() if isElement(ped) then setPedControlState(ped, "jump", false) end end, 250, 1)
+		set(ped, "jump", true)
+		setTimer(function() if isElement(ped) then set(ped, "jump", false) end end, 250, 1)
 	end
 end
 
@@ -94,14 +133,14 @@ local function drive_one(ped, it, now)
 			it.wander_h = math.random() * 360.0
 			it.wander_pause = math.random() < 0.25
 		end
-		if it.wander_pause then clear_controls(ped) else setPedRotation(ped, it.wander_h); move_controls(ped, 1) end
+		if it.wander_pause then clear_controls(ped) else rotate(ped, it.wander_h); move_controls(ped, 1) end
 		return
 	end
 	if not tx then return finish(ped) end
 	local dx, dy = tx - px, ty - py
 	local d = math.sqrt(dx * dx + dy * dy)
 	if it.m == "aim" then
-		setPedRotation(ped, heading(dx, dy)); setPedAimTarget(ped, tx, ty, tz); setPedControlState(ped, "aim_weapon", true)
+		rotate(ped, heading(dx, dy)); setPedAimTarget(ped, tx, ty, tz); set(ped, "aim_weapon", true)
 		return
 	end
 	if it.m == "go" or it.m == "flee" then
@@ -109,18 +148,18 @@ local function drive_one(ped, it, now)
 	end
 	local h = heading(dx, dy)
 	if it.side_until and now < it.side_until then h = (h + it.side_dir) % 360 end
-	setPedRotation(ped, h)
+	rotate(ped, h)
 	if it.m == "attack" then
 		if it.ranged then
 			setPedAimTarget(ped, tx, ty, tz + 0.3)
-			setPedControlState(ped, "aim_weapon", true)
+			set(ped, "aim_weapon", true)
 			if d <= it.r + 25.0 then
 				-- bursts: 700 ms firing, 700 ms pause
-				setPedControlState(ped, "fire", (math.floor(now / 700) % 2) == 0)
+				set(ped, "fire", (math.floor(now / 700) % 2) == 0)
 			end
-			if d > it.r then move_controls(ped, it.s) else setPedControlState(ped, "forwards", false); setPedControlState(ped, "sprint", false) end
+			if d > it.r then move_controls(ped, it.s) else set(ped, "forwards", false); set(ped, "sprint", false) end
 		else
-			if d > it.r then move_controls(ped, it.s) else setPedControlState(ped, "forwards", false) end
+			if d > it.r then move_controls(ped, it.s) else set(ped, "forwards", false) end
 		end
 	else
 		move_controls(ped, it.s)
@@ -130,6 +169,7 @@ end
 
 function D.step()
 	local now = getTickCount()
+	stepping_now = now
 	local gone = {}
 	for ped, it in pairs(D.intents) do
 		if not isElement(ped) or isPedDead(ped) then
@@ -143,12 +183,14 @@ function D.step()
 			end
 		end
 	end
+	stepping_now = nil
 	for _, ped in ipairs(gone) do D.intents[ped] = nil; D.count = D.count - 1 end
 end
 
 function D.clear()
 	for ped in pairs(D.intents) do if isElement(ped) then clear_controls(ped) end end
 	D.intents, D.count = {}, 0
+	cache = setmetatable({}, { __mode = "k" })
 end
 
 function D.start()

@@ -267,6 +267,8 @@ function Mock:stop(opts)
 		end
 	end
 	self:step(self.frame_ms * 4)
+	-- the engine unregisters a stopped resource's event handlers: a network message still in flight when it stops finds nobody home (recorded in net.dropped), and no render event reaches it
+	for _, side in pairs(self.sides) do if side.started then side.started = false; side.stopped = true end end
 	if opts and opts.engine then self:engine_cleanup() end
 end
 
@@ -481,7 +483,9 @@ function Mock:deliver_net()
 			self.pending[#self.pending + 1] = item
 		else
 			local side = self.sides[item.to]
-			if side and side.started then
+			if side and side.stopped then
+				self.net.dropped[#self.net.dropped + 1] = string.format("%s event %s arrived after the resource stopped", item.to, item.name)
+			elseif side and side.started then
 				local reg = side.events[item.name]
 				if not reg then
 					self.net.dropped[#self.net.dropped + 1] = string.format("%s triggered %s event %s, but the event is not added there", item.to == "client" and "server" or "client", item.to, item.name)
