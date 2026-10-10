@@ -81,7 +81,8 @@ curl_checks() {
 	rec C_page_phone "$(code -u "phone:$PW_PHONE" "$URL/")"
 	rec C_page_view "$(code -u "phoneview:$PW_VIEW" "$URL/")"
 	curl -s -m 15 -u "phone:$PW_PHONE" "$URL/" > "$WORK/page.html"
-	rec C_page_has_bridge "$(grep -c 'phone-bridge.js' "$WORK/page.html")"
+	rec C_page_has_bridge "$(grep -c 'window.__phone = ' "$WORK/page.html")"
+	rec C_page_external_js "$(grep -c '<script src=' "$WORK/page.html")"
 	rec C_page_has_base "$(grep -c '<base href="/outbreak/ui/">' "$WORK/page.html")"
 	rec C_page_inlined_css "$(grep -c '<style>' "$WORK/page.html")"
 	rec C_page_phone_slash "$(code -u "phone:$PW_PHONE" "$URL/phone/")"
@@ -200,8 +201,9 @@ eq "GET /outbreak/ with a wrong password" "${C_page_badpw:-?}" 401
 eq "GET /outbreak/ as an account the ACL does not allow (nobody)" "${C_page_nobody:-?}" 401
 eq "GET /outbreak/ as phone" "${C_page_phone:-?}" 200
 eq "GET /outbreak/ as phoneview" "${C_page_view:-?}" 200
-[ "${C_page_has_bridge:-0}" -ge 1 ] && [ "${C_page_has_base:-0}" -ge 1 ] && ok "the page is the generated phone.html (phone-bridge.js, <base>)" || bad "the served page is not phone.html"
-[ "${C_page_inlined_css:-0}" -ge 5 ] && ok "its css is inlined (MTA serves .css as ${C_pub_css_type:-?}, which browsers refuse as a stylesheet)" || bad "css not inlined (${C_page_inlined_css:-0} <style> blocks)"
+[ "${C_page_has_bridge:-0}" -ge 1 ] && [ "${C_page_has_base:-0}" -ge 1 ] && ok "the page is the generated phone.html (the phone bridge inlined, <base href=/outbreak/ui/>)" || bad "the served page is not phone.html"
+eq "it has no external script (the page does not depend on the MIME type MTA gives .js files)" "${C_page_external_js:-?}" 0
+[ "${C_page_inlined_css:-0}" -ge 5 ] && ok "its css is inlined too (MTA serves .css as ${C_pub_css_type:-?}, which browsers refuse as a stylesheet)" || bad "css not inlined (${C_page_inlined_css:-0} <style> blocks)"
 note "GET /outbreak (no slash, no login): ${C_page_noslash:-?} with $( [ "${C_noslash_leaks_ui:-0}" = 0 ] && echo no page content || echo PAGE CONTENT ); GET /outbreak/phone/: ${C_page_phone_slash:-?} (only /outbreak/ exists: the default <html> item)"
 eq "POST phoneApi without a login" "${C_api_anon:-?}" 401
 eq "POST phoneApi with a wrong password" "${C_api_badpw:-?}" 401

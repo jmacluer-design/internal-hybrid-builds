@@ -85,7 +85,8 @@ async function open(user = 'phone', w = 390, h = 844) {
   return { ctx, page, errors, tap, tapSel, ph, toasts, badge, close: () => ctx.close() };
 }
 async function openPriorities(b) {
-  await b.tapSel('#cmdbar .cmd:nth-last-child(3)'); // Priorities
+  const r = await b.page.evaluate(() => { const e = [...document.querySelectorAll('#cmdbar button')].find(x => x.offsetParent && /Priorities/.test(x.textContent)); const q = e.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; });
+  await b.tap(r[0], r[1]);
   await b.page.waitForFunction(() => OB.screens.current === 'priorities', null, { timeout: 5000 });
   await sleep(300);
 }

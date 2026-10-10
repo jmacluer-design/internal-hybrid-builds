@@ -4,7 +4,7 @@
 #   mta/tests/run.sh                 copy checks + the Lua suite under LuaJIT AND Lua 5.4 (+ PUC Lua 5.1 when available) + function_check + the browser test + its Lua replay
 #   mta/tests/run.sh --no-browser    skip the Playwright test (no node / chromium)
 #   mta/tests/run.sh --with-sim      also run the sim's own suite (about a minute) and the FiveM adapter's suite
-#   mta/tests/run.sh --with-server   also run tools/real_server_smoke.sh --quick: the REAL MTA 1.6 Linux server, headless (server tarballs or a network needed, about 30 s)
+#   mta/tests/run.sh --with-server   also run tools/real_server_smoke.sh --quick (the REAL MTA 1.6 Linux server, headless, about 30 s) and tools/phone_e2e.sh (the phone companion on it, about 45 s); server tarballs or a network needed
 #   mta/tests/run.sh server peds     only the Lua test files whose name contains one of the words (the browser test is skipped then)
 #
 # Optional extra runtime: PUC-Rio Lua 5.1.5 is the interpreter MTA really embeds (LuaJIT is 5.1 compatible, not identical). `mta/tools/build_lua51.sh` builds it into ~/.cache;
@@ -94,11 +94,15 @@ if [ "$browser" = "1" ]; then
 	else
 		fail=1
 	fi
+	echo "=============== phone bridge: the phone page + ui/phone-bridge.js in a mobile-emulated Chromium against the real phone.lua on the mock (connection loss, restart, 401, ordering)"
+	step 6 node "$here/phone_bridge_test.mjs" || fail=1
 fi
 
 if [ "$with_server" = "1" ]; then
 	echo "=============== the real MTA:SA 1.6 server smoke test (quick)"
 	step 30 bash "$mta/tools/real_server_smoke.sh" --quick || fail=1
+	echo "=============== the phone companion on the real MTA:SA 1.6 server (curl + a mobile-emulated Chromium, about 45 s)"
+	step 30 bash "$mta/tools/phone_e2e.sh" || fail=1
 fi
 
 if [ "$with_sim" = "1" ]; then
