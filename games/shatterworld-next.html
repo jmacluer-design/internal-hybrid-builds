@@ -6922,12 +6922,14 @@ function gvBuild() {
   if (GV.built) return; GV.built = true;
   GV.bar = vrPanel(GV_BAR.w, GV_BAR.h, GV_BAR.pw, GV_BAR.ph, false); GV.bar.mesh.position.set(0, -(0.195 + GV_BAR.h) / 2 - 0.006, 0); GV.bar.mesh.visible = true; GV.bar.mat.opacity = 0; UI.wrP.mesh.add(GV.bar.mesh); GV.sg.fill(-7);
 }
-function gvBarSig() { // numbers only; true when anything the bar shows changed
-  const s = GV.sg; let k = 0, ch = false; const set = v => { v |= 0; if (s[k] !== v) { s[k] = v; ch = true; } k++; };
-  set(GM.spark * 0.5); set(GM.sparkMax); set(GM.sparkFlash > 0 ? 1 : 0); set(GV.hot + 1);
-  for (let i = 0; i < 4; i++) { const a = GM.slot[i]; set(a ? (a.gem.u ^ (a.gem.lv << 24)) : 0); set(a && GM.cd[i] > 0 ? Math.ceil(GM.cd[i] / Math.max(0.1, GM.cdMax[i]) * 12) : 0); }
-  set(STAR.meter * 0.5); set(STAR.on ? 1 + Math.ceil(STAR.t) : 0); set(FORM.id ? Math.ceil(FORM.t) + (FORM.id === 'gust' ? 1000 : 0) : 0); set(STAR.meter >= GEM_TUNING.star.max - 0.01 && !STAR.on ? ((performance.now() / 320) | 0) & 1 : 0);
-  return ch;
+let _gvK = 0, _gvCh = false;
+function gvSet(v) { v |= 0; if (GV.sg[_gvK] !== v) { GV.sg[_gvK] = v; _gvCh = true; } _gvK++; }
+function gvBarSig() { // numbers only, no closures; true when anything the bar shows changed
+  _gvK = 0; _gvCh = false;
+  gvSet(GM.spark * 0.5); gvSet(GM.sparkMax); gvSet(GM.sparkFlash > 0 ? 1 : 0); gvSet(GV.hot + 1);
+  for (let i = 0; i < 4; i++) { const a = GM.slot[i]; gvSet(a ? (a.gem.u ^ (a.gem.lv << 24)) : 0); gvSet(a && GM.cd[i] > 0 ? Math.ceil(GM.cd[i] / Math.max(0.1, GM.cdMax[i]) * 12) : 0); }
+  gvSet(STAR.meter * 0.5); gvSet(STAR.on ? 1 + Math.ceil(STAR.t) : 0); gvSet(FORM.id ? Math.ceil(FORM.t) + (FORM.id === 'gust' ? 1000 : 0) : 0); gvSet(STAR.meter >= GEM_TUNING.star.max - 0.01 && !STAR.on ? ((performance.now() / 320) | 0) & 1 : 0);
+  return _gvCh;
 }
 function gvDrawBar() {
   const p = GV.bar, c = p.ctx, W = p.pw, H = p.ph, B = GV_BAR; c.clearRect(0, 0, W, H); c.textBaseline = 'alphabetic';
