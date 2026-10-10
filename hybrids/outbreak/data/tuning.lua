@@ -145,6 +145,42 @@ TUNING.skills = {
 	xp_per_kill = 4,
 	start_level_max = 4,
 }
+-- hordes (abstract groups on a coarse grid) -------------------------------------------------------------
+TUNING.horde = {
+	R_materialize = 220,       -- a horde within this distance of an observer becomes real peds
+	R_dematerialize = 380,     -- ...and goes abstract again only beyond this (hysteresis margin = 160)
+	min_dwell = 4,             -- minutes a materialized horde must stay real before it may despawn
+	max_materialized = 40,     -- cap on peds alive at once (hordes + raiders): THE adapter performance knob
+	per_horde_max = 28,        -- most peds one horde materializes
+	top_up_min = 5,            -- minutes between top-up spawns while real peds were killed
+	observe_colonists = false, -- also materialize near colonists (leave false: colonists far from the player stay abstract)
+	speed = { walker = 55, runner = 120, brute = 70, screamer = 80 }, -- units per minute
+	wander_mult = 0.25,        -- fraction of speed while drifting
+	seek_mult = 0.8,           -- fraction of speed while heading for a noise / the base
+	turn_chance_per_min = 0.04,
+	arrive_radius = 30,
+	linger_min = 25,           -- minutes spent at a noise before drifting again
+	noise_radius_per_loud = 7, -- attraction radius = loudness * this
+	noise_keep = 24,           -- noise log ring (for the UI)
+	noise = { gunshot = 110, shotgun = 140, rifle = 150, melee = 20, vehicle = 45, explosion = 200, helicopter = 170, screamer = 90,
+		alarm = 130, building = 25, footsteps = 8, loot = 15, supply_drop = 120, generator = 30 },
+	generator_noise_every = 60, -- running generators ping this often
+	base_target_chance = 0.12, -- chance a drifting horde near the alert radius heads for the base anyway
+	assault_round_min = 10,    -- minutes between abstract assault rounds
+	assault_radius = 90,       -- hordes this close to the base centre assault it
+	assault_rounds = 6,        -- combat_abstract rounds per assault round
+	max_hordes = 24, merge_dist = 90, merge_every = 15,
+	dissipate_days = 6,        -- an ambient horde unseen this long loses members
+	dissipate_frac = 0.04,
+	min_size_to_keep = 3,
+	max_total = 900,           -- abstract zombies in the whole world
+	ambient_count = 9, ambient_size = { 6, 38 },
+	spawn_dist = { 1500, 2200 }, -- waves appear this far from the base
+	alert_min_size = 8, alert_hold = 30,
+	-- composition of a wave by pacing/threat: shares of the point budget spent on each type
+	wave_shares = { walker = 0.62, runner = 0.20, brute = 0.12, screamer = 0.06 },
+}
+
 -- expeditions (abstract scavenging trips by vehicle) -------------------------------------------------
 TUNING.expedition = {
 	vehicles = {
