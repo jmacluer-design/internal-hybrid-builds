@@ -40,7 +40,7 @@
       K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('sneak','SNEAK','c',{side:'L',mode:'toggle'}) ] },
     souls64:{ menuQuit:false, buttons:[ FIRE('PUNCH',{big:1}), JUMP(), ALT('GRAB'), K('crouch','CROUCH\nPOUND','z'), K('use','INTERACT','e'),
       K('creep','CREEP','shift',{side:'L',mode:'toggle'}), K('recenter','RECENTER','q',{side:'L'}) ] },
-    parkcraft:{ menuQuit:true, utilX:118,
+    parkcraft:{ menuQuit:true, utilX:118, fanLift:30,
       mode:()=>{ const e=doc.getElementById('vMode'); return e&&/build/i.test(e.textContent)?'build':'ride'; },
       buttons:[ JUMP({_:'OLLIE',build:'UP'},{big:1}), FIRE({_:'PUSH',build:'PLACE'}), ALT({_:'BRAKE',build:'REMOVE'}),
         K('j','FLIP','j',{label:{_:'FLIP',build:'NEXT'}}), K('z','GRAB\nMANUAL','z',{label:{_:'GRAB\nMANUAL',build:'PREV'}}),
