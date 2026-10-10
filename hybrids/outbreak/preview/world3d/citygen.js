@@ -7,7 +7,7 @@ import { GRID, ROAD_W } from './terrain.js';
 import { U } from './sky.js';
 import { bake } from './models.js';
 import {
-  InstList, Pool, unitBox, gableGeo, treeBroadGeo, treePineGeo, lampGeo, carGeo, barrelGeo, containerGeo, dumpsterGeo, barrierGeo, fenceGeo, chimneyGeo, tankGeo, canopyGeo,
+  InstList, Pool, unitBox, gableGeo, tentGeo, sandbagGeo, treeBroadGeo, treePineGeo, lampGeo, carGeo, barrelGeo, containerGeo, dumpsterGeo, barrierGeo, fenceGeo, chimneyGeo, tankGeo, canopyGeo,
   makeBuildingMaterial, makeVertexMaterial, patchTowerMaterial,
 } from './city.js';
 
@@ -28,13 +28,13 @@ const pickC = (arr, r) => arr[Math.floor(r() * arr.length) % arr.length];
 const tint = (c, f, out = new THREE.Color()) => out.copy(c).multiplyScalar(f);
 
 // ------------------------------------------------------------------------------------------------------------------ generation
-export function generateCity(gen, tier) {
-  const L = {}; for (const n of ['house', 'box', 'towerA', 'towerB', 'towerC', 'towerD', 'ruinGlb', 'treeB', 'treeP', 'lamp', 'car', 'barrel', 'container', 'dumpster', 'barrier', 'fence', 'chimney', 'tank', 'canopy', 'rock', 'bush', 'tower']) L[n] = new InstList(n);
+export function generateCity(gen, tier, opts = {}) {
+  const L = {}; for (const n of ['house', 'box', 'towerA', 'towerB', 'towerC', 'towerD', 'ruinGlb', 'treeB', 'treeP', 'lamp', 'car', 'barrel', 'container', 'dumpster', 'barrier', 'fence', 'chimney', 'tank', 'canopy', 'rock', 'bush', 'tower', 'tent', 'sandbag']) L[n] = new InstList(n);
   const emit = [], labels = [];
   const seed = gen.sx;
   const lim = 2300, N = Math.ceil(lim / GRID);
   const H = GRID / 2 - ROAD_W / 2 - 3.4; // block half-extent (interior)
-  const towerKeys = ['towerA', 'towerB', 'towerC', 'towerD'];
+  const towerKeys = opts.towers || []; // GLB tower variants that actually loaded
   const gY = (x, z) => gen.heightAt(x, z);
 
   function addBuilding(list, x, z, rot, w, h, d, col, style, lit, dmg, wallFrac) {
@@ -131,7 +131,7 @@ export function generateCity(gen, tier) {
       const x = cx - H + lot * (a + 0.5), z = cz - H + lot * (b + 0.5);
       if (r() < 0.06) { for (let k = 0; k < 3; k++) tree(r, x + r.range(-8, 8), z + r.range(-8, 8), r.range(7, 11)); continue; }
       const tall = dd > 0.78 && r() < 0.34, fw = lot - r.range(3, 7), fd = lot - r.range(3, 7);
-      if (tall && L.tower && r() < 0.5) { L[towerKeys[r.int(0, 3)]].add(x, gY(x, z) - 0.2, z, r.int(0, 3) * PI / 2, 1, 1, 1, null, r()); continue; }
+      if (tall && towerKeys.length && r() < 0.5) { L[towerKeys[r.int(0, towerKeys.length - 1)]].add(x, gY(x, z) - 0.2, z, r.int(0, 3) * PI / 2, 1, 1, 1, null, r()); continue; }
       const h = 7 + Math.pow(r(), 2) * (tall ? 62 : 14) + (dd > 0.85 ? 8 : 0);
       boxB(r, x, z, 0, fw, h, fd, r() < 0.4 ? PAL.brick : PAL.concrete, h > 24 ? 3 : 1, danger, lit + 0.12, kind);
       if (r() < 0.25) L.dumpster.add(x + fw / 2 + 1.6, gY(x, z), z, PI / 2, 1, 1, 1, C('#3a5a3a'));
@@ -180,6 +180,9 @@ export function generateCity(gen, tier) {
     for (let k = 0; k < 8; k++) { const a = k * TAU / 8 + 0.2, R = 62; lamp(Math.cos(a) * R, Math.sin(a) * R, a + PI); }
     for (let k = 0; k < 14; k++) { const a = rc() * TAU, R = rc.range(40, 85); L.barrel.add(Math.cos(a) * R, 0, Math.sin(a) * R, 0, 1, 1, 1, pickC(PAL.barrel, rc)); }
     for (let k = 0; k < 4; k++) { const a = rc() * TAU, R = rc.range(30, 80); L.dumpster.add(Math.cos(a) * R, 0, Math.sin(a) * R, rc() * TAU, 1, 1, 1, C('#3a5a3a')); }
+    const TENT = ['#5a6b4a', '#7a6a4a', '#4a5a6e', '#8a7a5a', '#6a5a4e', '#556b5a'].map(C);
+    for (let k = 0; k < 9; k++) { const a = k * TAU / 9 + rc.range(-0.2, 0.2), R = rc.range(46, 74), x = Math.cos(a) * R, z = Math.sin(a) * R; L.tent.add(x, gY(x, z) - 0.05, z, -a + PI / 2 + rc.range(-0.3, 0.3), rc.range(2.8, 3.4), rc.range(1.9, 2.3), rc.range(3.6, 4.4), pickC(TENT, rc), rc()); }
+    for (let gate = 0; gate < 4; gate++) { const a0 = gate * PI / 2 + 0.55; for (let row = 0; row < 3; row++) for (let side = -1; side <= 1; side += 2) { const R = gen.compoundR - 9 + row * 1.5, a = a0 + side * (0.05 + row * 0.012), x = Math.cos(a) * R, z = Math.sin(a) * R; L.sandbag.add(x, gY(x, z), z, -a + PI / 2, 1, 1, 1, null); } }
     for (let k = 0; k < 10; k++) { const a = rc() * TAU, R = rc.range(62, 90); L.rock.add(Math.cos(a) * R, 0, Math.sin(a) * R, rc() * TAU, rc.range(0.5, 1.4), rc.range(0.4, 0.9), rc.range(0.5, 1.4), new THREE.Color().setHSL(0.1, 0.04, 0.34)); }
   }
   // a few free-standing ruins (GLB shell) in the outskirts of the suburbs
@@ -193,7 +196,7 @@ export function generateCity(gen, tier) {
 export class City {
   constructor(gen, tier, models) {
     this.gen = gen; this.tier = tier; this.models = models; this.group = new THREE.Group(); this.group.name = 'city';
-    const t0 = performance.now(); const g = generateCity(gen, tier); this.L = g.L; this.emit = g.emit; this.labels = g.labels; this.genMs = performance.now() - t0;
+    const t0 = performance.now(); const towers = ['A', 'B', 'C', 'D'].filter(n => models && models.has('apartment_' + n.toLowerCase())).map(n => 'tower' + n); const g = generateCity(gen, tier, { towers }); this.L = g.L; this.emit = g.emit; this.labels = g.labels; this.genMs = performance.now() - t0;
     this.pools = {}; this.tmpGeo = {}; this.last = { x: 1e9, z: 1e9 }; this.build();
   }
   build() {
@@ -209,6 +212,7 @@ export class City {
     add('fence', [{ geometry: fenceGeo(), material: vm }], 160, { params: false, castShadow: false }); add('chimney', [{ geometry: chimneyGeo(), material: vm }], 24, { params: false });
     add('tank', [{ geometry: tankGeo(), material: vm }], 40, { params: false }); add('canopy', [{ geometry: canopyGeo(), material: vm }], 12, { params: false });
     const rockG = new THREE.IcosahedronGeometry(1, 1); { const p = rockG.attributes.position; for (let i = 0; i < p.count; i++) { const k = 0.8 + 0.4 * hash2(Math.round(p.getX(i) * 50), Math.round(p.getY(i) * 50), Math.round(p.getZ(i) * 50)); p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.8, p.getZ(i) * k); } rockG.computeVertexNormals(); }
+    add('tent', [{ geometry: tentGeo(), material: vm }], 40, { params: false }); add('sandbag', [{ geometry: sandbagGeo(), material: vm }], 80, { params: false });
     add('rock', [{ geometry: rockG, material: new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }) }], Math.ceil(pc * 1.2), { params: false });
     const bushG = new THREE.IcosahedronGeometry(1, 1); { const p = bushG.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, Math.max(p.getY(i) * 0.75, -0.2) + 0.2); bushG.computeVertexNormals(); }
     add('bush', [{ geometry: bushG, material: new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }) }], Math.ceil(pc * 1.2), { params: false });
@@ -238,8 +242,8 @@ export class City {
   update(fx, fz, force) {
     const dx = fx - this.last.x, dz = fz - this.last.z; if (!force && dx * dx + dz * dz < 36 * 36) return false;
     this.last.x = fx; this.last.z = fz; const R = Math.min(this.tier.view, 1700), { L, pools } = this, q = n => L[n].query(fx, fz, R);
-    const idx = {}; for (const n of ['house', 'box', 'lamp', 'car', 'barrel', 'container', 'dumpster', 'barrier', 'fence', 'chimney', 'tank', 'canopy', 'rock', 'bush', 'ruinGlb', 'treeB', 'treeP', 'towerA', 'towerB', 'towerC', 'towerD']) idx[n] = q(n);
-    for (const n of ['house', 'box', 'lamp', 'car', 'barrel', 'container', 'dumpster', 'barrier', 'fence', 'chimney', 'tank', 'canopy', 'rock', 'bush']) pools[n].fill(L[n], idx[n], 0, pools[n].cap);
+    const idx = {}; for (const n of ['house', 'box', 'lamp', 'car', 'barrel', 'container', 'dumpster', 'barrier', 'fence', 'chimney', 'tank', 'canopy', 'rock', 'bush', 'tent', 'sandbag', 'ruinGlb', 'treeB', 'treeP', 'towerA', 'towerB', 'towerC', 'towerD']) idx[n] = q(n);
+    for (const n of ['house', 'box', 'lamp', 'car', 'barrel', 'container', 'dumpster', 'barrier', 'fence', 'chimney', 'tank', 'canopy', 'rock', 'bush', 'tent', 'sandbag']) pools[n].fill(L[n], idx[n], 0, pools[n].cap);
     for (const n of ['A', 'B', 'C', 'D']) { const p = pools['tower' + n]; if (p) p.fill(L['tower' + n], idx['tower' + n], 0, p.cap); }
     if (pools.ruinGlb) pools.ruinGlb.fill(L.ruinGlb, idx.ruinGlb, 0, pools.ruinGlb.cap);
     const near = pools.treeNear ? pools.treeNear.cap : 0;

@@ -4411,6 +4411,27 @@ function classNewSlot(id, bagN = 24, gemN = 30) { // a fresh per-class save slot
 }
 // </class-core>
 
+// <third-party-notices> =========================================================================================================
+// SHATTERWORLD pass B: licence notices for the code / data this layer was ported from (full table: games/THIRD_PARTY-shatterworld.md). Everything else in the mob / food / craft / town / station layers is original.
+//
+//   three-fps (mohsenheydari/three-fps)  : The MIT License (MIT), Copyright (c) 2021 Mohsen Heydari           -> the FiniteStateMachine / CharacterFSM pattern (`MobFSM`, `MobState`, `<mob-core>`)
+//   mobs_redo, mobs_monster, farming     : The MIT License (MIT), Copyright (c) 2016-2025 TenPlus1           -> attack vocabulary + numbers (`<mob-core>`), crop / ingredient / dish graph shape (`<food-core>`, garden beds)
+//   projectflowerbed (meta-quest)        : MIT License, Copyright (c) Meta Platforms, Inc. and affiliates     -> dynamic thumb-stick idea inside tools/touch-shim.js (injected below, `// <touch-shim>`)
+//   dwarfcorp (blecki/dwarfcorp)         : Modified MIT License, Copyright (c) 2015 Completely Fair Games Ltd. -> recipe / station data SHAPE only (tags, counts, craft location). No images, models, sounds or music were used.
+//
+//   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction,
+//   including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so,
+//   subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+//   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//   OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
+//   copyleft, PRIVATE build, structure / idea only (no text, code or art was pasted; re-clean before ever sharing):
+//   // borrowed: watabou/towngeneratoros Source/com/watabou/towngenerator (GPL-3.0)        -> ward / patch / lot-bisection idea, re-implemented on a cell grid in `<town-core>`
+//   // borrowed: flareteam/flare-game mods + items (CC BY-SA 3.0)                          -> status-flag dialogue gating, vendor stock gating, quest schema, item -> timed-effect indirection
+//   // borrowed: cleverraven/cataclysm-dda data/json (CC BY-SA 3.0)                        -> requirement lists with any-of components, tiered base-upgrade recipes, vendor markup / restock rule, relative food sizes
+// </third-party-notices> ========================================================================================================
+
 // <mob-core> ====================================================================================================================
 // SHATTERWORLD mob variety, part 1 of 2: pure data + a small data-driven finite state machine. No DOM, no three.js, no game globals (needs rpgRng / rpgHashSeed / RPG_TUNING from rpg-core).
 // scratchpad/shatter-passB/mob-unit.mjs extracts this block verbatim and runs it under node (seeded determinism, every attack's telegraph, death, boss phases).
@@ -8869,6 +8890,23 @@ function mobAnimate(e, dt, t) {
     case 'prism': X.shards.rotation.y += dt * (st === 'wind' ? 7 : 1.2); X.shards.position.y = 1.9 + Math.sin(t * 2 + ph) * 0.1; X.core.color.setRGB((2.4 + wind * 2) * 0.62, (1.0 + wind) * 0.62, (2.4 + wind) * 0.62); break;
   }
 }
+
+// ---- VR draw-call diet (LOD): a model whose limbs are merged per group while presenting (vrp / vro) also carries ONE whole-body baked copy (rest pose) + one outline. Far models show only that:
+//      2 drawables instead of (limb groups x 2). Used by the mobs (everything past the 7 nearest, never a guardian) and by the town people (everyone farther than ~7 m). Flat play never sees it.
+function vlBake(root, shadow) {
+  const ud = root.userData; if (ud.vlB) return ud.vlB; root.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), l1 = [], l2 = [], gs = [];
+  root.traverse(o => { const u = o.userData; if (!u || !u.vrp || !u.vrp.length) return; gs.push(o); for (const m of u.vrp) { m.updateWorldMatrix(true, false); l1.push({ geo: m.geometry, mat: new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld), col: m.material.color }); } if (u.vro) for (const m of u.vro) { m.updateWorldMatrix(true, false); l2.push({ geo: m.geometry, mat: new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld) }); } });
+  if (!l1.length) return null; if (!vrLitMat) vrLitMat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x100e0c });
+  const body = new THREE.Mesh(vrBake(l1, true), vrLitMat); body.castShadow = !!shadow; body.frustumCulled = false; body.visible = false; root.add(body);
+  let out = null; if (l2.length) { out = new THREE.Mesh(vrBake(l2, false), outlineMat); out.renderOrder = -1; out.frustumCulled = false; out.visible = false; root.add(out); }
+  return (ud.vlB = { body, out, gs, on: false });
+}
+function vlApply(root, far, keepOut) { // idempotent, allocation-free; only touches visibility while presenting
+  const B = root.userData.vlB; if (!B) return; const on = !!(VR.merge && far); if (!on && !B.on) return;
+  B.body.visible = on; if (B.out) B.out.visible = on && keepOut !== false;
+  if (on || VR.merge) for (const o of B.gs) { const u = o.userData; if (u.vrM) u.vrM.visible = !on; if (u.vrO) u.vrO.visible = !on; }
+  B.on = on;
+}
 // </mob-models>
 
 // <mob-game> ====================================================================================================================
@@ -9052,14 +9090,21 @@ function mobTickAll(dt) {
     m.x = e.x; m.z = e.z; e.nMin = minions.get(e) || 0; e.macc = (e.macc || 0) + dt; let n = 0; while (e.macc >= MOB_STEP && n++ < 6) { e.macc -= MOB_STEP; mobStepEnemy(e); if (m.dead || e.state === 'dead') break; } if (e.macc > MOB_STEP * 6) e.macc = 0;
     if (e.alive && e.state !== 'dead') mobSync(e, dt); if (m.def.boss && m.alert && e.alive && e.state !== 'dead') boss = e;
   }
-  MOBX.boss = boss;
+  MOBX.boss = boss; mobVlTick();
+}
+// VR draw-call diet: only the MOB_VL_FULL nearest mobs (and any guardian) keep animated limbs + outlines; the rest are drawn as one baked body (see vlBake)
+const MOB_VL_FULL = 7;
+function mobVlTick() {
+  if (!VR.merge) { if (MOBX.vlOn) { MOBX.vlOn = false; for (const e of ENEMIES) if (e.mesh && e.mesh.userData.vlB) vlApply(e.mesh, false); } return; } MOBX.vlOn = true; const L = MOBX.vl || (MOBX.vl = []); L.length = 0;
+  for (const e of ENEMIES) { if (!e.alive || !e.mob || e.state === 'dead' || !e.mesh.userData.vlB) continue; e.vlD = e.mob.def.boss ? -1 : Math.hypot(e.x - P.x, e.z - P.z); L.push(e); }
+  for (let i = 0; i < L.length; i++) { const e = L[i]; let rank = 0; for (let k = 0; k < L.length; k++) if (L[k].vlD < e.vlD || L[k].vlD === e.vlD && k < i) rank++; vlApply(e.mesh, rank >= MOB_VL_FULL || e.vlD > 22, false); }
 }
 // ---- wrappers: spawn / decorate / damage / death / contact ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 const _mb_addEnemy2 = addEnemy;
 addEnemy = function (spec) {
   const def = MOB_DEFS[spec.type]; if (!def) return _mb_addEnemy2(spec);
   let g, body, mx = null; if (def.inst) { g = new THREE.Group(); body = new THREE.Group(); g.add(body); mobiGet(def.id); } else { const md = MOB_SHAPES[def.shape](def.pal); g = md.g; body = md.body; mx = md.x; }
-  const sc = def.size * 1.15; g.scale.setScalar(sc); g.position.set(spec.x, spec.y, spec.z); scene.add(g); if (VR.merge && !def.inst) vrMergeApply(g, true); const seed = ((Math.random() * 4294967296) >>> 0);
+  const sc = def.size * 1.15; g.scale.setScalar(sc); g.position.set(spec.x, spec.y, spec.z); scene.add(g); if (!def.inst) vlBake(g, false); if (VR.merge && !def.inst) vrMergeApply(g, true); const seed = ((Math.random() * 4294967296) >>> 0);
   const e = { type: spec.type, x: spec.x, y: spec.y, z: spec.z, hx: spec.x, hz: spec.z, r: spec.r || 4, dir: 1, ang: Math.random() * TAU, vy: 0, state: 'mob', t: 0, mesh: g, body, mx, alive: true, ceil: false, kx: 0, kz: 0, h: def.h * sc, ph: Math.random() * 6, fy: spec.y };
   e.mob = mobNew(def.id, seed, { x: spec.x, y: spec.y, z: spec.z, r: e.r, face: e.ang }); e.mob.hidden = def.start === 'burrow'; e.mob.noContact = e.mob.hidden; if (def.start === 'burrow') body.visible = false; ENEMIES.push(e); MOBX.spawned++; return e;
 };
@@ -9289,7 +9334,7 @@ function twApplyGlow(n) { const w = 0.12 + 1.25 * n, l = 0.234 + 1.5 * n; for (c
 const TW_PAL = { mayor: [0xe8b830, 0x2a4a8a, 0xfff0c0], vendor: [0xe84a4a, 0xf2c040, 0xffffff], cook: [0xf4f0e8, 0xe88a3a, 0xffffff], smith: [0x6a7080, 0x4a4f5a, 0xb04a2a], gemwright: [0x8a5acf, 0x5a3a9a, 0xd8c0ff], brewer: [0x3fa86a, 0x2a6a4a, 0x9af0b0], keeper: [0x8a6a42, 0x5a4a32, 0xe8d8b0] };
 const TW_WALK = [[0xe8754a, 0x3a5aa0, 0xfff0d8], [0x4a9ad8, 0x6a4a8a, 0xe8f0ff], [0xd8c84a, 0x2f7a5a, 0xfff8e0], [0xb04a8a, 0x3a3a5a, 0xffe8f4], [0x6ac86a, 0x8a5a3a, 0xf4ffe8]];
 function twMakeNpc(id, x, z, face, pal, walker) {
-  const rig = buildPlumber({ cap: pal[0], overall: pal[1], shirt: pal[2], scale: walker ? 0.88 : 0.94 }); rig.root.traverse(m => { if (m.isMesh) m.frustumCulled = false; }); rig.root.position.set(x, TW.O.y, z); const d = TW_FDIR[face | 0]; rig.root.rotation.y = Math.atan2(d[0], d[1]); TW.grp.add(rig.root); if (VR.merge) vrMergeApply(rig.root, true);
+  const rig = buildPlumber({ cap: pal[0], overall: pal[1], shirt: pal[2], scale: walker ? 0.88 : 0.94 }); rig.root.traverse(m => { if (m.isMesh) m.frustumCulled = false; }); rig.root.position.set(x, TW.O.y, z); const d = TW_FDIR[face | 0]; rig.root.rotation.y = Math.atan2(d[0], d[1]); TW.grp.add(rig.root); vlBake(rig.root, true); if (VR.merge) vrMergeApply(rig.root, true);
   const n = { id, rig, x, z, y: TW.O.y, face, yaw: rig.root.rotation.y, t: Math.random() * 6, wave: 0, walker: !!walker, ph: Math.random() * 6, path: null, wpi: 0, pause: 0, spd: 1.0 + Math.random() * 0.4, look: 0 }; return n;
 }
 function twBuildPeople() {
@@ -9306,6 +9351,10 @@ function twAnimNpc(n, dt, hx, hz) {
     poseTo(r, { hy: ay * n.look * 0.8, hx: -0.04 * n.look, ra: wv, la: Math.sin(n.t * 1.4) * 0.06, lx: 0, rx: 0, bob: Math.abs(Math.sin(n.t * 1.6)) * 0.02 }, dt, 8); n.rig.root.rotation.y = n.yaw + clamp(ay * n.look * 0.35, -0.5, 0.5); }
   applyPose(r, dt);
 }
+// VR draw-call diet: people farther than TWV.near (hysteresis 1 m) are drawn as one baked body + outline instead of 6 limb groups x 2 (see vlBake)
+const TWV = { near: 7 };
+{ const _vma = vrMergeAll; vrMergeAll = function (on) { _vma(on); if (TW.npcs) for (const n of TW.npcs.concat(TW.walkers)) vrMergeApply(n.rig.root, on); }; } // people built in flat play are merged when a VR session starts (and restored when it ends)
+function twVrLod(hx, hz) { for (let k = 0; k < 2; k++) { const L = k ? TW.walkers : TW.npcs; for (const n of L) { const d = Math.hypot(n.x - hx, n.z - hz); n.far = n.far ? d > TWV.near - 1 : d > TWV.near; vlApply(n.rig.root, n.far, true); } } }
 function twWalkers(dt, hx, hz) {
   for (const n of TW.walkers) {
     if (n.pause > 0) { n.pause -= dt; poseTo(n.rig, { lx: 0, rx: 0, la: 0, ra: 0, bob: 0 }, dt, 8); applyPose(n.rig, dt); continue; }
@@ -9390,7 +9439,7 @@ function townBedChanged(i) { /* the node reads TOWN.garden every frame */ }
 function townFrame(rdt, sdt) {
   if (G.state === 'play' || G.state === 'sta') { for (const b of TOWN.garden) if (b) b.t += (G.state === 'play' ? sdt : 0); }
   if (!TW.on) return; TW.t += rdt; if (G.state === 'play' || G.state === 'sta') { TOWN.clock += rdt; if (TW.t - TW.lastBlink > 0.2) { TW.lastBlink = TW.t; twAtmos(false); } }
-  const hx = P.x, hz = P.z; for (const n of TW.npcs) twAnimNpc(n, rdt, hx, hz); twWalkers(rdt, hx, hz); if (VR.presenting && G.state === 'play') { /* the diorama culls nothing here: the town is ~30 meshes */ }
+  const hx = P.x, hz = P.z; for (const n of TW.npcs) twAnimNpc(n, rdt, hx, hz); twWalkers(rdt, hx, hz); twVrLod(hx, hz); if (VR.presenting && G.state === 'play') { /* the diorama culls nothing here: the town is ~30 meshes */ }
   const O = TW.O, f = TW.fx; f.fount -= rdt; if (f.fount <= 0) { f.fount = 0.12; puff(O.x, O.y + 3.3, O.z, 1, 0.3, 0xbfeaff, 0.9, 3.4, 1.0); } f.smoke -= rdt; f.spark -= rdt;
   if (f.smoke <= 0) { f.smoke = 0.35; for (const c of TW.lv.chimneys) { if (c[4] === 'smoke' || c[4] === 'home') { if (c[4] === 'home' && Math.random() < 0.6) continue; puff(O.x + c[0] + 0.5, O.y + c[2], O.z + c[1] + 0.5, 1, 0.9, 0xdedee6, 0.4, 1.5, 2.2); } } }
   if (f.spark <= 0) { f.spark = 1.1; for (const c of TW.lv.chimneys) if (c[4] === 'spark') { sparkBurst(O.x + c[0] + 0.5, O.y + c[2] + 0.4, O.z + c[1] + 0.5, 3, 0xffa040, 3); } }
@@ -9495,6 +9544,8 @@ window.__touchProfile = {
     { id: 'use', label: 'USE\nBAG', t: 'key', k: 'e', side: 'L' },
   ],
 };
+// The touch shim hides the on-screen buttons while the bag / perk picker / class picker / station panels are up, so those panels must close by tap: the station panel has its own X, the bag gets one here (the footer key chips are only hints).
+{ const hd = document.querySelector('#inv .invHead'); if (hd && !document.getElementById('invClose')) { hd.insertAdjacentHTML('beforeend', '<button class="chip" id="invClose" aria-label="Close" style="min-height:34px;min-width:42px;margin-left:auto;font-size:.9em">X</button>'); const b = document.getElementById('invClose'); b.addEventListener('click', e => { e.stopPropagation(); if (RUI.open) closeInv(); }); b.addEventListener('mousedown', e => e.stopPropagation()); b.addEventListener('pointerdown', e => e.stopPropagation()); } }
 
 // <gamepad-shim>
 // gamepad shim v1 (+ __gpPoll hook for XR loops): standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.

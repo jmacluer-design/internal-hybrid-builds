@@ -365,7 +365,7 @@ export class Dynamic {
     // pings
     for (let i = this.pings.length - 1; i >= 0; i--) {
       const pg = this.pings[i]; pg.t += dt; const life = pg.kind === 'noise' ? 1.4 : pg.kind === 'horde' ? 2.4 : 1.1; if (pg.t > life) { this.pings.splice(i, 1); continue; } const k = pg.t / life, y = this.groundY(pg.x, pg.z) + 0.2;
-      fx.dA.ring(pg.x, y, pg.z, (pg.r || 1) * (pg.kind === 'noise' ? 3 + 18 * k : pg.kind === 'horde' ? 4 + 24 * k : 0.7 + 2.6 * k), pg.col[0], pg.col[1], pg.col[2], (1 - k) * (pg.kind === 'noise' || pg.kind === 'horde' ? 0.9 : 0.65), pg.kind === 'noise' ? 0.3 : 0.12);
+      fx.dA.ring(pg.x, y, pg.z, (pg.kind === 'noise' ? (pg.r || 5) * (0.3 + 2.6 * k) : pg.kind === 'horde' ? 4 + 24 * k : 0.7 + 2.6 * k), pg.col[0], pg.col[1], pg.col[2], (1 - k) * (pg.kind === 'noise' ? 0.5 : pg.kind === 'horde' ? 0.9 : 0.65), pg.kind === 'noise' ? 0.18 : 0.12);
       if (pg.kind === 'horde' && k < 0.3) fx.beams.put(pg.x, y, pg.z, 60 * (1 - k), 1, 0.2, 0.12, 6);
     }
     // helicopter flyover

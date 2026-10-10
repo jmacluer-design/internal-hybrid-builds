@@ -4,23 +4,23 @@
 export const TIERS = {
   high: {
     name: 'high', dpr: 2, shadow: 2048, shadowR: 64, bloom: 1, bloomScale: 0.5, msaa: 4, post: true,
-    grid: { l0: 2.5, l1: 10, l2: 40 }, view: 1600, fx: 2600, rain: 2200, lights: 6, zombies: 420, zombieGlb: 90, treesGlb: 150, colonistSkin: true,
+    grid: { l0: 2.5, l1: 10, l2: 40 }, view: 1600, fx: 2600, rain: 2200, lights: 6, zombies: 420, zombieGlb: 80, treesGlb: 110, colonistSkin: true,
     pool: { house: 1100, box: 800, tower: 10, tree: 1700, lamp: 420, car: 150, prop: 520, ruin: 36 },
-    models: ['zombie', 'colonist', 'pickup', 'hatchback', 'campfire', 'ruin', 'watertower', 'apartment_a', 'apartment_b', 'apartment_c', 'apartment_d', 'props'],
+    models: ['zombie', 'zombie_lo', 'colonist', 'pickup', 'hatchback', 'campfire', 'ruin', 'watertower', 'apartment_a', 'props'],
     roadsTex: 2048, clouds: 1, windows: 1, grass: 1, minFrameDpr: 0.7,
   },
   mid: {
     name: 'mid', dpr: 1.5, shadow: 1024, shadowR: 56, bloom: 1, bloomScale: 0.35, msaa: 0, post: true,
-    grid: { l0: 3.5, l1: 14, l2: 56 }, view: 1200, fx: 1400, rain: 1200, lights: 3, zombies: 260, zombieGlb: 48, treesGlb: 60, colonistSkin: true,
+    grid: { l0: 3.5, l1: 14, l2: 56 }, view: 1200, fx: 1400, rain: 1200, lights: 3, zombies: 260, zombieGlb: 36, treesGlb: 40, colonistSkin: true,
     pool: { house: 700, box: 520, tower: 8, tree: 1000, lamp: 260, car: 90, prop: 320, ruin: 24 },
-    models: ['zombie', 'colonist', 'pickup', 'hatchback', 'campfire', 'ruin', 'watertower', 'apartment_a', 'apartment_b', 'apartment_c', 'apartment_d', 'props'],
+    models: ['zombie', 'zombie_lo', 'colonist', 'pickup', 'hatchback', 'campfire', 'ruin', 'watertower', 'apartment_a', 'props'],
     roadsTex: 1024, clouds: 1, windows: 1, grass: 0.6, minFrameDpr: 0.6,
   },
   low: {
     name: 'low', dpr: 1, shadow: 0, shadowR: 0, bloom: 0, bloomScale: 0.25, msaa: 0, post: false,
-    grid: { l0: 5, l1: 20, l2: 80 }, view: 800, fx: 600, rain: 500, lights: 0, zombies: 110, zombieGlb: 14, treesGlb: 0, colonistSkin: true,
+    grid: { l0: 5, l1: 20, l2: 80 }, view: 800, fx: 600, rain: 500, lights: 0, zombies: 110, zombieGlb: 0, treesGlb: 0, colonistSkin: true,
     pool: { house: 300, box: 220, tower: 4, tree: 420, lamp: 100, car: 36, prop: 140, ruin: 10 },
-    models: ['zombie', 'colonist', 'pickup', 'campfire', 'apartment_b', 'apartment_c'],
+    models: ['zombie_lo', 'colonist', 'pickup', 'campfire'],
     roadsTex: 512, clouds: 0, windows: 1, grass: 0.25, minFrameDpr: 0.5,
   },
 };

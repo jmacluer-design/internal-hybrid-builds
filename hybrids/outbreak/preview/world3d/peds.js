@@ -86,33 +86,35 @@ const KIND = { walker: { s: 1.0, w: 1.0, v: 2.7, amp: 0.85, c: [0.9, 0.9, 0.88] 
 
 export class ZombieField {
   constructor(tier, models, scene) {
-    this.tier = tier; this.cap = tier.zombies; this.scene = scene; this.glb = false;
-    let parts = [];
-    if (models && models.has('zombie')) {
-      const baked = bake(models.scene('zombie'), { height: 1.74, center: false });
-      if (baked.length) {
-        // centre on the legs (the reaching arms would otherwise pull the body backwards) and note which parts are legs / hands
-        const lg = baked.filter(b => /pants|boots/i.test(b.name)), bb = new THREE.Box3(); for (const b of lg) bb.union(b.geometry.boundingBox);
-        const cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
-        for (const b of baked) { b.geometry.translate(-cx, 0, -cz); b.geometry.computeBoundingBox(); }
-        parts = baked.map(b => ({ geometry: b.geometry, name: b.name, material: animPatch(b.material, { legs: /pants|boots/i.test(b.name), hands: /hands/i.test(b.name) }) }));
-        this.glb = true;
-      }
-    }
-    if (!parts.length) { const g = humanoidGeo({ shirt: 0x6a7258, pants: 0x3a3a36, skin: 0x9aa58a, hair: 0x2a2a26, reach: true }); parts = [{ geometry: g, material: animPatch(new THREE.MeshStandardMaterial({ vertexColors: true }), { arms: 1, vcol: true }) }]; }
-    this.rig = new InstRig(parts, this.cap + 40); this.group = this.rig.group; scene.add(this.group);
+    this.tier = tier; this.cap = tier.zombies; this.scene = scene; this.glb = false; this.lod = false;
+    const mkParts = (name, h) => {
+      if (!(models && models.has(name))) return null;
+      const baked = bake(models.scene(name), { height: h, center: false }); if (!baked.length) return null;
+      // centre on the legs (the reaching arms would otherwise pull the body backwards) and note which parts are legs / hands
+      const lg = baked.filter(b => /pants|boots/i.test(b.name)), bb = new THREE.Box3(); for (const b of lg) bb.union(b.geometry.boundingBox);
+      const cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
+      for (const b of baked) { b.geometry.translate(-cx, 0, -cz); b.geometry.computeBoundingBox(); }
+      return baked.map(b => ({ geometry: b.geometry, name: b.name, material: animPatch(b.material, { legs: /pants|boots/i.test(b.name), hands: /hands/i.test(b.name), emissive: 'diffuseColor.rgb * 0.5 * uNight' }) }));
+    };
+    const proc = () => [{ geometry: humanoidGeo({ shirt: 0x6a7258, pants: 0x3a3a36, skin: 0x9aa58a, hair: 0x2a2a26, reach: true }), material: animPatch(new THREE.MeshStandardMaterial({ vertexColors: true }), { arms: 1, vcol: true, emissive: 'diffuseColor.rgb * 0.5 * uNight' }) }];
+    const hiParts = mkParts('zombie', 1.74), loParts = mkParts('zombie_lo', 1.74);
+    this.glb = !!hiParts; this.lod = !!(hiParts && loParts);
+    const hiCap = hiParts ? Math.min(tier.zombieGlb, this.cap) : 0, loCap = this.cap + 40 - hiCap;
+    this.hi = hiCap > 0 ? new InstRig(hiParts, hiCap) : null; this.lo = new InstRig(loParts || (hiParts && tier.zombieGlb >= this.cap ? hiParts.map(q => ({ geometry: q.geometry.clone(), material: q.material })) : proc()), Math.max(40, loCap));
+    this.group = new THREE.Group(); if (this.hi) this.group.add(this.hi.group); this.group.add(this.lo.group); scene.add(this.group);
     const n = this.cap + 40;
     this.s = { used: new Uint8Array(n), hid: new Int32Array(n).fill(-1), kind: new Uint8Array(n), x: new Float32Array(n), z: new Float32Array(n), yaw: new Float32Array(n), ph: new Float32Array(n), v: new Float32Array(n), sc: new Float32Array(n), ox: new Float32Array(n), oz: new Float32Array(n), rise: new Float32Array(n), amp: new Float32Array(n), tint: new Float32Array(n), delay: new Float32Array(n) };
+    // per-frame draw list (slots + corpses): typed scratch buffers, no allocation per frame
+    const m = n + 64; this.e = { x: new Float32Array(m), y: new Float32Array(m), z: new Float32Array(m), yaw: new Float32Array(m), sx: new Float32Array(m), sy: new Float32Array(m), r: new Float32Array(m), g: new Float32Array(m), b: new Float32Array(m), ph: new Float32Array(m), amp: new Float32Array(m), mode: new Float32Array(m), t: new Float32Array(m), d: new Float32Array(m) }; this.sortBuf = new Float32Array(m);
     this.free = []; for (let i = n - 1; i >= 0; i--) this.free.push(i);
-    this.hordes = new Map(); this.corpses = []; this.cnt = { zombies: 0, hordes: 0, corpses: 0 }; this.dust = []; this.events = []; // events: { type:'spawn'|'kill', x, z }
+    this.hordes = new Map(); this.corpses = []; this.cnt = { zombies: 0, hordes: 0, corpses: 0, drawn: 0, hi: 0, lo: 0 }; this.events = [];
     this.hidCounter = 0; this.rnd = rng(1234);
   }
   reset() { for (const h of this.hordes.values()) for (const k of h.slots) { this.s.used[k] = 0; this.free.push(k); } this.hordes.clear(); this.corpses.length = 0; }
-  // hordes: state.hordes ; focus: {x,z} camera focus (three space) ; base: {x,z} ; wallR: radius of the outermost defences
+  // hordes: state.hordes ; focus: {x,z} camera focus (three space) ; wallRFn(bearing) = radius of the outermost defences ; groundY(x,z)
   update(dt, hordes, focus, wallRFn, groundY) {
     const S = this.s, tier = this.tier;
-    // distance-sorted allocation of the instance budget
-    const list = hordes.map(h => ({ h, x: h.x, z: -h.y, d: Math.hypot(h.x - focus.x, -h.y - focus.z) })).sort((a, b) => a.d - b.d);
+    const list = hordes.map(h => ({ h, x: h.x, z: -h.y, d: Math.hypot(h.x - focus.x, -h.y - focus.z) })).sort((a, b) => a.d - b.d); // (once per sync-sized list: small)
     let budget = this.cap; const seen = new Set();
     for (const it of list) {
       const h = it.h; seen.add(h.id);
@@ -122,7 +124,6 @@ export class ZombieField {
       if (!H) { H = { id: h.id, slots: [], x: it.x, z: it.z, born: performance.now(), seen: false, lastSize: h.size, state: h.state, wasMat: 0 }; this.hordes.set(h.id, H); }
       H.x = it.x; H.z = it.z; H.state = h.state; H.hx = h.hx; H.hz = -h.hy; H.mat = h.mat || 0; H.size = h.size; H.dist = it.d; H.mix = h.mix || { walker: h.size };
       const near = Math.hypot(it.x, it.z) < 420;
-      // grow
       while (H.slots.length < want && this.free.length) {
         const k = this.free.pop(), r = this.rnd; S.used[k] = 1; S.hid[k] = this.hidCounter++;
         const kind = this.pickKind(H.mix, H.slots.length, h.size); S.kind[k] = kind; const K = KIND[KINDS[kind]];
@@ -135,14 +136,12 @@ export class ZombieField {
         H.slots.push(k);
       }
       H.seen = true;
-      // shrink (kills): the farthest-from-horde-centre slots fall
-      while (H.slots.length > want) { const k = H.slots.pop(); this.kill(k, it.d < 520); }
+      while (H.slots.length > want) { const k = H.slots.pop(); this.kill(k, it.d < 520); } // kills: the extras fall
       H.lastSize = h.size;
     }
     for (const [id, H] of this.hordes) if (!seen.has(id)) { for (const k of H.slots) this.kill(k, H.dist < 400 && H.state === 'assault'); this.hordes.delete(id); }
-    // move
-    const baseR = wallRFn;
-    let n = 0, total = 0;
+    // move + collect the draw list
+    const E = this.e, baseR = wallRFn; let m = 0, total = 0;
     for (const H of this.hordes.values()) {
       total += H.slots.length;
       const assault = H.state === 'assault', seek = H.state === 'seek';
@@ -150,9 +149,7 @@ export class ZombieField {
       if (assault) { const bearing = Math.atan2(H.z, H.x); wallR = baseR(bearing); const d = Math.hypot(cx, cz); if (d < wallR + 3) { cx = Math.cos(bearing) * (wallR + 3.5); cz = Math.sin(bearing) * (wallR + 3.5); } }
       for (const k of H.slots) {
         let tx = cx + S.ox[k], tz = cz + S.oz[k];
-        if (assault) { // press against the barrier: project to ring outside the walls
-          const d = Math.hypot(tx, tz), b = Math.atan2(tz, tx), want = Math.max(wallR + 1.8, 0); if (d < want) { tx = Math.cos(b) * want; tz = Math.sin(b) * want; }
-        }
+        if (assault) { const d = Math.hypot(tx, tz), b = Math.atan2(tz, tx), want = Math.max(wallR + 1.8, 0); if (d < want) { tx = Math.cos(b) * want; tz = Math.sin(b) * want; } }
         if (S.rise[k] < 1) { S.delay[k] -= dt; if (S.delay[k] <= 0) S.rise[k] = Math.min(1, S.rise[k] + dt / 1.5); }
         const dx = tx - S.x[k], dz = tz - S.z[k], dist = Math.hypot(dx, dz);
         let sp = Math.min(S.v[k] * (seek ? 1.35 : 1) * (assault ? 0.5 : 1), Math.max(0.2, dist * 1.4)); if (dist > 40) sp = Math.min(60, dist * 0.9); if (dist > 300) { S.x[k] = tx; S.z[k] = tz; sp = 0; }
@@ -161,18 +158,26 @@ export class ZombieField {
         else if (assault) S.yaw[k] = dampAng(S.yaw[k], Math.atan2(-S.x[k], -S.z[k]), 4, dt);
         const spd01 = clamp(sp / 4, 0, 1.4);
         S.ph[k] += dt * (assault && sp < 0.3 ? 5.5 : 2.4 + 1.6 * spd01 + (S.v[k] > 5 ? 3 : 0));
-        const K = KIND[KINDS[S.kind[k]]], amp = assault && sp < 0.3 ? 0.55 + 0.25 * Math.sin(S.ph[k] * 0.7) : Math.max(0.28, spd01 * K.amp);
-        const c = K.c, t = S.tint[k], y = groundY(S.x[k], S.z[k]);
-        if (S.rise[k] <= 0 && S.delay[k] > 0) { continue; }
-        this.rig.set(n++, S.x[k], y, S.z[k], S.yaw[k], S.sc[k] * (KIND[KINDS[S.kind[k]]].w > 1.1 ? K.w : 1), S.sc[k], c[0] * t, c[1] * t, c[2] * t, S.ph[k], amp, S.rise[k] < 1 ? 1 : 0, S.rise[k]);
+        const K = KIND[KINDS[S.kind[k]]], amp = assault && sp < 0.3 ? 0.55 + 0.25 * Math.sin(S.ph[k] * 0.7) : Math.max(0.28, spd01 * K.amp), c = K.c, t = S.tint[k];
+        if (S.rise[k] <= 0 && S.delay[k] > 0) continue;
+        E.x[m] = S.x[k]; E.y[m] = groundY(S.x[k], S.z[k]); E.z[m] = S.z[k]; E.yaw[m] = S.yaw[k]; E.sx[m] = S.sc[k] * (K.w > 1.1 ? K.w : 1); E.sy[m] = S.sc[k]; E.r[m] = c[0] * t; E.g[m] = c[1] * t; E.b[m] = c[2] * t; E.ph[m] = S.ph[k]; E.amp[m] = amp; E.mode[m] = S.rise[k] < 1 ? 1 : 0; E.t[m] = S.rise[k]; m++;
       }
     }
-    // corpses
     for (let i = this.corpses.length - 1; i >= 0; i--) {
       const c = this.corpses[i]; c.t += dt / 0.9; if (c.t > 7) { this.corpses.splice(i, 1); continue; }
-      if (n < this.cap + 40) { const K = KIND[KINDS[c.kind]]; this.rig.set(n++, c.x, groundY(c.x, c.z), c.z, c.yaw, c.sc * K.w, c.sc, K.c[0] * 0.6, K.c[1] * 0.5, K.c[2] * 0.5, 0, 0, 2, c.t < 1 ? c.t : 1 + Math.max(0, c.t - 5)); }
+      if (m < E.x.length) { const K = KIND[KINDS[c.kind]]; E.x[m] = c.x; E.y[m] = groundY(c.x, c.z); E.z[m] = c.z; E.yaw[m] = c.yaw; E.sx[m] = c.sc * K.w; E.sy[m] = c.sc; E.r[m] = K.c[0] * 0.6; E.g[m] = K.c[1] * 0.5; E.b[m] = K.c[2] * 0.5; E.ph[m] = 0; E.amp[m] = 0; E.mode[m] = 2; E.t[m] = c.t < 1 ? c.t : 1 + Math.max(0, c.t - 5); m++; }
     }
-    this.rig.setCount(n); this.cnt.zombies = total; this.cnt.hordes = this.hordes.size; this.cnt.corpses = this.corpses.length; this.cnt.drawn = n;
+    // the nearest entries to the camera focus use the detailed GLB, the rest the low-poly LOD (same animation, ~6x fewer triangles)
+    const hiCap = this.hi ? this.hi.cap : 0; let thr = -1;
+    for (let i = 0; i < m; i++) E.d[i] = (E.x[i] - focus.x) * (E.x[i] - focus.x) + (E.z[i] - focus.z) * (E.z[i] - focus.z);
+    if (hiCap > 0 && m > hiCap) { this.sortBuf.set(E.d.subarray(0, m)); this.sortBuf.subarray(0, m).sort(); thr = this.sortBuf[hiCap - 1]; } else if (hiCap > 0) thr = 1e30;
+    let nh = 0, nl = 0; const loMax = this.lo.cap;
+    for (let i = 0; i < m; i++) {
+      if (nh < hiCap && E.d[i] <= thr) { this.hi.set(nh++, E.x[i], E.y[i], E.z[i], E.yaw[i], E.sx[i], E.sy[i], E.r[i], E.g[i], E.b[i], E.ph[i], E.amp[i], E.mode[i], E.t[i]); }
+      else if (nl < loMax) { this.lo.set(nl++, E.x[i], E.y[i], E.z[i], E.yaw[i], E.sx[i], E.sy[i], E.r[i], E.g[i], E.b[i], E.ph[i], E.amp[i], E.mode[i], E.t[i]); }
+    }
+    if (this.hi) this.hi.setCount(nh); this.lo.setCount(nl);
+    this.cnt.zombies = total; this.cnt.hordes = this.hordes.size; this.cnt.corpses = this.corpses.length; this.cnt.drawn = nh + nl; this.cnt.hi = nh; this.cnt.lo = nl;
   }
   pickKind(mix, i, size) {
     const w = mix.walker || 0, r = mix.runner || 0, b = mix.brute || 0, s = mix.screamer || 0, tot = w + r + b + s || 1; let f = ((i * 0.6180339887) % 1) * tot;

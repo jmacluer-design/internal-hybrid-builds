@@ -131,6 +131,17 @@ export function barrierGeo() { return mergeGeometries([colorize(strip(T(new THRE
 export function fenceGeo() { const p = []; for (const x of [-0.5, 0.5]) p.push(colorize(strip(T(new THREE.BoxGeometry(0.07, 1.5, 0.07), x, 0.75, 0)), 0x6f6a60)); for (const y of [0.45, 0.95, 1.4]) p.push(colorize(strip(T(new THREE.BoxGeometry(1, 0.06, 0.04), 0, y, 0)), 0x8a857a)); for (let i = 0; i < 5; i++) p.push(colorize(strip(T(new THREE.BoxGeometry(0.012, 1.3, 0.012), -0.4 + i * 0.2, 0.7, 0)), 0x9aa0a4)); return mergeGeometries(p); }
 export function chimneyGeo() { return mergeGeometries([colorize(strip(T(new THREE.CylinderGeometry(0.34, 0.5, 1, 10), 0, 0.5, 0)), 0xffffff), colorize(strip(T(new THREE.CylinderGeometry(0.36, 0.36, 0.04, 10), 0, 0.97, 0)), 0x2a1e1a)]); }
 export function tankGeo() { return mergeGeometries([colorize(strip(T(new THREE.CylinderGeometry(1, 1, 1, 14), 0, 0.5, 0)), 0xffffff), colorize(strip(T(new THREE.CylinderGeometry(1.01, 1.01, 0.03, 14), 0, 0.5, 0)), 0x444a50)]); }
+export function tentGeo() { // A-frame tent: 3 m wide, 4 m deep, 2 m tall (unit: 1 x 1 x 1 scaled by instance)
+  const P = [], N = [], uv = [], w = 0.5, d = 0.5; const tri = (a, b, c, n) => { for (const v of [a, b, c]) { P.push(...v); N.push(...n); uv.push(0, 0); } }; const quad = (a, b, c, d2, n) => { tri(a, b, c, n); tri(a, c, d2, n); };
+  const s = Math.hypot(w, 1), n1 = [0, w / s, 1 / s * 1.0]; const nl = [-1 / s, w / s * 0, 0];
+  quad([-w, 0, d], [0, 1, d], [0, 1, -d], [-w, 0, -d], [-1 / s, w / s, 0]); quad([0, 1, d], [w, 0, d], [w, 0, -d], [0, 1, -d], [1 / s, w / s, 0]);
+  tri([-w, 0, d], [w, 0, d], [0, 1, d], [0, 0, 1]); tri([w, 0, -d], [-w, 0, -d], [0, 1, -d], [0, 0, -1]);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  const col = new Float32Array(P.length).fill(1); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('aEmit', new THREE.BufferAttribute(new Float32Array(P.length / 3), 1)); g.setAttribute('aFol', new THREE.BufferAttribute(new Float32Array(P.length / 3), 1));
+  const door = colorize(strip(T(new THREE.BoxGeometry(0.28, 0.5, 0.02), 0, 0.25, d + 0.001)), 0x1d1d1f);
+  return mergeGeometries([g, door]);
+}
+export function sandbagGeo() { const p = []; for (let r = 0; r < 2; r++) for (let i = 0; i < 6; i++) { const g = new THREE.BoxGeometry(0.5, 0.22, 0.34); g.rotateY((i % 3 - 1) * 0.08); p.push(colorize(strip(T(g, -1.25 + i * 0.5 + (r % 2) * 0.25, 0.11 + r * 0.2, (i % 2 - 0.5) * 0.04)), r ? 0xb7a880 : 0xa89a74)); } return mergeGeometries(p); }
 export function canopyGeo() { const p = [colorize(strip(T(new THREE.BoxGeometry(1, 0.06, 1), 0, 0.97, 0)), 0xffffff, 0), colorize(strip(T(new THREE.BoxGeometry(1.01, 0.03, 1.01), 0, 0.95, 0)), 0xdd3030, 0.25)]; for (const [x, z] of [[-0.42, -0.4], [0.42, -0.4], [-0.42, 0.4], [0.42, 0.4]]) p.push(colorize(strip(T(new THREE.BoxGeometry(0.03, 0.95, 0.03), x, 0.475, z)), 0x9a9a9a)); return mergeGeometries(p); }
 
 // ---------------------------------------------------------------------------------------------------------------- materials
@@ -155,7 +166,7 @@ export function makeBuildingMaterial(wallFrac = 1) {
           vec3 rc = hh(vec3(floor(seed * 100.0), 1.0, 2.0)) < 0.5 ? vec3(0.19, 0.18, 0.19) : vec3(0.34, 0.2, 0.15);
           if (uWallFrac < 0.99) { float k = floor(hh(vec3(floor(seed * 100.0), 3.0, 4.0)) * 4.0); rc = k < 1.0 ? vec3(0.3, 0.21, 0.18) : k < 2.0 ? vec3(0.2, 0.22, 0.25) : k < 3.0 ? vec3(0.34, 0.24, 0.17) : vec3(0.19, 0.25, 0.21); }
           else rc = mix(vec3(0.15, 0.15, 0.16), rc * 0.7, step(0.7, hh(vec3(floor(seed * 100.0), 5.0, 6.0))));
-          rc *= 0.8 + 0.4 * vn(vM.xz * 0.9 + seed * 30.0);
+          rc *= 0.78 + 0.3 * vn(vM.xz * 1.7 + seed * 30.0) + 0.14 * vn(vM.xz * 6.5); rc *= 0.9 + 0.1 * step(0.5, fract(vM.x * 0.5 + vM.z * 0.0));
           diffuseColor.rgb = rc * (1.0 - dmg * 0.5);
         } else if (abs(n.y) < 0.5) {
           bool xface = abs(n.x) > 0.5; float u = (xface ? vM.z : vM.x) + seed * 9.0; float halfLen = (xface ? vSc.z : vSc.x) * 0.5;
