@@ -162,7 +162,7 @@ function Net.register()
 	end)
 
 	-- one of our armed peds streamed in on the owner's client: give its weapon again; the ped must be one of ours, the sender the owner, the source the resource root
-	-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/slothbot/sbserver.lua (the "StreamWeapon" server event; our trust checks are added)
+	-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/slothbot/sbserver.lua (the StreamWeapon server event; our trust checks are added)
 	addEvent(NET.stream, true)
 	addEventHandler(NET.stream, resourceRoot, function(ped)
 		if not from_owner() then return end
@@ -172,7 +172,7 @@ function Net.register()
 	-- END BORROWED-PRIVATE
 
 	-- the player hit one of our zombies: it turns on the player. Same trust rules; a token bucket stops a flood
-	-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/slothbot/sbserver.lua (the "onBotFindEnemy" server event: the ped takes the player as its target; our trust checks are added)
+	-- BORROWED-PRIVATE (unlicensed upstream, private use only): NullSystemWorks/mtadayz/slothbot/sbserver.lua (the onBotFindEnemy server event: the ped takes the player as its target; our trust checks are added)
 	addEvent(NET.hit, true)
 	addEventHandler(NET.hit, resourceRoot, function(ped)
 		if not from_owner() then return end

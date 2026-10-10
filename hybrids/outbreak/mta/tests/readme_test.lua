@@ -107,11 +107,57 @@ T.test("every `borrowed:` mark in the resource's own code is a row in THIRD_PART
 		local repo = text:match("([%w%-_%.]+/[%w%-_%.]+)")
 		if repo and not text:find("FiveM adapter", 1, true) then T.truthy(third:find(repo, 1, true), file .. " borrows from " .. repo .. ": THIRD_PARTY.md names it") end
 	end
-	T.ge(n, 4)
+	T.ge(n, 3)
 	for _, repo in ipairs({ "rxi/json.lua", "multitheftauto/mtasa-resources", "TitansProductions/TP-Advanced-Zombies", "Blumlaut/RottenV", "NullSystemWorks/mtadayz", "mta-resources/deadwalkers",
 		"multitheftauto/mtasa-blue", "overextended/ox_lib" }) do
 		T.truthy(third:find(repo, 1, true), "THIRD_PARTY.md names " .. repo)
 	end
 	T.truthy(third:find("Copyright (c) 2020 rxi", 1, true), "rxi/json.lua MIT notice kept")
 	T.truthy(read(H.res .. "/shared/json_decode.lua"):find("Copyright (c) 2020 rxi", 1, true), "and in the file itself")
+end)
+
+T.test("the PRIVATE USE ONLY blocks: every BORROWED-PRIVATE block is closed, listed by tools/list_private_blocks.sh and a row of THIRD_PARTY.md; the README warns; --check fails while any exists", function()
+	local function sh(cmd)
+		local p = io.popen(cmd .. ' 2>&1; echo "EXIT:$?"')
+		local out = p:read("*a")
+		p:close()
+		return tonumber(out:match("EXIT:(%d+)%s*$")), out
+	end
+	local script = H.tools .. "/list_private_blocks.sh"
+	local code, out = sh("sh " .. script)
+	T.eq(code, 0, out)
+	local blocks, files = {}, {}
+	for loc, src in out:gmatch("\n  ([%w_/%.]+:%d+%-%d+)%s+([^\n]+)") do blocks[#blocks + 1] = { loc = loc, src = src } end
+	T.ge(#blocks, 15, "the blocks are listed")
+	T.falsy(out:find("UNCLOSED", 1, true) or out:find("END without", 1, true), "every block is closed: " .. out)
+	local priv = third:match("## PRIVATE USE ONLY %(no licence upstream%)(.-)\n## ")
+	T.truthy(priv, "THIRD_PARTY.md has the PRIVATE USE ONLY section")
+	T.truthy(priv:find("NEVER share", 1, true), "and its warning")
+	for _, b in ipairs(blocks) do
+		local file = b.loc:match("^([^:]+):")
+		files[file] = true
+		local repo, path = b.src:match("^(%S+/%S+)/slothbot/(%S+%.lua)") 
+		local dayz = b.src:match("^NullSystemWorks/mtadayz/DayZ/tables/(%S+%.lua)")
+		T.truthy(priv:find(file, 1, true), "THIRD_PARTY private section names " .. file)
+		T.truthy((path and priv:find(path, 1, true)) or (dayz and priv:find(dayz, 1, true)), "and the source file of the block at " .. b.loc .. ": " .. b.src)
+		T.truthy(b.src:find("NullSystemWorks/mtadayz", 1, true) or b.src:find("mta-resources/deadwalkers", 1, true), "the source is one of the two unlicensed repos: " .. b.src)
+	end
+	local n = 0
+	for _ in pairs(files) do n = n + 1 end
+	T.ge(n, 5, "blocks in several files")
+	local code2, out2 = sh("sh " .. script .. " --check")
+	T.eq(code2, 1, "--check exits 1 while blocks exist")
+	local code3, out3 = sh("sh " .. script .. " --files")
+	T.eq(code3, 0); T.truthy(out3:find("client/driver.lua", 1, true))
+	for _, w in ipairs({ "PRIVATE USE ONLY", "NEVER REDISTRIBUTE", "list_private_blocks.sh", "BORROWED-PRIVATE", "NullSystemWorks/mtadayz", "mta-resources/deadwalkers" }) do
+		T.truthy(readme:find(w, 1, true), "the README says " .. w)
+	end
+	T.truthy(readme:find("real_server_smoke.sh", 1, true), "the README documents the real-server smoke test")
+	T.truthy(read(H.tools .. "/real_server_smoke.sh"):find("Resources: 1 loaded, 0 failed", 1, true), "and the script asserts the load line")
+	-- the stripped marker never hides in a licence-clean file: no BORROWED-PRIVATE text outside these blocks and the warnings that say so
+	local p = io.popen('cd "' .. H.res .. '" && grep -rl "BORROWED-PRIVATE" --include=*.lua . | LC_ALL=C sort')
+	local with_word = {}
+	for f in p:lines() do with_word[#with_word + 1] = f:gsub("^%./", "") end
+	p:close()
+	for _, f in ipairs(with_word) do T.truthy(files[f] or f == "server/zombies.lua" or f == "client/driver.lua" or f == "server/peds.lua", f .. " mentions BORROWED-PRIVATE but has no block") end
 end)

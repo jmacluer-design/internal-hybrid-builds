@@ -4,6 +4,7 @@
 #   mta/tests/run.sh                 copy checks + the Lua suite under LuaJIT AND Lua 5.4 (+ PUC Lua 5.1 when available) + function_check + the browser test + its Lua replay
 #   mta/tests/run.sh --no-browser    skip the Playwright test (no node / chromium)
 #   mta/tests/run.sh --with-sim      also run the sim's own suite (about a minute) and the FiveM adapter's suite
+#   mta/tests/run.sh --with-server   also run tools/real_server_smoke.sh --quick: the REAL MTA 1.6 Linux server, headless (server tarballs or a network needed, about 30 s)
 #   mta/tests/run.sh server peds     only the Lua test files whose name contains one of the words (the browser test is skipped then)
 #
 # Optional extra runtime: PUC-Rio Lua 5.1.5 is the interpreter MTA really embeds (LuaJIT is 5.1 compatible, not identical). `mta/tools/build_lua51.sh` builds it into ~/.cache;
@@ -16,11 +17,13 @@ mta="$(cd "$here/.." && pwd)"
 outbreak="$(cd "$mta/.." && pwd)"
 browser=1
 with_sim=0
+with_server=0
 words=""
 for a in "$@"; do
 	case "$a" in
 		--no-browser) browser=0 ;;
 		--with-sim) with_sim=1 ;;
+		--with-server) with_server=1 ;;
 		*) words="$words $a" ;;
 	esac
 done
@@ -91,6 +94,11 @@ if [ "$browser" = "1" ]; then
 	else
 		fail=1
 	fi
+fi
+
+if [ "$with_server" = "1" ]; then
+	echo "=============== the real MTA:SA 1.6 server smoke test (quick)"
+	step 30 bash "$mta/tools/real_server_smoke.sh" --quick || fail=1
 fi
 
 if [ "$with_sim" = "1" ]; then
