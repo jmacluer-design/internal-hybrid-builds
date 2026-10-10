@@ -13,8 +13,11 @@ Zombie survival plus colony manager for **Multi Theft Auto: San Andreas**, on th
 > server headless and PASSES (section 9: load, self-test, audit, 60 test zombies under the caps, save, restart, cleanup). Everything that needs a client (peds walking, streaming, the CEF page) is
 > verified only against the wiki, the real MTA source lists, a mock MTA, real Chromium and real Lua 5.1.5 / LuaJIT / Lua 5.4. Section 10 is the list of things only your PC can settle.
 > Expect a first-run session of fixing, not a first-run finished game.
+>
+> **The phone companion (section 3a) is the exception worth knowing about:** it needs no GTA client, and `tools/phone_e2e.sh` runs it against the real 1.6 server with a mobile-emulated Chromium (touch,
+> login, live colony, a priority and a blueprint changed by touch and read back from the server's console). It has never run on a physical phone.
 
-Contents: 1 [What was found out about MTA](#1-what-was-found-out-about-mta-and-changes-the-design) / 2 [Install](#2-install) / 3 [Tailscale](#3-tailscale) / 4 [Controls](#4-controls)
+Contents: 1 [What was found out about MTA](#1-what-was-found-out-about-mta-and-changes-the-design) / 2 [Install](#2-install) / 3 [Tailscale](#3-tailscale) / 3a [Phone](#3a-phone-the-colony-in-a-phone-browser-no-gta-client) / 4 [Controls](#4-controls)
 / 5 [Settings](#5-settings) / 6 [Commands and ACL](#6-commands-and-acl) / 7 [How it works](#7-how-it-works) / 8 [Graphics](#8-graphics) / 9 [Tests](#9-tests-and-what-the-mocks-cannot-prove)
 / 10 [Unverified until it runs in the game](#10-unverified-until-it-runs-in-the-real-game) / 11 [Every MTA function used](#11-every-mta-function-used) / 12 [Deviations](#12-deviations-from-the-brief)
 / 13 [Debugging](#13-debugging-and-troubleshooting) / 14 [Licences](#14-licences)
@@ -99,7 +102,7 @@ below (`mta/tools/real_server_smoke.sh --quick`, about 30 s).
 5. Saves go to `outbreak/save/` (file backend) or `mods/deathmatch/databases/outbreak.db` (`store=sqlite`). A `save/README.txt` placeholder exists so the folder is created even if
    `fileCreate` does not create directories (unverified, section 10).
 
-**Connect and play:** start MTA, connect to the server (section 3), wait for the download of the resource's client files (31 UI files and 19 Lua modules), you spawn at the base. Press **F6**.
+**Connect and play:** start MTA, connect to the server (section 3), wait for the download of the resource's client files (38 UI files and 19 Lua modules), you spawn at the base. Press **F6**.
 
 ## 3. Tailscale
 
@@ -112,6 +115,109 @@ The server only needs to be reachable from your PC; nothing needs to be on the p
   ([Server mtaserver.conf](https://wiki.multitheftauto.com/wiki/Server_mtaserver.conf)).
 * On the PC: MTA main menu, **Quick Connect**, enter `100.x.y.z:22003`, or open `mtasa://100.x.y.z:22003`. If the resource download stalls, the TCP 22005 path is the first suspect.
 * The wiki does not cover Tailscale; that this works exactly like a LAN is expected, not verified.
+
+## 3a. Phone: the colony in a phone browser (no GTA client)
+
+Three ways to look after the colony from a phone (the third is in [`PHONE.md`](PHONE.md)):
+
+| | You see | Needs | State |
+|---|---|---|---|
+| **1. The game on a PC** (section 4) | the 3D world, the colony UI over it | GTA + MTA client on a PC | never run in a real client |
+| **2. Phone companion** (this section) | the same colony UI, its map is the 2D tactical map; **live from the real MTA server** | a phone browser on your tailnet; **no GTA at all** | verified on the real 1.6 server with a mobile-emulated Chromium (`tools/phone_e2e.sh`); never on a physical phone |
+| **3. Stream the PC** (Sunshine + Moonlight, [`PHONE.md`](PHONE.md)) | the real game picture | a Windows PC with GTA and Sunshine | not run (the host kit is research only) |
+
+### Set it up (on appdev2, once)
+
+1. **Update the resource and restart the server:** `git pull && bash mta/tools/install_server_linux.sh` (keeps your saves), then restart `mta-server64`.
+2. **Allow the phone logins in the ACL:** `bash mta/tools/phone_acl.sh ~/mta-server/multitheftauto_linux_x64/mods/deathmatch/acl.xml` (idempotent, keeps a backup `acl.xml.bak-outbreak`), or paste the block below
+   by hand. **Restart the server** (MTA reads `acl.xml` at start; there is no reload command).
+3. **Create the accounts in the server console** (the tmux window): `addaccount phone <a long password>` and, if you want a login that can only look, `addaccount phoneview <another password>`.
+   Change one with `chgpass phone <new password>`, remove it with `delaccount phone`. Other names: change the `user.phone` / `user.phoneview` objects in the two groups.
+4. **On the phone** (it is on Tailscale): open **`http://<tailscale-ip>:22005/outbreak/`** (`tailscale ip -4` on appdev2; the HTTP port is the same TCP 22005 the game download uses, section 3). The browser asks
+   for the user name and password (HTTP Basic). The trailing slash matters: `/outbreak/` is the resource's default page; `/outbreak/phone/` does not exist (checked on the real server).
+5. **Add it to the home screen:** iOS Safari: Share, then *Add to Home Screen*; Android Chrome: menu, then *Add to Home screen* / *Install app*. The page has a manifest and icons (`ui/phone-manifest.json`,
+   `ui/phone-icon-*.png`) and starts full-screen. **Unverified:** whether iOS keeps the Basic login in a home-screen app (if it asks again every time, use a Safari tab or bookmark instead).
+6. **Optional HTTPS** (a second layer on top of Tailscale's own encryption, and no `http://` warning): on appdev2 `tailscale serve --bg 22005`, then open `https://<machine>.<tailnet>.ts.net/outbreak/`
+   (`tailscale serve --help` shows the exact syntax of your version; unverified here; the Windows version of the same idea is `hostkit/windows/03-tailscale-serve.ps1`). The login header passes through the proxy.
+
+ACL block (`tools/acl_phone_snippet.xml`; `tests/readme_test.lua` fails if this copy and the file differ):
+
+```xml
+	<!-- Outbreak phone companion (mta/README.md "Phone"). Two logins: `phone` may look and give orders, `phoneview` may only look. Add the accounts you create with
+	     `addaccount <name> <password>` to the two groups below (rename the user.* objects). MTA checks resource.outbreak.http itself (HTTP login + page + API); server/phone.lua
+	     checks phone_view / phone_control for what an account may do. Everyone else keeps the default (general.http denied): they get a 401. -->
+	<group name="OutbreakPhone">
+		<acl name="OutbreakPhone"/>
+		<object name="user.phone"/>
+	</group>
+	<group name="OutbreakPhoneView">
+		<acl name="OutbreakPhoneView"/>
+		<object name="user.phoneview"/>
+	</group>
+	<acl name="OutbreakPhone">
+		<right name="resource.outbreak.http" access="true"/>
+		<right name="resource.outbreak.phone_view" access="true"/>
+		<right name="resource.outbreak.phone_control" access="true"/>
+	</acl>
+	<acl name="OutbreakPhoneView">
+		<right name="resource.outbreak.http" access="true"/>
+		<right name="resource.outbreak.phone_view" access="true"/>
+	</acl>
+```
+
+### What the phone can and cannot do, compared with the in-game UI
+
+| | In game (section 4) | Phone companion |
+|---|---|---|
+| Colonist roster, card (needs, mood, skills, gear, health), work priorities, draft, schedules | yes | yes: the same code (`ui/`), laid out by `css/mobile.css` + `js/touch.js` as bottom sheets / side drawers |
+| Build (ghost placement), stockpile zones, expeditions, Director, inventory moves, save / load / new colony, speed, pause | yes | yes: they go through the same server handlers as the in-game page |
+| The map | the 3D world (client camera, peds) | the 2D tactical map: pinch to zoom, drag to pan, **Select** (drag a box), **Order** (then tap the destination), long-press = right-click menu |
+| The survival HUD (vitals, compass), the player ped, noise from your own gunshots, camera, sound | yes | **no**: the phone has no player; those belong to the GTA client |
+| Keyboard shortcuts | yes | no (taps and long-presses; the Menu's *Controls* tab lists them) |
+| Works while nobody is connected in GTA | the sim runs on the server regardless | yes: that is the point; the phone and the GTA client can be connected together, each keeps its **own selection and open container** |
+
+Not a goal: seeing ped movement. The sim is authoritative on the server, but colonists only *walk* in the world where a GTA client drives the peds (section 1); on the phone you see the sim's own positions.
+
+### Security and privacy
+
+* **Who gets in.** MTA's HTTP server does the login (HTTP Basic against MTA accounts) and the ACL check: only accounts with the right `resource.outbreak.http` may open the page or call the API; everyone else, including a
+  wrong password and an account that exists but has no such right, gets **401** (the server's default denies `general.http` for everyone; checked on the real server). The right is for *this resource only*: it does not
+  give access to any other resource's pages. Inside the call `server/phone.lua` then checks `resource.outbreak.phone_control` (orders, UI actions, save / load / new colony) or `resource.outbreak.phone_view`
+  (look only). A guest account is refused whatever the ACL says. `debug_*` UI actions are refused over the phone unless `debug=1`.
+* **Cross-site requests.** Basic credentials are sent by the browser automatically, so a malicious web page could try to post to the API. Every call needs the custom header `X-Outbreak-Phone: 1` (a cross-site page cannot
+  send one without a CORS preflight the server never answers) and an `Origin`, if present, must equal the `Host`.
+* **Plain HTTP carries the password in every request (base64).** Inside your tailnet WireGuard encrypts it; do not open TCP 22005 to the internet with these accounts, or put `tailscale serve` HTTPS in front. Use
+  long, unique passwords (MTA throttles wrong passwords and has an HTTP flood guard; neither replaces that). **Do not put a phone account in the `Admin` group** (MTA's authorized-serial protection would then
+  also apply, and an admin login on a phone is the wrong risk).
+* **What MTA serves without a login, and what we did about it.** MTA's HTTP server hands out **every `<file>` listed in `meta.xml` to anyone who can reach the port, without a login, even with `download="false"`**
+  (found on the real server). That is how GTA clients download the UI and client scripts, so those stay public: they hold no secrets. The server-only code (`server/`, `sim/`, `data/`, the host and view
+  modules, saves) used to be listed with `download="false"` and was therefore public too; it is **no longer listed** (the server reads unlisted files with `fileOpen`, verified) and answers 404 over HTTP.
+  `tools/phone_e2e.sh` asserts both. The phone page itself (`ui/phone.html`, an `<html>` item) and the API are behind the login.
+* **Nothing leaves the box.** No CDN, no analytics, no third-party request. The page keeps a random session id in `sessionStorage` and your UI settings in `localStorage`; the server keeps sessions in memory only
+  (expire after `phone_session_s`, at most `phone_sessions`). `phone=0` switches the API off. `save` / `load` / `new_game` from a phone are logged with the account name; `/outbreak_phone` shows the counters and the refusals.
+* **Reachable from the phone = everything in the colony.** A control login can start a new colony over the current one (the Menu's *Start new colony*), exactly like the in-game owner. Use `phoneview` for a login you
+  would hand to someone else.
+
+### How it works (short)
+
+`ui/phone.html` is generated from the vanilla `index.html` by `tools/sync_ui.sh` (the vanilla files stay byte-identical): the same page with `ui/phone-bridge.js` in front of `js/core.js` and everything inlined (MTA's HTTP
+server labels `.css` as `application/octet-stream`, which browsers refuse as a stylesheet). The bridge implements the page's host contract over **HTTP polling**: the page's `fetch('https://outbreak/<name>')` callbacks
+(`order`, `ui`, `place` commit) become `POST /outbreak/call/phoneApi` with a JSON array body `["cb", sid, name, data]`, one at a time and in order; the server's answer carries the same `{action, data}` messages the NUI
+gets (`boot`, `mode`, `catalog`, `state` = the view model of `shared/view.lua`, `events` = the sim's OUT events, `inventory` / `summary` on request) which the bridge dispatches as `message` events. MTA's call interface
+answers synchronously (a request cannot be held open), so the page polls: about every 500 ms while visible, every 5 s while hidden, back-off after errors, an immediate poll after a callback. `server/phone.lua` keeps a ring
+buffer of the OUT events (filled in `Net.send`, before the owner check, so no GTA client is needed), computes each phone's `state` itself (so a phone's selected colonist never moves the owner's), and sends orders to the SAME
+functions the in-game page's remote events use (`Net.do_order`, `Net.do_ui`), each caller with its own flood bucket.
+
+| URL (`http://<host>:22005`) | Login | What |
+|---|---|---|
+| `/outbreak/` | yes (`resource.outbreak.http`) | the phone page (default `<html>` item) |
+| `POST /outbreak/call/phoneApi` | yes + `phone_view` / `phone_control` + header | `["ready", sid]`, `["poll", sid, seq, gen]`, `["cb", sid, name, data]`, `["status", sid]` |
+| `/outbreak/ui/js/*.js`, `css/*.css`, `fonts/*`, `phone-*.png`, `phone-manifest.json` | no (client files) | public like every client file of every MTA resource |
+| `/outbreak/server/*`, `sim/*`, `data/*`, `shared/host.lua`, `save/*`, `meta.xml` | n/a | 404 |
+
+Tests: `tests/phone_test.lua` (server half on the mock: rights, messages, same handlers, guards, 20 tests), `preview/tests/mobile_test.mjs` (phone layout and touch flows), `tools/phone_e2e.sh` (the real server; section 9).
+If it does not work: 401 = the account has no ACL group or you did not restart after `phone_acl.sh`; "switched off" = `phone=0`; a page without styling = an old resource copy (re-run the installer); `Connection flood` in the
+server log = more than ~20 new TCP connections in a short time from one address (the page reuses one connection; a broken proxy that opens one per request does not).
 
 ## 4. Controls
 
@@ -160,6 +266,9 @@ The keys are the vanilla page's (unchanged UI) plus `F6` / `I` / `E` bound in `c
 | `max_materialized` | 60 | zombies and raiders that may exist as peds at once (the rest of a horde stays abstract) |
 | `max_peds` | 96 | hard ceiling for peds this resource owns |
 | `pool_guard` | 120 | refuse to create peds while the server knows this many ped elements (all resources) |
+| `phone` | 1 | the phone companion API (section 3a); 0 = `phoneApi` answers "switched off" |
+| `phone_sessions` | 6 | phone pages kept at once (the least recently used one is evicted; it signs in again) |
+| `phone_session_s` | 60 | a phone page that has not called for this many seconds is forgotten |
 | `max_objects` | 400 | ceiling for building, pile and marker objects |
 | `origin` | `235.30,2430.10,16.85` | where the sim origin (base centre) sits in San Andreas (default is the Verdant Meadows airfield, **unverified**; any flat empty spot works) |
 | `ui_mode` | gui | `gui` = `guiCreateBrowser` (the engine routes mouse and keyboard), `dx` = `createBrowser` drawn with `dxDrawImage` and fed `injectBrowserMouse*` |
@@ -184,6 +293,8 @@ whose ACL group has the right `command.<name>`.
 | `/outbreak_ff <minutes>` | fast-forward (sliced over timers, MTA aborts long-running scripts) |
 | `/outbreak_hash` `/outbreak_audit` | state hash / item conservation check |
 | `/outbreak_peds` | ped and object budget, counters, ground samples |
+| `/outbreak_prio <colonist id> [work]` | what the **sim** holds as work priorities (the phone e2e reads a phone's change back with it) |
+| `/outbreak_phone` | phone companion status: sessions (control / view), calls, polls, orders, refusals by reason, ring buffer |
 | `/outbreak_selftest` | rerun the determinism self-test |
 | `/outbreak_spawn [n] [walker\|runner\|brute\|screamer]` | **test hook**: create n zombies at the base through the real spawn path (never beyond `max_materialized` hostile peds) and print what the engine says about them (model, tag, syncer, health). The real-server smoke test uses it: a server with no client has no observer, so the sim never materializes a horde there |
 | `/outbreak_colony` `/outbreak_client` | (client) toggle colony view / client counters |
@@ -208,6 +319,8 @@ ACL snippet for `mods/deathmatch/acl.xml` (a group of accounts that may use ever
 	<right name="command.outbreak_hash" access="true"/>
 	<right name="command.outbreak_audit" access="true"/>
 	<right name="command.outbreak_peds" access="true"/>
+	<right name="command.outbreak_prio" access="true"/>
+	<right name="command.outbreak_phone" access="true"/>
 	<right name="command.outbreak_selftest" access="true"/>
 	<right name="command.outbreak_spawn" access="true"/>
 </acl>
@@ -286,7 +399,8 @@ MTA renders through GTA SA's DirectX 9 pipeline, so the usual San Andreas graphi
 mta/tests/run.sh                  # everything: copy checks, Lua suite on LuaJIT + Lua 5.4 (+ PUC Lua 5.1.5), function check, browser test, Lua replay of the browser's calls
 mta/tests/run.sh --no-browser     # without Playwright
 mta/tests/run.sh --with-sim       # also the sim's own suite and the FiveM adapter's suite
-mta/tests/run.sh --with-server    # also the real-server smoke test (quick variant)
+mta/tests/run.sh --with-server    # also the real-server smoke test (quick variant) and the phone e2e (about 45 s)
+mta/tools/phone_e2e.sh            # the phone companion against the real MTA 1.6 server, curl + a mobile-emulated Chromium: see below
 mta/tools/real_server_smoke.sh [--quick]   # the real MTA 1.6 server, headless: see below
 mta/tools/list_private_blocks.sh  # the unlicensed (private use only) blocks
 mta/tools/build_lua51.sh          # builds PUC-Rio Lua 5.1.5 (md5-checked) into ~/.cache/lua-5.1.5; then  LUA51=$HOME/.cache/lua-5.1.5/lua-5.1.5/src/lua mta/tests/run.sh
@@ -303,10 +417,22 @@ mta/tools/build_lua51.sh          # builds PUC-Rio Lua 5.1.5 (md5-checked) into 
 | `tests/client_test.lua` driver tests | slothbot's rules pinned one by one: the swing timeline (fire at 0 / 800 / 1400 ms, still for 2000 ms, cycle 2300 ms), the stuck dice (1 in 7 give up, 2-3 jump, 4-7 turn; 1 in 13 on a path), the jump with a melee weapon (fists for 850 ms), the last-seen spot, per-weapon stop distance and bursts, stream-in (voice, weapon request), damage cancel and hit report | that the real engine moves a ped the way the mock does |
 | `tests/peds_test.lua` | server side: tags, controllers (read, never forced), `outbreak:hit` / `outbreak:stream` with spoofing, the weapon re-give cap, `/outbreak_spawn` under the caps | the real ped pool |
 | `tools/real_server_smoke.sh` | on the real MTA 1.6 server: the resource loads (`Resources: 1 loaded, 0 failed`), the self-test hash matches, audits pass, 40 + 20 test zombies are real peds with a config model, the tag and no forced syncer, the caps hold (60 hostile, 62 ped elements), `restart outbreak` leaves none and loads the save, no ERROR / WARNING line | anything that needs a client |
+| `tests/phone_test.lua` | the phone companion's server half on the mock: the login rights (guest, no right, view-only, control), the CSRF header and Origin checks, exactly the NUI's messages with no GTA client connected, orders reaching the same `host:on_order` as the owner's remote event, per-phone selection and inventory, the flood bucket, resync after a new game / a ring overflow / eviction, `phone=0`, the console commands | MTA's HTTP server, Basic auth and the ACL file (that is `phone_e2e.sh`) |
+| `preview/tests/mobile_test.mjs` | the **phone / tablet layout** (390x844 and 844x390 at DPR 3, 820x1180) in Chromium mobile emulation with real CDP touch events: nothing scrolls, every control is at least 44 px, type is at least 10 px, safe-area insets, and the touch flows (select, order, drag-select, priority cell, blueprint ghost + Place / Cancel, Director, pan + pinch, long-press menus); the desktop layout is checked to be untouched | a physical phone's browser chrome, touch latency, haptics |
+| `tools/phone_e2e.sh` | on the real MTA 1.6 server: the login (401 without / wrong password / account without the ACL right), the page and the API with curl, a mobile-emulated Chromium with `httpCredentials` that renders the live colony and changes a priority and a blueprint by touch, compared with `outbreak_status` / `outbreak_hash` / `outbreak_prio` in the server console; the sim and server code answer 404; no ERROR / WARNING line; no flood | a physical phone, iOS Safari / Firefox, Tailscale |
 | `tests/readme_test.lua` | README and THIRD_PARTY.md match the code: every command, ACL right, setting, event, key and MTA function is documented, the budget numbers are the configured ones, every `borrowed:` mark has a row | that the prose is right |
 
 **What a mock can never prove:** that the engine agrees with the wiki (ped pool behaviour, whether a client really moves a ped with `setPedControlState`, collision, streaming distances); animation names and how
 skins and objects look; how fast any of it runs; CEF focus, cursor and transparency; the timing and ordering of the real network; anti-cheat; timer precision; whether MTA's script-timeout watchdog trips.
+
+### The phone e2e (`mta/tools/phone_e2e.sh [dest]`)
+
+Same install-and-run harness as the smoke test (own directory `~/mta-phone`, own ports `MTA_PHONE_PORT` 22983 / 22985, wipes only its saves and accounts), plus `tools/phone_acl.sh`, accounts made with `addaccount` on the
+console, and `<http_dos_exclude>127.0.0.1</http_dos_exclude>` for curl only: the browser uses `127.0.0.2`, which is **not** excluded, so the server's default HTTP flood guard is in force for the real polling (it never
+fires). The sim is paused (`outbreak_speed 0`) so the hash cannot move. The scenario: curl (401s, the page, the API, header / Origin refusals, a look-only account's refusals, what is public), then Playwright
+(portrait: the UI's colonist count, day, clock and the state hash equal the console's; a priority tapped in the Priorities screen; a wall placed with the ghost and *Place*; the Director; landscape; the look-only login
+taps a priority cell and is told it is read-only; a browser without a login gets 401), then the console again (`outbreak_prio` shows the new level, `outbreak_status` one more building, the hash changed and equals the
+one the phone sees, the look-only target unchanged) and an order from curl. Screenshots of the live phone UI: `screenshots/mobile/live-*.png`. About 45 s; exit 0 / 1 / 2 like the smoke test.
 
 ### The real-server smoke test (the 30-second check)
 
@@ -341,7 +467,7 @@ A checklist for the first session on the PC. Each line says what to look at and 
 9. **`setMinuteDuration`** limits and whether `setTime` / `setWeatherBlended` fight the sim clock; weather ids (0 / 16 / 8) and the alert sound ids are guesses.
 10. **`fileCreate` creating directories**, and `dbConnect("sqlite", "outbreak.db")` placement.
 11. **CEF.** `guiCreateBrowser` transparency and input routing (`ui_mode=gui`); if the page steals keys or looks wrong try `ui_mode=dx`. `isBrowserDomainBlocked` for a local URL; whether the local origin is exactly `http://mta/local/ui/mta.html`.
-12. **`meta.xml`:** `type="gamemode"` (it may stop another gamemode), `min_mta_version 1.5.8`, `download="false"` on server files, and the client downloads 31 UI files and 19 Lua modules.
+12. **`meta.xml`:** `type="gamemode"` (it may stop another gamemode), `min_mta_version 1.5.8`, the server-only files are deliberately **not listed** (MTA's HTTP server serves every listed `<file>` without a login; unlisted files are still readable with `fileOpen`, verified), and the client downloads 38 UI files and 19 Lua modules.
 13. **Numbers:** the 32-bit `long` risk (`selftest` reports it at start), memory and frame time with 60 peds, the ped pool (`engineGetPoolUsedCapacity("ped")` is client-only and not used yet; a client-side guard would be the next safety).
 14. **ACL / owner logic** with a second player, `owner_name`, reconnects.
 15. **The ported slothbot behaviours in the real engine:** `isLineOfSightClear` with those flags against GTA's world (a zombie behind a fence should run to where it last saw you, then give up); the melee swing
@@ -349,10 +475,13 @@ A checklist for the first session on the PC. Each line says what to look at and 
     `onClientElementStreamIn` seeing the `ob` / `obw` element data of a freshly streamed ped (if it does not, no voice mute and no weapon re-give); a pistol ped standing at 14 m and firing in 2 to 5 s bursts;
     the jump with fists swapped in (slots 1 and 7); the `walk` control for slow zombies (slothbot only uses `forwards` and `sprint`). The 600 ms / 1 m stuck test was tuned for jogging zombies (walkers use 0.35 of it).
 16. **Graphics** items in section 8 marked unconfirmed (ENB, ReShade, SilentPatch / SkyGfx, texture packs).
+17. **The phone companion on a real phone** (section 3a): iOS Safari and Firefox (only Chromium is tested; the page does not depend on any MIME type because everything is inlined), whether iOS keeps the Basic login in a
+    home-screen app, the browser's URL-bar and safe-area behaviour (the CSS honours `env(safe-area-inset-*)` and the layout test overrides them), touch latency, battery use of 500 ms polling, `tailscale serve` in front of MTA's
+    HTTP port, and the install prompt. The server side, the login and the touch flows are verified on the real 1.6 server with a mobile-emulated Chromium.
 
 ## 11. Every MTA function used
 
-Generated by `lua5.4 mta/tools/function_check.lua --markdown` from the code itself (`tests/readme_test.lua` fails if this table and the code disagree). **115** distinct functions;
+Generated by `lua5.4 mta/tools/function_check.lua --markdown` from the code itself (`tests/readme_test.lua` fails if this table and the code disagree). **117** distinct functions;
 all verified to exist on the listed side in the mtasa-blue definitions. "both" means the function exists in both the client and server definitions.
 
 <!-- functions:begin (generated by tools/function_check.lua --markdown) -->
@@ -387,6 +516,7 @@ all verified to exist on the listed side in the mtasa-blue definitions. "both" m
 | `fileWrite` | server | server/store.lua |
 | `focusBrowser` | client | client/ui.lua |
 | `get` | server | server/main.lua |
+| `getAccountName` | server | server/phone.lua |
 | `getCameraMatrix` | client | client/main.lua |
 | `getControlState` | client | client/noise.lua |
 | `getElementData` | both | client/colonists_view.lua |
@@ -404,9 +534,9 @@ all verified to exist on the listed side in the mtasa-blue definitions. "both" m
 | `getPedWeapon` | client | client/driver.lua |
 | `getPedWeaponSlot` | client | client/driver.lua |
 | `getPlayerName` | server | server/commands.lua |
-| `getResourceName` | client | client/ui.lua |
+| `getResourceName` | both | client/ui.lua |
 | `getScreenFromWorldPosition` | client | client/camera.lua |
-| `getThisResource` | client | client/ui.lua |
+| `getThisResource` | both | client/ui.lua |
 | `getTickCount` | both | client/camera.lua |
 | `getTime` | server | server/world.lua |
 | `getValidPedModels` | server | server/peds.lua |
@@ -426,6 +556,7 @@ all verified to exist on the listed side in the mtasa-blue definitions. "both" m
 | `isBrowserDomainBlocked` | client | client/ui.lua |
 | `isElement` | both | client/driver.lua |
 | `isElementStreamedIn` | client | client/driver.lua |
+| `isGuestAccount` | server | server/phone.lua |
 | `isLineOfSightClear` | client | client/driver.lua |
 | `isPedDead` | both | client/colonists_view.lua |
 | `isPedDucked` | both | client/driver.lua |
@@ -496,6 +627,7 @@ Built-in events handled: `onResourceStart`, `onResourceStop`, `onPlayerQuit`, `o
 
 * Server console / `/outbreak_status`, `/outbreak_peds`, `/outbreak_selftest`; client `/outbreak_client`. Set `debug=1` for payload-safety checks and `debug_*` UI actions.
 * `F8` (MTA's debug console) shows `outputDebugString` lines tagged `[outbreak]`; Lua errors are caught per module and counted (not silent): the first and every 100th repeat is logged.
+* The phone page does not load: section 3a ("If it does not work"); `/outbreak_phone` on the console shows what the server saw.
 * No colony UI: the page is local; check the F8 console for a browser error and that all `ui/` files downloaded. A blank cursor but no page: try `ui_mode=dx`.
 * `selftest FAILED`: the sim is not deterministic on MTA's Lua; saves still work on this machine but do not move them between runtimes until it is understood.
 * On the server: `bash mta/tools/real_server_smoke.sh --quick` (about 30 s) tells you whether the resource still loads, passes its self-test and keeps its caps on the real MTA server; its log is `<dest>/smoke/server.log`.

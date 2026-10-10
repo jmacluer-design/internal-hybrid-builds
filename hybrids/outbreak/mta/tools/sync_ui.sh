@@ -4,8 +4,9 @@
 #   * mta/outbreak/ui/mta.html (the page the MTA browser loads in the GTA client) is GENERATED from the vanilla index.html by inserting exactly one line,
 #     <script src="mta-bridge.js"></script>, before the first vanilla script, so the bridge runs before js/core.js;
 #   * mta/outbreak/ui/phone.html (the page a PHONE browser loads from MTA's HTTP server at /outbreak/) is GENERATED the same way: <script src="phone-bridge.js"> before js/core.js, plus
-#     <base href="/outbreak/ui/"> (the default page is served at /outbreak/, the assets live under /outbreak/ui/), the home-screen title / icons / manifest, a plain <title>, and the css files
-#     INLINED as <style> (MTA's HTTP server labels every .css file application/octet-stream and browsers refuse such a stylesheet; scripts and fonts are not affected);
+#     <base href="/outbreak/ui/"> (the default page is served at /outbreak/, the assets live under /outbreak/ui/), the home-screen title / icons / manifest, a plain <title>, and the css files AND the
+#     scripts (phone-bridge.js first) INLINED: MTA's HTTP server labels every .css file application/octet-stream and browsers refuse such a stylesheet; with the scripts inlined too the page
+#     does not depend on any MIME type and costs one request instead of twenty (only the fonts, the icons and the manifest are fetched separately);
 #   * the MTA-only files are our own and are neither copied nor touched by this script: mta-bridge.js, phone-bridge.js, phone-manifest.json, phone-icon-*.png (mta/tools/gen_phone_icons.py).
 # `sync_ui.sh check` verifies all of that without writing (used by the tests).
 set -eu
@@ -25,11 +26,11 @@ generate() { # stdout = mta.html
 	' "$src/index.html"
 }
 
-generate_phone() { # stdout = phone.html
-	awk -v line="$phone_line" -v css="$src/" '
+generate_phone() { # stdout = phone.html: everything inlined except the fonts, the icons and the manifest
+	awk -v bridge="$dst/phone-bridge.js" -v dir="$src/" '
 		!b && /<meta charset="utf-8">/ { print; print "<base href=\"/outbreak/ui/\">"; b = 1; next }
 		/<link rel="stylesheet" href="css\/[a-z]+\.css">/ { # the MTA HTTP server sends .css as application/octet-stream, browsers refuse such a stylesheet: inline them
-			match($0, /css\/[a-z]+\.css/); f = css substr($0, RSTART, RLENGTH); print "<style>"
+			match($0, /css\/[a-z]+\.css/); f = dir substr($0, RSTART, RLENGTH); print "<style>"
 			while ((getline l < f) > 0) { gsub(/\.\.\/fonts\//, "fonts/", l); print l }
 			close(f); print "</style>"; s++; next
 		}
@@ -41,9 +42,14 @@ generate_phone() { # stdout = phone.html
 			print "<meta name=\"apple-mobile-web-app-title\" content=\"Outbreak\">"
 			l = 1; next
 		}
-		!d && /<script src="js\/core.js"><\/script>/ { print line; d = 1 }
+		/<script src="js\/[a-z]+\.js"><\/script>/ { # scripts are inlined too: no dependence on the MIME type the server gives them, one request instead of twenty
+			if (!d) { print "<script>"; while ((getline l < bridge) > 0) print l; close(bridge); print "</script>"; d = 1 }
+			match($0, /js\/[a-z]+\.js/); f = dir substr($0, RSTART, RLENGTH); print "<script>"
+			while ((getline l < f) > 0) print l
+			close(f); print "</script>"; j++; next
+		}
 		{ print }
-		END { if (!b || !t || !l || !d || s < 4) exit 3 }
+		END { if (!b || !t || !l || !d || s < 4 || j < 10) exit 3 }
 	' "$src/index.html"
 }
 
@@ -67,8 +73,8 @@ keep="$(mktemp -d)"
 for f in $OWN; do [ -f "$dst/$f" ] && cp "$dst/$f" "$keep/$f" || :; done
 find "$dst" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 cp -R "$src"/. "$dst"/
-generate > "$dst/mta.html"
-generate_phone > "$dst/phone.html"
 for f in $OWN; do [ -f "$keep/$f" ] && cp "$keep/$f" "$dst/$f" || :; done
 rm -rf "$keep"
+generate > "$dst/mta.html"
+generate_phone > "$dst/phone.html"
 echo "synced ui ($(find "$dst" -type f | wc -l) files, mta.html + phone.html generated)"

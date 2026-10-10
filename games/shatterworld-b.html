@@ -8235,7 +8235,7 @@ function msfx(name, a) {
 // ---- telegraph decals: pools of circle / rect / cone parts. A decal is a faint full-size shape + a brighter fill that grows until the hit lands (so a player can read WHEN, and WHERE). ----------------------------------------------------
 const DEC_Y = 0.1, DECG = { disc: new THREE.CircleGeometry(1, 44).rotateX(-PI / 2), ring: new THREE.RingGeometry(0.9, 1, 56).rotateX(-PI / 2), rect: new THREE.PlaneGeometry(1, 1).rotateX(-PI / 2).translate(0, 0, 0.5), cones: {} };
 function decCone(arc) { const k = arc.toFixed(2); return DECG.cones[k] || (DECG.cones[k] = new THREE.CircleGeometry(1, 36, PI / 2 - arc / 2, arc).rotateX(-PI / 2)); } // sector centred on +z (after the x-rotation the sector sits in the xz plane)
-const decMat = (op) => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, forceSinglePass: true });
+const decMat = (op, add) => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: op, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending, fog: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, forceSinglePass: true });
 const DEC_CIRC = [], DEC_RECT = [], DEC_CONE = [], TELLS = [];
 for (let i = 0; i < 14; i++) { const base = new THREE.Mesh(DECG.disc, decMat(0.15)), edge = new THREE.Mesh(DECG.ring, decMat(0.8)), fill = new THREE.Mesh(DECG.disc, decMat(0.3)); for (const m of [base, edge, fill]) { m.visible = false; m.frustumCulled = false; m.renderOrder = 16; scene.add(m); } DEC_CIRC.push({ base, edge, fill, used: false }); }
 for (let i = 0; i < 12; i++) { const base = new THREE.Mesh(DECG.rect, decMat(0.14)), fill = new THREE.Mesh(DECG.rect, decMat(0.32)); for (const m of [base, fill]) { m.visible = false; m.frustumCulled = false; m.renderOrder = 16; scene.add(m); } DEC_RECT.push({ base, fill, used: false }); }
@@ -8243,7 +8243,7 @@ for (let i = 0; i < 3; i++) { const base = new THREE.Mesh(decCone(2.3), decMat(0
 const decTake = pool => { for (const p of pool) if (!p.used) { p.used = true; return p; } return null; };
 const decFree = (p, list) => { p.used = false; for (const k in p) if (p[k] && p[k].isMesh) p[k].visible = false; };
 const _dcol = new THREE.Color();
-function decColor(m, hex, k, op) { _dcol.set(hex); m.material.color.setRGB(_dcol.r * k, _dcol.g * k, _dcol.b * k); m.material.opacity = op; }
+function decColor(m, hex, k, op, add) { _dcol.set(hex); const q = add ? k : Math.min(1, k * 0.62); m.material.color.setRGB(_dcol.r * q, _dcol.g * q, _dcol.b * q); m.material.opacity = add ? op : Math.min(1, op * 1.5); }
 function mobTellSpawn(e, ev) {
   if (TELLS.length > 10) { const o = TELLS.shift(); mobTellKill(o); }
   const T = { e, ev, t: 0, dur: ev.dur, hold: ev.hold || 0, col: ev.col, shape: ev.shape, self: ev.self, follow: ev.follow, parts: [], x: ev.x, z: ev.z, ang: ev.ang, r: ev.r, len: ev.len, w: ev.w, arc: ev.arc, pts: ev.pts, kind: ev.kind, tx: ev.tx, tz: ev.tz, n: ev.n | 0, done: false };
@@ -8269,7 +8269,7 @@ function mobTellUpdate(T, dt) {
   if (T.kind === 'fuse' && m && T.t < T.dur && Math.floor(T.t * (14 + prog * 24)) !== T.lastBlip) { T.lastBlip = Math.floor(T.t * (14 + prog * 24)); msfx('fuse', prog * 6); }
 }
 // ---- shockwave rings (linear radius so they match the hit test in the core), enemy projectiles (instanced), spore clouds ---------------------------------------------------------------------------------------------------------
-const WAVEG = new THREE.RingGeometry(0.9, 1, 64).rotateX(-PI / 2), WAVES = []; for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(WAVEG, decMat(0.8)); m.visible = false; m.frustumCulled = false; m.renderOrder = 17; scene.add(m); WAVES.push({ m, on: false, x: 0, y: 0, z: 0, r: 0, spd: 0, max: 20, col: '#ffffff' }); }
+const WAVEG = new THREE.RingGeometry(0.9, 1, 64).rotateX(-PI / 2), WAVES = []; for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(WAVEG, decMat(0.8, true)); m.visible = false; m.frustumCulled = false; m.renderOrder = 17; scene.add(m); WAVES.push({ m, on: false, x: 0, y: 0, z: 0, r: 0, spd: 0, max: 20, col: '#ffffff' }); }
 function mobWave(x, y, z, spd, max, col) { const w = WAVES.find(q => !q.on) || WAVES[0]; w.on = true; w.x = x; w.y = y + 0.18; w.z = z; w.r = 0.5; w.spd = spd; w.max = max; w.col = col; w.m.visible = true; }
 const NMP = 24, MPJ = [], mpjMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshBasicMaterial({ fog: false, toneMapped: false }), NMP); mpjMesh.frustumCulled = false; mpjMesh.count = 0; mpjMesh.visible = false; mpjMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(NMP * 3), 3); scene.add(mpjMesh);
 for (let i = 0; i < NMP; i++) MPJ.push({ on: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0, dmg: 1, src: null, lob: false, T: 0, t: 0, tx: 0, tz: 0, ty: 0, r: 2, cloud: 0, col: '#ff9a4a', sc: 1 });
@@ -8287,7 +8287,7 @@ function mobHurtHero(e, mult, kb, sx, sz) {
 function mobFxFrame(rdt, sdt) {
   if (G.state !== 'play') { if (G.state === 'menu' || G.state === 'dead') mobClearFx(); return; } const t = U.time.value;
   for (let i = TELLS.length - 1; i >= 0; i--) mobTellUpdate(TELLS[i], sdt);
-  for (const w of WAVES) { if (!w.on) continue; w.r += w.spd * sdt; if (w.r > w.max) { w.on = false; w.m.visible = false; continue; } w.m.position.set(w.x, w.y, w.z); w.m.scale.set(w.r, 1, w.r); decColor(w.m, w.col, 2.4, 0.9 * (1 - w.r / w.max)); }
+  for (const w of WAVES) { if (!w.on) continue; w.r += w.spd * sdt; if (w.r > w.max) { w.on = false; w.m.visible = false; continue; } w.m.position.set(w.x, w.y, w.z); w.m.scale.set(w.r, 1, w.r); decColor(w.m, w.col, 2.4, 0.9 * (1 - w.r / w.max), true); }
   // projectiles
   let n = 0; for (const p of MPJ) {
     if (!p.on) continue; p.t += sdt; p.life -= sdt; if (p.lob) p.vy -= 22 * sdt; p.x += p.vx * sdt; p.y += p.vy * sdt; p.z += p.vz * sdt; let dead = false;
@@ -8440,6 +8440,8 @@ function mobGuardianType() { return MOB_BOSS_BY_ACT[1 + ((RIFT ? RIFT.seed : 0) 
 // ---- debug / test API ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 window.__mobs = {
   spawn(type, o = {}) { const f = o.dist != null ? o.dist : 6, x = o.x != null ? o.x : P.x + Math.sin(P.yaw + (o.side || 0)) * f, z = o.z != null ? o.z : P.z + Math.cos(P.yaw + (o.side || 0)) * f, y = floorAt(x, z, P.y + 4); if (!(y > -1e8)) return null; const e = rpgSpawnEnemy(type, x, z, { y, tier: o.tier || 'normal', aff: o.aff, mlvl: o.mlvl || RP.level + 1, aggroR: o.aggroR != null ? o.aggroR : 20, r: o.r || 4, seed: o.seed, pack: o.pack }); return e ? mobInfo(e) : null; },
+  flatSpot(r = 6, minHero = 0) { const best = []; for (let x = -60; x <= 60; x += 2) for (let z = -60; z <= 60; z += 2) { const f0 = floorAt(x, z, P.y + 3); if (!(f0 > -1e8)) continue; let ok = true; for (let k = 0; k < 16 && ok; k++) { const a = k / 16 * TAU, f = floorAt(x + Math.cos(a) * r, z + Math.sin(a) * r, f0 + 3); if (!(f > -1e8) || Math.abs(f - f0) > 0.05) ok = false; } for (let k = 0; k < 8 && ok; k++) { const a = k / 8 * TAU, f = floorAt(x + Math.cos(a) * r * 0.5, z + Math.sin(a) * r * 0.5, f0 + 3); if (!(f > -1e8) || Math.abs(f - f0) > 0.05) ok = false; } if (ok) best.push([x, f0, z, Math.hypot(x, z)]); } best.sort((a, b) => a[3] - b[3]); return best[0] || null; },
+  quiet() { if (RIFT) { RIFT.spawnT = 1e9; RIFT.limit = 1e9; } return !!RIFT; },
   all() { return ENEMIES.filter(e => e.mob).map(e => ({ type: e.type, alive: e.alive, state: e.state, mst: e.mob.st, dead: e.mob.dead, vis: e.mesh.visible, y: e.y, fy: e.fy })); },
   list() { return ENEMIES.filter(e => e.mob && e.alive && e.state !== 'dead').map(mobInfo); }, tells() { return TELLS.map(T => ({ shape: T.shape, kind: T.kind, t: +T.t.toFixed(2), dur: T.dur, parts: T.parts.length })); }, projectiles() { return MPJ.filter(p => p.on).length; }, clouds() { return CLOUDS.filter(c => c.on).length; }, waves() { return WAVES.filter(w => w.on).length;},
   log() { return MOBX.log.slice(); }, clearLog() { MOBX.log.length = 0; }, types: MOB_IDS, boss() { return MOBX.boss ? mobInfo(MOBX.boss) : null; }, instanced() { const o = {}; for (const id in MOBI) o[id] = MOBI[id].n; return o; }, kills: () => Object.assign({}, MOBX.kills),

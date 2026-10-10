@@ -84,6 +84,36 @@ T.test("the function table equals what function_check finds in the code (names a
 	T.truthy(readme:find("**" .. nw .. "** distinct functions", 1, true), "the README says " .. nw .. " distinct functions")
 end)
 
+T.test("the phone docs match the code: the ACL block is the snippet file, the entry URL, the steps, the security notes, the three options and what is unverified", function()
+	local snippet = read(H.mta .. "/tools/acl_phone_snippet.xml")
+	local n = 0
+	for line in snippet:gmatch("[^\n]+") do
+		local t = line:gsub("^%s+", ""):gsub("%s+$", "")
+		if t ~= "" and not t:find("^<!%-%-") and not t:find("^%s*Everyone") and t:find("^<") and not t:find("%-%->$") then
+			n = n + 1
+			T.truthy(readme:find(t, 1, true), "the README's ACL block has the line: " .. t)
+		end
+	end
+	T.gt(n, 10, "checked the lines of the ACL snippet")
+	for _, right in ipairs({ "resource.outbreak.http", "resource.outbreak.phone_view", "resource.outbreak.phone_control" }) do T.truthy(snippet:find(right, 1, true), "snippet grants " .. right) end
+	local sec = readme:match("## 3a%. Phone(.-)\n## 4%. Controls")
+	T.truthy(sec, "section 3a exists")
+	for _, word in ipairs({ "http://<tailscale-ip>:22005/outbreak/", "phone_acl.sh", "addaccount", "chgpass", "delaccount", "Add to Home Screen", "tailscale serve", "X-Outbreak-Phone", "phoneApi", "401", "download=\"false\"",
+		"Do not put a phone account in the `Admin` group", "never run on a physical phone", "Unverified", "phone_e2e.sh", "Net.do_order", "view-only", "PHONE.md", "no GTA" }) do
+		T.truthy(sec:find(word, 1, true) or readme:find(word, 1, true), "section 3a mentions " .. word)
+	end
+	local phone = read(H.mta .. "/PHONE.md")
+	for _, word in ipairs({ "Sunshine", "Moonlight", "hostkit/README.md", "Unverified", "not run", "Tailscale", "tailscale ping", "02-install-streaming.ps1", "47990" }) do T.truthy(phone:find(word, 1, true), "PHONE.md mentions " .. word) end
+	local f = io.open(H.mta .. "/../../../hostkit/README.md", "rb")
+	T.truthy(f, "PHONE.md points at a file that exists (hostkit/README.md)")
+	if f then f:close() end
+	for _, file in ipairs({ "tools/phone_e2e.sh", "tools/phone_acl.sh", "tools/acl_phone_snippet.xml", "tests/phone_e2e.mjs", "tests/phone_test.lua", "tools/gen_phone_icons.py" }) do
+		local g = io.open(H.mta .. "/" .. file, "rb")
+		T.truthy(g, file .. " exists")
+		if g then g:close() end
+	end
+end)
+
 T.test("the README has the sections the brief asks for: install, Tailscale, keybinds, unverified list, graphics research with links, mock limits", function()
 	for _, h in ipairs({ "## 2. Install", "## 3. Tailscale", "## 4. Controls", "## 10. Unverified until it runs in the real game", "## 8. Graphics", "## 9. Tests and what the mocks cannot prove", "## 11. Every MTA function used" }) do
 		T.truthy(readme:find(h, 1, true), "section " .. h)
