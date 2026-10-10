@@ -6,3 +6,4 @@ webcraft.html
 blockshot.html
 colossus.html
 shatterworld.html
+shatterworld-rpg.html
