@@ -1431,7 +1431,7 @@ function headPos(out){ const c = CN.head; out.x = c.ax; out.y = c.ay; out.z = c.
 function pickAttack(){
   const d = playerDist(), a = PH[TI.phase].attacks, w = {};
   for (const k of a) w[k] = 1;
-  w.stomp = d < 100 ? 3.2 : 1.2; w.swat = d < 62 ? 3.4 : 0.15; if (w.slam) w.slam = d < 90 ? 2.6 : 0.8; if (w.grab) w.grab = (P.state === 'ground' && d < 70) ? 2.8 : 0.3;
+  w.stomp = d < 100 ? 3.2 : 1.2; w.swat = d < 62 ? 3.4 : 0.15; if (w.slam) w.slam = d < 90 ? 2.6 : 0.8; if (w.grab) { const sh = TB['sh' + (playerRelAngle() >= 0 ? 'L' : 'R')].matrixWorld.elements, rch = Math.hypot(pos[0] - sh[12], pos[1] - sh[13], pos[2] - sh[14]); w.grab = (P.state === 'ground' && d < 70) ? 2.8 : (P.state === 'cling' && TI.clingT > 1.2 && rch < 30 && rch > 6) ? 3.4 : 0.3; }
   if (w.laser) w.laser = d > 38 ? 3.0 : 0.8;
   w.shake = TI.clingT > TUNING.titan.shakeAfter[TI.phase] ? 30 : 0;
   if (P.state === 'cling' && TI.clingT > 0.8 && w.shake === 0) { w.swat = 0; w.laser = 0; if (w.slam) w.slam *= 0.4; }
@@ -1567,12 +1567,12 @@ function grabTick(t, dt){
   if (!TI.grab) {
     // reaching: track the player's ground position with limited speed, creep forward if out of reach
     const k = ramp(t, 0, 1.2); const tx = pos[0], tz = pos[2], dx = tx - TI.gx, dz = tz - TI.gz, dl = Math.hypot(dx, dz), step = Math.min(dl, (t < 1.15 ? 24 : 0) * dt);
-    if (dl > 0.001) { TI.gx += dx / dl * step; TI.gz += dz / dl * step; } TI.gy = Math.max(hAt(TI.gx, TI.gz) + 2.4, Math.min(pos[1], hAt(TI.gx, TI.gz) + 30));
+    if (dl > 0.001) { TI.gx += dx / dl * step; TI.gz += dz / dl * step; } TI.gy = P.state === 'cling' ? pos[1] : Math.max(hAt(TI.gx, TI.gz) + 2.4, Math.min(pos[1], hAt(TI.gx, TI.gz) + 30));
     IKA[S].tw = reach * (1 - ramp(t, 2.0, 3.0)); IKA[S].x = TI.gx; IKA[S].y = TI.gy; IKA[S].z = TI.gz; IKA[S].px = s * 0.5; IKA[S].py = 0.7; IKA[S].pz = -0.3;
     const she = TB['sh' + S].matrixWorld.elements, ds = Math.hypot(TI.gx - she[12], TI.gz - she[14]);
     if (ds > 24 && t < 1.3) { TI.speed = Math.max(TI.speed, 6.5); const ty = Math.atan2(TI.gx - TI.x, TI.gz - TI.z); TI.yaw += clamp(angDiff(TI.yaw, ty), -0.7 * dt, 0.7 * dt); }
     const close = ramp(t, 1.15, 1.5); Zs('curl' + S, 0.05 + 0.95 * close, 16);
-    const bow = reach * (1 - ramp(t, 2.2, 3.2)); Zs('spX', 0.95 * bow, 8); legPose('L', -1.1 * bow, 0.07 + 2.2 * bow, 6); legPose('R', -1.1 * bow, 0.07 + 2.2 * bow, 6);
+    const bow = reach * (1 - ramp(t, 2.2, 3.2)) * (pos[1] > 22 ? 0.25 : 1); Zs('spX', 0.95 * bow, 8); legPose('L', -1.1 * bow, 0.07 + 2.2 * bow, 6); legPose('R', -1.1 * bow, 0.07 + 2.2 * bow, 6);
     tl(armCols(S), t < 1.5 ? 1 : 0); TI.speed *= 0.97;
     if (t >= 1.5 && !(TI.ev & 1)) {
       TI.ev |= 1; const c = CN['hand' + S], d = Math.hypot(pos[0] - c.ax, pos[1] - c.ay, pos[2] - c.az);
@@ -1705,8 +1705,10 @@ function titanTick(dt){
     let hx = tx / (d || 1), hz = tz / (d || 1);
     for (const ru of RUINS) { if (ru.col.y1 < ru.y0 + 14) continue; const fx = TI.x + Math.sin(TI.yaw) * 16 - ru.x, fz = TI.z + Math.cos(TI.yaw) * 16 - ru.z, dd = Math.hypot(fx, fz), R0 = 24 + ru.r; if (dd < R0 + 14) { const k = Math.pow(1 - dd / (R0 + 14), 1.5) * 2.4; hx += fx / (dd || 1) * k; hz += fz / (dd || 1) * k; } }
     const hl = Math.hypot(hx, hz) || 1; hx /= hl; hz /= hl;
-    const ty = Math.atan2(hx, hz), turn = T.turn * phaseSp; TI.yaw += clamp(angDiff(TI.yaw, ty), -turn * dt, turn * dt);
-    const want = (d > T.stopDist ? tgtSpeedMax : 0) * (Math.abs(angDiff(TI.yaw, ty)) > 1.0 ? 0.3 : 1);
+    let ty = Math.atan2(hx, hz); if (P.state === 'cling' && d < 24) ty = TI.yaw + Math.sin(performance.now() * 0.0004) * 0.5;
+    const turn = T.turn * phaseSp; TI.yaw += clamp(angDiff(TI.yaw, ty), -turn * dt, turn * dt);
+    let want = (d > T.stopDist ? tgtSpeedMax : 0) * (Math.abs(angDiff(TI.yaw, ty)) > 1.0 ? 0.3 : 1);
+    if (P.state === 'cling' && d < 24) { want = 3.4; }
     TI.speed += (want - TI.speed) * damp(1.2, dt);
   } else if (TI.state === 'walk') TI.speed += (0 - TI.speed) * damp(2, dt);
   else if (TI.state !== 'grab') TI.speed += (0 - TI.speed) * damp(5, dt);
@@ -2378,6 +2380,7 @@ function handleYank(dt){
     const rate = can ? 1 / YK.chargeT : 1 / (YK.chargeT * 0.9);
     Y.charge = Math.min(1, Y.charge + dt * rate); if (can) { wp.charge = Y.charge; Y.tgt = Math.min(1, Y.tgt + dt * 3); }
     if (!Y.prevHeld) sfx.chargeStart();
+    if (Y.charge > 0.1 && ((performance.now() / 160) | 0) !== Y.rumbleTick) { Y.rumbleTick = (performance.now() / 160) | 0; if (typeof window.__rumble === 'function') window.__rumble(0.1 * Y.charge, 0.25 + 0.5 * Y.charge, 70); }
     Y.flash = Y.charge >= YK.tearAt ? 1 : 0;
   } else if (Y.prevHeld) {
     const ch = Y.charge;
@@ -2652,13 +2655,13 @@ function updateScarf(dt){
   pts[0].copy(_hv);
   for (let i = 1; i < n; i++) {
     const p = pts[i], prev = pts[i - 1];
-    _hw.set(-vel[0] * 0.012, -0.05 - vel[1] * 0.004 + Math.sin(t * 4 + i) * 0.02, -vel[2] * 0.012); if (P.state === 'cling') _hw.set(0, -0.08, 0);
+    _hw.set(-vel[0] * 0.008, -0.07 - vel[1] * 0.003 + Math.sin(t * 5 + i) * 0.02, -vel[2] * 0.008); if (P.state === 'cling') _hw.set(0, -0.08, 0);
     const tx = prev.x + _hw.x - (Math.sin(hero.heading)) * 0.12 * 0, ty = prev.y + _hw.y, tz = prev.z + _hw.z;
     p.x += (tx - p.x) * damp(14, dt); p.y += (ty - p.y) * damp(14, dt); p.z += (tz - p.z) * damp(14, dt);
-    const dx = p.x - prev.x, dy = p.y - prev.y, dz = p.z - prev.z, l = Math.hypot(dx, dy, dz) || 1, seg = 0.17; p.x = prev.x + dx / l * seg; p.y = prev.y + dy / l * seg; p.z = prev.z + dz / l * seg;
+    const dx = p.x - prev.x, dy = p.y - prev.y, dz = p.z - prev.z, l = Math.hypot(dx, dy, dz) || 1, seg = 0.12; p.x = prev.x + dx / l * seg; p.y = prev.y + dy / l * seg; p.z = prev.z + dz / l * seg;
   }
   const sc = hero.scarf; for (let i = 0; i < n; i++) { sc.pts[i * 3] = pts[i].x; sc.pts[i * 3 + 1] = pts[i].y; sc.pts[i * 3 + 2] = pts[i].z; }
-  sc.mesh.visible = hero.root.visible; if (sc.mesh.visible) sc.build(0.11, camera.position.x, camera.position.y, camera.position.z);
+  sc.mesh.visible = hero.root.visible; if (sc.mesh.visible) sc.build(0.09, camera.position.x, camera.position.y, camera.position.z);
 }
 
 // ============================================================================
@@ -2816,8 +2819,8 @@ function updateCamera(dt, rx, ry, rz){
   cam.manualT += dt;
   const dxT = TI.x - rx, dzT = TI.z - rz, dT = Math.hypot(dxT, dzT), cl = P.state === 'cling';
   // gentle framing: keep the titan in view when the player is not steering the camera
-  if (cam.manualT > 0.9 && gstate === 'playing' && P.state !== 'dead' && dT > 28 && dT < 340) {
-    const tyaw = Math.atan2(-dxT, -dzT), err = angDiff(cam.yaw, tyaw), mag = Math.abs(err), rate = 0.85 * smooth(0.25, 1.1, mag) * (cl ? 0.15 : 1), stp = Math.min(mag, rate * dt); cam.yaw += Math.sign(err) * stp;
+  if (cam.manualT > 1.1 && gstate === 'playing' && P.state !== 'dead' && P.state !== 'grabbed' && dT > 28 && dT < 340 && (sp > 6 || cl)) {
+    const tyaw = Math.atan2(-dxT, -dzT), err = angDiff(cam.yaw, tyaw), mag = Math.abs(err), rate = 0.6 * smooth(0.5, 1.4, mag) * (cl ? 0.15 : 1), stp = Math.min(mag, rate * dt); cam.yaw += Math.sign(err) * stp;
     const tp = Math.atan2(36 - ry, dT), pe = clamp(tp, -0.1, 0.7) - cam.pitch; cam.pitch += clamp(pe, -0.45 * dt, 0.45 * dt) * smooth(0.08, 0.4, Math.abs(pe));
   }
   // climbing: keep the camera on the outside of the hide
@@ -2830,7 +2833,7 @@ function updateCamera(dt, rx, ry, rz){
   const fh = cl ? 40 : C.followH; camFocus.x += (tx - camFocus.x) * damp(fh, dt); camFocus.z += (tz - camFocus.z) * damp(fh, dt); camFocus.y += (ty - camFocus.y) * damp(cl ? 40 : C.followV, dt);
   const cp = Math.cos(cam.pitch), dx = -Math.sin(cam.yaw) * cp, dy = Math.sin(cam.pitch), dz = -Math.cos(cam.yaw) * cp, rxv = Math.cos(cam.yaw), rzv = -Math.sin(cam.yaw);
   const near = clamp((95 - dT) / 95, 0, 1), gb = P.state === 'grabbed';
-  const want = C.dist + near * C.titanPull * (cl ? 0.25 : 1) + clamp(sp * C.distSpeed, 0, 3.4) + (S.on ? 0.8 : 0) + (P.state === 'dive' ? 1.2 : 0) + (cl ? 3.5 : 0) + (gb ? 9 : 0) - 1.4 * P.yank.charge;
+  const want = C.dist + near * C.titanPull * (cl ? 0 : 1) + clamp(sp * C.distSpeed, 0, 3.4) + (S.on ? 0.8 : 0) + (P.state === 'dive' ? 1.2 : 0) + (cl ? 0.5 : 0) + (gb ? 9 : 0) - 1.4 * P.yank.charge;
   const sh = C.shoulder * (0.5 + 0.5 * smooth(2, 7, want));
   let wx = -dx * want + rxv * sh, wy = -dy * want + C.height - cam.dip, wz = -dz * want + rzv * sh; const wl = Math.hypot(wx, wy, wz); let allowed = wl;
   const ray = (yw, pt, len) => { const c2 = Math.cos(pt), ddx = Math.sin(yw) * c2, ddy = -Math.sin(pt), ddz = Math.cos(yw) * c2; return castRay(camFocus.x, camFocus.y, camFocus.z, ddx, ddy, ddz, len + 0.6, 0, null) ? Math.max(0.8, RH.t - 0.55) : len; };
@@ -2874,7 +2877,7 @@ function popup(text, color){ const d = document.createElement('div'); d.classNam
 function showHint(text, ms){ E.hint.textContent = text; E.hint.classList.add('on'); hintT = (ms || 2600) / 1000; }
 function hintOnce(key, text, ms){ if (hinted[key]) return; hinted[key] = 1; showHint(text, ms); }
 function warnText(text){ E.warn.textContent = text; E.warn.classList.add('on'); warnT = 1.3; }
-function hurtFx(dmg, kind){ hurtA = 1; cam.shake = Math.max(cam.shake, 0.6); }
+function hurtFx(dmg, kind){ hurtA = 1; cam.shake = Math.max(cam.shake, 0.6); if (typeof window.__rumble === 'function') window.__rumble(0.9, 0.6, 180); }
 const _pv = new THREE.Vector3();
 function project(x, y, z, out){ _pv.set(x, y, z).project(camera); out.x = (_pv.x * 0.5 + 0.5) * window.innerWidth; out.y = (-_pv.y * 0.5 + 0.5) * window.innerHeight; out.z = _pv.z; out.behind = _pv.z > 1; return out; }
 const _sc = { x: 0, y: 0, z: 0, behind: false };
@@ -3060,9 +3063,16 @@ function frame(now){
       hero.root.visible = false; hero.blob.visible = false; hero.scarf.mesh.visible = false; webRib.mesh.visible = webGlow.mesh.visible = zipRib.mesh.visible = whiffRib.mesh.visible = false;
     }
     if (gstate !== 'paused') { fxAdd.update(dt); fxDust.update(dt); updateRuins(dt); }
-    updateWorldVisuals(dt, clock); updateAudio(dt, gstate === 'playing');
+    updateWorldVisuals(dt, clock); updateAudio(dt, gstate === 'playing'); adaptRes(dt);
     renderer.render(scene, camera);
   }
+}
+let prCap = Math.min(window.devicePixelRatio || 1, 2), prCur = prCap, slowFor = 0, fastFor = 0;
+function adaptRes(dt){
+  if (gstate !== 'playing' || window.__game.adapt === false) { slowFor = fastFor = 0; return; }
+  if (fpsAvg < 38) { slowFor += dt; fastFor = 0; } else if (fpsAvg > 56) { fastFor += dt; slowFor = 0; } else { slowFor = fastFor = 0; }
+  if (slowFor > 2.5 && prCur > 0.7) { prCur = Math.max(0.7, prCur - 0.2); renderer.setPixelRatio(prCur); renderer.setSize(window.innerWidth, window.innerHeight, false); slowFor = 0; }
+  else if (fastFor > 6 && prCur < prCap) { prCur = Math.min(prCap, prCur + 0.15); renderer.setPixelRatio(prCur); renderer.setSize(window.innerWidth, window.innerHeight, false); fastFor = 0; }
 }
 function init(){
   loadBest(); updateBestLine(); resetTitan(); restoreRuins();
@@ -3104,6 +3114,7 @@ G_.clingTo = (name) => { const c = CN[name]; if (!c) return false; colFromBone(c
 G_.P = P; G_.TI = TI; G_.cam_ = cam; G_.WPS = WPS; G_.CN = CN; G_.RUINS = RUINS; G_.stats = stats; G_.run = run; G_.hAt = hAt; G_.keys = keys;
 G_.ray = (ox, oy, oz, dx, dy, dz, m) => { const ok = castRay(ox, oy, oz, dx, dy, dz, m || 200, 0, null); return ok ? { t: RH.t, col: RH.col ? RH.col.name : 'terrain', x: RH.x, y: RH.y, z: RH.z } : null; };
 G_.setHP = n => { P.hp = n; };
+G_.tearN = n => { for (let i = 0; i < n; i++) { const w = activeWP() || (activateNextWP(), activeWP()); if (!w) break; tearWP(w, 'yank'); } if (TI.state !== 'dying') { setTState('walk'); TI.cd = 1.5; } activateNextWP(); };
 G_.probe = (atk, p, secs) => { let best = 1e9, bn = '', bt = 0; TI.awake = true; if (TI.state === 'sleep') setTState('walk'); TI.cd = 1e9; beginAttack(atk); const n = Math.round(secs / STEP); for (let i = 0; i < n; i++) { titanTick(STEP); for (const c of TCOLS) if (c.hot) { const d = colDist(c, p[0], p[1], p[2]); if (d < best) { best = d; bn = c.name; bt = TI.st; } } } return { best, bn, bt }; }; G_.SW = SW;
 G_.sample = (atk, names, secs, step) => { const out = []; TI.awake = true; if (TI.state === 'sleep') setTState('walk'); TI.cd = 1e9; beginAttack(atk); const n = Math.round(secs / STEP), k = Math.round((step || 0.1) / STEP); for (let i = 0; i < n; i++) { titanTick(STEP); if (i % k === 0) out.push({ t: +TI.st.toFixed(2), st: TI.state, y: +TI.yaw.toFixed(2), c: names.map(nm => { const c = CN[nm]; return [c.bsx - TI.x, c.bsy, c.bsz - TI.z, c.hot ? 1 : 0].map(v => +v.toFixed(1)); }) }); } return out; };
 G_.anch = () => { const ok = findSwingAnchor(); const w = activeWP(); aimDir(_ad); return { ok, kind: ANCH.kind, a: [ANCH.x, ANCH.y, ANCH.z], wp: ANCH.wp ? ANCH.wp.id : null, cam: [camera.position.x, camera.position.y, camera.position.z], aim: [_ad[0], _ad[1], _ad[2]], active: w ? w.id : null, wpPos: w ? [w.wp.x, w.wp.y, w.wp.z] : null, snap: w ? !!wpSnap(null, camera.position.x, camera.position.y, camera.position.z, _ad[0], _ad[1], _ad[2], ASSIST.wpSnapDeg) : null }; };
