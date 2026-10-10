@@ -28,7 +28,9 @@ done
 DEST="${DEST:-${MTA_SMOKE_DIR:-$HOME/mta-smoke}}"
 PORT="${MTA_SMOKE_PORT:-22993}"; HTTP_PORT=$((PORT + 2))
 SRV="$DEST/multitheftauto_linux_x64"; DM="$SRV/mods/deathmatch"; OUT="$DM/resources/outbreak"
-WORK="$DEST/smoke"; LOG="$WORK/server.stdout.log"; FEED="$WORK/feeder.log"
+WORK="$DEST/smoke"; STDOUT_LOG="$WORK/server.stdout.log"; FEED="$WORK/feeder.log"
+SLOG="$DM/logs/server.log"   # the server's own log: written line by line (its stdout is block-buffered when redirected, so it cannot be polled)
+LOG="$SLOG"
 if [ "$QUICK" = 1 ]; then WAIT_RUN=8; FF=120; FF_TIMEOUT=90; else WAIT_RUN=25; FF=1440; FF_TIMEOUT=240; fi
 HASH="$(sed -n 's/.*hash = "\([0-9a-f]*\)".*/\1/p' "$RES/shared/selftest_data.lua" | head -n 1)"
 
@@ -55,8 +57,8 @@ if [ ! -e "$DEST/.mta-smoke" ]; then
 	: > "$DEST/.mta-smoke"
 fi
 rm -f "$OUT"/save/*.sav 2>/dev/null || true
-rm -f "$DM"/logs/server.log "$DM"/logs/scripts.log 2>/dev/null || true
-: > "$LOG"; : > "$FEED"
+rm -f "$SLOG" "$DM"/logs/scripts.log 2>/dev/null || true
+: > "$STDOUT_LOG"; : > "$FEED"
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------ the scenario
 count_log() { local n; n="$(grep -cE -- "$1" "$LOG" 2>/dev/null)"; echo "${n:-0}"; }
@@ -102,12 +104,13 @@ feeder() {
 	echo "shutdown"
 }
 
-say "== starting the server headless on port $PORT ($( [ "$QUICK" = 1 ] && echo quick || echo full ) scenario; log: $LOG)"
+say "== starting the server headless on port $PORT ($( [ "$QUICK" = 1 ] && echo quick || echo full ) scenario; polling its log $SLOG)"
 T0=$SECONDS
-feeder 2>>"$FEED" | timeout $((FF_TIMEOUT + WAIT_RUN + 240)) "$SRV/mta-server64" -n > "$LOG" 2>&1
+feeder 2>>"$FEED" | timeout $((FF_TIMEOUT + WAIT_RUN + 240)) "$SRV/mta-server64" -n > "$STDOUT_LOG" 2>&1
 SERVER_RC=${PIPESTATUS[1]}
 ELAPSED=$((SECONDS - T0))
-cp "$DM/logs/server.log" "$WORK/server.log" 2>/dev/null || true
+cp "$SLOG" "$WORK/server.log" 2>/dev/null || true
+LOG="$WORK/server.log"
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------ assertions
 PASS=0; FAILN=0
@@ -144,7 +147,7 @@ if echo "$L40" | grep -qE 'spawned 40 of 40 requested \(ok\): test zombies 40 \|
 	ok "outbreak_spawn 40: 40 zombie peds created; engine says model in config 40/40, tagged 40/40, alive 40/40, no syncer 40/40"
 else bad "outbreak_spawn 40 line: ${L40:-<missing>}"; fi
 L200="$(grep -E -- '\] spawned [0-9]+ of 200 requested' "$LOG" | head -n 1)"
-got="$(echo "$L200" | num 'spawned \([0-9]*\) of 200')"
+got="$(echo "$L200" | num '.*spawned \([0-9]*\) of 200.*')"
 hostile="$(echo "$L200" | num '.*hostile peds \([0-9]*\) of 60.*')"
 elems="$(echo "$L200" | num '.*ped elements \([0-9]*\).*')"
 if [ "${got:-x}" = 20 ] && [ "${hostile:-x}" = 60 ] && echo "$L200" | grep -q 'hostile cap'; then ok "outbreak_spawn 200: only the 20 that fit under max_materialized = 60 were created (hostile cap)"
@@ -158,7 +161,7 @@ if [ "${#PD[@]}" -ge 3 ]; then
 	if [ "${z3:-x}" = 0 ] && [ -n "$e3" ] && [ "$e3" -le 16 ]; then ok "after restart outbreak: zombies 0, ped elements $e3 (colonists only): nothing leaked"; else bad "outbreak_peds after the restart: ${PD[2]}"; fi
 else bad "expected 3 outbreak_peds lines, found ${#PD[@]}"; fi
 # nothing that looks like trouble: MTA's own errors, our error / warn lines, failures, aborts, timeouts
-BADLINES="$(grep -iE 'error|warning|failed|abort|timeout|exception|traceback' "$LOG" | grep -vE 'owner_email_address|Resources: [0-9]+ loaded, 0 failed' || true)"
+BADLINES="$(cat "$LOG" "$STDOUT_LOG" | grep -iE 'error|warning|failed|abort|timeout|exception|traceback|segmentation' | grep -vE 'owner_email_address|Resources: [0-9]+ loaded, 0 failed' || true)"
 if [ -z "$BADLINES" ]; then ok "no ERROR / WARNING / failed / abort / timeout line in the log (the owner_email_address warning is ignored)"
 else bad "suspicious log lines:"; echo "$BADLINES" | head -n 12 | sed 's/^/          /'; fi
 if [ -s "$FEED" ]; then bad "the scenario script itself reported:"; sed 's/^/          /' "$FEED" | head -n 8; fi

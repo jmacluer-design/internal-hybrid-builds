@@ -18,18 +18,19 @@ right after the `// </gamepad-shim>` block.
 | Hidden while WebXR presents | `navigator.xr.requestSession` is wrapped once; any non-`inline` session hides the controls until its `end` event. `window.__xrPresenting` is honoured too. |
 | Only while playing | hidden whenever `#menu`, `#dead`, `#pause` or `#loadsplash` (plus `profile.overlays`) is displayed (MutationObserver + a 250 ms safety tick). Held keys/touches are released on every hide, on `blur` and on `visibilitychange`. |
 | Big start target | if `#cta` / `#cta2` is visible but not fully on screen (souls64's menu card is taller than a landscape phone) a floating start button mirrors it. |
+| Pointer lock | a mouse feature. While it is held, Chromium reports `clientX/Y = 0` for touch pointer events, and phones have no use for it, so on touch devices `requestPointerLock()` is made to fail (a `pointerlockerror` event, no promise). All five games already handle that (`noLock` / `lockFailed`: look comes from `padLook`, no pause-on-unlock). Desktop is untouched (the wrapper calls the real API unless the shim is active). If a hybrid device already holds a lock when the first finger lands, the shim exits it (the game pauses; tap resume). |
 | No zoom/scroll/long-press | `touch-action:none` on every control, `touchstart` is cancelled on them (this also stops the compat `mousedown/mouseup/click` that games listen to on `window`), `gesture*`/`touchmove` cancelled while visible, `contextmenu` + `selectstart` blocked, `overscroll-behavior:none`. Viewport: `user-scalable=no` (patched in by the injector and again at runtime if missing). Orientation is never locked. |
 | Fullscreen | one `requestFullscreen` on the first touch tap (inside the gesture); the gear panel has a Fullscreen toggle. |
 | Haptics | `navigator.vibrate(8)` on button/gear/menu down where supported (not iOS). |
-| Portrait | a "Rotate your phone to landscape" pill (dismissable) on touch devices; the controls still work in portrait. |
+| Portrait | a "Rotate to landscape to play" pill (dismissable) on touch devices; the controls still work in portrait. |
 
 ## Controls
 
 * **Move**: dynamic stick in the left 40% of the screen (pad.html's stick logic): the base appears where the thumb lands, offset is clamped to the radius (about 57 px) and mapped to `w/a/s/d` with the same hysteresis as `pad.html` (on at .38, off at .22). Back is `s`.
 * **Look**: dragging anywhere else (not on a button) is a floating right stick that calls `padLook(dx,dy)` with values in [-1,1] (response curve |v|^1.5, games ignore |v| < 0.12). Releasing sends `padLook(0,0)`. **Drag from FIRE** also drives look while FIRE stays down (hold-to-swing + aim with one thumb).
-* **Action fan** (bottom-right, mirrors when left-handed): three thumb-rest buttons (big one in the middle), the rest on an outer arc. All buttons are at least 56 px; they are placed from the safe-area insets (`viewport-fit=cover` games get `env(safe-area-inset-*)`).
-* **Modifier column** (left edge, HUD-free band): toggles (`SPRINT`/`CREEP`/`SNEAK`/`BOOST`, tap on / tap off, lit dot) and one-shots.
-* **MENU** (top-right): `padMenu()`. Colossus pauses on it (one tap); the other four games leave the run, so it needs a second tap within 2 s ("QUIT?").
+* **Action fan** (bottom-right, mirrors when left-handed): three thumb-rest buttons (big one in the middle), the rest on an outer arc. All buttons are at least 56 px (the size slider is capped so the fan never runs into the MENU row); they are placed from the safe-area insets (pages with `viewport-fit=cover` get `env(safe-area-inset-*)`; blockshot and souls64 have it, the other three do not, so there env() is 0).
+* **Modifier column** (left edge, in the band between the top-left and bottom-left HUD blocks): toggles (`SPRINT`/`CREEP`/`SNEAK`/`BOOST`, tap on / tap off, lit dot) and one-shots. A lit toggle stays on until tapped again or the controls hide.
+* **MENU** (top-right): `padMenu()`. Colossus and souls64 only pause on it (one tap; souls64 shows its Resume menu); webcraft, blockshot and parkcraft abandon the run, so it needs a second tap within 2 s ("QUIT?").
 * **Gear**: size, opacity, look speed, left-handed, invert look Y, Sound (sends `M`), Fullscreen, Reset. Persisted in `localStorage['ib_touch']` (`{size,opacity,sens,left,invY}`); changing them re-lays the controls out immediately.
 * A key tap is held at least 60 ms so games that poll `keys` once per physics step cannot miss it.
 * Everything is DOM/CSS moved with `transform`; there is no rAF loop and no canvas. Work happens per input event and on a 4 Hz state check.
@@ -50,9 +51,9 @@ right after the `// </gamepad-shim>` block.
 | `e` | (ALT covers it) | (ALT covers it) | STRIKE | INTERACT | BUILD / RIDE |
 | `q` | RESPAWN | RESPAWN | FRAG | RECENTER | RESPAWN / ROTATE |
 | `shift` (toggle) | SPRINT | SPRINT | SPRINT | CREEP | DOWN (build, hold) |
-| other | | | SNEAK `c` (toggle), PREV `arrowleft` | | BOOST `control` (build, toggle) |
+| other | | | SNEAK `c` (toggle), PREV `arrowleft` (outer arc, next to NEXT) | | BOOST `control` (build, toggle) |
 | M mute | gear > Sound | same | same | same | same |
-| Esc / pause | MENU (pause) | MENU (2 taps, back to menu) | same | same | same |
+| Esc / pause | MENU (1 tap, pause) | MENU (2 taps, back to menu) | MENU (2 taps, back to menu) | MENU (1 tap, pause + Resume menu) | MENU (2 taps, back to menu) |
 
 Not given their own button, and why:
 
@@ -81,7 +82,7 @@ Not given their own button, and why:
           ]
         }
 
-4. Check the HUD: take a landscape screenshot at 844x390 with the controls up and move the fan / MENU pair (`fanLift`, `utilX`) off anything critical. Every game so far had HUD in at least three corners.
+4. Check the HUD: take a landscape screenshot at 844x390 with the controls up and move the fan / MENU pair (`fanLift`, `utilX`) off anything critical. Every game so far had HUD in at least three corners. The offsets are tuned for right-handed layout: HUD is not mirrored, so with "Left-handed" on, some HUD blocks (e.g. blockshot's minimap) can sit under the mirrored fan.
 5. Game-side requirements that bit us: (a) overlays must be hidden with `display:none` (`.hidden`) so the shim can see them; (b) a game that quits to its menu from `padMenu` should keep `menuQuit:true`; (c) `window` `mousedown` handlers are safe (touch never produces them) but do not rely on `mousedown` for anything a phone must do.
 6. Test with the Playwright mobile harness described below.
 
@@ -99,5 +100,10 @@ No searchable library repo had a usable multi-touch gamepad overlay (the Meta on
 
 ## Tests
 
-`phone-pass/mh.mjs` (Playwright iPhone-class mobile emulation: 844x390, DPR 3 or 1, `isMobile`, `hasTouch`, real multi-touch through CDP `Input.dispatchTouchEvent`) and `phone-pass/touch-test.mjs <game> [dpr] [default|nolock|lockerr]`.
-`__touch.state()` / `__touch.rects()` / `__touch.set()` are the debug hooks the tests use.
+Harness: `scratchpad/phone-pass/mh.mjs` (Playwright, iPhone-class mobile emulation 844x390, DPR 3 or 1, `isMobile` + `hasTouch`, real multi-touch through CDP `Input.dispatchTouchEvent`; note CDP `touchEnd` lists the points being *released*).
+Suite: `phone-pass/touch-test.mjs <game> [dpr] [default|nolock|lockerr] [sections]`, run against the five edited copies. Debug hooks it uses: `__touch.state()` (visibility, held keys, stick/look live, call counters, last look value), `__touch.rects()`, `__touch.set()`.
+Per game (default variant, 81-87 checks): overlay absent on desktop / hidden over `#menu` / shown after tapping start; geometry (>= 56 px, inside the screen, no overlaps) at default, 1.5x, 0.85x and left-handed; the 4 stick directions + diagonal + hysteresis + dead zone against the hero position; look drag -> `padLook` and the camera yaw/pitch (and invert-Y); JUMP / FIRE / ALT effects in the game; four fingers at once (stick + look + JUMP + FIRE) and lifting them one at a time; drag-from-FIRE look; every key button (held / toggle / 60 ms minimum hold); no compat mouse events reach the game; one fullscreen request; vibrate; swipe + pinch do not scroll or zoom; MENU (confirm / pause); settings panel by real touch (sliders, left-handed, persistence across reload); fake gamepad and fake WebXR session hide / restore the controls; run ends -> `#dead` -> touch retry -> `__save` wrote `ib_saves`; 10 s random multi-touch fuzz (finite `__dbg`, nothing stuck).
+Variants: `nolock` (no `requestPointerLock` at all, like iOS) and `lockerr` (present but denied) additionally assert that a mouse-move moves the same camera field the touch look drives.
+`phone-pass/shots.mjs`: landscape DPR 3, portrait hint + portrait play, 667x375 / 740x360 / 932x430 geometry, CDP safe-area insets (47 / 21 px) where the page has `viewport-fit=cover`.
+
+Known limits: blockshot's 10 buttons do not fit a 568x320 (4-inch) screen; below 667x375 landscape is unsupported. Nothing here was run on a real phone (see the report's unverified list): iOS Safari `touch-action` / `gesturestart` handling, Android pointer-lock behaviour, real haptics, real fullscreen, notch insets, thumb ergonomics.
