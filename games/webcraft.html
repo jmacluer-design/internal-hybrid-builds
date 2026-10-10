@@ -920,7 +920,7 @@ function buildBackdrop(){
         gl_FragColor = vec4(c, 1.0);
       }`,
   }));
-  sky.frustumCulled = false; sky.renderOrder = 1000;    // drawn last: early-z rejects every pixel the city already covers scene.add(sky); skyMesh = sky;
+  sky.frustumCulled = false; sky.renderOrder = 1000; scene.add(sky); skyMesh = sky;    // drawn last: early-z rejects every pixel the city already covers
 
   const water = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), new THREE.ShaderMaterial({
     uniforms: { uSunDir: { value: SUN_DIR }, uTime: { value: 0 } },
