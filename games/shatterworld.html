@@ -692,11 +692,12 @@ function updateEnv() {
   const prev = skyMat.uniforms.uSkyVox.value; skyMat.uniforms.uSkyVox.value = 0;
   const rt = pmrem.fromScene(envScene, 0.02, 1, 500); if (envRT) envRT.dispose(); envRT = rt; scene.environment = Q.lite ? null : rt.texture; skyMat.uniforms.uSkyVox.value = prev; applyAtmosphere();
 }
+let beamMatRef = null;
 function applyAtmosphere() {
   U.sunCol.value.copy(ATM.sun).multiplyScalar(1.0);
   sun.color.copy(ATM.sun); sun.intensity = ATM.sunI; hemi.color.copy(ATM.hemiS); hemi.groundColor.copy(ATM.hemiG); hemi.intensity = ATM.hemiI * (Q.lite ? 2.1 : 1); if (envRT) scene.environment = Q.lite ? null : envRT.texture;
   scene.fog.color.copy(ATM.fog); scene.fog.density = ATM.fogD; skyMat.uniforms.uCloud.value = ATM.cloud; skyMat.uniforms.uStars.value = ATM.stars;
-  scene.environmentIntensity = ATM.env; renderer.toneMappingExposure = ATM.exp; if (typeof beamMat !== 'undefined') beamMat.uniforms.uCol.value.copy(ATM.sun);
+  scene.environmentIntensity = ATM.env; renderer.toneMappingExposure = ATM.exp; if (beamMatRef) beamMatRef.uniforms.uCol.value.copy(ATM.sun);
 }
 setAtmosphere(1, 1, 0); applyAtmosphere();
 
@@ -875,7 +876,7 @@ float dens = gmask * (1.0 - smoothstep(14.0, 31.0, dist) * 0.97) * mix(1.0, 0.0,
 float keep = step(aOff.w, dens + 0.02) * step(0.02, dens);
 float gh = textureLod(uHW, (gp + 64.5) / 129.0, 0.0).r;
 float clump = uLite > 0.5 ? 1.0 : 0.7 + 0.7 * nz(gp * 0.09, 0);
-float hgt = (0.2 + 0.34 * fract(aOff.z * 7.13)) * clump * keep * mix(1.0, 1.25, uBladeScale - 1.0);
+float hgt = (0.16 + 0.27 * fract(aOff.z * 7.13)) * clump * keep * mix(1.0, 1.25, uBladeScale - 1.0);
 float ang = aOff.z * 6.2831;
 vec2 dv = vec2(cos(ang), sin(ang));
 float bw = 0.034 * (0.8 + 0.5 * fract(aOff.z * 13.7)) * uBladeScale * keep;
@@ -1249,9 +1250,9 @@ function updateShafts() {
 const outlineMat = new THREE.MeshBasicMaterial({ color: 0x14080a, side: THREE.BackSide, fog: true });
 const hv = hex => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.52, metalness: 0, emissive: hex, emissiveIntensity: 0.1 });
 const SPH = new THREE.SphereGeometry(1, 16, 12), CYL = new THREE.CylinderGeometry(1, 1, 1, 14, 1), HEMI = new THREE.SphereGeometry(1, 20, 10, 0, TAU, 0, PI / 2);
-function part(parent, geo, mat, x, y, z, sx, sy, sz, outline = 0.06) {
+function part(parent, geo, mat, x, y, z, sx, sy, sz, outline = 0.075) {
   const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; parent.add(m);
-  if (outline) { const o = new THREE.Mesh(geo, outlineMat); o.position.copy(m.position); o.scale.set(sx + outline, sy + outline, sz + outline); o.renderOrder = -1; parent.add(o); }
+  if (outline) { const o = new THREE.Mesh(geo, outlineMat); o.position.copy(m.position); o.scale.set(sx * (1 + outline) + 0.014, sy * (1 + outline) + 0.014, sz * (1 + outline) + 0.014); o.renderOrder = -1; parent.add(o); }
   return m;
 }
 function buildPlumber(o = {}) {
@@ -1403,8 +1404,10 @@ function stepHero(dt) {
     else if (P.act === 'punch') { if (P.actT > T.punch.time) setAct('ground'); P.vx *= Math.exp(-8 * dt); P.vz *= Math.exp(-8 * dt); }
     else {
       if (P.act !== 'ground') setAct('ground');
-      const tgt = P.crouch ? 0 : maxSp * (P.wade ? 0.72 : 1);
-      if (want) {
+      const tgt = maxSp * (P.wade ? 0.72 : 1);
+      if (P.crouch) { // crouch: a short slide that keeps speed for a moment (long-jump window), then stops
+        P.skid = false; const k = Math.max(0, hsp - 11 * dt) / Math.max(hsp, 1e-6); P.vx *= k; P.vz *= k;
+      } else if (want) {
         const dot = hsp > 0.3 ? (P.vx * wx + P.vz * wz) / hsp : 1;
         if (hsp > 6 && dot < -0.45) { // skid turn
           const k = Math.max(0, hsp - T.skidDecel * dt) / hsp; P.vx *= k; P.vz *= k; P.skid = true; P.skidT = 0.2;
@@ -1412,8 +1415,7 @@ function stepHero(dt) {
           P.skid = false; const tx = wx * tgt, tz = wz * tgt, dx = tx - P.vx, dz = tz - P.vz, dl = Math.hypot(dx, dz); const ac = (T.accel * (dot < 0.6 ? 1.7 : 1)) * dt;
           if (dl <= ac) { P.vx = tx; P.vz = tz; } else { P.vx += dx / dl * ac; P.vz += dz / dl * ac; }
         }
-      } else { P.skid = false; const k = Math.max(0, hsp - (P.crouch ? T.decel * 1.5 : T.decel) * dt) / Math.max(hsp, 1e-6); P.vx *= k; P.vz *= k; }
-      if (P.crouch) { const m2 = Math.hypot(P.vx, P.vz), lim = 3.2; if (m2 > lim) { P.vx *= lim / m2; P.vz *= lim / m2; } }
+      } else { P.skid = false; const k = Math.max(0, hsp - T.decel * dt) / Math.max(hsp, 1e-6); P.vx *= k; P.vz *= k; }
     }
     // ----- jumps -----
     if (P.jumpBuf > 0 && P.act !== 'pound_land' && !locked) {
@@ -2381,7 +2383,7 @@ const beamMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   }` });
-const SHARD_GEO = new THREE.OctahedronGeometry(1, 0);
+beamMatRef = beamMat; const SHARD_GEO = new THREE.OctahedronGeometry(1, 0);
 function makeShardMesh() {
   const g = new THREE.Group(); const core = new THREE.Mesh(SHARD_GEO, shardCoreMat); core.scale.set(0.55, 0.95, 0.55); g.add(core);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.035, 8, 40), shardRingMat); ring.rotation.x = PI / 2; g.add(ring); const ring2 = ring.clone(); ring2.rotation.set(PI / 2.6, 0.4, 0); ring2.scale.setScalar(1.2); g.add(ring2);
@@ -2453,7 +2455,7 @@ function buildShell() {
   g.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); return { g, body };
 }
 function addEnemy(spec) {
-  const m = spec.type === 'shell' ? buildShell() : buildWalker(); m.g.position.set(spec.x, spec.y, spec.z); scene.add(m.g);
+  const m = spec.type === 'shell' ? buildShell() : buildWalker(); m.g.scale.setScalar(1.3); m.g.position.set(spec.x, spec.y, spec.z); scene.add(m.g);
   const e = { type: spec.type, x: spec.x, y: spec.y, z: spec.z, hx: spec.x, hz: spec.z, r: spec.r || 3, dir: Math.random() < 0.5 ? 1 : -1, ang: Math.random() * TAU, vy: 0, state: 'walk', t: 0, mesh: m.g, body: m.body, alive: true, ceil: !!spec.ceil, kx: 0, kz: 0, h: 0.8, ph: Math.random() * 6 };
   if (e.ceil) { m.g.rotation.z = PI; } ENEMIES.push(e); return e;
 }

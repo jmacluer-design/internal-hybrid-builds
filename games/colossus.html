@@ -2839,13 +2839,13 @@ function updateCamera(dt, rx, ry, rz){
   const sh = C.shoulder * (0.5 + 0.5 * smooth(2, 7, want));
   let wx = -dx * want + rxv * sh, wy = -dy * want + C.height - cam.dip, wz = -dz * want + rzv * sh; const wl = Math.hypot(wx, wy, wz); let allowed = wl;
   const ray = (yw, pt, len) => { const c2 = Math.cos(pt), ddx = Math.sin(yw) * c2, ddy = -Math.sin(pt), ddz = Math.cos(yw) * c2; return castRay(camFocus.x, camFocus.y, camFocus.z, ddx, ddy, ddz, len + 0.6, 0, null) ? Math.max(0.8, RH.t - 0.55) : len; };
-  if (castRay(camFocus.x, camFocus.y, camFocus.z, wx / wl, wy / wl, wz / wl, wl + 0.6, gb ? 4 : 0, null)) allowed = Math.max(0.9, Math.min(wl, RH.t - 0.55));
-  if (cl && allowed < want * 0.55) {      // cramped against the hide: slide the orbit toward the roomiest direction
+  if (castRay(camFocus.x, camFocus.y, camFocus.z, wx / wl, wy / wl, wz / wl, wl + 0.6, gb ? 4 : 0, null)) allowed = Math.max(cl ? 2.4 : 0.9, Math.min(wl, RH.t - 0.55));
+  if (cl && allowed < want * 0.7) {      // cramped against the hide: slide the orbit toward the roomiest direction
     let bestS = -1e9, byw = cam.yaw, bpt = cam.pitch;
-    for (const dy of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9, 2.6]) for (const dp of [0, 0.35, -0.3]) {
+    for (const dy of [0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 2.1, -2.1, 2.8]) for (const dp of [0, 0.35, -0.3]) {
       const yw = cam.yaw + dy, pt = clamp(cam.pitch + dp, -0.9, 1.1), room = ray(yw, pt, want), sc = Math.min(room, want) - 0.9 * Math.abs(dy) - 2 * Math.abs(dp); if (sc > bestS) { bestS = sc; byw = yw; bpt = pt; }
     }
-    const e = angDiff(cam.yaw, byw); cam.yaw += clamp(e, -3.2 * dt, 3.2 * dt); cam.pitch += clamp(bpt - cam.pitch, -1.5 * dt, 1.5 * dt);
+    const e = angDiff(cam.yaw, byw); cam.yaw += clamp(e, -4.5 * dt, 4.5 * dt); cam.pitch += clamp(bpt - cam.pitch, -2 * dt, 2 * dt);
   }
   if (allowed < camLen) camLen = allowed; else camLen += (allowed - camLen) * damp(4, dt);
   const k = camLen / wl; let px = camFocus.x + wx * k, py = camFocus.y + wy * k, pz = camFocus.z + wz * k;
