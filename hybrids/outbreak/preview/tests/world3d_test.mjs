@@ -78,7 +78,7 @@ if (want('counts')) {
   const p = await open3d({ q: 'mid' });
   await colony(p, { seed: 5, days: 5, horde: 40 });
   await p.page.evaluate(() => { __preview.debug('give', { item: 'canned_beans', n: 3 }); });
-  await p.sync(); await p.frames(3);
+  await p.sync(); await p.frames(40, 0.1); // (zombies of a fresh horde rise out of the ground over ~3 s before they are drawn)
   const sim = await p.sim(), sc = await p.W((_, W) => W.dyn.sceneCounts());
   const alive = sim.colonists.filter(c => c.state !== 'away').length;
   check(sim.colonists.length >= 4 && alive === sc.colonists, `colonists in the scene (${sc.colonists}) = colonists at home in the sim (${alive} of ${sim.colonists.length})`);
@@ -228,7 +228,7 @@ if (want('pick')) {
   const boxed = await p.ui.evaluate(() => OB.S.sel.slice()); check(boxed.length === home.length, `box select picks everyone inside the rectangle (${boxed.length} of ${home.length})`);
   // move order: select one, right-click the ground, choose "Move ... here"
   await p.page.mouse.click(pt.x, pt.y); await sleep(100);
-  const target = { px: Math.min(1100, pt.x + 150), py: Math.min(760, pt.y + 110) }; const gp = await p.W(t => W => 0, 0).catch(() => null);
+  const target = { px: Math.min(1100, pt.x + 150), py: Math.min(760, pt.y + 110) };
   const ground = await p.W(t => window.__preview.world3d().dyn.groundPoint(t.px, t.py), target);
   await p.page.evaluate(() => { window.__posts.length = 0; });
   await p.page.mouse.click(target.px, target.py, { button: 'right' }); await sleep(250);
