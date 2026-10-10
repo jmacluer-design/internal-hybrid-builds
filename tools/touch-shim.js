@@ -33,7 +33,7 @@
       K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('respawn','RESPAWN','q',{side:'L'}) ] },
     webcraft:{ menuQuit:true, utilX:118, buttons:[ FIRE('SWING',{big:1}), JUMP(), ALT('ZIP'), K('dive','DIVE','z'), K('yank','YANK','j'),
       K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('respawn','RESPAWN','q',{side:'L'}) ] },
-    blockshot:{ menuQuit:true, fanLift:78, buttons:[ FIRE('FIRE',{big:1}), JUMP(), ALT('AIM'), K('reload','RELOAD','z'), K('frag','FRAG','q'), K('strike','STRIKE','e'), K('next','NEXT','j'),
+    blockshot:{ menuQuit:true, fanLift:30, buttons:[ FIRE('FIRE',{big:1}), JUMP(), ALT('AIM'), K('reload','RELOAD','z'), K('frag','FRAG','q'), K('strike','STRIKE','e'), K('next','NEXT','j'),
       K('sprint','SPRINT','shift',{side:'L',mode:'toggle'}), K('sneak','SNEAK','c',{side:'L',mode:'toggle'}), K('prev','PREV','arrowleft',{side:'L'}) ] },
     souls64:{ menuQuit:true, buttons:[ FIRE('PUNCH',{big:1}), JUMP(), ALT('GRAB'), K('crouch','CROUCH\nPOUND','z'), K('use','INTERACT','e'),
       K('creep','CREEP','shift',{side:'L',mode:'toggle'}), K('recenter','RECENTER','q',{side:'L'}) ] },
@@ -168,8 +168,8 @@ html.ibt-active,html.ibt-active body{overscroll-behavior:none}
     const n2=ring2.length, r2=3.55*u;                                // outer arc around the anchor
     ring2.forEach((o,i)=>{ const a=(n2<2?38:n2===2?(i?64:14):6+i*72/(n2-1))*Math.PI/180; put(o.el,X(ax+r2*Math.cos(a)),Y(ay+lift+r2*Math.sin(a)),u); });
     const lx=mir>0?eO+m+u/2:W-eO-m-u/2, gap=Math.round(u*.14);       // modifier column: HUD-free left band, on the non-thumb edge
-    left.forEach((o,i)=>put(o.el,lx,Hh*.41+u/2+i*(u+gap),u));
-    defS.x=mir>0?eO+m+u+8+Rs:W-eO-m-u-8-Rs; defS.y=Math.round(Hh*.6);   // idle stick ring (hint only): beside the column, clear of the corner HUD blocks
+    left.forEach((o,i)=>put(o.el,lx,Hh*.33+u/2+i*(u+gap),u));
+    defS.x=mir>0?eO+m+u+8+Rs:W-eO-m-u-8-Rs; defS.y=Math.round(Hh*.55);   // idle stick ring (hint only): beside the column, clear of the corner HUD blocks
     sb.style.width=sb.style.height=2*Rs+'px'; sb.style.margin=(-Rs)+'px 0 0 '+(-Rs)+'px';
     const kr=Math.round(Rs*.42); sk.style.width=sk.style.height=2*kr+'px'; sk.style.margin=(-kr)+'px 0 0 '+(-kr)+'px';
     lb.style.width=lb.style.height=2*Rl+'px'; lb.style.margin=(-Rl)+'px 0 0 '+(-Rl)+'px';
