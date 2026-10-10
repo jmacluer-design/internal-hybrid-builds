@@ -244,9 +244,12 @@ function Host:advance(dt_ms)
 	end
 	self:flush_events()
 	self:push_periodic()
-	if s.autosave_s > 0 and self.real_ms >= self.next.autosave then
-		self.next.autosave = self.real_ms + s.autosave_s * 1000
-		if self.store and not w.s.over then self:save_game("autosave") end
+	if s.autosave_s > 0 then
+		if not self.next.autosave_set then self.next.autosave_set, self.next.autosave = true, self.real_ms + s.autosave_s * 1000 end -- first save one interval after start
+		if self.real_ms >= self.next.autosave then
+			self.next.autosave = self.real_ms + s.autosave_s * 1000
+			if self.store and not w.s.over then self:save_game("autosave") end
+		end
 	end
 	return ticked
 end
@@ -448,7 +451,9 @@ function Host:ui_action(name, data)
 		self:push_inventory()
 		return true
 	elseif name == "set_speed" then
-		local sp = math.floor(U.num(data.speed, 1))
+		local sp = U.num(data.speed)
+		if not sp then return false end
+		sp = math.floor(sp)
 		if not SPEEDS[sp] then return false end
 		self.speed = sp
 		self.paused = (sp == 0)

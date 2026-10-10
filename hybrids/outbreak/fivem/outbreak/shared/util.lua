@@ -120,7 +120,7 @@ function M.msgpack_safe(v, limits)
 		end
 		if t ~= "table" then return false, path .. ": " .. t .. " is not msgpack-safe" end
 		if depth > max_depth then return false, path .. ": too deep" end
-		if seen[x] then return false, path .. ": cycle / shared reference" end
+		if seen[x] then return false, path .. ": cycle" end
 		if getmetatable(x) ~= nil then return false, path .. ": has a metatable" end
 		seen[x] = true
 		local n, arr, map = 0, 0, 0

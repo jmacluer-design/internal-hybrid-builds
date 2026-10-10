@@ -53,6 +53,8 @@ C.client = {
 	cam_height = 60.0, cam_min_h = 15.0, cam_max_h = 200.0, cam_pan_speed = 40.0, edge_pan = 0.02,
 	-- zombie perception (TP-Advanced-Zombies distances, metres): crouching / walking / sprinting
 	detect = { crouch = 10.0, walk = 35.0, sprint = 45.0 },
+	snap_grace_ms = 4000,      -- a colonist ped that has not arrived this long after the sim's own walking time is snapped to the destination
+	snap_max_ms = 60000,       -- ... and never waits longer than this
 	attack_range = 1.4,
 	attack_cooldown_ms = 1100,
 	hear_gunshot = 140.0,      -- materialized zombies within loudness*0.5 metres investigate a noise

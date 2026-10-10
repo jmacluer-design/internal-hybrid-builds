@@ -86,10 +86,13 @@ do
 		if text then
 			local fm = text:match("^%-%-%-\n(.-)\n%-%-%-")
 			local ap = fm and fm:match("apiset:%s*(%a+)") or "shared"
+			local game = fm and fm:match("game:%s*(%w+)") -- a decl that exists only for RedM / LibertyM is not a GTA V native
 			local client, server = (ap == "client" or ap == "shared"), (ap == "server" or ap == "shared")
 			local base = path:match("([^/]+)%.md$")
-			if base then add(base, client, server, "cfx"); n_cfx = n_cfx + 1 end
-			for nm in text:gmatch("\n## ([%w_]+)") do add(pascal(nm), client, server, "cfx") end
+			if not game or game == "gta5" then
+				if base then add(base, client, server, "cfx"); n_cfx = n_cfx + 1 end
+				for nm in text:gmatch("\n## ([%w_]+)") do add(pascal(nm), client, server, "cfx") end
+			end
 		end
 	end
 	p:close()
