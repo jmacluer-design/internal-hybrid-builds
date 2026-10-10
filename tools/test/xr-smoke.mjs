@@ -1,0 +1,15 @@
+import { launch } from './harness.mjs';
+const root = new URL('./xr-smoke', import.meta.url).pathname;
+const g = await launch(root + '/index.html', { root, w: 1000, h: 600 });
+await g.wait(800);
+console.log('supported:', await g.eval(async () => await navigator.xr.isSessionSupported('immersive-vr')));
+console.log('sources at entry:', await g.eval(() => window.__enter()));
+await g.wait(500);
+await g.eval(() => { window.__xrdev.position.set(0, 1.7, 0); });
+await g.eval(() => { const c = window.__xrdev.controllers; c.right.updateButtonValue('trigger', 1); c.left.updateAxes('thumbstick', 1, 0); });
+await g.wait(700);
+const s = await g.eval(() => JSON.parse(JSON.stringify(window.__state)));
+console.log(JSON.stringify(s, null, 1));
+const ok = s.inXR && s.xrFrames > 5 && s.sources.length >= 2 && s.rigX > 0.1 && s.sources.some(x => x.hand==='right' && x.buttons && x.buttons[0] > 0.9);
+console.log('errors:', JSON.stringify(g.errors)); console.log(ok ? 'XR EMULATION OK' : 'XR EMULATION FAILED');
+await g.close(); process.exit(ok ? 0 : 1);

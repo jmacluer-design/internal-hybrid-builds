@@ -1,0 +1,27 @@
+<!doctype html><meta charset=utf-8><body style="margin:0;background:#000">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { XRDevice, metaQuest3 } from '/__nm/iwer/build/iwer.module.js';
+const device = new XRDevice(metaQuest3); device.installRuntime({ forceInstall: true }); window.__xrdev = device;
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); renderer.xr.enabled = true; document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x203040);
+const cam = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.05, 100); const rig = new THREE.Group(); rig.add(cam); scene.add(rig);
+const box = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshNormalMaterial()); box.position.set(0,1.5,-3); scene.add(box);
+scene.add(new THREE.GridHelper(20,20));
+const st = window.__state = { inXR:false, frames:0, xrFrames:0, sources:[], rigX:0, hmdY:0 };
+renderer.setAnimationLoop((t, frame) => {
+  st.frames++; box.rotation.y += 0.01;
+  const session = renderer.xr.getSession();
+  if (session) {
+    st.xrFrames++; st.sources = [];
+    for (const src of session.inputSources) {
+      const gp = src.gamepad; st.sources.push({ hand: src.handedness, axes: gp ? Array.from(gp.axes) : null, buttons: gp ? gp.buttons.map(b => +b.value.toFixed(2)) : null });
+      if (src.handedness === 'left' && gp) rig.position.x += (gp.axes[2] || 0) * 0.05; // thumbstick locomotion
+    }
+    st.rigX = rig.position.x; st.hmdY = renderer.xr.getCamera().position.y;
+  }
+  renderer.render(scene, cam);
+});
+window.__enter = async () => { const s = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] }); await renderer.xr.setSession(s); st.inXR = true; return s.inputSources.length; };
+</script>

@@ -1,75 +1,107 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>pad</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <style>
- html,body{margin:0;background:#0a0a12;color:#eef;font-family:ui-monospace,monospace;touch-action:none;}
- #pad{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
- .half{width:50%;height:100%;position:relative;}
- .stick{position:absolute;width:170px;height:170px;border-radius:50%;border:2px solid #344;background:rgba(255,255,255,.04);}
- .knob{position:absolute;width:70px;height:70px;border-radius:50%;background:rgba(120,200,255,.35);border:1px solid #7cf;pointer-events:none;}
- .btn{position:absolute;width:84px;height:84px;border-radius:50%;border:2px solid #556;background:rgba(255,255,255,.05);
-      font-size:13px;display:flex;align-items:center;justify-content:center;user-select:none;}
+ html,body{margin:0;height:100%;background:#0a0a12;color:#eef;font-family:ui-monospace,monospace;touch-action:none;
+   overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+ #pad{position:fixed;inset:0;}
+ .stick{position:absolute;width:min(34vh,190px);height:min(34vh,190px);border-radius:50%;border:2px solid #344;background:rgba(255,255,255,.04);touch-action:none;}
+ #stickL{left:max(3vw,env(safe-area-inset-left));bottom:7vh;}
+ #stickR{right:max(3vw,env(safe-area-inset-right));bottom:7vh;}
+ .knob{position:absolute;width:42%;height:42%;border-radius:50%;background:rgba(120,200,255,.35);border:1px solid #7cf;pointer-events:none;left:29%;top:29%;}
+ .btn{position:absolute;width:min(17vh,84px);height:min(17vh,84px);border-radius:50%;border:2px solid #556;background:rgba(255,255,255,.05);
+      font-size:12px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;touch-action:none;}
+ .btn.sm{width:min(12vh,58px);height:min(12vh,58px);font-size:11px;border-radius:14px;}
  .btn.on{background:rgba(57,255,138,.35);border-color:#3f8;}
+ #bJump{right:calc(max(3vw,env(safe-area-inset-right)) + min(34vh,190px) + 2vw);bottom:5vh;}
+ #bFire{right:calc(max(3vw,env(safe-area-inset-right)) + min(34vh,190px) + 2vw + min(17vh,84px) + 1.5vw);bottom:11vh;}
+ #bPlace{right:calc(max(3vw,env(safe-area-inset-right)) + min(34vh,190px) + 2vw);bottom:calc(5vh + min(17vh,84px) + 1.5vh);}
+ #bJ{right:calc(max(3vw,env(safe-area-inset-right)) + min(34vh,190px) + 2vw + min(17vh,84px) + 1.5vw);bottom:calc(11vh + min(17vh,84px) + 1.5vh);}
+ #bZ{right:calc(max(3vw,env(safe-area-inset-right)) + min(34vh,190px) + 2vw + 2*min(17vh,84px) + 3vw);bottom:5vh;}
+ #bShift{left:max(3vw,env(safe-area-inset-left));top:6vh;}
+ #bQ{left:calc(max(3vw,env(safe-area-inset-left)) + min(12vh,58px) + 2vw);top:6vh;}
+ #bE{left:calc(max(3vw,env(safe-area-inset-left)) + 2*min(12vh,58px) + 4vw);top:6vh;}
+ #bBack{right:max(3vw,env(safe-area-inset-right));top:6vh;}
+ #hint{position:absolute;left:0;right:0;top:2vh;text-align:center;font-size:11px;color:#667;pointer-events:none;}
 </style></head><body>
 <div id="pad">
- <div class="half" id="L">
-   <div class="stick" id="stickL"></div>
-   <div class="btn" id="bJ">J · mode</div>
-   <div class="btn" id="bZ">Z · pound</div>
- </div>
- <div class="half" id="R">
-   <div class="stick" id="stickR"></div>
-   <div class="btn" id="bFire">FIRE</div>
-   <div class="btn" id="bJump">JUMP</div>
-   <div class="btn" id="bPlace">PLACE</div>
-   <div class="btn" id="bBack">⏎ menu</div>
- </div>
+ <div id="hint">phone pad · same room as the screen · <span id="conn">…</span></div>
+ <div class="stick" id="stickL"><div class="knob"></div></div>
+ <div class="btn sm" id="bShift">SHIFT</div>
+ <div class="btn sm" id="bQ">Q</div>
+ <div class="btn sm" id="bE">E</div>
+ <div class="btn sm" id="bBack">MENU</div>
+ <div class="stick" id="stickR"><div class="knob"></div></div>
+ <div class="btn" id="bJump">JUMP</div>
+ <div class="btn" id="bFire">FIRE</div>
+ <div class="btn" id="bPlace">ALT</div>
+ <div class="btn" id="bJ">J</div>
+ <div class="btn" id="bZ">Z</div>
 </div>
 <script>
-// phone = controller: stick drags -> key events; buttons -> key events; posts to /api/input
-const API=location.origin; let n=0, seq=Date.now()*1e6;
+// phone = controller. Events posted to /api/input?sid=main (or Supabase ib_input), consumed by each game's shelf bridge:
+//   {type:'key',k,down}  k in w a s d ' ' j z shift e q   (left stick = w/a/s/d; back is 's')
+//   {type:'look',dx,dy}  right stick, analog [-1,1], {0,0} on release
+//   {type:'fire',down} {type:'place',down}   {type:'menu'}
+const API=location.origin; let seq=Date.now()*1e6;
 const SUPA=(()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
+const conn=document.getElementById('conn');
+let okSrv=null;
 function send(ev){
   fetch(API+'/api/input?sid=main',{method:'POST',body:JSON.stringify(ev),headers:{'Content-Type':'application/json'}})
-   .catch(()=>{ if(SUPA){ seq++; fetch(SUPA.url+'/rest/v1/ib_input',
-      {method:'POST',headers:{'apikey':SUPA.key,'Content-Type':'application/json'},
-       body:JSON.stringify({sid:'main',seq:seq,ev:ev})}); } });
-  n++;
+   .then(r=>{ if(!r.ok) throw 0; okSrv=true; conn.textContent='relay: server'; })
+   .catch(()=>{ okSrv=false;
+     if(SUPA){ seq++; conn.textContent='relay: supabase';
+       fetch(SUPA.url+'/rest/v1/ib_input',{method:'POST',headers:{'apikey':SUPA.key,'Content-Type':'application/json'},
+         body:JSON.stringify({sid:'main',seq:seq,ev:ev})}).catch(()=>{}); }
+     else conn.textContent='NO RELAY (set one up: /supa)'; });
 }
-function key(k,down){ send({type:'key',k,down}); }
-const halves={L:document.getElementById('L'),R:document.getElementById('R')};
-const sticks={L:document.getElementById('stickL'),R:document.getElementById('stickR')};
-const knobs={}; const held={};
-function stickState(side,dx,dy){ // translate stick vector into keys
-  const map={L:['a','d','e','w'],R:['a','d','e','w']}; // both sticks drive movement; R also look via game
-  const [a,d,e,w]=map[side];
-  const set=(k,v)=>{ if(held[side+':'+k]!==v){ held[side+':'+k]=v; key(k,v); } };
-  set(a,dx<-0.35); set(d,dx>0.35); set(w,dy<-0.35); set(e,dy>0.35);
-}
-function bindStick(side){
-  const st=sticks[side], h=halves[side];
-  const knob=document.createElement('div'); knob.className='knob'; st.appendChild(knob); knobs[side]=knob;
-  let active=false, cx=0, cy=0;
-  const on=(x,y)=>{
-    const r=st.getBoundingClientRect(), ccx=r.left+r.width/2, ccy=r.top+r.height/2;
-    const dx=Math.max(-1,Math.min(1,(x-ccx)/80)), dy=Math.max(-1,Math.min(1,(y-ccy)/80));
-    knob.style.left=(r.width/2+dx*80-35)+'px'; knob.style.top=(r.height/2+dy*80-35)+'px';
-    stickState(side,dx,dy);
-    if(side==='R') send({type:'look',dx,dy});
+const key=(k,down)=>send({type:'key',k,down});
+const pressed=new Set(); // every held control, released on blur/hide so nothing sticks
+function release(){ pressed.forEach(f=>f()); pressed.clear(); send({type:'look',dx:0,dy:0}); }
+addEventListener('blur',release); document.addEventListener('visibilitychange',()=>{ if(document.hidden) release(); });
+addEventListener('contextmenu',e=>e.preventDefault());
+
+function bindStick(el,onMove,onEnd){
+  const knob=el.querySelector('.knob'); let id=null;
+  const move=ev=>{
+    const r=el.getBoundingClientRect(), R=r.width/2;
+    let dx=(ev.clientX-(r.left+R))/R, dy=(ev.clientY-(r.top+R))/R;
+    const m=Math.hypot(dx,dy); if(m>1){ dx/=m; dy/=m; }
+    knob.style.left=(29+dx*29)+'%'; knob.style.top=(29+dy*29)+'%'; onMove(dx,dy);
   };
-  st.addEventListener('pointerdown',ev=>{ active=true; cx=ev.clientX; cy=ev.clientY;
-    const r=st.getBoundingClientRect(); knob.style.left=(r.width/2-35)+'px'; knob.style.top=(r.height/2-35)+'px'; });
-  st.addEventListener('pointermove',ev=>{ if(active) on(ev.clientX,ev.clientY); });
-  st.addEventListener('pointerup',ev=>{ active=false; ['a','d','e','w'].forEach(k=>{ if(held[side+':'+k]){held[side+':'+k]=false;key(k,false);} }); });
+  const end=()=>{ id=null; knob.style.left='29%'; knob.style.top='29%'; onEnd(); pressed.delete(end); };
+  el.addEventListener('pointerdown',ev=>{ id=ev.pointerId; el.setPointerCapture(id); pressed.add(end); move(ev); });
+  el.addEventListener('pointermove',ev=>{ if(ev.pointerId===id) move(ev); });
+  el.addEventListener('pointerup',ev=>{ if(ev.pointerId===id) end(); });
+  el.addEventListener('pointercancel',ev=>{ if(ev.pointerId===id) end(); });
 }
-bindStick('L'); bindStick('R');
-const btns={bJ:'j',bZ:'z',bFire:'fire',bJump:' ',bPlace:'place'};
-for(const [id,k] of Object.entries(btns)){
-  const el=document.getElementById(id);
-  const down=()=>{ el.classList.add('on'); send(k==='fire'?{type:'fire'}:k==='place'?{type:'place'}:{type:'key',k,down:true}); };
-  const up=()=>{ el.classList.remove('on'); if(k==='fire'||k==='place') send({type:k}); else send({type:'key',k,down:false}); };
-  el.addEventListener('pointerdown',down); el.addEventListener('pointerup',up);
+// left stick -> w/a/s/d with hysteresis (on at .38, off at .22)
+const held={};
+function setKey(k,on){ if(!!held[k]!==on){ held[k]=on; key(k,on); } }
+function axis(neg,pos,v){
+  setKey(neg, held[neg]? v<-0.22 : v<-0.38);
+  setKey(pos, held[pos]? v> 0.22 : v> 0.38);
 }
-document.getElementById('bBack').addEventListener('pointerdown',()=>{ send({type:'menu'}); });
+bindStick(document.getElementById('stickL'),(dx,dy)=>{ axis('a','d',dx); axis('w','s',dy); },
+  ()=>{ ['a','d','w','s'].forEach(k=>setKey(k,false)); });
+// right stick -> analog look only (throttled; always sends the release)
+let lastLook=0;
+bindStick(document.getElementById('stickR'),(dx,dy)=>{
+  const t=performance.now(); if(t-lastLook<45) return; lastLook=t; send({type:'look',dx:+dx.toFixed(2),dy:+dy.toFixed(2)});
+},()=>send({type:'look',dx:0,dy:0}));
+
+function bindBtn(id,downEv,upEv){
+  const el=document.getElementById(id); let pid=null;
+  const up=()=>{ if(pid===null) return; pid=null; el.classList.remove('on'); pressed.delete(up); upEv&&upEv(); };
+  el.addEventListener('pointerdown',ev=>{ if(pid!==null) return; pid=ev.pointerId; el.setPointerCapture(pid); el.classList.add('on'); pressed.add(up); downEv(); });
+  el.addEventListener('pointerup',ev=>{ if(ev.pointerId===pid) up(); });
+  el.addEventListener('pointercancel',ev=>{ if(ev.pointerId===pid) up(); });
+}
+const keyBtn=(id,k)=>bindBtn(id,()=>key(k,true),()=>key(k,false));
+keyBtn('bJump',' '); keyBtn('bJ','j'); keyBtn('bZ','z'); keyBtn('bShift','shift'); keyBtn('bQ','q'); keyBtn('bE','e');
+bindBtn('bFire',()=>send({type:'fire',down:true}),()=>send({type:'fire',down:false}));
+bindBtn('bPlace',()=>send({type:'place',down:true}),()=>send({type:'place',down:false}));
+bindBtn('bBack',()=>send({type:'menu'}));
 </script>
 </body></html>

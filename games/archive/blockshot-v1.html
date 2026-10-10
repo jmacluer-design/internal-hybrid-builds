@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>BLOCKSHOT — MW2 × Minecraft mashup</title>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }
+</script>
+<style>
+  html, body { margin:0; padding:0; background:#0b0d08; overflow:hidden; }
+  * { box-sizing: border-box; }
+  #stage { position:relative; width:960px; height:540px; margin:0 auto; overflow:hidden;
+          border:1px solid var(--border); border-radius:10px; background:#0b0d08; }
+  canvas { display:block; }
+  #hud { position:absolute; inset:0; pointer-events:none; font-family:monospace; color:#e8e8d8; }
+  .hud-tl { position:absolute; top:14px; left:18px; text-shadow:0 0 6px #000; }
+  .hud-tr { position:absolute; top:14px; right:18px; text-align:right; }
+  .hud-b  { position:absolute; bottom:12px; left:0; right:0; text-align:center; }
+  .hud-bl { position:absolute; bottom:34px; left:18px; }
+  .cross { position:absolute; left:50%; top:50%; width:18px; height:18px; margin:-9px;
+           pointer-events:none; }
+  .cross::before { content:''; position:absolute; left:8px; top:0; width:2px; height:18px; background:#39ff8acc; }
+  .cross::after { content:''; position:absolute; top:8px; left:0; width:18px; height:2px; background:#39ff8acc; }
+  .overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+             flex-direction:column; text-align:center; background:rgba(11,13,8,.78); z-index:5; pointer-events:auto; }
+  .overlay.hidden { display:none; }
+  h1 { font-size:44px; letter-spacing:6px; color:#ffd84a; text-shadow:0 0 18px #fc6, 0 0 4px #fff; margin:0; }
+  .sub { font-size:14px; color:#b8d8b0; letter-spacing:1px; margin:12px 0; line-height:1.8; max-width:600px; }
+  .cta { font-size:17px; color:#39ff8a; text-shadow:0 0 10px #3f8; margin:16px 0 0 0; cursor:pointer;
+         padding:10px 26px; border:1px solid #39ff8a; border-radius:8px; display:inline-block; pointer-events:auto; }
+  .flash { position:absolute; inset:0; background:#ff2b2b; opacity:0; pointer-events:none; }
+  .vig { position:absolute; inset:0; pointer-events:none; box-shadow: inset 0 0 0 70px rgba(0,0,0,.5); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="hud">
+    <div class="hud-tl" id="hpEl">HP ██████████</div>
+    <div class="hud-tr" id="statEl"></div>
+    <div class="hud-b" id="hotEl"></div>
+    <div class="hud-bl" id="msgEl"></div>
+    <div class="cross" id="cross"></div>
+    <div class="flash" id="flash"></div>
+    <div class="vig"></div>
+    <div class="overlay" id="menu">
+      <h1>BLOCKSHOT</h1>
+      <div class="sub">
+        Minecraft world, MW2 gunplay — the mashup bridge in one engine.<br>
+        <b>Click</b> = lock look &nbsp;·&nbsp; <b>Left click</b> fire &nbsp;·&nbsp; <b>Right click</b> place block<br>
+        <b>WASD</b> move · <b>Space</b> jump — chain it: <b>double, triple, long jump</b> · <b>Z</b> ground pound (stuns drones)<br>
+        <b>J</b> drop onto the board — Skate mode: grind map edges for points, spinning in the air = <b>bail</b><br>
+        Shoot blocks to break them — harder rock takes more bullets. <b>TNT</b> detonates, radius-blast like a grenade.<br>
+        Hostile <span style="color:#ff5a5a">drones</span> chase you. Broken blocks restock your inventory.
+      </div>
+      <div class="cta" id="cta">CLICK TO SPAWN</div>
+    </div>
+    <div class="overlay hidden" id="dead">
+      <h1 style="color:#ff3355">FLATLINED</h1>
+      <div class="sub" id="finalLine"></div>
+      <div class="cta" id="cta2">RESPAWN</div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+
+const stage = document.getElementById('stage');
+const W = 960, H = 540;
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setSize(W,H); renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+stage.insertBefore(renderer.domElement, stage.querySelector('#hud'));
+const cv = renderer.domElement;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x6fa8c8);
+scene.fog = new THREE.Fog(0x6fa8c8, 60, 160);
+
+const XS=64, ZS=64, YS=24;
+const world = new Uint8Array(XS*ZS*YS);
+const idx = (x,y,z)=> x + z*XS + y*XS*ZS;
+const inb = (x,y,z)=> x>=0&&x<XS&&y>=0&&y<YS&&z>=0&&z<ZS;
+
+// ---- terrain gen (value noise) ------------------------------------------
+function hash(x,z){ let h = x*374761393 + z*668265263; h = (h^(h>>13))*1274126177; return ((h^(h>>16))>>>0)/4294967295; }
+function noise(x,z){
+  const x0=Math.floor(x), z0=Math.floor(z), fx=x-x0, fz=z-z0;
+  const a=hash(x0,z0), b=hash(x0+1,z0), c=hash(x0,z0+1), d=hash(x0+1,z0+1);
+  const s=(v,k)=> v*(1-k);
+  return a+(b-a)*fx + (c-a)*fz + (a-b-c+d)*fx*fz;
+}
+for(let x=0;x<XS;x++) for(let z=0;z<ZS;z++){
+  const h = Math.max(1, Math.floor(4 + noise(x*0.18,z*0.18)*10 + noise(x*0.05,z*0.05)*4));
+  for(let y=0;y<Math.min(YS-1,h);y++){
+    let t = 1;
+    if (y < h-3) t = 3; else if (y < h-1) t = 2;
+    world[idx(x,y,z)] = t;
+  }
+  if (hash(x*7+3, z*11+5) < 0.012 && h>3){ // trees: wood trunk + TNT rare
+    const th = 3+((hash(x,z)*3)|0);
+    for(let y=h;y<Math.min(YS-1,h+th);y++) world[idx(x,y,z)] = 4;
+    if (hash(x*3,z*3) < 0.006) world[idx(x,h+th,z)] = 5;
+  }
+}
+
+// ---- instanced rendering ------------------------------------------------
+const COLORS = [0,0x4d8a3d,0x7a5a3a,0x8a8a90,0x9a6a3a,0xc03030];
+const meshes = [];
+for(let t=1;t<=5;t++){
+  const m = new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),
+    new THREE.MeshLambertMaterial({ color:COLORS[t] }), 20000);
+  meshes.push(m); scene.add(m);
+}
+const dummy = new THREE.Matrix4();
+function rebuild(){
+  const counts=[0,0,0,0,0,0];
+  for(let y=0;y<YS;y++) for(let z=0;z<ZS;z++) for(let x=0;x<XS;x++){
+    const t = world[idx(x,y,z)]; if(!t) continue;
+    // surface culling
+    const exposed = !inb(x,y+1,z)||!world[idx(x,y+1,z)] || !inb(x,y-1,z)||!world[idx(x,y-1,z)] ||
+      !inb(x+1,y,z)||!world[idx(x+1,y,z)] || !inb(x-1,y,z)||!world[idx(x-1,y,z)] ||
+      !inb(x,y,z+1)||!world[idx(x,y,z+1)] || !inb(x,y,z-1)||!world[idx(x,y,z-1)];
+    if(!exposed) continue;
+    dummy.makeTranslation(x+0.5,y+0.5,z+0.5);
+    meshes[t-1].setMatrixAt(counts[t-1]++, dummy);
+  }
+  for(let t=1;t<=5;t++){ meshes[t-1].count = counts[t-1]; meshes[t-1].needsUpdate=true; }
+}
+rebuild();
+
+scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x3a4a2a, 1.0));
+const sun = new THREE.DirectionalLight(0xfff2cc, 1.4); sun.position.set(40,60,20); scene.add(sun);
+const cam = new THREE.PerspectiveCamera(74, W/H, 0.08, 300);
+
+// ---- gun viewmodel ------------------------------------------------------
+const gun = new THREE.Group();
+const gbody = new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.7), new THREE.MeshStandardMaterial({color:0x22242a, roughness:.4}));
+const gbarrel = new THREE.Mesh(new THREE.BoxGeometry(.05,.05,.5), new THREE.MeshStandardMaterial({color:0x33353c}));
+gbarrel.position.z=-.55;
+const gmag = new THREE.Mesh(new THREE.BoxGeometry(.08,.22,.1), new THREE.MeshStandardMaterial({color:0x1a1c20}));
+gmag.position.set(0,-.14,-.05);
+gun.add(gbody,gbarrel,gmag);
+const muzzle = new THREE.Mesh(new THREE.SphereGeometry(.05,8,8), new THREE.MeshBasicMaterial({color:0xffd84a}));
+muzzle.position.z=-.85; muzzle.visible=false; gun.add(muzzle);
+gun.position.set(0.32,-0.28,-0.55); gun.rotation.y = 0.06;
+cam.add(gun); scene.add(cam);
+
+// ---- particles ----------------------------------------------------------
+const P_MAX=300;
+const pGeo=new THREE.BufferGeometry();
+const pPos=new Float32Array(P_MAX*3), pCol=new Float32Array(P_MAX*3);
+pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
+pGeo.setAttribute('color',new THREE.BufferAttribute(pCol,3));
+const particles=new THREE.Points(pGeo,new THREE.PointsMaterial({size:2.2,vertexColors:true,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));
+particles.material.depthWrite=false; scene.add(particles);
+const pv=new Float32Array(P_MAX*3), plife=new Float32Array(P_MAX); let pHead=0;
+function burst(x,y,z,color,count){
+  const c=new THREE.Color(color);
+  for(let i=0;i<count;i++){
+    const k=pHead; pHead=(pHead+1)%P_MAX;
+    pPos[k*3]=x; pPos[k*3+1]=y; pPos[k*3+2]=z;
+    pCol[k*3]=c.r; pCol[k*3+1]=c.g; pCol[k*3+2]=c.b;
+    pv[k*3]=(Math.random()-.5)*20; pv[k*3+1]=(Math.random()-.2)*20; pv[k*3+2]=(Math.random()-.5)*20;
+    plife[k]=1;
+  }
+}
+
+// ---- audio --------------------------------------------------------------
+const actx = new (window.AudioContext || window.AudioContext)();
+let muted=false;
+function sfx(f,to,dur,type){
+  if(actx.state==='closed'||muted) return;
+  try{
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.connect(g); g.connect(actx.destination);
+    o.type=type||'triangle'; o.frequency.value=f;
+    if(to) o.frequency.exponentialRampToValueAtTime(to, actx.currentTime+dur);
+    g.gain.value=.1; g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime+dur);
+    o.start(); o.stop();
+  }catch(e){}
+}
+
+// ---- state --------------------------------------------------------------
+let hp=100, score=0, broken=0, kills=0, best=0, sel=1;
+const inv=[0,40,40,20,20,3];
+let yaw=0, pitch=0, locked=false;
+let mode='foot', chain=0, jumpHeld=false, prevJ=false, slam=false, longJump=false, prevJump=false;
+let grind=null, tilt=0, tiltVis=0, trickScore=0, combo=1, bailT=0, railPts=0;
+const blockHp = new Map();
+const P = { x:32.5, y:0, z:32.5, vy:0, onGround:true };
+{ let y=YS-1; while(y>0 && !world[idx(32,y,32)]) y--; P.y=y+1.01; }
+let state='menu';
+const hpEl=document.getElementById('hpEl'), statEl=document.getElementById('statEl'),
+      hotEl=document.getElementById('hotEl'), flash=document.getElementById('flash');
+
+function reset(){
+  hp=100; score=0; broken=0; kills=0; sel=1;
+  for(let t=1;t<=5;t++) inv[t]=[0,40,40,20,20,3][t];
+  yaw=0; pitch=0; P.vy=0; P.onGround=true;
+  mode='foot'; chain=0; slam=false; longJump=false; tilt=0; tiltVis=0; grind=null; bailT=0;
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('dead').classList.add('hidden');
+  flash.style.opacity=0;
+}
+document.getElementById('cta').addEventListener('click',()=>{ if(state==='menu'){ state='play'; try{ reset(); }catch(err){ window.__ERR=String(err); } }});
+document.getElementById('cta2').addEventListener('click',()=>{ if(state==='dead'){ state='dead2'; reset(); state='play'; }});
+
+// ---- input --------------------------------------------------------------
+const keys=new Set();
+addEventListener('keydown',e=>{ keys.add(e.key.toLowerCase()); if(e.key>='1'&&e.key<='5') sel=+e.key; });
+addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+cv.addEventListener('click',e=>{
+  if(!locked){ try{ cv.requestPointerLock(); }catch(_){ } locked=true; sfx(520,780,.1); return; }
+  fire();
+});
+cv.addEventListener('contextmenu',e=>{ e.preventDefault(); placeBlock(); });
+cv.addEventListener('mousemove',e=>{
+  if(locked){ yaw -= e.movementX*0.0022; pitch -= e.movementY*0.0022; pitch=Math.max(-1.45,Math.min(1.45,pitch)); }
+});
+
+function raycastVoxel(maxD){
+  // Amanatides & Woo DDA from camera
+  const o=cam.position, d=new THREE.Vector3(); cam.getWorldDirection(d);
+  let x=Math.floor(o.x), y=Math.floor(o.y), z=Math.floor(o.z);
+  const step=[Math.sign(d.x)||1, Math.sign(d.y)||1, Math.sign(d.z)||1];
+  const tD=[Math.abs(1/d.x), Math.abs(1/d.y), Math.abs(1/d.z)];
+  let tMx=[step[0]>0?(x+1-o.x)/d.x:(x-o.x)/d.x, step[1]>0?(y+1-o.y)/d.y:(y-o.y)/d.y, step[2]>0?(z+1-o.z)/d.z:(z-o.z)/d.z];
+  let axis=0, prev=[x,y,z], t=0;
+  for(let i=0;i<200;i++){
+    if(inb(x,y,z)&&world[idx(x,y,z)]) return { hit:[x,y,z], prev, t };
+    prev=[x,y,z];
+    if(tMx[0]<tMx[1]&&tMx[0]<tMx[2]){ x+=step[0]; t=tMx[0]; tMx[0]+=tD[0]; axis=0; }
+    else if(tMx[1]<tMx[2]){ y+=step[1]; t=tMx[1]; tMx[1]+=tD[1]; axis=1; }
+    else { z+=step[2]; t=tMx[2]; tMx[2]+=tD[2]; axis=2; }
+    if(t>maxD) return null;
+  }
+  return null;
+}
+
+function damageBlock(x,y,z,amt){
+  const k=idx(x,y,z), t=world[k];
+  if(t===5){ explode(x,y,z); return; }
+  const need={1:1,2:2,3:4,4:2}[t]||1;
+  const h=(blockHp.get(k)||need)-amt;
+  if(h>0){ blockHp.set(k,h); sfx(300,200,.06,'square'); return; }
+  blockHp.delete(k);
+  world[k]=0; broken++; score+=15;
+  if(inv[t]<200) inv[t]+=1;
+  const col=[0,0x6aa84a,0x8a6a4a,0xaab0b8,0xb8845a,0][t]||0xffffff;
+  burst(x+.5,y+.5,z+.5,col,10);
+  sfx(240,120,.12,'square');
+  rebuild();
+}
+function explode(cx,cy,cz){
+  burst(cx+.5,cy+.5,cz+.5,0xff8830,60);
+  sfx(90,30,.5,'sawtooth'); flash.style.opacity=.35;
+  const R=3;
+  for(let x=cx-R;x<=cx+R;x++)for(let y=cy-R;y<=cy+R;y++)for(let z=cz-R;z<=cz+R;z++){
+    if(!inb(x,y,z)) continue;
+    if((x-cx)**2+(y-cy)**2+(z-cz)**2 > R*R) continue;
+    const k=idx(x,y,z); if(!world[k]) continue;
+    if(world[k]===5 && !(x===cx&&y===cy&&z===cz)){ world[k]=0; }
+    else { score+=15; broken++; if(inv[world[k]]<200) inv[world[k]]+=1; }
+    world[k]=0;
+  }
+  rebuild();
+}
+function fire(){
+  muzzle.visible=true; muzzle.position.z=-.85;
+  sfx(700,350,.07,'square');
+  const r=raycastVoxel(80);
+  if(r) damageBlock(r.hit[0],r.hit[1],r.hit[2],2);
+  // drones
+  for(const d of drones){
+    if(!d.alive) continue;
+    const dv=new THREE.Vector3(d.x-cam.position.x, d.y-cam.position.y, d.z-cam.position.z);
+    const dist=dv.length();
+    if(dist<70){
+      const toD=dv.clone().normalize();
+      const fwd=new THREE.Vector3(); cam.getWorldDirection(fwd);
+      if(toD.dot(fwd)>0.985){ d.hp-=1; burst(d.x,d.y,d.z,0xff5a5a,6); sfx(400,200,.05);
+        if(d.hp<=0){ d.alive=false; kills++; score+=120; respawnDrone(d); } }
+    }
+  }
+  setTimeout(()=>{ muzzle.visible=false; },50);
+}
+function placeBlock(){
+  if(inv[sel]<=0){ sfx(160,120,.08); return; }
+  const r=raycastVoxel(7);
+  if(!r) return;
+  const [px,py,pz]=r.prev;
+  if(!inb(px,py,pz)) return;
+  // don't place inside player
+  if(Math.abs(px+.5-P.x)<1 && Math.abs(pz+.5-P.z)<1 && py+1>P.y && py<P.y+1.8) return;
+  world[idx(px,py,pz)]=sel; inv[sel]--;
+  sfx(600,500,.08); rebuild();
+}
+
+// ---- drones -------------------------------------------------------------
+const drones=[];
+function respawnDrone(d){
+  for(let i=0;i<40;i++){
+    const x=(Math.random()*XS)|0, z=(Math.random()*ZS)|0;
+    let y=YS-1; while(y>0 && !world[idx(x,y,z)]) y--;
+    if((x-P.x)**2+(z-P.z)**2 > 400){ d.x=x+.5; d.y=y+1.5; d.z=z+.5; d.hp=3; d.alive=true; return; }
+  }
+  d.alive=false;
+}
+for(let i=0;i<6;i++){
+  const d={x:0,y:1,z:0,hp:3,alive:true};
+  d.m = new THREE.Mesh(new THREE.BoxGeometry(.8,1.2,.8),
+    new THREE.MeshStandardMaterial({color:0xaa2222, emissive:0x550000}));
+  d.light = new THREE.PointLight(0xff4444,6,10);
+  d.m.add(d.light); respawnDrone(d); scene.add(d.m); drones.push(d);
+}
+
+// ---- skate helpers ------------------------------------------------------
+function ollieOut(){ grind=null; P.vy=7.5; P.onGround=false; chain=1; }
+function bail(){
+  bailT=1; mode='foot'; grind=null; combo=1;
+  flash.style.opacity=.4; sfx(140,50,.35,'sawtooth');
+  hp=Math.max(0,hp-15); say2('BAIL — lose combo','#ff5a5a');
+}
+const msgEl=document.getElementById('msgEl');
+function say2(txt,color){ msgEl.textContent=txt; msgEl.style.color=color; msgEl.style.textShadow='0 0 8px '+color; }
+
+// ---- physics ------------------------------------------------------------
+function collide(px,py,pz){
+  const r=0.32, h1=1.75;
+  for(let x=Math.floor(px-r);x<=Math.floor(px+r);x++)
+  for(let y=Math.floor(py);y<=Math.floor(py+h1);y++)
+  for(let z=Math.floor(pz-r);z<=Math.floor(pz+r);z++)
+    if(inb(x,y,z)&&world[idx(x,y,z)]) return true;
+  return false;
+}
+
+// ---- loop ---------------------------------------------------------------
+let last=performance.now();
+function tick(){
+  const now=performance.now(), dt=Math.min(.05,(now-last)/1000); last=now;
+  if(state==='play'){
+    // ---- J key: drop onto the board (Skate-mode toggle) -------------------
+    if(keys.has('j') && !jumpHeld){
+      jumpHeld=true;
+      mode = mode==='foot' ? 'skate' : 'foot';
+      grind=null; tilt=0; tiltVis=0;
+      say2(mode==='skate'?'SKATE MODE — grind edges, no spins in the air':'FOOT MODE', mode==='skate'?'#39ff8a':'#b8d8b0');
+      sfx(500,700,.12);
+    }
+    if(!keys.has('j')) jumpHeld=false;
+
+    // ---- movement (SM64-style chain jumps + long jump) -------------------
+    const jNow = keys.has(' ');
+    const moving = keys.has('w')||keys.has('e')||keys.has('d')||keys.has('a');
+    const fx=Math.sin(yaw)*-1, fz=Math.cos(yaw)*-1;
+    let mx=0,mz=0;
+    if(keys.has('w')){ mx+=fx; mz+=fz; } if(keys.has('e')){ mx-=fx; mz-=fz; }
+    if(keys.has('d')){ mx+=-fz; mz+=fx; } if(keys.has('a')){ mx-=-fz; mz-=fx; }
+    const ml=Math.hypot(mx,mz)||1;
+    let sp=(mode==='skate'?13:6.5)*dt;
+    if(!P.onGround && longJump) sp*=1.45;                 // air speed for long jumps
+    if(mx||mz){ const nx=P.x+mx/ml*sp, nz=P.z+mz/ml*sp;
+      if(!collide(nx,P.y,P.z)) P.x=nx;
+      if(!collide(P.x,P.y,nz)) P.z=nz; }
+    P.x=Math.max(.5,Math.min(XS-.5,P.x)); P.z=Math.max(.5,Math.min(ZS-.5,P.z));
+
+    // jump chain: 0->1 single, 1->2 double, 2->3 triple (+long jump if running)
+    if(jNow && !prevJump){
+      if(mode==='skate' && grind){ ollieOut(); }
+      else if(P.onGround){
+        chain=1; P.vy=8.4; P.onGround=false;
+      } else if(chain===1){ chain=2; P.vy=9.2; if(moving) longJump=true; }
+      else if(chain===2){ chain=3; P.vy=10.2; longJump=true; }
+    }
+    prevJump=jNow;
+    // ground pound: Z in air
+    if(!P.onGround && keys.has('z') && chain>=1 && !slam && P.vy> -25){ slam=true; }
+    if(slam) P.vy=Math.min(P.vy,-26);
+
+    // tilt tricks: flick WASD in air racks tilt (skate: spin in air = bail; foot: flip points)
+    if(!P.onGround){
+      if(keys.has('w')&&keys.has('s')) tilt+=2.4*dt;
+      if(keys.has('a')&&keys.has('d')) tilt+=2.4*dt;
+    }
+
+    P.vy-=22*dt; const ny=P.y+P.vy*dt;
+    const hitSolid = collide(P.x,ny,P.z);
+    if(hitSolid){
+      if(P.vy<0){
+        // landing
+        if(slam){
+          slam=false; flash.style.opacity=.3; burst(P.x,P.y,P.z,0xffd84a,26); sfx(160,50,.3,'sawtooth');
+          for(const d of drones){ if(d.alive){ const dd=Math.hypot(d.x-P.x,d.y-P.y,d.z-P.z);
+            if(dd<4.5){ d.hp-=3; burst(d.x,d.y,d.z,0xff5a5a,8); if(d.hp<=0){ d.alive=false; kills++; score+=120; respawnDrone(d);} } } }
+          score+=40;
+        }
+        if(mode==='skate' && tilt>1.5){ bail(); }
+        else if(tilt>0.35){ const pts=Math.round(tilt*120); score+=pts;
+          say2('FLIP +'+pts,'#ffd84a'); }
+        tilt=0; chain=0; P.y=Math.floor(ny)+1; P.onGround=true; P.vy=0; longJump=false;
+      } else { P.onGround=false; }
+      P.vy=0;
+    } else { P.y=ny; if(P.vy<0) P.onGround=false; }
+    if(P.y<0){ P.y=0; P.vy=0; P.onGround=true; }
+
+    // ---- skate mode + rail grind (IW4L-mashup rail detection) ------------
+    if(mode==='skate' && P.onGround){
+      const bx=Math.floor(P.x), bz=Math.floor(P.z), by=Math.floor(P.y)-1;
+      const rail = inb(bx,by,bz)&&world[idx(bx,by,bz)] && !(inb(bx,by+1,bz)&&world[idx(bx,by+1,bz)]) &&
+        ( (!inb(bx+1,by,bz)||!world[idx(bx+1,by,bz)]) || (!inb(bx-1,by,bz)||!world[idx(bx-1,by,bz)]) ||
+          (!inb(bx,by,bz+1)||!world[idx(bx,by,bz+1)]) || (!inb(bx,by,bz-1)||!world[idx(bx,by,bz-1)]) );
+      if(rail){
+        grind=true; chain=Math.min(9,chain+dt*3); railPts+=dt;
+        if(Math.random()<0.25) burst(P.x,P.y,P.z,0x39ff8a,3);
+        if(railPts>1){ const pts=Math.round(railPts*80); score+=pts; say2('GRIND +'+pts,'#39ff8a'); railPts=0; }
+      } else if(grind && railPts>0.4){ ollieOut(); }
+    }
+    if(mode==='skate'){ tiltVis += ((grind?0:tilt*0.25) - tiltVis)*Math.min(1,8*dt); cam.rotation.z=tiltVis; }
+    else cam.rotation.z=0;
+
+    cam.position.set(P.x, P.y+1.6, P.z);
+    cam.rotation.set(0,0,0); cam.rotation.order='YXZ'; cam.rotation.y=yaw; cam.rotation.x=pitch;
+
+    // drones chase
+    for(const d of drones){
+      if(!d.alive) continue;
+      const dx=P.x-d.x, dz=P.z-d.z, dist=Math.hypot(dx,dz);
+      if(dist<28&&dist>1.2){
+        const nx2=d.x+dx/dist*2.4*dt, nz2=d.z+dz/dist*2.4*dt;
+        const fy=Math.floor(d.y-0.5);
+        const bx=Math.floor(nx2), bz=Math.floor(nz2);
+        if(inb(bx,fy,bz)&&!world[idx(bx,fy,bz)]){ d.x=nx2; d.z=nz2; }
+      }
+      d.y = P.y+1.4 + Math.sin(now/300)*0.15;
+      d.m.position.set(d.x,d.y,d.z);
+      if(dist<1.6){ hp-=24*dt; flash.style.opacity=Math.max(parseFloat(flash.style.opacity)||0,0.25); sfx(200,80,.1,'sawtooth'); }
+    }
+    if(hp<=0){
+      state='dead'; best=Math.max(best,score);
+      try{ window.__gameId='blockshot-v1'; window.__save({best:best,score:score,broken:broken,kills:kills}); }catch(e){}
+      document.getElementById('dead').classList.remove('hidden');
+      document.getElementById('finalLine').innerHTML='score <b style="color:#ffd84a">'+score+'</b> · blocks '+broken+' · drones '+kills+' · best <b style="color:#39ff8a">'+best+'</b>';
+      sfx(220,40,.6,'sawtooth');
+    }
+
+    // particles
+    for(let k=0;k<P_MAX;k++){
+      if(plife[k]>0){
+        plife[k]-=dt*1.4;
+        pPos[k*3]+=pv[k*3]*dt; pPos[k*3+1]+=pv[k*3+1]*dt; pPos[k*3+2]+=pv[k*3+2]*dt;
+        const f=Math.max(0,plife[k]);
+        pCol[k*3]*=0.98; pCol[k*3+1]*=0.98; pCol[k*3+2]*=0.98;
+        if(plife[k]<=0){ pPos[k*3+1]=-9999; }
+      }
+    }
+    particles.geometry.attributes.position.needsUpdate=true;
+    particles.geometry.attributes.color.needsUpdate=true;
+
+    hpEl.textContent='HP '+('█'.repeat(Math.max(0,Math.ceil(hp/10)))).padEnd(10,'·');
+    statEl.textContent='SCORE '+score+'  ×'+(broken)+' broken  '+kills+' kills';
+    const NAMES=['','GRASS','DIRT','STONE','WOOD','TNT'];
+    hotEl.innerHTML=[1,2,3,4,5].map(t=>'<span style="color:'+(t===sel?'#ffd84a':'#6a7a6a')+'">'+t+' '+NAMES[t]+' ×'+inv[t]+'</span>').join('  ');
+    flash.style.opacity=Math.max(0,(parseFloat(flash.style.opacity)||0)-2.5*dt);
+  } else {
+    cam.position.set(P.x,P.y+1.6,P.z); cam.rotation.set(0,0,0); cam.rotation.order='YXZ';
+    cam.rotation.y=Math.sin(now/3000)*0.6;
+  }
+  renderer.render(scene,cam);
+  requestAnimationFrame(tick);
+}
+tick();
+// shelf bridge v2: own server /api -> Supabase (if window.__SUPA set) -> localStorage
+(function(){
+  const GAME = window.__gameId || (window.__gameId = 'blockshot-v1');
+  const SUPA = window.__SUPA || (()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
+  function saveSrv(data){
+    fetch('/api/save?game='+GAME,{method:'POST',body:JSON.stringify(data),
+      headers:{'Content-Type':'application/json'}}).catch(()=>{
+        if(SUPA){ fetch(SUPA.url+'/rest/v1/ib_saves?game=eq.'+GAME,
+          {method:'POST',headers:{'apikey':SUPA.key,'Content-Type':'application/json',
+           'Prefer':'resolution:merge'},body:JSON.stringify({game:GAME,data})}); }
+        else { const s=JSON.parse(localStorage.getItem('ib_saves')||'{}');
+               s[GAME]=Object.assign(s[GAME]||{},data); localStorage.setItem('ib_saves',JSON.stringify(s)); }
+      });
+  }
+  window.__save = saveSrv;
+  if(!/^https?:/.test(location.protocol)) return; // data: standalone
+  let cursor = 0;
+  function poll(){
+    fetch('/api/input?sid=main&since='+cursor).then(r=>r.json()).then(d=>{
+      cursor = d.n; apply(d.ev); setTimeout(poll,120);
+    }).catch(()=>{
+      if(SUPA){ fetch(SUPA.url+'/rest/v1/ib_input?order=seq.asc&seq=gt.'+cursor,
+        {headers:{'apikey':SUPA.key}}).then(r=>r.json()).then(rows=>{
+          rows.forEach(r=>{ apply([r.ev]); cursor=Math.max(cursor,r.seq); });
+          setTimeout(poll,300);
+        }).catch(()=>setTimeout(poll,2000)); }
+      else setTimeout(poll,2000);
+    });
+  }
+  function apply(ev){ ev.forEach(e=>{
+    if(e.type==='key'){ if(e.down) keys.add(e.k); else keys.delete(e.k); }
+    else if(e.type==='fire'){ fire(); }
+    else if(e.type==='place'){ placeBlock(); }
+    else if(e.type==='menu'){ state='menu'; document.getElementById('menu').classList.remove('hidden'); }
+  }); }
+  poll();
+})();
+
+</script>
+</body>
+</html>

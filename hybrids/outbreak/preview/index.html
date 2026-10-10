@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outbreak Preview</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg: #070a10; --panel: #10151f; --line: rgba(255,255,255,.09); --text: #e8eef8; --muted: #8e9bb2; --amber: #f6b44f; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 Inter, 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+  #shell { position: fixed; inset: 0; display: flex; }
+  #stage { position: relative; flex: 1 1 auto; min-width: 0; background: #05070b; overflow: hidden; }
+  #world { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #nui { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+  #bench { flex: 0 0 22rem; width: 22rem; max-width: 40vw; background: var(--panel); border-left: 1px solid var(--line); overflow: auto; padding: 14px 14px 24px; }
+  body.nobench #bench { display: none; }
+  #bench h1 { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 4px; color: var(--amber); }
+  #bench .sub { color: var(--muted); font-size: 11.5px; margin-bottom: 12px; }
+  #bench h2 { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 16px 0 8px; font-weight: 600; }
+  #bench .row { display: flex; gap: 6px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+  #bench label { color: var(--muted); font-size: 11.5px; }
+  #bench button, #bench select, #bench input { font: inherit; color: var(--text); background: #1a2231; border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; min-height: 28px; }
+  #bench input[type=number], #bench input[type=text] { width: 5.5rem; }
+  #bench input[type=range] { padding: 0; width: 100%; }
+  #bench button { cursor: pointer; }
+  #bench button:hover { background: #232d42; }
+  #bench button.on { background: rgba(246,180,79,.2); border-color: rgba(246,180,79,.6); color: #ffe0ad; }
+  #bench button.primary { background: #c98a2c; color: #1b1205; border-color: #e3a748; font-weight: 600; }
+  #bench .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 11.5px; }
+  #bench .kv span:nth-child(odd) { color: var(--muted); }
+  #bench pre { margin: 0; font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace; color: #aab6cc; max-height: 9.5rem; overflow: auto; white-space: pre-wrap; background: #0a0e16; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  #loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; font-size: 12px; background: #05070b; z-index: 5; }
+</style>
+</head>
+<body>
+<div id="shell">
+  <main id="stage">
+    <canvas id="world" aria-hidden="true"></canvas>
+    <iframe id="nui" title="Outbreak NUI (the exact page FiveM would load)" src="../fivem/outbreak/ui/index.html" allowtransparency="true"></iframe>
+    <div id="loading">Starting the Lua sim (wasmoon)&hellip;</div>
+  </main>
+  <aside id="bench" aria-label="Preview bench">
+    <h1>Outbreak preview</h1>
+    <div class="sub">UI test bench. The real Lua sim + host run here in WebAssembly (wasmoon); there is <b>no GTA</b>. The stage backdrop is a stand-in, not game art.</div>
+
+    <h2>Simulation</h2>
+    <div class="kv"><span>time</span><span id="b-time">-</span><span>state hash</span><span id="b-hash">-</span><span>colonists</span><span id="b-col">-</span><span>hordes / real</span><span id="b-hordes">-</span><span>update cost</span><span id="b-perf">-</span></div>
+    <div class="row" id="b-speed"></div>
+    <div class="row"><label>time scale</label><select id="b-scale"><option value="30">x1 (GTA default)</option><option value="120" selected>x4</option><option value="600">x20</option><option value="3600">x120</option></select>
+      <button id="b-auto" class="on">auto-run</button></div>
+
+    <h2>Game</h2>
+    <div class="row"><label>seed</label><input id="b-seed" type="number" value="1"><label>profile</label>
+      <select id="b-profile"><option>calm</option><option selected>escalating</option><option>chaos</option></select></div>
+    <div class="row"><label>colonists</label><input id="b-ncol" type="number" min="1" max="12" value="5"><button id="b-new" class="primary">New game</button></div>
+    <div class="row"><button id="b-save">Save</button><button id="b-load">Load</button><button id="b-pilot">Autopilot (sim AI plays)</button></div>
+    <div class="row"><button data-ff="60">+1 h</button><button data-ff="1440">+1 day</button><button data-ff="7200">+5 days</button><button data-ffday="10">to day 10</button></div>
+
+    <h2>Debug: threats</h2>
+    <div class="row"><label>size</label><input id="b-hsize" type="range" min="5" max="90" value="30"><span id="b-hsize-v">30</span></div>
+    <div class="row"><label>distance</label><input id="b-hdist" type="range" min="10" max="600" value="240"><span id="b-hdist-v">240</span></div>
+    <div class="row"><button id="b-horde">Spawn horde near base</button><button id="b-siege">...at the walls</button></div>
+    <div class="row"><select id="b-event"></select><button id="b-fire">Trigger event</button></div>
+    <div class="row"><label>player x,y</label><input id="b-px" type="number" value="0"><input id="b-py" type="number" value="0"><button id="b-pset">Move</button></div>
+    <div class="row"><button id="b-pbase">Player at base</button><button id="b-pfar">Player 300 m out</button></div>
+    <div class="row"><label>compass</label><input id="b-head" type="range" min="0" max="359" value="20"></div>
+    <div class="row"><select id="b-item"></select><input id="b-n" type="number" value="5" min="1" max="99"><button id="b-give">Give item</button></div>
+
+    <h2>UI</h2>
+    <div class="row"><button data-mode="survival">Survival HUD</button><button data-mode="colony">Colony view</button></div>
+    <div class="row"><button data-screen="inventory">Inventory</button><button data-screen="priorities">Priorities</button><button data-screen="map">Map</button><button data-screen="menu">Menu</button><button data-screen="summary">Summary</button></div>
+    <div class="row"><button data-dock="card">Card</button><button data-dock="build">Build</button><button data-dock="zones">Zones</button><button data-dock="director">Director</button></div>
+    <h2>Last OUT events</h2>
+    <pre id="b-log"></pre>
+  </aside>
+</div>
+<script src="vendor/lua-bundle.js"></script>
+<script src="vendor/wasmoon.js"></script>
+<script src="preview.js"></script>
+</body>
+</html>

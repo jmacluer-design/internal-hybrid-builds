@@ -1,64 +1,143 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>internal hybrid builds</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>internal hybrid builds · artifact shelf</title>
 <style>
- html,body{margin:0;background:#07060e;color:#dde;font-family:ui-monospace,monospace;}
- *{box-sizing:border-box;}
- .wrap{display:flex;flex-direction:column;gap:12px;padding:16px 18px;}
- .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
- .k{font-size:11px;letter-spacing:1px;color:var(--muted-foreground);text-transform:uppercase;margin:0 0 8px;}
- .row{display:flex;gap:10px;flex-wrap:wrap;}
- .tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;
-       display:flex;flex-direction:column;gap:6px;min-width:180px;}
- .tile:hover{border-color:var(--accent);}
- .tile .t{font-size:16px;font-weight:700;color:var(--foreground);}
- .tile .d{font-size:11px;color:var(--muted-foreground);line-height:1.5;}
- .big{font-size:22px;font-weight:700;}
- .save{background:var(--accent);color:var(--card);border:1px solid var(--accent);border-radius:8px;
-       padding:8px 12px;font-size:12px;cursor:pointer;}
-</style></head><body>
+:root{--bg:#08070f;--card:#141322;--border:#2b2944;--foreground:#eceaf6;--muted-foreground:#9895b4;--accent:#8f7cf8;--radius:10px;}
+*{box-sizing:border-box;}
+html,body{margin:0;background:var(--bg);color:var(--foreground);font-family:system-ui,-apple-system,sans-serif;font-size:14px;}
+.wrap{display:flex;flex-direction:column;gap:14px;padding:20px 22px;max-width:1100px;}
+.k{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted-foreground);margin:0 0 8px;}
+.artifact-library{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
+.artifact-library>summary{font-weight:700;color:var(--foreground);cursor:pointer;}
+.artifact-list{display:flex;flex-direction:column;gap:12px;}
+.artifact-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;flex-direction:column;gap:6px;}
+.artifact-card:hover{border-color:var(--accent);}
+.artifact-kicker{font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted-foreground);}
+.artifact-card strong{font-size:18px;font-weight:700;}
+.artifact-card p{font-size:12px;color:var(--muted-foreground);line-height:1.5;}
+.artifact-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.artifact-actions>button{font-family:inherit;font-size:12px;background:var(--card);color:var(--foreground);border:1px solid var(--border);border-radius:8px;padding:7px 12px;cursor:pointer;}
+.artifact-actions>button:hover{border-color:var(--accent);color:var(--accent);}
+.artifact-actions>button[data-artifact-open]{background:var(--accent);color:var(--bg);border:1px solid var(--accent);font-weight:700;}
+.artifact-actions>button[data-artifact-open]:hover{filter:brightness(1.15);}
+.artifact-technical{font-size:12px;}
+.artifact-technical>summary{color:var(--muted-foreground);}
+.artifact-technical small{display:block;font-size:11px;color:var(--muted-foreground);}
+.artifact-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.artifact-filters input[type=search]{font-family:inherit;background:var(--bg);color:var(--foreground);border:1px solid var(--border);border-radius:8px;padding:6px 10px;min-width:180px;}
+.artifact-filters select{font-family:inherit;background:var(--card);color:var(--foreground);border:1px solid var(--border);border-radius:8px;}
+.artifact-filters small{font-size:11px;color:var(--muted-foreground);}
+.artifact-card.hidden-search{display:none;}
+
+@media (max-width:640px){
+  .wrap{padding:max(14px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));gap:12px;}
+  .artifact-library{padding:12px 12px;}
+  html,body{font-size:15px;}
+  a,button,summary,select,input{min-height:40px;}
+}
+</style>
+</head>
+<body>
 <div class="wrap">
-  <div class="card">
-    <div class="k">internal hybrid builds · shelf</div>
-    <div class="big" id="shelf">…</div>
-  </div>
-  <div class="card">
-    <div class="k">Select a build</div>
-    <div class="row" id="tiles"></div>
-  </div>
+  <div class="k" id="kicker">internal hybrid builds · artifact shelf</div>
+  <details class="artifact-library" open>
+    <summary>Artifact library</summary>
+    <div class="artifact-filters">
+      <input type="search" placeholder="Find saved work…" aria-label="Search artifact library" id="q">
+      <select aria-label="Filter builds" id="owner"><option value="all">All builds</option></select>
+      <small id="count">…</small>
+    </div>
+    <div class="artifact-list" id="listing"></div>
+  </details>
+  <details class="artifact-library" id="archiveBox">
+    <summary>Archive</summary>
+    <div class="artifact-list" id="archiveListing" style="margin-top:12px"></div>
+  </details>
+  <div class="k" style="margin-top:16px"><a href="controllers" style="color:inherit">controller check · test your Xbox / PS pad and VR controllers &rarr;</a></div>
+  <div class="k" style="margin-top:8px"><a href="phonebench" style="color:inherit">phone bench · run a 15 s frame-rate test on this device &rarr;</a></div>
 </div>
 <script>
 const API = location.origin;
-// save source: own server -> Supabase (localStorage ib_supa config) -> localStorage
+const BUILD = '__BUILD__'; // stamped by deploy.sh; busts edge caches so a new build never serves a stale copy
 const SUPA = (()=>{ try{ const v=localStorage.getItem('ib_supa'); return v?JSON.parse(v):null; }catch(e){ return null; } })();
 const games = [
- {id:'neondrift', name:'NEONDRIFT', desc:'synthwave hover-skiff runner · rings, shards, boost', file:'games/neondrift.html'},
- {id:'blockshot', name:'BLOCKSHOT', desc:'MW2 × Minecraft × SM64 × Skate3 hybrid · shoot, build, grind', file:'games/blockshot.html'},
+ {id:'shatterworld-next', name:'SHATTERWORLD NEXT · TEST BUILD', desc:'TEST BUILD with its own saves (your main Shatterworld progress is untouched): 6 character classes (Pip, Lou, Gruntmaw, Zip, Petal, Ember), PoE-style skill gems + linked supports, Star Power, class-weighted loot · pad + VR (Quest Browser) · still being tested, expect rough edges', file:'games/shatterworld-next.html', bytes:863749},\n {id:'shatterworld', name:'SHATTERWORLD', desc:'a realistic valley shatters into blocks and rebuilds around a Mario-style hero · Diablo-style loot, 12 legendary powers, levels to 30 with perks, elites and Shatter Rifts · Xbox/PS pad · VR: open in Quest Browser and press ENTER VR (full inventory + loot in headset)', file:'games/shatterworld.html', bytes:615680},
+ {id:'outbreak-preview', name:'OUTBREAK · COLONY UI PREVIEW', desc:'the zombie-outbreak colony manager UI (RimWorld-style overhead colony + survival HUD, for the GTA V / FiveM hybrid) running on the real sim in your browser · no GTA here · desktop browser, 16:9 · phone layout not done yet', file:'outbreak/preview/', bytes:964000},
+ {id:'colossus', name:'COLOSSUS', desc:'web-swing a ruined valley, latch onto a 76-unit titan, climb it and tear its sigils loose · 3 phases · smooth non-voxel world · Xbox/PS pad', file:'games/colossus.html', bytes:274836},
+ {id:'blockshot', name:'BLOCKSHOT', desc:'MW2 gunplay in a Minecraft world · AR / SMG / sniper with ADS + recoil, shoot-to-break blocks, TNT, zombies, archers, creepers, UAV + airstrike · Xbox/PS pad', file:'games/blockshot.html', bytes:210143},
+ {id:'webcraft', name:'WEBCRAFT', desc:'swing the block city · pendulum web-swing, zip, wall-run, dive, yank · 12-beacon run vs. the clock · Xbox/PS pad', file:'games/webcraft.html', bytes:188502},
+ {id:'souls64', name:'SOULS 64', desc:'one arena, one boss, a hero who moves like 1996 · triple jump, wall kick, ground pound vs. Orrun the Gatekeeper · Xbox/PS pad', file:'games/souls64.html', bytes:195249},
+ {id:'parkcraft', name:'PARKCRAFT', desc:'build the park, then shred it · push, carve, ollie, flip tricks, grinds, manuals · block-style park builder · Xbox/PS pad', file:'games/parkcraft.html', bytes:163326},
+ {id:'neondrift', name:'NEONDRIFT', desc:'synthwave hover-skiff runner · rings, shards, boost', file:'games/archive/neondrift.html', bytes:25729, archived:true},
+ {id:'blockshot-v1', name:'BLOCKSHOT v1', desc:'MW2 × Minecraft × SM64 × Skate3 prototype · superseded by the rebuild', file:'games/archive/blockshot-v1.html', bytes:23873, archived:true},
 ];
-function loadSaves(){
-  function done(s){ window.__SAVES=s;
-    document.getElementById('shelf').textContent =
-      Object.keys(s||{}).filter(k=>Object.keys(s[k]||{}).length).map(k=>k+' · '+(s[k].best?('best '+s[k].best):'saved')).join('  |  ') || 'no saves yet';
-    const t=document.getElementById('tiles'); t.innerHTML='';
-    games.forEach(g=>{ const s2=(s||{})[g.id]||{};
-      const d=document.createElement('div'); d.className='tile';
-      d.innerHTML='<div class="t">'+g.name+'</div><div class="d">'+g.desc+'</div>'+
-        '<div class="d">'+(s2.best?('best '+s2.best):(s2.score?('run '+s2.score):'no save'))+'</div>';
-      d.dataset.file=g.file; d.dataset.id=g.id; t.appendChild(d);
-    });
-  }
-  fetch(API+'/api/saves').then(r=>r.json()).then(done).catch(()=>{
-    if(SUPA){ fetch(SUPA.url+'/rest/v1/ib_saves?select=*',{headers:{'apikey':SUPA.key}})
-      .then(r=>r.json()).then(rows=>{ done(rows.reduce((a,r)=>{a[r.game]=r.data;return a;},{})); })
-      .catch(()=>done(JSON.parse(localStorage.getItem('ib_saves')||'{}'))); }
-    else done(JSON.parse(localStorage.getItem('ib_saves')||'{}'));
+const listing = document.getElementById('listing');
+const archiveListing = document.getElementById('archiveListing');
+
+function card(g, save){
+  const section=document.createElement('article'); section.className='artifact-card'; section.dataset.artifact=g.id;
+  const kicker=document.createElement('small'); kicker.className='artifact-kicker';
+  kicker.textContent=(g.archived?'ARCHIVED · ':'')+((save&&save.best)?'GAME · SAVED · BEST '+save.best:'GAME · HYBRID BUILD');
+  const title=document.createElement('strong'); title.textContent=g.name;
+  const summary=document.createElement('p'); summary.textContent=g.desc;
+  const actions=document.createElement('div'); actions.className='artifact-actions';
+  const play=document.createElement('button'); play.type='button'; play.textContent='Play artifact';
+  play.dataset.artifactOpen='true';
+  play.addEventListener('click',()=>{
+    const url=g.file+'?v='+BUILD;
+    const w=window.open(url,'_hermes','');
+    if(!w){ location.href=url; }
   });
+  actions.append(play);
+  const technical=document.createElement('details'); technical.className='artifact-technical';
+  const tlabel=document.createElement('summary'); tlabel.textContent='Details & verification';
+  const info=document.createElement('small');
+  info.textContent=(g.kind||'game')+' · '+g.id.slice(0,12)+' · 1 file · '+(g.bytes/1024).toFixed(1)+' KB';
+  const status=document.createElement('small');
+  status.textContent=(save&&save.best)?('best '+save.best+' · '+(save.synced||'local')):(save&&save.score)?('last run '+save.score):(g.saveNote||'no save yet');
+  technical.append(tlabel,info,status);
+  section.append(kicker,title,summary,actions,technical);
+  return section;
 }
-loadSaves();
-document.querySelectorAll('.tile').forEach(t=>t.addEventListener('click',()=>{
-  const f=t.dataset.file, id=t.dataset.id;
-  window.__launch=id;
-  const w=window.open(f,'_hermes','');
-  if(!w) alert('popup blocked — open '+f+' manually');
-}));
+
+function render(saves){
+  listing.replaceChildren(); archiveListing.replaceChildren();
+  games.forEach(g=>{ const s=(saves||{})[g.id]||{}; g.save=s; (g.archived?archiveListing:listing).append(card(g,s)); });
+  if(!listing.children.length){ const e=document.createElement('p'); e.className='k'; e.textContent='No active builds right now — new ones are on the way.'; listing.append(e); }
+  document.getElementById('owner').replaceChildren(
+    (()=>{const o=document.createElement('option');o.value='all';o.textContent='All builds';return o;})(),
+    ...games.map(g=>{const o=document.createElement('option');o.value=g.id;o.textContent=g.name;return o;}));
+  filter();
+}
+function filter(){
+  const q=document.getElementById('q').value.toLowerCase().trim();
+  const owner=document.getElementById('owner').value;
+  let n=0;
+  document.querySelectorAll('.artifact-card').forEach(c=>{
+    const g=games.find(x=>x.id===c.dataset.artifact);
+    const hay=(g.name+' '+g.desc+' '+g.id).toLowerCase();
+    const ok=(owner==='all'||owner===g.id)&&hay.includes(q);
+    c.classList.toggle('hidden-search',!ok); if(ok)n++;
+  });
+  const act=games.filter(g=>!g.archived).length;
+  document.getElementById('count').textContent=n+' matches · '+act+' on shelf · '+(games.length-act)+' archived';
+}
+document.getElementById('q').addEventListener('input',filter);
+document.getElementById('owner').addEventListener('change',filter);
+
+function done(s){
+  window.__SAVES=s;
+  render(s);
+}
+fetch(API+'/api/saves').then(r=>r.json()).then(done).catch(()=>{
+  if(SUPA){ fetch(SUPA.url+'/rest/v1/ib_saves?select=*',{headers:{'apikey':SUPA.key}})
+    .then(r=>r.json()).then(rows=>{ done(rows.reduce((a,r)=>{a[r.game]=r.data;return a;},{})); })
+    .catch(()=>done(JSON.parse(localStorage.getItem('ib_saves')||'{}'))); }
+  else done(JSON.parse(localStorage.getItem('ib_saves')||'{}'));
+});
 </script>
-</body></html>
+</body>
+</html>
