@@ -1,6 +1,6 @@
 // Private gate for the whole site (Cloudflare Pages Function, runs before every static asset).
-// HTTP Basic Auth: password = Pages secret SITE_PASS; username must equal Pages secret SITE_USER when that is set
-// (case-insensitive; if SITE_USER is unset any username works). Fails CLOSED if SITE_PASS is missing.
+// HTTP Basic Auth: password = Pages secret SITE_PASS; username must be one of the comma-separated names in Pages secret SITE_USER
+// when that is set (case-insensitive; if SITE_USER is unset any username works). Fails CLOSED if SITE_PASS is missing.
 // Same-origin fetches (pad -> /api/input, games -> /api/save) reuse the browser's cached credentials automatically.
 //
 // Rotate:  PATCH /accounts/<id>/pages/projects/internal-hybrid-builds  {"deployment_configs":{"production":{"env_vars":{"SITE_PASS":{"type":"secret_text","value":"<new>"},"SITE_USER":{"type":"secret_text","value":"<login email>"}}}}}
@@ -76,7 +76,9 @@ export async function onRequest({ request, env, next }) {
   const given = credsFrom(request.headers.get('Authorization') || '');
   // evaluate both compares unconditionally so a wrong username and a wrong password take the same path
   const passOk = given !== null && await safeEqual(given.pass, env.SITE_PASS);
-  const userOk = !env.SITE_USER || (given !== null && await safeEqual(given.user.trim().toLowerCase(), env.SITE_USER.trim().toLowerCase()));
+  // SITE_USER = comma-separated list of allowed usernames (e.g. an email plus first names); unset = any username
+  const names = (env.SITE_USER || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  const userOk = names.length === 0 || (given !== null && (await Promise.all(names.map(n => safeEqual(given.user.trim().toLowerCase(), n)))).some(Boolean));
   if (!(passOk && userOk) && !(await accessOk(request, env))) {
     return new Response('Private.', {
       status: 401,
