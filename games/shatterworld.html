@@ -334,7 +334,7 @@ if (vxK > 0.001) {
   diffuseColor.rgb *= mix(1.0, (0.9 + h * 0.2) * mix(0.72, 1.0, smoothstep(0.0, 0.09, ed)), vxK); }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
 if (vxK > 0.001) { vec3 nv = normalize((viewMatrix * vec4(vxN, 0.0)).xyz); normal = normalize(mix(normal, nv, vxK)); }`)
-      .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vVox, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.78, 0.4) * ringAt(vWP.xz) * 0.5;
+      .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vVox, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.78, 0.4) * ringAt(vWP.xz) * 0.3;
 #include <opaque_fragment>`);
   };
   return mat;
@@ -469,14 +469,14 @@ function buildTerrainTextures() {
   const N = Q.tex;
   colCanvas = document.createElement('canvas'); colCanvas.width = colCanvas.height = N;
   const ctx = colCanvas.getContext('2d'), img = ctx.createImageData(N, N), d = img.data;
-  const cell = new Float32Array(GRID * GRID * 3), cnt = N / GRID;
+  const cell = new Float32Array(GRID * GRID * 3), cmask = new Float32Array(GRID * GRID), cnt = N / GRID;
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
     terrColour(((i + 0.5) / N) * 128 - HALF, ((j + 0.5) / N) * 128 - HALF, _c);
     const k = (j * N + i) * 4; d[k] = _c[0] * 255 + 0.5; d[k + 1] = _c[1] * 255 + 0.5; d[k + 2] = _c[2] * 255 + 0.5; d[k + 3] = 255;
     const ci = ((j / cnt) | 0) * GRID + ((i / cnt) | 0);
-    cell[ci * 3] += s2l(_c[0]); cell[ci * 3 + 1] += s2l(_c[1]); cell[ci * 3 + 2] += s2l(_c[2]);
+    cell[ci * 3] += s2l(_c[0]); cell[ci * 3 + 1] += s2l(_c[1]); cell[ci * 3 + 2] += s2l(_c[2]); cmask[ci] += _c[3];
   }
-  const inv = 1 / (cnt * cnt); for (let i = 0; i < cell.length; i++) cell[i] *= inv;
+  const inv = 1 / (cnt * cnt); for (let i = 0; i < cell.length; i++) cell[i] *= inv * (1 - 0.34 * cmask[(i / 3) | 0] * inv);
   CELLCOL = cell; ctx.putImageData(img, 0, 0);
   texCol = new THREE.CanvasTexture(colCanvas); texCol.flipY = false; texCol.colorSpace = THREE.SRGBColorSpace; texCol.generateMipmaps = true; texCol.minFilter = THREE.LinearMipmapLinearFilter; texCol.anisotropy = 8; texCol.wrapS = texCol.wrapT = THREE.ClampToEdgeWrapping;
   // normal/mask map 256^2 : r = nx, g = nz, b = grass mask
@@ -576,9 +576,9 @@ if (vox > 0.001 || isWall) {
   float ph = hash13(vec3(floor(vWP.xz * 8.0), 3.0));
   float cv = hash13(vec3(floor(vWP.xz), 9.0));
   vec2 fq = fract(vWP.xz); float ed = min(min(fq.x, 1.0 - fq.x), min(fq.y, 1.0 - fq.y));
-  aV *= (0.92 + 0.16 * cv) * (0.95 + 0.1 * ph) * mix(0.74, 1.0, smoothstep(0.0, 0.07, ed));
+  aV *= (0.92 + 0.16 * cv) * (0.95 + 0.1 * ph) * mix(0.74, 1.0, smoothstep(0.0, 0.07, ed)) * mix(1.0, 0.66, nmS.b);
   colT = mix(aSm, aV, smoothstep(0.02, 0.6, vox));
-  if (vDr > 0.5 && !isWall) { vec3 dirtT = vec3(0.36, 0.22, 0.12) * (0.8 + 0.4 * ph); colT = mix(colT, dirtT, smoothstep(0.5, 0.9, vDr)); }
+  if (vDr > 0.5 && !isWall) { vec3 dirtT = vec3(0.5, 0.31, 0.17) * (0.8 + 0.4 * ph); colT = mix(colT, dirtT, smoothstep(0.5, 0.9, vDr)); }
 }
 if (isWall) {
   vec3 topC = textureLod(uCol, (vOwner + 0.5) / 128.0, 3.0).rgb;
@@ -595,7 +595,7 @@ diffuseColor.rgb *= colT;`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
 { vec3 nw = isWall ? vWN : normalize(mix(nSm, vec3(0., 1., 0.), smoothstep(0.05, 0.7, vox)));
   normal = normalize((viewMatrix * vec4(nw, 0.0)).xyz); }`)
-    .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vox, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.8, 0.42) * ringAt(vWP.xz) * 0.45;
+    .replace('#include <opaque_fragment>', `outgoingLight = voxPost(outgoingLight, vox, gl_FragCoord.xy); outgoingLight += vec3(1.0, 0.8, 0.42) * ringAt(vWP.xz) * 0.3;
 #include <opaque_fragment>`);
 };
 const geoFull = buildTerrainGeo();
@@ -949,7 +949,7 @@ void main(){
   float stem = step(abs(vUv.x - 0.5), 0.035) * step(vUv.y, 1.0 - vShow * 0.9);
   if (head + stem < 0.5) discard;
   vec3 col = head > 0.5 ? mix(vCol, vec3(1.0, 0.8, 0.2), core) : vec3(0.18, 0.4, 0.1);
-  col *= 0.55 + 0.55 * uSunCol + uAmb * 0.25; col *= 0.9 + 0.5 * (1.0 - r * 0.6) * step(0.5, head);
+  col *= 0.42 + 0.4 * uSunCol + uAmb * 0.2; col *= 0.85 + 0.3 * (1.0 - r * 0.6) * step(0.5, head);
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -2061,7 +2061,7 @@ function buildAct2(O, plinthR) {
   const L = mkLevel(2, O), vb = L.vb; L.cellGroup = new Map();
   const PK = vb.addPal(1.0, 0.6, 0.76), MN = vb.addPal(0.52, 0.88, 0.62), PE = vb.addPal(0.97, 0.72, 0.56), LI = vb.addPal(0.64, 0.55, 0.82), CR = vb.addPal(1.0, 0.93, 0.78), WH = vb.addPal(1, 0.97, 1), CP = vb.addPal(1, 0.84, 0.92),
     PP = vb.addPal(0.16, 0.72, 0.32), PL = vb.addPal(0.55, 0.96, 0.58), PD = vb.addPal(0.06, 0.34, 0.18), WD = vb.addPal(0.62, 0.42, 0.32), BL = vb.addPal(1, 0.66, 0.84), BL2 = vb.addPal(1, 0.82, 0.92), LA = vb.addPal(1, 0.88, 0.5, 0.9),
-    WT = vb.addPal(0.45, 0.85, 1, 0.3), GD = vb.addPal(1, 0.82, 0.3, 0.6), CY = vb.addPal(0.78, 0.5, 1, 0.7), PN = vb.addPal(0.92, 0.5, 0.6), BR = vb.addPal(0.5, 0.36, 0.3);
+    WT = vb.addPal(0.45, 0.85, 1, 0.3), GD = vb.addPal(1, 0.82, 0.3, 0.28), CY = vb.addPal(0.78, 0.5, 1, 0.7), PN = vb.addPal(0.92, 0.5, 0.6), BR = vb.addPal(0.5, 0.36, 0.3);
   L.pal = { PK, MN, PE, LI, CR, WH, CP, PP, PL, PD, WD, BL, BL2, LA, WT, GD, CY, PN };
   const A = { top: [PK, MN], soil: PE, stone: LI };
   // --- A: start island (plinth lives here); top surface y=0 ---
@@ -2082,7 +2082,7 @@ function buildAct2(O, plinthR) {
   // --- cloud steps B -> C ---
   [[32, 5, 6, 2.8], [37, 7.5, 10.5, 2.6], [42, 10, 9, 2.8]].forEach(([x, y, z, r]) => { cloudVox(vb, x, y - 1, z, r, 1.4, r * 0.9, WH, CP); L.coins.push([x + 0.5, y + 1.6, z + 0.5]); });
   // --- C: pipe island ---
-  island(vb, 52, 10, 9, 8.5, 7, A, 3); pipeVox(vb, 56, 14, 10, 5, PP, PL, PD); L.pipes.push({ x: 56.5, y: 15, z: 14.5, id: 0, to: 1, h: 5 });
+  island(vb, 52, 10, 9, 8.5, 7, A, 3); pipeVox(vb, 56, 14, 10, 4, PP, PL, PD); L.pipes.push({ x: 56.5, y: 14, z: 14.5, id: 0, to: 1, h: 4 }); vb.set(52, 10, 14, PE); vb.set(53, 10, 14, PE); vb.set(53, 11, 14, PE);
   blossomTree(vb, 47, 10, 4, 5, BR, BL2, BL, 2.6);
   L.blocks.push({ x: 50.5, y: 14.5, z: 10.5, item: 'coin' }, { x: 51.5, y: 14.5, z: 10.5, item: 'coin' }, { x: 52.5, y: 14.5, z: 10.5, item: 'mushroom' });
   L.enemies.push({ type: 'shell', x: 50, y: 10, z: 7, r: 3.5 }, { type: 'walker', x: 54, y: 10, z: 12, r: 2.5 });
@@ -2984,6 +2984,70 @@ bootGame();
   poll();
 })();
 
+// <gamepad-shim>
+// gamepad shim v1: standard-mapping pads (Xbox / DualSense / DualShock / Switch Pro) -> the same inputs as keyboard + phone pad.
+// Pasted verbatim inside each game's module <script> (needs the contract globals: keys, padFire, padPlace, padLook, padMenu).
+// Mapping (Xbox name / PlayStation name):
+//   left stick = WASD   right stick = look   A/Cross = jump   X/Square = J   B/Circle = Z   Y/Triangle = E
+//   RT/R2 = primary (fire)   LT/L2 = secondary (ADS / place / zip)   LB/L1 = Q   RB/R1 and L3 = Shift   R3 = Q
+//   D-pad = arrow keys   Start/Options = confirm on menu screens, pause/back-to-menu in game   Select/Create = back to menu
+// Browser quirk: the pad is invisible to the page until you press any button once.
+(function(){
+  if(!navigator.getGamepads) return;
+  const DZ=0.16, held=new Set(), was={};
+  const toast=(()=>{ let el,t; return msg=>{
+    if(!el){ el=document.createElement('div');
+      el.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;padding:7px 14px;border-radius:8px;'+
+        'background:rgba(10,12,20,.86);color:#cfe;font:12px ui-monospace,monospace;border:1px solid #3a5;pointer-events:none;transition:opacity .4s;';
+      document.body.appendChild(el); }
+    el.textContent=msg; el.style.opacity=1; clearTimeout(t); t=setTimeout(()=>{ el.style.opacity=0; },2600); }; })();
+  const setKey=(k,on)=>{ if(on){ if(!held.has(k)){ held.add(k); keys.add(k); } } else if(held.has(k)){ held.delete(k); keys.delete(k); } };
+  const axisKeys=(neg,pos,v)=>{ setKey(neg, held.has(neg)? v<-0.22 : v<-0.38); setKey(pos, held.has(pos)? v>0.22 : v>0.38); };
+  const shown=el=>{ if(!el) return false; const s=getComputedStyle(el);
+    return s.display!=='none'&&s.visibility!=='hidden'&&+s.opacity>0.01&&el.getClientRects().length>0; };
+  const click=id=>{ const el=document.getElementById(id); if(shown(el)){ el.click(); return true; } return false; };
+  const edge=(name,on,down,up)=>{ if(on&&!was[name]){ was[name]=1; down&&down(); } else if(!on&&was[name]){ was[name]=0; up&&up(); } };
+  const call=(f,...a)=>{ if(typeof f==='function') f(...a); };
+  const pick=()=>{ for(const g of navigator.getGamepads()) if(g&&g.connected) return g; return null; };
+  let lookLive=false;
+  function releaseAll(){ [...held].forEach(k=>setKey(k,false)); Object.keys(was).forEach(k=>{ if(was[k]) edge(k,false,null,()=>{}); });
+    if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+    if(typeof padFire==='function') padFire(false); if(typeof padPlace==='function') padPlace(false); }
+  addEventListener('gamepadconnected',e=>toast('controller connected: '+String(e.gamepad.id).replace(/\s*\(.*$/,'').slice(0,42)));
+  addEventListener('gamepaddisconnected',()=>{ releaseAll(); toast('controller disconnected'); });
+  addEventListener('blur',releaseAll);
+  window.__rumble=(strong,weak,ms)=>{ const g=pick(), a=g&&g.vibrationActuator;
+    if(a&&a.playEffect) a.playEffect('dual-rumble',{duration:ms||80,strongMagnitude:strong||0,weakMagnitude:weak||0}).catch(()=>{}); };
+  window.__gpDbg=()=>({ connected:!!pick(), held:[...held] });
+  function frame(){
+    const g=pick();
+    if(g){
+      const b=i=>{ const x=g.buttons[i]; return !!x&&(x.pressed||x.value>0.4); };
+      // sticks (radial deadzone)
+      const dz=(x,y)=>{ const m=Math.hypot(x,y); if(m<DZ) return [0,0]; const s=(Math.min(m,1)-DZ)/(1-DZ)/m; return [x*s,y*s]; };
+      const [lx,ly]=dz(g.axes[0]||0,g.axes[1]||0);
+      axisKeys('a','d',lx); axisKeys('w','s',ly);
+      const [rx,ry]=dz(g.axes[2]||0,g.axes[3]||0);
+      const cv=v=>Math.sign(v)*Math.pow(Math.abs(v),1.6); // finer aim near centre
+      if(rx||ry){ lookLive=true; call(typeof padLook==='function'?padLook:null,cv(rx),cv(ry)); }
+      else if(lookLive){ lookLive=false; call(typeof padLook==='function'?padLook:null,0,0); }
+      // face / shoulder buttons -> keys
+      setKey(' ',b(0)); setKey('z',b(1)); setKey('j',b(2)); setKey('e',b(3));
+      setKey('q',b(4)||b(11)); setKey('shift',b(5)||b(10));
+      setKey('arrowup',b(12)); setKey('arrowdown',b(13)); setKey('arrowleft',b(14)); setKey('arrowright',b(15));
+      // triggers -> primary / secondary
+      edge('rt',b(7),()=>{ call(typeof padFire==='function'?padFire:null,true); window.__rumble(0.0,0.25,45); },()=>call(typeof padFire==='function'?padFire:null,false));
+      edge('lt',b(6),()=>call(typeof padPlace==='function'?padPlace:null,true),()=>call(typeof padPlace==='function'?padPlace:null,false));
+      // A also confirms on start / retry screens; Start confirms there, pauses in game
+      edge('a',b(0),()=>{ if(!click('cta')) click('cta2'); });
+      edge('start',b(9),()=>{ if(!click('cta') && !click('cta2')) call(typeof padMenu==='function'?padMenu:null); });
+      edge('select',b(8),()=>call(typeof padMenu==='function'?padMenu:null));
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+// </gamepad-shim>
 </script>
 </body>
 </html>
