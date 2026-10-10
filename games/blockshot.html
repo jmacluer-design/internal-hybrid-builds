@@ -380,10 +380,10 @@ const sfx = (() => {
       comp.threshold.value = -16; comp.knee.value = 20; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.22;
       master = ctx.createGain(); master.gain.value = muted ? 0 : 0.85;
       master.connect(comp); comp.connect(ctx.destination);
-      noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       const len = Math.floor(ctx.sampleRate * 1.1), ib = ctx.createBuffer(2, len, ctx.sampleRate);
-      for (let c = 0; c < 2; c++) { const ch = ib.getChannelData(c); for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+      for (let c = 0; c < 2; c++) { const ch = ib.getChannelData(c); for (let i = 0; i < len; i++) { const t = 1 - i / len; ch[i] = (Math.random() * 2 - 1) * t * t * t; } }
       const rev = ctx.createConvolver(); rev.buffer = ib;
       revIn = ctx.createGain(); revIn.gain.value = 0.28; revIn.connect(rev); rev.connect(master);
     } catch (e) { ctx = null; }
@@ -430,7 +430,7 @@ const sfx = (() => {
     else { g.gain.exponentialRampToValueAtTime(v, t + atk); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
     src.connect(f); f.connect(g); route(g, o.pan, o.wet || 0);
     active++; src.onended = () => { active--; };
-    src.start(t, Math.random() * 0.9); src.stop(t + dur + 0.03);
+    src.start(t, Math.random() * 0.45); src.stop(t + dur + 0.03);
   }
   // spatial helper: distance attenuation + stereo pan relative to the player camera
   function spat(x, y, z) {
@@ -905,7 +905,7 @@ function genWorld(seed) {
     for (let r = 0; r < 58 && !sp; r++) for (let a = 0; a < Math.max(1, r * 6) && !sp; a++) {
       const x = Math.round(64 + Math.cos(a / Math.max(1, r * 6) * 6.283) * r), z = Math.round(64 + Math.sin(a / Math.max(1, r * 6) * 6.283) * r);
       const h = HGT[x + z * WX]; if (h < SEA + 3 || h > maxH || world[x + WX * (z + WZ * h)] !== B.GRASS) continue;
-      let ok = true; for (let dz = -3; dz <= 3 && ok; dz++) for (let dx = -3; dx <= 3; dx++) { const hh = HGT[(x + dx) + (z + dz) * WX]; if (Math.abs(hh - h) > 1 || world[(x + dx) + WX * ((z + dz) + WZ * (hh + 1))] !== 0) { ok = false; break; } }
+      let ok = true; for (let dz = -3; dz <= 3 && ok; dz++) for (let dx = -3; dx <= 3; dx++) { const hh = HGT[(x + dx) + (z + dz) * WX]; if (Math.abs(hh - h) > (Math.abs(dx) <= 2 && Math.abs(dz) <= 2 ? 0 : 1) || world[(x + dx) + WX * ((z + dz) + WZ * (hh + 1))] !== 0) { ok = false; break; } }
       if (ok) { for (let dy = 1; dy <= 6 && ok; dy++) for (let dz = -clear; dz <= clear && ok; dz++) for (let dx = -clear; dx <= clear; dx++) { const q = getBlock(x + dx, h + dy, z + dz); if (q === B.LEAVES || q === B.LOG) { ok = false; break; } } }
       if (ok) sp = { x: x + 0.5, y: h + 1, z: z + 0.5 };
     }
@@ -2526,7 +2526,7 @@ function frame(now) {
   const p1 = performance.now();
   // ---- visuals ---- (software renderer: input + sim keep the rAF cadence, drawing is capped to ~12 fps so slow GL never starves input polling)
   const sinceVis = now - lastVisT;
-  if (lowQ && sinceVis < 80) return;
+  if (lowQ && sinceVis < (state === 'menu' ? 450 : 220)) return;
   const vdt = Math.min(0.25, sinceVis / 1000); lastVisT = now;
   const sd = state === 'menu' ? 0.16 : tod; updateSky(sd);
   if (state === 'menu') {
@@ -2572,7 +2572,7 @@ Object.assign(window.__game, {
   vm() { const M = VM[vmS.shown]; return M ? { shown: vmS.shown, pos: M.g.position.toArray(), rot: [M.g.rotation.x, M.g.rotation.y, M.g.rotation.z], vis: M.g.visible, mag: M.mag.visible, magY: M.mag.position.y, rootVis: vmRoot.visible, sb: pl.sprintBlend, swap: pl.swapT } : { shown: vmS.shown, rootVis: vmRoot.visible }; },
   regen(seed) { newWorld(seed); return { spawn: spawnPoint, fallback: spawnFallback }; },
   explode(x, y, z, r) { explode(x, y, z, r, { playerDmg: 0, mobDmg: 0 }); },
-  spawnMob(type, dist = 8, ang = 0) { const a = pl.yaw + ang, x = pl.x - Math.sin(a) * dist, z = pl.z - Math.cos(a) * dist; const y = groundYAt(Math.floor(x), Math.floor(z), pl.y + 10); const m = spawnMob(type, x, y + 0.01, z); m.alert = 8; m.lastX = pl.x; m.lastZ = pl.z; return mobs.indexOf(m); },
+  spawnMob(type, dist = 8, ang = 0) { const a = pl.yaw + ang, x = pl.x - Math.sin(a) * dist, z = pl.z - Math.cos(a) * dist; const y = groundYAt(Math.floor(x), Math.floor(z), pl.y + 3); const m = spawnMob(type, x, y + 0.01, z); m.alert = 8; m.lastX = pl.x; m.lastZ = pl.z; return mobs.indexOf(m); },
   addKills(n) { for (let i = 0; i < n; i++) onKill({ type: 'zombie' }, false, W.ar); },
   hurt(n) { hurtPlayer(n, pl.x + 3, pl.z, 'debug'); },
   give(id, n) { return addToHotbar(id, n); },
@@ -2596,7 +2596,16 @@ function warmup() {
   keep(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.3), arrowMat)); keep(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.3), arrowTip));
   keep(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 2, 6, 1, true), strikeMat)); keep(new THREE.Mesh(new THREE.RingGeometry(1, 2, 8), new THREE.MeshBasicMaterial({ color: 0xff3a2a, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false, fog: false })));
   keep(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0x30343a }))); keep(new THREE.Mesh(blockCubeGeom(B.TNT), bombMat));
-  try { renderer.compile(scene, camera); renderer.compile(vmScene, vmCam); } catch (e) {}
+  try {
+    renderer.compile(scene, camera); renderer.compile(vmScene, vmCam);
+    // draw everything once (frustum culling + visibility off) so every program is linked and uploaded before the first frame the player sees
+    const saved = []; for (const root of [scene, vmScene]) root.traverse(o => { saved.push([o, o.visible, o.frustumCulled]); o.visible = true; o.frustumCulled = false; });
+    const pc = pMesh.count; pMesh.count = 1;
+    camera.position.set(64, 70, 64); camera.updateMatrixWorld();
+    renderer.setClearColor(skyColor, 1); renderer.clear(true, true, true); renderer.render(scene, camera); renderer.clearDepth(); renderer.render(vmScene, vmCam);
+    renderer.getContext().finish();
+    saved.forEach(([o, v, f]) => { o.visible = v; o.frustumCulled = f; }); pMesh.count = pc;
+  } catch (e) {}
   tmp.forEach(o => { scene.remove(o); if (o.material && o.material.dispose && o.material !== dropMat && o.material !== flashMat2 && o.material !== arrowMat && o.material !== arrowTip && o.material !== strikeMat && o.material !== bombMat) o.material.dispose(); if (o.geometry && o.geometry.dispose && !cubeGeoCacheHas(o.geometry) && o.geometry !== nadeGeo) o.geometry.dispose(); });
   mm.forEach(removeMob);
 }

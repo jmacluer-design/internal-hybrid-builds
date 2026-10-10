@@ -236,7 +236,8 @@ const TUNING = {
             airAccel: 20, airMax: 12, airTurn: 15, jump: 11.5, coyote: 0.12, buffer: 0.12 },
   web:    { range: 128, minRope: 8, shootTime: 0.05, drag: 0.03, dragHi: 0.0006,
             pump: 17, pumpSoft: 40, pumpHard: 74, steer: 13, reel: 16, reelAM: 0.7,
-            autoReel: 0.35, boostK: 0.17, boostMax: 9, jumpPop: 7.5, groundHop: 8.5 },
+            autoReel: 0.35, boostK: 0.17, boostMax: 9, jumpPop: 7.5, groundHop: 9.5,
+            liftAlt: 3.6, liftBase: 5, liftGain: 15, standoff: 4.6 },     // near-ground reel assist (lifts you off the floor so swings can start from it)
   assist: { azDeg: [-44, -30, -15, 0, 15, 30, 44], elDeg: [-6, 8, 20, 32, 44, 56, 68], minDist: 16, idealDist: 55, simT: 2.2, simDt: 0.05, wpSnapDeg: 11 },
   zip:    { speed: 62, accel: 170, start: 24, arrive: 3.2, maxT: 2.6, range: 124, ledgeMax: 80 },
   dive:   { grav: 62, terminal: 92, steer: 3.1, impactMin: 24, pullT: 0.4, pullRate: 7, pullPitch: 0.42, keep: 0.93 },
@@ -464,6 +465,7 @@ function terrainFn(x, z){
     const t = Math.exp(-d2 / (2 * m.s * m.s)), terr = Math.floor(t * 5) / 5, jag = vnoise(x * 0.22 + m.seed, z * 0.22, m.seed) - 0.5;
     h += m.a * (terr * 0.55 + t * 0.45) + jag * 2.6 * t;
   }
+  const ds = Math.hypot(x - 0, z - 148); h += (2.0 - h) * (1 - smooth(22, 58, ds));
   return h;
 }
 (function bakeHeights(){
@@ -971,7 +973,7 @@ function addLintel(A, B, yTop, thick){
   const dx = B.x - A.x, dz = B.z - A.z, len = Math.hypot(dx, dz), yaw = Math.atan2(-dz, dx);
   const cx = (A.x + B.x) / 2, cz = (A.z + B.z) / 2, w = len + 9, cy = yTop + thick / 2 - 0.5, depth = 7.5;
   const geo = roundedBoxGeo(w, thick, depth, 1.2, 8, [w / 10, 1]); paintGeo(geo, (x, y, z, nx, ny, nz, o) => { const n = fbm(x * 0.3 + 4, z * 0.3 + y * 0.2, 3, 9); const k = 0.7 + 0.4 * n; o[0] = k * 0.98; o[1] = k * 0.96; o[2] = k * 0.9; if (ny > 0.5) { o[0] *= 0.8; o[1] *= 0.95; o[2] *= 0.7; } });
-  const mesh = new THREE.Mesh(geo, MAT.stone); mesh.position.set(cx, cy, cz); mesh.rotation.y = yaw; scene.add(mesh);
+  const mesh = new THREE.Mesh(geo, MAT.stone); mesh.userData.lintel = true; mesh.position.set(cx, cy, cz); mesh.rotation.y = yaw; scene.add(mesh);
   const col = addObb(cx, cy, cz, w / 2 - 0.2, thick / 2, depth / 2, yaw, 1.0);
   const L = { mesh, col, y: yTop, alive: true }; A.arch = B.arch = { lintel: L, A, B }; return L;
 }
@@ -1379,7 +1381,7 @@ function setBeam(m, ax, ay, az, bx, by, bz, r){
 // ============================================================================
 //  state machine
 // ============================================================================
-function setTState(s){ TI.state = s; TI.st = 0; TI.ev = 0; TI.thrash = 0; }
+function setTState(s){ TI.state = s; TI.st = 0; TI.ev = 0; TI.thrash = 0; if (s !== 'laser') LASER.on = false; }
 function playerRelAngle(){ return angDiff(TI.yaw, Math.atan2(pos[0] - TI.x, pos[2] - TI.z)); }
 function playerDist(){ return Math.hypot(pos[0] - TI.x, pos[2] - TI.z); }
 function footPos(S, out){ const t = TB['toe' + S].matrixWorld.elements, h = TB['heel' + S].matrixWorld.elements; out.x = (t[12] + h[12]) / 2; out.y = Math.min(t[13], h[13]); out.z = (t[14] + h[14]) / 2; return out; }
@@ -1627,7 +1629,7 @@ function titanTick(dt){
   IKA.L.tw = 0; IKA.R.tw = 0; telHideAll2();
   const wasState = TI.state;
   const isAttack = !!ATKS[TI.state] && TI.state !== 'kneel' && TI.state !== 'roar' && TI.state !== 'dying';
-  TI.st += dt * (isAttack ? phaseSp : 1);
+  if (!(window.__game && window.__game._hold)) TI.st += dt * (isAttack ? phaseSp : 1);
   TI.clingT = (P.state === 'cling') ? TI.clingT + dt : Math.max(0, TI.clingT - dt * 0.8);
   const tgtSpeedMax = T.walk * phaseSp;
   let wantWalk = false;
@@ -1776,8 +1778,8 @@ function updateTitanVisuals(dt){
   const t = performance.now() * 0.001;
   MAT.eye.color.setRGB(0.25 + 0.75 * TI.eyes, 0.12 + 0.45 * TI.eyes, 0.05 + 0.15 * TI.eyes);
   for (const g of TB.eyeGlow) g.material.opacity = 0.7 * TI.eyes * (0.85 + 0.15 * Math.sin(t * 7));
-  MAT.titan.emissiveIntensity = 0.45 + 0.2 * Math.sin(t * 1.3) + TI.glow * 1.6;
-  MAT.armour.emissiveIntensity = 0.0 + TI.glow * 0.6;
+  MAT.titan.emissiveIntensity = 0.4 + 0.15 * Math.sin(t * 1.3) + TI.glow * 1.3;
+  MAT.armour.emissiveIntensity = TI.glow * 0.14;
   // blobs
   for (const [i, S] of ['L', 'R'].entries()) { footPos(S, _fp); const b = footBlobs[i]; const h = hAt(_fp.x, _fp.z); b.position.set(_fp.x, h + 0.14, _fp.z); b.rotation.set(-Math.PI / 2, 0, 0, 'YXZ'); const air = clamp((_fp.y - h) / 12, 0, 1); b.material.opacity = 0.5 * (1 - air * 0.6); b.scale.set(15 + air * 6, 20 + air * 6, 1); }
   bodyShadow.position.set(TI.x + SHADOW_DIR.x * 40, hAt(TI.x, TI.z) + 0.13, TI.z + SHADOW_DIR.z * 40); bodyShadow.rotation.set(-Math.PI / 2, 0, Math.atan2(SHADOW_DIR.x, SHADOW_DIR.z), 'YXZ'); bodyShadow.scale.set(30, 150, 1);
@@ -1857,19 +1859,28 @@ function anchorUpdate(a, dt){
 const _ad = [0, 0, 1];
 function aimDir(out){ const cp = Math.cos(cam.pitch); out[0] = -Math.sin(cam.yaw) * cp; out[1] = Math.sin(cam.pitch); out[2] = -Math.cos(cam.yaw) * cp; return out; }
 const ANCH = { ok: false, kind: 'none', x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, dist: 0, score: 0, col: null, wp: null };
-function anchOut(kind, col, x, y, z, nx, ny, nz, wp){ ANCH.ok = true; ANCH.kind = kind; ANCH.col = col; ANCH.x = x; ANCH.y = y; ANCH.z = z; ANCH.nx = nx; ANCH.ny = ny; ANCH.nz = nz; ANCH.wp = wp || null; ANCH.dist = Math.hypot(x - pos[0], y - pos[1], z - pos[2]); return true; }
+// anchors on static ruins sit a few units off the face so the pendulum clears the pillar (the rope draws a short strand to the true hit point)
+function anchOff(col, ny){ return col && col.tag === 'static' ? (ny > 0.7 ? 3.0 : WEB.standoff) : 0; }
+function anchOut(kind, col, x, y, z, nx, ny, nz, wp){
+  const off = wp ? 0 : anchOff(col, ny); ANCH.ok = true; ANCH.kind = kind; ANCH.col = col; ANCH.hx = x; ANCH.hy = y; ANCH.hz = z; ANCH.x = x + nx * off; ANCH.y = y + ny * off; ANCH.z = z + nz * off; ANCH.nx = nx; ANCH.ny = ny; ANCH.nz = nz; ANCH.wp = wp || null; ANCH.dist = Math.hypot(ANCH.x - pos[0], ANCH.y - pos[1], ANCH.z - pos[2]); return true;
+}
 
+const SIMC = [];
 function simSwing(ax, ay, az, aimx, aimz){
   let px = pos[0], py = pos[1], pz = pos[2], vx = vel[0], vy = vel[1], vz = vel[2];
-  const L = Math.max(WEB.minRope, Math.hypot(px - ax, py - ay, pz - az)), dt = ASSIST.simDt, N = Math.round(ASSIST.simT / dt);
-  let minY = py, hitT = 99, relBest = -1e9, relT = 0, passed = false, stClear = 999; const x0 = px, z0 = pz, y0 = py;
+  const hop = P.state === 'ground'; if (hop && vy < WEB.groundHop) vy = WEB.groundHop;
+  let L0 = Math.max(WEB.minRope, Math.hypot(px - ax, py - ay, pz - az)); const dt = ASSIST.simDt, N = Math.round(ASSIST.simT / dt);
+  let L = L0, minY = py, hitT = 99, relBest = -1e9, relT = 0, passed = false, stClear = 999; const x0 = px, z0 = pz, y0 = py;
   for (let i = 1; i <= N; i++) {
     vy -= G * dt; px += vx * dt; py += vy * dt; pz += vz * dt;
-    const dx = px - ax, dy = py - ay, dz = pz - az, d = Math.hypot(dx, dy, dz);
+    { const c0 = py - HH - hAt(px, pz); if (c0 < WEB.liftAlt && L0 > WEB.minRope + 2) L0 = Math.max(WEB.minRope, L0 - (WEB.liftBase + (WEB.liftAlt - c0) * WEB.liftGain) * dt); }
+    L = L0; const dx = px - ax, dy = py - ay, dz = pz - az, d = Math.hypot(dx, dy, dz);
     if (d > L) { const k = L / d; px = ax + dx * k; py = ay + dy * k; pz = az + dz * k; const nx = dx / d, ny = dy / d, nz = dz / d, vr = vx * nx + vy * ny + vz * nz; if (vr > 0) { vx -= nx * vr; vy -= ny * vr; vz -= nz * vr; } }
     if (py < minY) minY = py;
-    const gy = hAt(px, pz), c = py - HH - gy; if (c < stClear) stClear = c;
-    if (c < 0.5) { hitT = i * dt; break; }
+    for (let q = 0; q < SIMC.length; q++) { const cc = SIMC[q]; const bx = px - cc.bsx, by = py - cc.bsy, bz = pz - cc.bsz, rr = cc.bsr + 1.2; if (bx * bx + by * by + bz * bz < rr * rr && colDist(cc, px, py, pz) < 0.9) { hitT = Math.min(hitT, i * dt); } }
+    if (hitT < 99) break;
+    const gy = hAt(px, pz), c = py - HH - gy; if (c < stClear && (!hop || i * dt > 0.3)) stClear = c;
+    if (c < 0.5 && (!hop || i * dt > 0.2)) { hitT = i * dt; break; }
     if (py < ay - L * 0.55) passed = true;
     if (passed && vy > 1 && i * dt > 0.25) { const sp = Math.hypot(vx, vy, vz), prog = (px - x0) * aimx + (pz - z0) * aimz; const rv = 0.55 * Math.min(sp, 46) + 0.35 * clamp(prog, -20, 70) + 0.25 * clamp(py - y0, -10, 25); if (rv > relBest) { relBest = rv; relT = i * dt; } }
   }
@@ -1908,16 +1919,31 @@ function assistSwing(){
   const hv = Math.hypot(vel[0], vel[2]); let baseYaw = cam.yaw;
   if (hv > 8) baseYaw += angDiff(cam.yaw, Math.atan2(-vel[0], -vel[2])) * 0.35 * smooth(8, 20, hv);
   const aimx = -Math.sin(baseYaw), aimz = -Math.cos(baseYaw), chest = pos[1] + 0.4;
+  SIMC.length = 0; for (const c of SCOLS) { if (!c.alive) continue; const bx = pos[0] - c.bsx, bz = pos[2] - c.bsz, rr = c.bsr + WEB.range + 20; if (bx * bx + bz * bz < rr * rr) SIMC.push(c); }
   let best = -1e9, found = false, bx = 0, by = 0, bz = 0, bn = null, bcol = null;
+  const consider = (sx, sy, sz, nx, ny, nz, col, tdist, dirx, diry, dirz, bonus) => {
+    const so = anchOff(col, ny); let sc = simSwing(sx + nx * so, sy + ny * so, sz + nz * so, aimx, aimz); sc -= Math.abs(tdist - ASSIST.idealDist) * 0.3; sc += (dirx * _ad[0] + diry * _ad[1] + dirz * _ad[2]) * 14;
+    if (col && col.tag === 'titan') sc += 5; sc += clamp(sy - chest, 0, 70) * 0.3 + (bonus || 0);
+    if (sc > best) { best = sc; found = true; bx = sx; by = sy; bz = sz; bcol = col; bn = [nx, ny, nz]; }
+  };
   const az = ASSIST.azDeg, el = ASSIST.elDeg;
   for (let i = 0; i < az.length; i++) for (let j = 0; j < el.length; j++) {
     const yw = baseYaw + az[i] * DEG, e = el[j] * DEG, ce = Math.cos(e), dx = -Math.sin(yw) * ce, dy = Math.sin(e), dz = -Math.cos(yw) * ce;
     if (!castRay(pos[0], chest, pos[2], dx, dy, dz, WEB.range, 1, null)) continue;
-    if (RH.t < ASSIST.minDist) continue;
-    const hx = RH.x, hy = RH.y, hz = RH.z; if (hy < hAt(hx, hz) + 4) continue;
-    let sc = simSwing(hx, hy, hz, aimx, aimz); sc -= Math.abs(RH.t - ASSIST.idealDist) * 0.3; sc += (dx * _ad[0] + dy * _ad[1] + dz * _ad[2]) * 14;
-    if (RH.col && RH.col.tag === 'titan') sc += 5;
-    if (sc > best) { best = sc; found = true; bx = hx; by = hy; bz = hz; bcol = RH.col; bn = [RH.nx, RH.ny, RH.nz]; }
+    if (RH.t < ASSIST.minDist) continue; const hx = RH.x, hy = RH.y, hz = RH.z; if (hy < hAt(hx, hz) + 4) continue;
+    consider(hx, hy, hz, RH.nx, RH.ny, RH.nz, RH.col, RH.t, dx, dy, dz, 0);
+  }
+  // pillar-top candidates: just under the rim on the player's side, so the arc starts high and long
+  for (const ru of RUINS) {
+    const top = ru.col.y1; if (top < chest + 14 || top > chest + 140) continue;
+    const dx = pos[0] - ru.x, dz = pos[2] - ru.z, dh = Math.hypot(dx, dz); if (dh < 14 || dh > WEB.range - 8) continue;
+    const ux0 = dx / dh, uz0 = dz / dh;
+    for (const a of [0, -0.75, 0.75, -1.4, 1.4]) {
+      const ca = Math.cos(a), sa = Math.sin(a), ux = ux0 * ca - uz0 * sa, uz = ux0 * sa + uz0 * ca, sx = ru.x + ux * ru.r, sz = ru.z + uz * ru.r, sy = top - 1.2, so = WEB.standoff;
+      if (segBlocked(pos[0], chest, pos[2], sx + ux * so, sy, sz + uz * so, 4, ru.col)) continue;
+      const l3 = Math.hypot(sx - pos[0], sy - chest, sz - pos[2]);
+      consider(sx, sy, sz, ux, 0, uz, ru.col, l3, (sx - pos[0]) / l3, (sy - chest) / l3, (sz - pos[2]) / l3, 3);
+    }
   }
   if (!found) { ANCH.ok = false; ANCH.kind = 'none'; return false; }
   ANCH.score = best; return anchOut('assist', bcol, bx, by, bz, bn[0], bn[1], bn[2], null);
@@ -1994,14 +2020,14 @@ function clampSpeed(){ const sp = Math.hypot(vel[0], vel[1], vel[2]); if (sp > T
 // ============================================================================
 //  web: fire / activate / release
 // ============================================================================
-function copyAnchor(d, s){ d.bone = s.bone; d.col = s.col; d.lx = s.lx; d.ly = s.ly; d.lz = s.lz; d.wx = s.wx; d.wy = s.wy; d.wz = s.wz; d.pwx = s.pwx; d.pwy = s.pwy; d.pwz = s.pwz; d.vx = s.vx; d.vy = s.vy; d.vz = s.vz; d.nx = s.nx; d.ny = s.ny; d.nz = s.nz; d.wp = s.wp; d.valid = s.valid; }
+function copyAnchor(d, s){ d.bone = s.bone; d.col = s.col; d.lx = s.lx; d.ly = s.ly; d.lz = s.lz; d.wx = s.wx; d.wy = s.wy; d.wz = s.wz; d.pwx = s.pwx; d.pwy = s.pwy; d.pwz = s.pwz; d.vx = s.vx; d.vy = s.vy; d.vz = s.vz; d.nx = s.nx; d.ny = s.ny; d.nz = s.nz; d.wp = s.wp; d.valid = s.valid; d.hx = s.hx; d.hy = s.hy; d.hz = s.hz; d.strand = s.strand; }
 function tryFire(){
   const S = P.sw;
   if (!findSwingAnchor()) { S.whiff = 0.32; S.sx = pos[0]; S.sy = pos[1]; S.sz = pos[2]; aimDir(_ad); S.ax = pos[0] + _ad[0] * 44; S.ay = pos[1] + 0.4 + _ad[1] * 44; S.az = pos[2] + _ad[2] * 44; S.kind = 'whiff'; sfx.whiff(); return false; }
   S.pending = true; S.delay = WEB.shootTime; S.shoot = 0; S.kind = ANCH.kind; S.retract = 0;
   const a = S.pend;
   if (ANCH.wp) anchorSetBone(a, ANCH.col, ANCH.wp.bone, ANCH.wp.pos[0], ANCH.wp.pos[1], ANCH.wp.pos[2], ANCH.wp); else anchorSetWorld(a, ANCH.col, ANCH.x, ANCH.y, ANCH.z, ANCH.nx, ANCH.ny, ANCH.nz, null);
-  a.nx = ANCH.nx; a.ny = ANCH.ny; a.nz = ANCH.nz;
+  a.nx = ANCH.nx; a.ny = ANCH.ny; a.nz = ANCH.nz; a.hx = ANCH.hx; a.hy = ANCH.hy; a.hz = ANCH.hz; a.strand = !ANCH.wp && ANCH.col && ANCH.col.tag === 'static';
   if (P.state === 'zip' || P.state === 'grabbed') return false;
   if (P.state === 'ground') { vel[1] = Math.max(vel[1], WEB.groundHop); P.grounded = false; P.state = 'air'; P.coyote = 0; P.noSnap = 0.15; }
   sfx.thwip(); return true;
@@ -2088,6 +2114,7 @@ function swingStep(dt){
     const a = WEB.steer * ((IN.d || 0) - (IN.a || 0)) * dt; vel[0] += sx * a; vel[1] += sy * a; vel[2] += sz * a;
   }
   let reel = IN.s ? WEB.reel : 0; if (P.yank.charge > 0.05 && P.yank.canTarget) reel = Math.max(reel, 7);
+  { const alt = pos[1] - HH - hAt(pos[0], pos[2]); if (alt < WEB.liftAlt && S.L > WEB.minRope + 2 && IN.fire) reel = Math.max(reel, WEB.liftBase + (WEB.liftAlt - alt) * WEB.liftGain); }
   if (reel > 0) {
     const oldL = S.L; S.L = Math.max(WEB.minRope, S.L - reel * dt);
     if (S.L < oldL) { const k = Math.pow(oldL / S.L, WEB.reelAM), v2 = (vel[0] - A.vx) * nx + (vel[1] - A.vy) * ny + (vel[2] - A.vz) * nz, t2x = vel[0] - A.vx - nx * v2, t2y = vel[1] - A.vy - ny * v2, t2z = vel[2] - A.vz - nz * v2; vel[0] = A.vx + nx * v2 + t2x * k; vel[1] = A.vy + ny * v2 + t2y * k; vel[2] = A.vz + nz * v2 + t2z * k; }
@@ -2582,7 +2609,7 @@ function updateScarf(dt){
     const dx = p.x - prev.x, dy = p.y - prev.y, dz = p.z - prev.z, l = Math.hypot(dx, dy, dz) || 1, seg = 0.17; p.x = prev.x + dx / l * seg; p.y = prev.y + dy / l * seg; p.z = prev.z + dz / l * seg;
   }
   const sc = hero.scarf; for (let i = 0; i < n; i++) { sc.pts[i * 3] = pts[i].x; sc.pts[i * 3 + 1] = pts[i].y; sc.pts[i * 3 + 2] = pts[i].z; }
-  sc.mesh.visible = hero.root.visible; if (sc.mesh.visible) sc.build(0.16, camera.position.x, camera.position.y, camera.position.z);
+  sc.mesh.visible = hero.root.visible; if (sc.mesh.visible) sc.build(0.11, camera.position.x, camera.position.y, camera.position.z);
 }
 
 // ============================================================================
@@ -2591,7 +2618,7 @@ function updateScarf(dt){
 const webMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e4, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
 const webGlowMat = new THREE.MeshBasicMaterial({ color: 0x7fe9ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
 const webRib = new Ribbon(18, webMat, 12), webGlow = new Ribbon(18, webGlowMat, 11), zipRib = new Ribbon(10, new THREE.MeshBasicMaterial({ color: 0xbff6ff, side: THREE.DoubleSide }), 12);
-const whiffRib = new Ribbon(8, webMat, 12);
+const whiffRib = new Ribbon(8, webMat, 12), strandRib = new Ribbon(6, webMat, 12);
 const _hand = new THREE.Vector3();
 function ribbonLine(rib, ax, ay, az, bx, by, bz, wig, t){
   const n = rib.n; for (let i = 0; i < n; i++) { const u = i / (n - 1), w = Math.sin(u * Math.PI) * wig; rib.pts[i * 3] = ax + (bx - ax) * u + Math.sin(u * 20 + t * 40) * w * 0.7; rib.pts[i * 3 + 1] = ay + (by - ay) * u + Math.cos(u * 17 + t * 37) * w * 0.7 - Math.sin(u * Math.PI) * Math.max(0, wig * 0.0); rib.pts[i * 3 + 2] = az + (bz - az) * u + Math.sin(u * 23 + t * 41 + 1) * w * 0.7; }
@@ -2610,9 +2637,12 @@ function updateWebs(dt, t){
   if (show) {
     ribbonLine(webRib, _hand.x, _hand.y, _hand.z, tx, ty, tz, wig, t); ribbonLine(webGlow, _hand.x, _hand.y, _hand.z, tx, ty, tz, wig * 0.5, t);
     const d = Math.hypot(tx - _hand.x, ty - _hand.y, tz - _hand.z), w = clamp(0.07 + d * 0.0006, 0.07, 0.16) * (1 + P.yank.charge * 0.6);
-    webRib.build(w, camera.position.x, camera.position.y, camera.position.z); webGlow.build(w * 4.5, camera.position.x, camera.position.y, camera.position.z);
-    webGlowMat.opacity = 0.12 + 0.35 * tens + 0.5 * P.yank.charge; webMat.color.setRGB(1, 1 - 0.1 * P.yank.charge, 1 - 0.35 * P.yank.charge);
+    webRib.build(w, camera.position.x, camera.position.y, camera.position.z); webGlow.build(w * 3.2, camera.position.x, camera.position.y, camera.position.z);
+    webGlowMat.opacity = 0.05 + 0.16 * tens + 0.5 * P.yank.charge; webMat.color.setRGB(1, 1 - 0.1 * P.yank.charge, 1 - 0.35 * P.yank.charge);
   }
+  const A0 = S.on ? S.anc : (S.pending ? S.pend : null);
+  if (A0 && A0.strand && show) { strandRib.mesh.visible = true; ribbonLine(strandRib, tx, ty, tz, lerp(A0.hx, tx, 1 - Math.min(1, S.pending ? S.shoot : 1)), lerp(A0.hy, ty, 1 - Math.min(1, S.pending ? S.shoot : 1)), lerp(A0.hz, tz, 1 - Math.min(1, S.pending ? S.shoot : 1)), 0.02, t); strandRib.build(0.07, camera.position.x, camera.position.y, camera.position.z); }
+  else strandRib.mesh.visible = false;
   if (S.whiff > 0 && !S.on && !S.pending) { whiffRib.mesh.visible = true; const k = 1 - S.whiff / 0.32; ribbonLine(whiffRib, _hand.x, _hand.y, _hand.z, lerp(_hand.x, S.ax, Math.min(1, k * 2.5)), lerp(_hand.y, S.ay, Math.min(1, k * 2.5)), lerp(_hand.z, S.az, Math.min(1, k * 2.5)), 0.3, t); whiffRib.build(0.06, camera.position.x, camera.position.y, camera.position.z); webMat.opacity = 0.95; }
   else whiffRib.mesh.visible = false;
   zipRib.mesh.visible = P.state === 'zip';
@@ -3011,7 +3041,7 @@ G_.forceAttack = k => { if (TI.state === 'sleep') { TI.awake = true; setTState('
 G_.titanTo = (x, z, yaw) => { TI.x = x; TI.z = z; if (yaw != null) TI.yaw = yaw; };
 G_.titanState = (k, t) => { TI.awake = true; setTState(k); TI.st = t || 0; };
 G_.wake = () => { TI.awake = true; setTState('walk'); activateNextWP(); };
-G_.freezeTitan = v => { G_._freeze = v; };
+G_.hold = v => { G_._hold = v; };
 G_.cam = (x, y, z, tx, ty, tz, fov) => { DBGCAM = x === null ? null : { x, y, z, tx, ty, tz, fov: fov || 60 }; };
 G_.clingTo = (name) => { const c = CN[name]; if (!c) return false; colFromBone(c, 0); const nx = c.kind === K_CAP ? 0 : 0, ox = c.bsx, oy = c.bsy, oz = c.bsz + (c.bsr + 2) * Math.sign(1); const dx = 0, dz = 1; colDist(c, c.bsx, c.bsy, c.bsz + c.bsr + 3); const sx = CD.sx, sy = CD.sy, sz = CD.sz, nxx = CD.nx, nyy = CD.ny, nzz = CD.nz; if (P.sw.on) releaseWeb('forced'); pos[0] = sx + nxx * 0.8; pos[1] = sy + nyy * 0.8; pos[2] = sz + nzz * 0.8; vel[0] = vel[1] = vel[2] = 0; attachCling(c, sx, sy, sz, nxx, nyy, nzz); return true; };
 G_.P = P; G_.TI = TI; G_.cam_ = cam; G_.WPS = WPS; G_.CN = CN; G_.RUINS = RUINS; G_.stats = stats; G_.run = run; G_.hAt = hAt; G_.keys = keys;
@@ -3021,7 +3051,8 @@ G_.grabNow = () => { if (P.state !== 'grabbed') { TI.awake = true; beginAttack('
 G_.mash = () => { P.grab.prog = 1; };
 G_.respawn = () => respawnPlayer(true);
 G_.anchorWPNow = () => { const w = activeWP(); if (!w) return false; anchorSetBone(P.sw.pend, w.col, w.bone, w.pos[0], w.pos[1], w.pos[2], w); activateWeb(); return true; };
-window.__padInject_ = null;
+G_.hideRuins = v => { for (const r of RUINS) r.group.visible = !v; scene.traverse(o => { if (o.userData && o.userData.lintel) o.visible = !v; }); };
+G_.scene = scene; G_.fogLayers = fogLayers; G_.shaftGroup = shaftGroup; G_.THREE = THREE; G_.renderer = renderer;
 
 // shelf bridge v3: own server /api -> Supabase (if configured) -> localStorage
 (function(){

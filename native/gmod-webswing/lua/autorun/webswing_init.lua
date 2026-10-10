@@ -74,6 +74,9 @@ WS.CV = {
 	board_enabled = SV("ws_board_enabled", "1", "Allow firing the web while skating on a SkateGM board", 0, 1),
 	board_hop     = SV("ws_board_hop", "2.5", "Board mode: upward kick (m/s) when you fire a web while rolling on the ground", 0, 12),
 	board_max_dv  = SV("ws_board_max_dv", "700", "Board mode: the most speed (units/s) one rope correction may add to the skater", 50, 4000),
+	board_wait    = SV("ws_board_wait", "0.08", "Board mode: seconds between rope corrections (SkateGM takes a moment to show a push; longer = softer rope, safer)", 0.016, 0.3),
+	board_gain    = SV("ws_board_gain", "0.85", "Board mode: the share of the needed correction applied per pulse (lower = a softer, safer rope)", 0.1, 1),
+	board_lag     = SV("ws_board_lag", "0.025", "Board mode: how old the skater's polled position is, in seconds (the rope looks this far ahead)", 0, 0.15),
 }
 
 -- Client only: per player, saved.
@@ -87,6 +90,7 @@ if CLIENT then
 		rope_sag      = CL("ws_rope_sag", "1", "How much a slack rope hangs (0 = ruler straight)", 0, 3),
 		rope_wobble   = CL("ws_rope_wobble", "1", "Rope wobble after attaching (0 = none)", 0, 3),
 		board_mouse   = CL("ws_board_mouse", "1", "Board mode: left mouse button holds the web, right mouse button zips", 0, 1),
+		board_pad     = CL("ws_board_pad", "0", "Board mode, EXPERIMENTAL: the controller's Back/View button holds the web, a left-stick click reels (Skate 3 may also use Back)", 0, 1),
 		key_dive      = CL("ws_key_dive", tostring(KEY_G or 17), "Board mode: key code that dives (hold). Default G. Not a SkateGM key.", 0, 200),
 		key_reel      = CL("ws_key_reel", tostring(KEY_V or 32), "Board mode: key code that reels the rope in (hold). Default V. Not a SkateGM key.", 0, 200),
 		board_handoff = CL("ws_board_handoff", "1", "Swing -> board: fraction of your swing speed the skater keeps when you drop onto the board (0 = off)", 0, 1),
@@ -128,6 +132,9 @@ function WS.RefreshTuning()
 	T.boardEnabled = CV.board_enabled:GetBool()
 	T.boardHop = CV.board_hop:GetFloat() * M.UNIT
 	T.boardMaxDv = CV.board_max_dv:GetFloat()
+	T.boardWait = CV.board_wait:GetFloat()
+	T.boardGain = CV.board_gain:GetFloat()
+	T.boardLag = CV.board_lag:GetFloat()
 	-- the zip's pace follows its top speed
 	T.zipStart = math.min(T.zipStart, T.zipSpeed)
 	T.zipAccel = T.zipSpeed * 3
@@ -141,7 +148,6 @@ T.playerMass = 85          -- for the rope's pull on props
 T.propMaxDv = 700          -- a prop is yanked by at most this much speed per tick
 T.boardG = 386             -- Skate 3's world gravity in units/s^2 (9.81 m/s^2), for the rope prediction only
 T.boardMaxPull = 6000
-T.boardAckTicks = 2        -- engine ticks before a Launch shows up in the polled velocity
 
 for name, cv in pairs(WS.CV) do
 	cvars.AddChangeCallback(cv:GetName(), function() WS.RefreshTuning() end, "webswing_" .. name)

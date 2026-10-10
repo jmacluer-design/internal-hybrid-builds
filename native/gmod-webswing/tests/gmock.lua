@@ -171,7 +171,7 @@ function G.new(realm, root, opts)
 	mock.SysTime = function() return env.__clock.real end
 	mock.FrameTime = function() return env.__clock.tick end
 	mock.engine = { TickInterval = function() return env.__clock.tick end }
-	mock.IsFirstTimePredicted = function() return env.__predicted ~= false end
+	mock.IsFirstTimePredicted = function() return rawget(env, "__predicted") ~= false end
 	mock.IsValid = function(o)
 		if o == nil or o == mock.NULL or type(o) ~= "table" then return false end
 		return o.__valid ~= false
@@ -334,8 +334,8 @@ function G.new(realm, root, opts)
 	mock.concommand = { Add = function(name, fn) rawset(env, "__concommands", rawget(env, "__concommands") or {}) env.__concommands[name] = fn end }
 	mock.gameevent = { Listen = function() end }
 	mock.player = {
-		GetAll = function() return env.__players or {} end,
-		Iterator = function() return ipairs(env.__players or {}) end,
+		GetAll = function() return rawget(env, "__players") or {} end,
+		Iterator = function() return ipairs(rawget(env, "__players") or {}) end,
 	}
 	mock.file = { Exists = function() return true end }
 	mock.timer = { Simple = function() end }
@@ -343,7 +343,7 @@ function G.new(realm, root, opts)
 
 	-- client-only
 	if not isServer then
-		mock.LocalPlayer = function() return env.__localPlayer end
+		mock.LocalPlayer = function() return rawget(env, "__localPlayer") end
 		mock.Material = function(name) return { name = name, IsError = function() return false end } end
 		mock.render = {
 			SetMaterial = function() end, StartBeam = function() env.__beamOpen = true end, EndBeam = function() env.__beamOpen = false env.__beams = env.__beams + 1 end,
@@ -353,7 +353,7 @@ function G.new(realm, root, opts)
 		mock.draw = { SimpleText = function(text) env.__lastText = text end }
 		mock.ScrW, mock.ScrH = function() return 1920 end, function() return 1080 end
 		mock.chat = { AddText = function(...) env.__chat[#env.__chat + 1] = { ... } end }
-		mock.input = { IsButtonDown = function(code) return env.__keysDown and env.__keysDown[code] or false end }
+		mock.input = { IsButtonDown = function(code) local k = rawget(env, "__keysDown") return k and k[code] or false end }
 		mock.gui = { IsGameUIVisible = function() return false end, IsConsoleVisible = function() return false end }
 		mock.vgui = { CursorVisible = function() return false end, GetKeyboardFocus = function() return nil end }
 		mock.system = { HasFocus = function() return true end }
@@ -526,7 +526,7 @@ function G.engineStep(env, ply, mv, dt, opts)
 		if G.inside(b, nx, ny, nz + 40) and not G.inside(b, o.x, o.y, o.z + 40) then
 			nx, ny, nz = o.x, o.y, o.z
 			v.x, v.y, v.z = 0, 0, math.min(0, v.z)
-			env.__bumps = (env.__bumps or 0) + 1
+			rawset(env, "__bumps", (rawget(env, "__bumps") or 0) + 1)
 			break
 		end
 	end

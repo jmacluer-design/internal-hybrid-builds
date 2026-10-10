@@ -26,6 +26,7 @@ local IsValid = IsValid
 local CHEST, CHEST_DUCK = 40, 26 -- the rope's hold on the body: this far above the feet
 WS.CHEST = CHEST
 local STAND = 58                 -- body centre above a ledge when a zip lands on it
+local VAULT_CLEAR = 60           -- a ledge/roof zip ends this far ABOVE where you will stand, then the vault hops over
 local svGravity = GetConVar("sv_gravity")
 local svMaxVel = GetConVar("sv_maxvelocity")
 
@@ -51,7 +52,7 @@ function WS.NewState()
 		mode = MODE_NONE, dive = false,
 		ax = 0, ay = 0, az = 0,       -- world anchor (re-evaluated every tick when on an entity)
 		ent = nil, lv = Vector(),     -- anchor entity and the anchor in ITS local space
-		L = 0, t = 0, t0 = 0,         -- rope length, seconds attached, time of attach
+		L = 0, t = 0, t0 = 0, rt0 = -100, -- rope length, seconds attached, time of attach (game time, and RealTime for drawing)
 		gox = 0, goy = 0, goz = 0,    -- zip goal relative to the anchor
 		zspeed = 0, zt = 0, zledge = false, zinx = 0, ziny = 0, zd = 0, zdAt = 0,
 		losT = 0, nextLos = 0,
@@ -279,8 +280,8 @@ local function ZipFromHit(ply, hx, hy, hz, nx, ny, nz, ent, bx, by, bz, kind)
 	if nz > 0.7 then
 		-- an up-facing surface: land on it, heading on in the direction we came
 		ix, iy = M.norm(hx - bx, hy - by, 0)
-		local gx, gy, gz = hx, hy, hz + STAND
-		if not HullFree(ply, gx, gy, gz - STAND + 4) then return false end
+		local gx, gy, gz = hx, hy, hz + STAND + VAULT_CLEAR
+		if not HullFree(ply, gx, gy, hz + 4) then return false end
 		SetHit(hx, hy, hz, nx, ny, nz, ent, bx, by, bz, kind)
 		Hit.gx, Hit.gy, Hit.gz, Hit.ledge, Hit.inx, Hit.iny = gx, gy, gz, true, ix, iy
 		return true
@@ -296,7 +297,7 @@ local function ZipFromHit(ply, hx, hy, hz, nx, ny, nz, ent, bx, by, bz, kind)
 				local gx, gy = px + inx * 20, py + iny * 20
 				if HullFree(ply, gx, gy, tz + 2) then
 					SetHit(hx, hy, hz, nx, ny, nz, ent, bx, by, bz, kind)
-					Hit.gx, Hit.gy, Hit.gz, Hit.ledge, Hit.inx, Hit.iny = gx, gy, tz + STAND, true, inx, iny
+					Hit.gx, Hit.gy, Hit.gz, Hit.ledge, Hit.inx, Hit.iny = gx, gy, tz + STAND + VAULT_CLEAR, true, inx, iny
 					return true
 				end
 			end
@@ -374,6 +375,8 @@ WS.EnvOK = EnvOK
 
 local scratch = Vector()
 local function SetVel(mv, x, y, z)
+	-- never hand the engine a NaN or an infinity: it would carry it into the player's origin
+	if x ~= x or y ~= y or z ~= z or x - x ~= 0 or y - y ~= 0 or z - z ~= 0 then return end
 	scratch.x, scratch.y, scratch.z = x, y, z
 	mv:SetVelocity(scratch)
 end
@@ -406,7 +409,7 @@ function WS.Release(ply, S, kind, mv)
 		if kind == "release" then
 			local ax, ay, az = AnchorXYZ(S)
 			local nx, ny, nz = M.norm(o.x - ax, o.y - ay, o.z + CHEST - az)
-			local boost = M.releaseBoost(M.len(vx, vy, vz), -nz, vz, T)
+			local boost = M.releaseBoost(M.len(vx, vy, vz), -nz, vz, T) * M.boostHoldScale(S.t, T)
 			vx, vy, vz = M.releaseVelocity(vx, vy, vz, boost, T)
 			S.boost = boost
 		else
@@ -491,7 +494,7 @@ local function TryAttach(ply, mv, S, now, first)
 		S.mode = MODE_WEB
 		S.kind = kind
 		S.L = min(max(T.minRope, Hit.dist), T.maxDist + 100)
-		S.t, S.t0 = 0, now
+		S.t, S.t0, S.rt0 = 0, now, RealTime()
 		S.losT, S.nextLos = 0, now + 0.15
 		S.zledge = false
 		S.lastUse = now
@@ -542,7 +545,7 @@ local function TryZip(ply, mv, S, now, first)
 		local dx, dy, dz = M.norm(Hit.gx - bx, Hit.gy - by, Hit.gz - bz)
 		S.zspeed = max(T.zipStart, v.x * dx + v.y * dy + v.z * dz)
 		S.zt, S.zd, S.zdAt = 0, Hit.dist, now
-		S.t0, S.L = now, Hit.dist
+		S.t0, S.rt0, S.L = now, RealTime(), Hit.dist
 		S.dive = false
 		S.kind = Hit.kind
 		S.lastUse = now
@@ -658,6 +661,9 @@ local function ApplyZip(ply, mv, S, dt, first, now, btn)
 				local dx, dy, dz = M.norm(gx - px, gy - py, gz - pz)
 				if d < 1 then dx, dy, dz = M.norm(v.x, v.y, v.z) end
 				ex, ey, ez = M.exitVelocity(dx, dy, dz, S.zspeed)
+				-- hanging in front of a wall: keep the speed along it, not into it
+				local vn = ex * S.nx + ey * S.ny + ez * S.nz
+				if vn < 0 then ex, ey, ez = ex - S.nx * vn, ey - S.ny * vn, ez - S.nz * vn end
 			end
 			SetVel(mv, ex, ey, ez)
 			Snd(ply, "vault", 66, 100, 0.7)

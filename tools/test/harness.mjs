@@ -33,7 +33,7 @@ function serve(root) {
   return new Promise(r => srv.listen(0, '127.0.0.1', () => r(srv)));
 }
 
-export async function launch(gameFile, { w = 1280, h = 720, touch = false, root = REPO } = {}) {
+export async function launch(gameFile, { w = 1280, h = 720, touch = false, root = REPO, query = '', initScript = null } = {}) {
   const rel = path.relative(root, path.resolve(gameFile));
   const srv = await serve(root);
   const port = srv.address().port;
@@ -42,6 +42,7 @@ export async function launch(gameFile, { w = 1280, h = 720, touch = false, root 
     args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
   });
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: touch });
+  if (initScript) await ctx.addInitScript(initScript);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -54,7 +55,7 @@ export async function launch(gameFile, { w = 1280, h = 720, touch = false, root 
     if (!fs.existsSync(f)) return route.fulfill({ status: 404, body: 'nf' });
     route.fulfill({ status: 200, contentType: 'text/javascript', body: fs.readFileSync(f) });
   });
-  await page.goto(`http://127.0.0.1:${port}/${rel}`, { waitUntil: 'load' });
+  await page.goto(`http://127.0.0.1:${port}/${rel}${query}`, { waitUntil: 'load' });
   const g = {
     page, errors,
     wait: ms => page.waitForTimeout(ms),

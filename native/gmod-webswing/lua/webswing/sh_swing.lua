@@ -55,6 +55,8 @@ function M.params()
 		boostMax = 9 * U,
 		boostMinBelow = 0.05,    -- no boost when released above the anchor's level
 		boostMaxFall = 4 * U,    -- ...or when already falling faster than this
+		boostHoldMin = 0.3,      -- a web held for less than this gives no boost (tap-spamming must not ratchet speed up)
+		boostHoldFull = 0.7,     -- ...and the full boost from this long
 		boostHorizK = 0.012 / U, -- horizontal speed gain per unit of boost
 		jumpPop = 7.5 * U,       -- jump while attached
 		-- attach-point assist
@@ -72,8 +74,9 @@ function M.params()
 		zipStart = 22 * U,
 		zipArrive = 90,          -- close enough (body centre to goal)
 		zipMaxT = 2.1,
-		vaultUp = 11 * U,
-		vaultFwd = 6.5 * U,
+		vaultUp = 300,           -- the hop over a ledge (webcraft: 11 m/s at 28 m/s^2 gravity; GMod's gravity is 600)
+		vaultFwd = 220,
+		vaultCarry = 0.06,       -- share of the zip speed carried forward over the ledge
 		ledgeMax = 16 * U,       -- highest ledge a wall hit may snap up to
 		zipRange = 3000,
 		-- dive
@@ -252,6 +255,11 @@ function M.releaseBoost(speed, below, vz, P)
 	local th = acos(clamp(below, -1, 1))
 	return clamp(speed * P.boostK * sin(2 * th), 0, P.boostMax) * P.boostMult
 end
+-- how much of the boost a web earns by how long it was held (smooth 0 -> 1)
+function M.boostHoldScale(held, P)
+	P = P or M.P
+	return smoothstep(P.boostHoldMin, P.boostHoldFull, held)
+end
 function M.releaseVelocity(vx, vy, vz, boost, P)
 	P = P or M.P
 	if boost > 0 and (vx ~= 0 or vy ~= 0) then
@@ -405,7 +413,7 @@ end
 -- zip speed along the (unit 3D) direction of travel plus a little lift.
 function M.vaultVelocity(dirx, diry, inx, iny, speed, P)
 	P = P or M.P
-	return inx * P.vaultFwd + dirx * speed * 0.18, iny * P.vaultFwd + diry * speed * 0.18, P.vaultUp
+	return inx * P.vaultFwd + dirx * speed * P.vaultCarry, iny * P.vaultFwd + diry * speed * P.vaultCarry, P.vaultUp
 end
 function M.exitVelocity(dx, dy, dz, speed)
 	return dx * speed * 0.45, dy * speed * 0.45, dz * speed * 0.45 + 3 * M.UNIT

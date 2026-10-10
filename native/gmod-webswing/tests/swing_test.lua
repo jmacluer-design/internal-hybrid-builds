@@ -384,8 +384,13 @@ end)
 T.test("zip exit velocities", function()
 	local vx, vy, vz = M.vaultVelocity(1, 0, 0, 1, 2000)
 	T.near(vz, M.P.vaultUp, 1e-9)
-	T.near(vx, 2000 * 0.18, 1e-9)
+	T.near(vx, 2000 * M.P.vaultCarry, 1e-9)
 	T.near(vy, M.P.vaultFwd, 1e-9)
+	-- the hop clears an 80-unit lip and comes down on the roof within a second or two under GMod gravity
+	local apex = M.P.vaultUp ^ 2 / (2 * 600)
+	T.truthy(apex > 60 and apex < 120, "apex " .. apex)
+	local airtime = 2 * M.P.vaultUp / 600
+	T.truthy(airtime < 1.2, "airtime " .. airtime)
 	local ex, ey, ez = M.exitVelocity(0, 0, 1, 2000)
 	T.near(ez, 900 + 3 * U, 1e-6)
 end)
@@ -447,4 +452,18 @@ T.test("module also runs under a different Lua flavour's math (no atan2 needed)"
 		T.near(M2.yawOf(0, 1), 90, 1e-9)
 		math.atan2, math.atan = saved, savedAtan
 	end
+end)
+
+T.test("release boost is earned by how long the web was held (tap-spam gives nothing)", function()
+	T.eq(M.boostHoldScale(0), 0)
+	T.eq(M.boostHoldScale(M.P.boostHoldMin - 0.01), 0)
+	T.eq(M.boostHoldScale(M.P.boostHoldFull + 0.01), 1)
+	local prev = -1
+	for t = 0, 2, 0.02 do
+		local k = M.boostHoldScale(t)
+		T.le(prev, k + 1e-12, "monotonic")
+		T.truthy(k >= 0 and k <= 1)
+		prev = k
+	end
+	T.truthy(M.boostHoldScale((M.P.boostHoldMin + M.P.boostHoldFull) / 2) > 0.3)
 end)

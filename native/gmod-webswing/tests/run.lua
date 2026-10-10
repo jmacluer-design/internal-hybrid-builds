@@ -36,7 +36,7 @@ for _, name in ipairs(files) do
 			T.failures[#T.failures + 1] = name .. " (failed to load)"
 			print("  FAIL  could not load " .. name .. ": " .. tostring(err))
 		else
-			local ok, e = xpcall(chunk, debug.traceback, T)
+			local ok, e = xpcall(function() return chunk(T) end, debug.traceback) -- (5.1's xpcall takes no extra arguments)
 			if not ok then
 				T.failed = T.failed + 1
 				T.failures[#T.failures + 1] = name .. " (errored)"

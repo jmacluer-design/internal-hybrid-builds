@@ -554,6 +554,8 @@ function mergeStaticMeshes(parent, minCount = 3) {
   }
 }
 mergeStaticMeshes(arena);
+for (const p of pillars) mergeStaticMeshes(p.group, 2);
+for (const b of braziers) mergeStaticMeshes(b.g, 2);
 
 /* ambient embers (GPU-animated) */
 const embers = (() => {
@@ -2372,7 +2374,7 @@ function simStep(dt) {
   if (st === 'menu') return;
   if (st === 'gate') {
     const dg = hyp(H.x, H.z - 29.2);
-    if (dg < 6.5 && (I.ePress || I.bufFire > 0)) interactGate();
+    if (dg < 6.5 && I.ePress || dg < 4.6 && I.bufFire > 0 && Math.abs(wrapPi(Math.PI - H.yaw)) < 1.2) interactGate();
   }
   if (st === 'entering' || st === 'gate' || st === 'intro' || st === 'fight' || st === 'dead' || st === 'won') {
     stepHero(dt);
@@ -2424,16 +2426,16 @@ function frame(now) {
       else { slowFrames = 0; }
     }
   } else { lastRenderAt = 0; skipUntil = 0; }
-  const _p3 = performance.now(); if (now >= skipUntil) { renderer.render(scene, camera); lastRenderAt = now; } PERF.sim = PERF.sim * .9 + (_p1 - _p0) * .1; PERF.vis = PERF.vis * .9 + (_p2 - _p1) * .1; PERF.render = PERF.render * .9 + (performance.now() - _p3) * .1;
+  const _p3 = performance.now(); if (now >= skipUntil && (!QUAL.soft || QUAL.hold || now - lastDraw > 140)) { renderer.render(scene, camera); lastRenderAt = now; lastDraw = now; } PERF.sim = PERF.sim * .9 + (_p1 - _p0) * .1; PERF.vis = PERF.vis * .9 + (_p2 - _p1) * .1; PERF.render = PERF.render * .9 + (performance.now() - _p3) * .1;
 }
 const PERF = { sim: 0, vis: 0, render: 0 };
-let lastRenderAt = 0, slowFrames = 0, fastFrames = 0, skipUntil = 0;
+let lastRenderAt = 0, slowFrames = 0, fastFrames = 0, skipUntil = 0, lastDraw = 0;
 
 /* ---------- debug / test API ---------- */
 window.__dbg = () => {
   const r = v => Math.round(v * 1000) / 1000;
   return {
-    state: game.state, paused: game.paused, act: H.act, grounded: H.grounded, anim: Array.from(cu).map(r), pos: [r(H.x), r(H.y), r(H.z)], vel: [r(H.vx), r(H.vy), r(H.vz)], yaw: r(H.yaw),
+    keys: [...keys].join(''), state: game.state, paused: game.paused, act: H.act, grounded: H.grounded, anim: Array.from(cu).map(r), pos: [r(H.x), r(H.y), r(H.z)], vel: [r(H.vx), r(H.vy), r(H.vz)], yaw: r(H.yaw),
     speed: r(hyp(H.vx, H.vz)), hp: H.hp, coins: H.coins, score: Math.round(Math.max(0, (1 - B.hp / B.max) * 1000)), chain: H.chain, chainT: r(H.chainT), wall: r(Math.max(0, H.wallT)), lastJump: H.lastJump, wallKicks: H.kicks,
     crouch: H.act === 'crouch' || H.act === 'crouchslide', held: H.held ? H.held.kind : null, inv: r(H.inv), combo: H.combo,
     cam: { yaw: r(cam.yaw), pitch: r(cam.pitch), fov: r(camera.fov), dist: r(cam.curDist) },
@@ -2447,7 +2449,7 @@ Object.assign(window.__game, {
   tp(x, z, y) { H.x = x; H.z = z; H.y = y != null ? y : Math.max(0, groundAt(x, z, 30)); H.vx = H.vy = H.vz = 0; H.grounded = y == null; if (y != null) setAct('fall'); },
   setBossHp(v) { B.hp = clamp(v, 1, B.max); }, setHp(v) { H.hp = clamp(v, 0, 8); },
   stagger() { if (B.state === 'idle' || B.state === 'attack') { B.stagger = BT.staggerMax; bossStaggerAdd(1); } },
-  cam, quality(q, hold) { setQuality(q, hold); return { q: QUAL.q, soft: QUAL.soft }; }, attack(id) { if (B.state === 'idle') { startAttack(id); } }, boss: B, hero: H, state: game,
+  scene, cam, quality(q, hold) { setQuality(q, hold); return { q: QUAL.q, soft: QUAL.soft }; }, attack(id) { if (B.state === 'idle') { startAttack(id); } }, boss: B, hero: H, state: game,
   skipIntro() { if (game.state === 'intro') { game.introT = 4.3; B.state = 'idle'; B.eye = 1; bossSolid.walk = false; bossSolid.top = BT.topStand; } },
   killHero() { if (game.state === 'fight') { H.inv = 0; hurtHero(99, B.x, B.z, 'test'); } }, killBoss() { B.hp = 1; B.phase = 2; bossDamage(5, 0, 'test'); },
   step(sec) { pollInput(); const n = Math.round(sec / TUNING.step); for (let i = 0; i < n; i++) { if (hitStop > 0) { hitStop -= TUNING.step; continue; } simStep(TUNING.step * 1); } I.ePress = false; },
@@ -2458,7 +2460,7 @@ Object.assign(window.__game, {
 /* ---------- boot ---------- */
 game.best = loadBest(); $('best').textContent = bestText();
 resetWorld('menu'); resize();
-QUAL.soft = SOFT_GL; if (QUAL.soft) { QUAL.max = 0.25; QUAL.q = 0.2; applyQuality(); }
+QUAL.soft = SOFT_GL; if (QUAL.soft) { QUAL.max = 0.2; QUAL.q = 0.17; applyQuality(); }
 for (const k of Object.keys(MK)) freeMarker(getMarker(k));
 { const hidden = []; scene.traverse(o => { if (!o.visible && (o.isMesh || o.isPoints || o.isSprite)) { hidden.push(o); o.visible = true; } }); try { renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) {} hidden.forEach(o => { o.visible = false; }); }
 try { const qp = new URLSearchParams(location.search).get('q'); if (qp === 'high') { QUAL.soft = false; QUAL.max = 1; setQuality(1, true); } } catch (e) {}

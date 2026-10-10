@@ -9,9 +9,14 @@ Shallow clones live OUTSIDE this repo (never committed). Re-pull with e.g.
 | [sm64js/sm64js](https://github.com/sm64js/sm64js) | 04c1a98 (2025-02-02) | WTFPL | `src/game/Mario*.js`, `Camera.js`: the same movement as readable JavaScript (easiest to port into the browser heroes) |
 | [mohsenheydari/three-fps](https://github.com/mohsenheydari/three-fps) | 625a18c (2022-05-22) | `LICENSE` (MIT per its README) | three.js + ammo.js FPS: entity-component layout, FPS controller, NPC state machine (`src/FiniteStateMachine.js`, `src/entities/`) |
 | [Prashanna135/Souls-Like-Controller](https://github.com/Prashanna135/Souls-Like-Controller) | 39ca644 (2026-09-25) | permissive per README (no license file) | Godot 4: lock-on, dodge roll, combat state machines, boss health bar (`scripts/`) |
+| [meta-quest/ProjectFlowerbed](https://github.com/meta-quest/ProjectFlowerbed) | 403a4f4 (2024-05-10) | `LICENSE` | Meta's open-source three.js WebXR game: Quest-browser structure, 72 Hz budget, teleport locomotion, three-mesh-ui/bvh |
+| [meta-quest/webxr-first-steps](https://github.com/meta-quest/webxr-first-steps) | 49ecf80 (2026-09-21) | `LICENSE` | Meta's WebXR + three.js tutorial project: session setup, controllers, hands |
+| [facebook/immersive-web-sdk](https://github.com/facebook/immersive-web-sdk) | 0778f51 (2026-10-01) | `LICENSE` | Meta's Immersive Web SDK: locomotion (`@iwsdk/locomotor`), interactions, IWER dev integration |
+| [praydog/UEVR](https://github.com/praydog/UEVR) | 4ee5c6b (2026-08-29) | `LICENSE` | How the universal Unreal VR injector hooks stereo rendering (for native PC VR on Quest via Link) |
+| [Junior37534/QuestBridge](https://github.com/Junior37534/QuestBridge) | 00ba562 (2026-05-27) | MIT | Quest controller -> WebXR page -> websocket -> game input bridge |
+| [alesan99/mari0_ae](https://github.com/alesan99/mari0_ae) | c75ae92 (2026-02-21) | WTFPL | Mari0 (Mario x Portal-style) entities/enemies/power-ups in LOVE/Lua, reference for a Mario base |
 
 ## Found, not pulled (verify before relying on)
-- Mari0 mod: [alesan99/mari0_ae](https://github.com/alesan99/mari0_ae) (WTFPL, LÖVE, no longer developed)
 - Curated lists: [bobeff/open-source-games](https://github.com/bobeff/open-source-games) (Xonotic, Cube 2, Red Eclipse, Liblast, Surreal Engine, OpenGOAL, SRB2, OpenMW, Veloren, SuperTuxKart, Zelda TP decomp...)
 - GTA-style bases: OpenLiberty ([openfw-game](https://github.com/openfw-game), Godot, needs your GTA data), re3-gd, GTA7 (three.js vertical slice)
 - Swing prototype: GabrielGameDev/SpiderMan2DWebSwing (Unity, 2D; linked from its itch.io page, unopened)

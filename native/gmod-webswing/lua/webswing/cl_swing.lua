@@ -22,7 +22,7 @@ local clamp = M.clamp
 -- the server's word (NW2) for everyone else - and for the local player when the
 -- client is not predicting at all (singleplayer).
 ---------------------------------------------------------------------------
-local V = { mode = 0, dive = false, ax = 0, ay = 0, az = 0, L = 0, t0 = 0, tension = 0, ledge = false, source = "" }
+local V = { mode = 0, dive = false, ax = 0, ay = 0, az = 0, L = 0, t0 = 0, age = 0, tension = 0, ledge = false, source = "" }
 local function FromState(S, src)
 	V.mode = S.mode
 	V.dive = S.dive
@@ -30,6 +30,9 @@ local function FromState(S, src)
 		local x, y, z = WS.AnchorXYZ(S)
 		V.ax, V.ay, V.az = x, y, z
 		V.L, V.t0, V.ledge = S.L, S.t0, S.zledge
+		-- (our own web is timed on the frame clock: prediction runs ahead of CurTime, and the
+		-- web should leave the hand the moment the button goes down)
+		V.age = RealTime() - S.rt0
 	end
 	V.tension = S.tension
 	V.source = src
@@ -60,6 +63,7 @@ function WS.ViewState(ply)
 	end
 	V.L = ply:GetNW2Float("ws_len", 0)
 	V.t0 = ply:GetNW2Float("ws_t0", 0)
+	V.age = CurTime() - V.t0
 	V.tension = ply:GetNW2Float("ws_tension", 0)
 	V.ledge = ply:GetNW2Bool("ws_ledge", false)
 	return V
@@ -124,6 +128,7 @@ local function Adopt(lp, S, nwMode)
 		S.L = lp:GetNW2Float("ws_len", S.L)
 		S.t0 = lp:GetNW2Float("ws_t0", CurTime())
 		S.t = math.max(0, CurTime() - S.t0)
+		S.rt0 = RealTime() - S.t
 		S.zledge = lp:GetNW2Bool("ws_ledge", false)
 	else
 		S.ent = nil
@@ -177,9 +182,9 @@ local function DrawWeb(ply, now)
 	if mode == 0 then
 		-- a web that just missed: a short flick toward where it was aimed
 		local S = (ply == LocalPlayer()) and (WS.SkateGM.Board.Active() and WS.SkateGM.Board.S or ply.WSS) or nil
-		if not S or now - S.whiffT > 0.18 then return end
+		if not S or now - S.whiffT > 0.18 or S.whiffT < 0 then return end
 		hx, hy, hz = WS.HandPos(ply)
-		local k = (now - S.whiffT) / 0.18
+		local k = clamp((now - S.whiffT) / 0.18, 0, 1) -- (prediction runs ahead of CurTime: never negative)
 		local dx, dy, dz = (S.whiffX - hx) * 0.35, (S.whiffY - hy) * 0.35, (S.whiffZ - hz) * 0.35
 		ropeColor.a = floor(255 * (1 - k))
 		render.SetMaterial(matRope)
@@ -197,7 +202,7 @@ local function DrawWeb(ply, now)
 	local dx, dy, dz = ax - hx, ay - hy, az - hz
 	local dist = M.len(dx, dy, dz)
 	if dist < 8 then return end
-	local age = now - V.t0
+	local age = V.age
 	local frac = (mode == 2) and 1 or clamp(age / 0.07, 0, 1) -- the web travels out to the anchor
 	local ex, ey, ez = hx + dx * frac, hy + dy * frac, hz + dz * frac
 	local width = 1.6 * CCV.rope_width:GetFloat() * (mode == 2 and 1.7 or 1)
@@ -269,7 +274,7 @@ concommand.Add("ws_status", function()
 		local B = C.Board
 		Say(nil, "  SkateGM: installed. skating=%s  state=%s  speed=%.1f m/s", tostring(api.IsSkating()), tostring(api.State and api.State() or "?"), api.Speed and api.Speed() or -1)
 		Say(B.err == nil, "  board web: mode=%d  pushes accepted=%d rejected=%d  %s", B.S.mode, B.pushes, B.rejected, B.err and ("DISABLED: " .. B.err) or "ok")
-		Say(nil, "  board inputs: fire=%s zip=%s dive=%s reel=%s", tostring(B.keys.fire), tostring(B.keys.zip), tostring(B.keys.dive), tostring(B.keys.reel))
+		Say(nil, "  board inputs: fire=%s zip=%s dive=%s reel=%s  (ignored because: %s)", tostring(B.keys.fire), tostring(B.keys.zip), tostring(B.keys.dive), tostring(B.keys.reel), tostring(B.blockedBy or "nothing"))
 	end
 	Say(WS.lastError == nil, "  last error: %s", tostring(WS.lastError))
 end, nil, "Web Swing: client status")

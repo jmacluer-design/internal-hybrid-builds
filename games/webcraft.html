@@ -19,7 +19,8 @@
     font-family:var(--sans); -webkit-user-select:none; user-select:none; touch-action:none; }
   canvas#c{ position:fixed; inset:0; width:100%; height:100%; display:block; background:#140c24; }
   .hidden{ display:none !important; }
-  .headless .panel{ backdrop-filter:none; } .headless #vig, .headless #fx{ display:none; } .headless .card{ box-shadow:none; } .headless h1.logo{ filter:none; } .headless .overlay{ background:rgba(8,5,22,.7); } .headless button.cta{ box-shadow:none; }
+  #hud.off{ opacity:0; visibility:hidden; }
+  .headless .panel{ backdrop-filter:none; background:rgba(10,12,28,.7); text-shadow:none; } .headless #arrowWrap{ background:rgba(10,16,40,.6); } .headless #arrow{ filter:none; } .headless #mmWrap{ box-shadow:none; } .headless .pop, .headless #hint, .headless #combo{ text-shadow:none; } .headless #anchorMark, .headless #bmark::before{ box-shadow:none; } .headless #spdbar i{ background:#47a4ff; } .headless #vig, .headless #fx{ display:none; } .headless .card{ box-shadow:none; } .headless h1.logo{ filter:none; } .headless .overlay{ background:rgba(8,5,22,.7); } .headless button.cta{ box-shadow:none; }
 
   /* ---------------- HUD ---------------- */
   #hud{ position:fixed; inset:0; pointer-events:none; font-family:var(--mono); color:var(--paper); }
@@ -146,7 +147,7 @@
 <body>
 <canvas id="c"></canvas>
 
-<div id="hud" class="hidden">
+<div id="hud" class="off">
   <canvas id="fx"></canvas>
   <div id="vig"></div>
   <div id="topleft">
@@ -450,15 +451,15 @@ const PAINTERS = {
   redlight(c, e, R){ c.fillStyle = '#ff3030'; c.fillRect(0, 0, TS, TS); e.fillStyle = '#ff3030'; e.fillRect(0, 0, TS, TS); },
 };
 
-function buildTextureArray(){
-  const cc = document.createElement('canvas'), ec = document.createElement('canvas');
-  cc.width = cc.height = ec.width = ec.height = TS;
+function* paintLayers(mk, data){                       // shared by the main-thread fallback and the texture worker (mk = canvas factory)
+  const cc = mk(), ec = mk();
   const c = cc.getContext('2d', { willReadFrequently: true }), e = ec.getContext('2d', { willReadFrequently: true });
-  const n = LAYER_NAMES.length, data = new Uint8Array(TS * TS * 4 * n);
+  const n = LAYER_NAMES.length;
   for (let li = 0; li < n; li++) {
     c.fillStyle = '#000'; c.fillRect(0, 0, TS, TS); e.fillStyle = '#000'; e.fillRect(0, 0, TS, TS);
     PAINTERS[LAYER_NAMES[li]](c, e, mulberry32(1000 + li * 77));
     const cd = c.getImageData(0, 0, TS, TS).data, ed = e.getImageData(0, 0, TS, TS).data, base = li * TS * TS * 4;
+    yield;
     for (let y = 0; y < TS; y++) {
       const dr = base + (TS - 1 - y) * TS * 4, sr = y * TS * 4;           // flip rows: canvas top == v=1 (world up)
       for (let x = 0; x < TS; x++) {
@@ -468,7 +469,9 @@ function buildTextureArray(){
       }
     }
   }
-  const tex = new THREE.DataArrayTexture(data, TS, TS, n);
+}
+function makeTexArray(data){
+  const tex = new THREE.DataArrayTexture(data, TS, TS, LAYER_NAMES.length);
   tex.format = THREE.RGBAFormat; tex.type = THREE.UnsignedByteType;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.NearestFilter;
@@ -476,6 +479,23 @@ function buildTextureArray(){
   tex.anisotropy = HEADLESS ? 1 : Math.min(8, renderer.capabilities.getMaxAnisotropy());
   tex.needsUpdate = true;
   return tex;
+}
+function* buildTextureArray(out){                      // main-thread fallback
+  const data = new Uint8Array(TS * TS * 4 * LAYER_NAMES.length);
+  yield* paintLayers(() => { const c = document.createElement('canvas'); c.width = c.height = TS; return c; }, data);
+  out.tex = makeTexArray(data);
+}
+function texWorkerSource(){                            // the painters, rebuilt from their own source inside a Worker with OffscreenCanvas
+  const methods = Object.values(PAINTERS).map(f => f.toString()).join(',\n');
+  return `'use strict';
+const TS = ${TS}, LAYER_NAMES = ${JSON.stringify(LAYER_NAMES)}, WARM = ${JSON.stringify(WARM)}, GOLD = ${JSON.stringify(GOLD)};
+const clamp = ${clamp.toString()}, rgbs = ${rgbs.toString()}, pnoise = ${pnoise.toString()}, cellLines = ${cellLines.toString()};
+const brickPattern = ${brickPattern.toString()}, concPattern = ${concPattern.toString()};
+${mulberry32.toString()}
+${facadePaint.toString()}
+${paintLayers.toString()}
+const PAINTERS = { ${methods} };
+onmessage = () => { const data = new Uint8Array(TS * TS * 4 * LAYER_NAMES.length); for (const _ of paintLayers(() => new OffscreenCanvas(TS, TS), data)); postMessage(data, [data.buffer]); };`;
 }
 
 // ============================================================================
@@ -523,7 +543,7 @@ function genIntervals(R){
 }
 const pickStyle = R => (R() * 8) | 0;
 
-function genWorld(){
+function* genWorld(){                          // generator: the loader drives it in ~10 ms slices so the page keeps painting
   const R = mulberry32(TUNING.world.seed);
   const ivx = genIntervals(R), ivz = genIntervals(R);
   city.lotsX = ivx; city.lotsZ = ivz;
@@ -610,6 +630,7 @@ function genWorld(){
     // street trees at lot corners
     if (R() < 0.4) tree(lx0 + 1, lz0 + 1, 2, R, true);
     if (R() < 0.4) tree(lx1 - 2, lz1 - 2, 2, R, true);
+    yield;
   }
   // quay lamps
   for (let k = 12; k < DX - 8; k += 16) { lamp(k, 3, lamps); lamp(k, DZ - 4, lamps); lamp(3, k, lamps); lamp(DX - 4, k, lamps); }
@@ -634,7 +655,7 @@ function genWorld(){
   // ---- skybridges between facing towers ----
   const bl = buildingsTmp;
   let bridges = 0;
-  for (let i = 0; i < bl.length && bridges < 16; i++) for (let j = 0; j < bl.length; j++) {
+  for (let i = 0; i < bl.length && bridges < 16; i++) { yield; for (let j = 0; j < bl.length; j++) {
     if (i === j) continue;
     const A = bl[i], B = bl[j];
     for (const axis of [0, 2]) {
@@ -653,12 +674,13 @@ function genWorld(){
       if (axis === 0) fillBox(A.x1, yb, k, B.x0, yb + 4, k + 4, st); else fillBox(k, yb, A.z1, k + 4, yb + 4, B.z0, st);
       bridges++;
     }
-  }
+  } }
   city.buildings.push(...bl);
   computeHm();
 
   // ---- roof spots (flat, free 5x5 areas) for beacons / respawns ----
   for (const b of bl) {
+    yield;
     for (const t of b.tiers) {
       if (!t.top && t.ringSpot === undefined) continue;
       const spot = findFlatSpot(t);
@@ -696,7 +718,7 @@ function tree(x, z, th, R, small){
 }
 function car(x, z, axis, col){
   const id = ID.CAR0 + col;
-  if (axis === 'z') { if (getV(x, 1, z) || getV(x + 1, 1, z + 3)) return; fillBox(x, 1, z, x + 2, 2, z + 4, id); fillBox(x, 2, z + 1, x + 2, 3, z + 3, ID.CAR0 + ((col + 2) % 5 === col ? 4 : 4)); }
+  if (axis === 'z') { if (getV(x, 1, z) || getV(x + 1, 1, z + 3)) return; fillBox(x, 1, z, x + 2, 2, z + 4, id); fillBox(x, 2, z + 1, x + 2, 3, z + 3, ID.CAR0 + 4); }
   else { if (getV(x, 1, z) || getV(x + 3, 1, z + 1)) return; fillBox(x, 1, z, x + 4, 2, z + 2, id); fillBox(x + 1, 2, z, x + 3, 3, z + 2, ID.CAR0 + 4); }
 }
 
@@ -884,12 +906,56 @@ function makeVoxMaterial(tex){
   });
 }
 
-function buildAllChunks(){
-  for (let cz = 0; cz < NC; cz++) for (let cx = 0; cx < NC; cx++) {
-    const m = new THREE.Mesh(bufToGeo(meshChunkBuf(cx, cz)), voxMat);
-    m.frustumCulled = true; scene.add(m); chunkMeshes[cz * NC + cx] = m;
-  }
+function buildChunk(cx, cz){
+  const m = new THREE.Mesh(bufToGeo(meshChunkBuf(cx, cz)), voxMat);
+  m.frustumCulled = true; scene.add(m); chunkMeshes[cz * NC + cx] = m;
 }
+let chunkQueue = [];
+function planChunks(){                                  // nearest-to-start first: the city around you exists before the far districts finish meshing
+  const q = [], sx = city.start.x / TUNING.world.chunk, sz = city.start.z / TUNING.world.chunk;
+  for (let cz = 0; cz < NC; cz++) for (let cx = 0; cx < NC; cx++) q.push([cx, cz, Math.hypot(cx + 0.5 - sx, cz + 0.5 - sz)]);
+  q.sort((a, b) => a[2] - b[2]); chunkQueue = q;
+}
+function* buildNearChunks(n){ for (let i = 0; i < n && chunkQueue.length; i++) { const c = chunkQueue.shift(); buildChunk(c[0], c[1]); yield; } }
+function pumpChunks(budgetMs){ const t = performance.now(); while (chunkQueue.length && performance.now() - t < budgetMs) { const c = chunkQueue.shift(); buildChunk(c[0], c[1]); } }
+
+// ---- background build: generation + meshing run in a Worker built from this file's own function sources (main thread stays free) ----
+function typedToGeo(m){
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(m.P, 3)); g.setAttribute('normal', new THREE.BufferAttribute(m.N, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(m.U, 2)); g.setAttribute('aLayer', new THREE.BufferAttribute(m.L, 1));
+  g.setIndex(new THREE.BufferAttribute(m.I, 1)); g.computeBoundingSphere();
+  return g;
+}
+function addChunkFromTyped(m){
+  const mesh = new THREE.Mesh(typedToGeo(m), voxMat); mesh.frustumCulled = true; scene.add(mesh); chunkMeshes[m.cz * NC + m.cx] = mesh;
+}
+function worldWorkerSource(){
+  const fns = [mulberry32, genIntervals, genWorld, lamp, tree, car, genTower, decorRoof, findFlatSpot, setV, getV, fillBox, fillBoxC, computeHm, emitQuad, newBuf, meshChunkBuf].map(f => f.toString()).join('\n');
+  return `'use strict';
+const TUNING = ${JSON.stringify(TUNING)}, ID = ${JSON.stringify(ID)}, LAYER_NAMES = ${JSON.stringify(LAYER_NAMES)}; const LI = {}; LAYER_NAMES.forEach((n, i) => LI[n] = i);
+const L_SIDE = new Int16Array(${JSON.stringify(Array.from(L_SIDE))}), L_TOP = new Int16Array(${JSON.stringify(Array.from(L_TOP))}), L_BOT = new Int16Array(${JSON.stringify(Array.from(L_BOT))});
+const clamp = ${clamp.toString()}, pickStyle = ${pickStyle.toString()};
+const WS = ${WS}, DX = WS, DZ = WS, DY = ${WH}, SY = DX * DZ;
+const grid = new Uint8Array(DX * DZ * DY), hm = new Uint8Array(DX * DZ);
+const city = { buildings: [], spots: [], lamps: [], blinkers: [], start: null, parks: [], lotsX: [], lotsZ: [] };
+const NC = Math.ceil(WS / TUNING.world.chunk), _mask = new Int16Array(Math.max(TUNING.world.chunk, DY) * Math.max(TUNING.world.chunk, DY) + 16);
+const DIMS = [DX, DY, DZ], STR = [1, SY, DX], AXU = [2, 0, 0], AXV = [1, 2, 1];
+${fns}
+onmessage = () => {
+  for (const _ of genWorld());
+  postMessage({ type: 'world', grid: grid.slice(), hm: hm.slice(), city });
+  const q = [], sx = city.start.x / TUNING.world.chunk, sz = city.start.z / TUNING.world.chunk;
+  for (let cz = 0; cz < NC; cz++) for (let cx = 0; cx < NC; cx++) q.push([cx, cz, Math.hypot(cx + 0.5 - sx, cz + 0.5 - sz)]);
+  q.sort((a, b) => a[2] - b[2]);
+  for (const [cx, cz] of q) {
+    const B = meshChunkBuf(cx, cz), P = new Float32Array(B.P), N = new Float32Array(B.N), U = new Float32Array(B.U), L = new Float32Array(B.L), I = B.vc > 65535 ? new Uint32Array(B.I) : new Uint16Array(B.I);
+    postMessage({ type: 'chunk', cx, cz, P, N, U, L, I }, [P.buffer, N.buffer, U.buffer, L.buffer, I.buffer]);
+  }
+  postMessage({ type: 'done' });
+};`;
+}
+
 function remeshChunk(cx, cz){
   if (cx < 0 || cz < 0 || cx >= NC || cz >= NC) return;
   const old = chunkMeshes[cz * NC + cx]; if (!old) return;
@@ -1298,8 +1364,7 @@ function groundStep(dt){
     const fr = hv > maxS + 0.4 ? RUN.overFriction : RUN.friction, nhv = Math.max(0, hv - fr * dt);
     if (hv > 0.0001) { const f = nhv / hv; vel[0] *= f; vel[2] *= f; }
   }
-  if (P.jumpBuf > 0 && P.rollT <= 0.34) { doJump(); }
-  else if (P.jumpBuf > 0) { doJump(); }
+  if (P.jumpBuf > 0) doJump();
   vel[1] -= G * dt;
   moveBody(vel[0] * dt, vel[1] * dt, vel[2] * dt, true);
 }
@@ -1545,7 +1610,7 @@ function physicsTick(dt){
   handleWebInput(dt);
   if (IN.zipP && !P.zip.on && P.state !== 'zip') tryZip();
   if (IN.yankP) tryYank();
-  const vyBefore = vel[1], wasGrounded = P.grounded;
+  const vyBefore = vel[1];
 
   switch (P.state) {
     case 'zip': zipStep(dt); break;
@@ -1566,7 +1631,6 @@ function physicsTick(dt){
       } else diveStep(dt);
     }
   }
-  if (P.state === 'ground' && P.grounded && IN.w && IN.sprint === false && false) { /* reserved */ }
 
   // ---- ground / landing resolution ----
   if (P.state !== 'zip' && P.state !== 'wall') {
@@ -2161,7 +2225,7 @@ function endRun(reason){
   $('deadStats').innerHTML = [['SCORE', score], ['BEACONS', run.beacons + ' / ' + GAME.beacons], ['LONGEST CHAIN', run.bestChain], ['TOP SPEED', Math.round(run.topSpeed) + ' b/s'], ['NEAR MISSES', run.nearMisses], ['TIME', fmtTime(run.t)]]
     .map(([k, v]) => '<div class="stat"><span>' + k + '</span><b>' + v + '</b></div>').join('');
   $('deadBest').innerHTML = '<em>BEST</em> ' + bestScore;
-  $('dead').classList.remove('hidden'); $('hud').classList.add('hidden');
+  $('dead').classList.remove('hidden'); $('hud').classList.add('off');
   if (reason === 'win') sfx.win(); else sfx.lose();
   updateBestLine();
 }
@@ -2317,7 +2381,7 @@ function startGame(){
   $('loadsplash').classList.add('hidden');
   resumeAudio(); requestLock(); sfx.ui();
   resetRun(); gstate = 'playing';
-  $('menu').classList.add('hidden'); $('dead').classList.add('hidden'); $('pause').classList.add('hidden'); $('hud').classList.remove('hidden');
+  $('menu').classList.add('hidden'); $('dead').classList.add('hidden'); $('pause').classList.add('hidden'); $('hud').classList.remove('off');
   HERO.root.visible = true; acc = 0;
   showHint(run.mode === 'run' ? 'LIGHT THE BEACONS' : 'FREE ROAM');
 }
@@ -2333,7 +2397,7 @@ function resumeGame(){
 function goMenu(){
   gstate = 'menu'; wantLock = false; try { document.exitPointerLock(); } catch (e) {}
   keys.clear(); INP.mouseFire = INP.padFire = false;
-  $('menu').classList.remove('hidden'); $('dead').classList.add('hidden'); $('pause').classList.add('hidden'); $('hud').classList.add('hidden'); HERO.root.visible = false;
+  $('menu').classList.remove('hidden'); $('dead').classList.add('hidden'); $('pause').classList.add('hidden'); $('hud').classList.add('off'); HERO.root.visible = false;
   beaconObj.g.visible = false; beaconObj.g2.visible = false; updateBestLine();
 }
 $('cta').addEventListener('click', startGame);
@@ -2388,7 +2452,8 @@ function padMenu(){ goMenu(); }
 //  main loop (fixed 120 Hz physics, interpolated render)
 // ============================================================================
 const PERF = { render: 0, frames: 0, phys: 0, hud: 0, upd: 0 }; window.__perf = PERF;
-let headSkip = 0, visAcc = 0;
+let lastDraw = 0, visAcc = 0, workerPump = null;
+const DRAW_GAP = 3000;                      // ms between presented frames in software-GL (webdriver) browsers only
 let last = performance.now(), acc = 0, clock = 0, fpsAvg = 60, adaptT = 0, adaptUp = 0;
 function adaptResolution(dt){                 // keep ~60 fps on weak GPUs / 4K TVs: step the render scale down (and back up when there is headroom)
   if (navigator.webdriver || gstate !== 'playing') return;
@@ -2402,7 +2467,6 @@ function frame(now){
   let dt = Math.min(0.1, (now - last) / 1000); last = now; if (dt <= 0) dt = 0.0001;
   fpsAvg += (1 / dt - fpsAvg) * 0.05; clock += dt; adaptResolution(dt);
   if (ready) {
-    if (HEADLESS && gstate !== 'playing') { headSkip++; if ((headSkip & 3) !== 0) return; }
     if (gstate === 'playing') {
       if (INP.padLookX || INP.padLookY) { cam.yaw -= INP.padLookX * TUNING.cam.padRate * dt; cam.pitch = clamp(cam.pitch - INP.padLookY * TUNING.cam.padRate * dt, TUNING.cam.pitchMin, TUNING.cam.pitchMax); }
       let sdt = dt; if (hitT > 0) { hitT -= dt; sdt *= 0.1; }
@@ -2412,10 +2476,8 @@ function frame(now){
       PERF.phys += performance.now() - _p0;
       if (n >= 14) acc = 0;
       const a = clamp(acc / STEP, 0, 1), rx = P.px + (pos[0] - P.px) * a, ry = P.py + (pos[1] - P.py) * a, rz = P.pz + (pos[2] - P.pz) * a;
-      headSkip++; if (HEADLESS && (headSkip & 3) !== 0) { visAcc += dt; return; }        // software-GL test browsers: present every 4th frame so input stays responsive
-      dt = dt + visAcc; visAcc = 0;
       const _u0 = performance.now(); updateHero(dt, rx, ry, rz); updateCamera(dt, rx, ry, rz); updateWebs(dt, clock); PERF.upd += performance.now() - _u0;
-      const _h0 = performance.now(); updateHud(dt, rx, ry, rz); PERF.hud += performance.now() - _h0;
+      const _h0 = performance.now(); if (!HEADLESS || now - lastDraw > DRAW_GAP) updateHud(dt, rx, ry, rz); PERF.hud += performance.now() - _h0;
       updateBeaconVis(clock);
     } else if (gstate === 'paused') {
       // frozen frame
@@ -2424,12 +2486,14 @@ function frame(now){
       drawSpeedLines(0); beaconObj.g.visible = false; beaconObj.g2.visible = false; HERO.root.visible = false; HERO.blob.visible = false; webCore.mesh.visible = webGlow.mesh.visible = webYank.mesh.visible = false; splat.visible = false;
       if (gstate === 'menu' && pressedKey(' ')) { /* handled in keydown */ }
     }
+    if (chunkQueue.length) pumpChunks(gstate === 'playing' ? 5 : 9);
+    if (workerPump) workerPump();
     if (gstate !== 'paused') { fx.update(dt); updateCubes(dt); }
     updateBlink(clock);
     skyMesh.position.copy(camera.position); skyMesh.material.uniforms.uTime.value = clock; waterMesh.material.uniforms.uTime.value = clock;
     partMat.uniforms.uK.value = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
     updateAudio(dt, gstate === 'playing');
-    const _t0 = performance.now(); renderer.render(scene, camera); PERF.render += performance.now() - _t0; PERF.frames++;
+    if (!HEADLESS || now - lastDraw > DRAW_GAP) { lastDraw = now; const _t0 = performance.now(); renderer.render(scene, camera); PERF.render += performance.now() - _t0; PERF.frames++; }   // software-GL test browsers: present ~2.5 frames/s so the page (and any input shim) stays responsive
   }
 }
 
@@ -2437,19 +2501,17 @@ function frame(now){
 //  boot
 // ============================================================================
 const nextTick = () => new Promise(r => setTimeout(r, 20));
-async function prewarm(){                            // compile every program once, up front (one object per tick so the page keeps painting), so the first beacon / web / particle burst never hitches
-  const groups = [[], [HERO.root, HERO.blob], [beaconObj.g], [beaconObj.g2], [webCore.mesh, webGlow.mesh, webYank.mesh], [splat]];
-  const all = groups.flat(), was = all.map(o => o.visible);
-  const t0 = performance.now(); window.__prewarm = [];
-  for (const grp of groups) {
-    grp.forEach(o => { o.visible = true; });
-    if (grp === groups[1]) fx.emit(camera.position.x, camera.position.y, camera.position.z - 3, 0, 0, 0, 0.05, 1, 1, 1, 1, 0);
-    const a = performance.now();
-    try { menuCamera(0); renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) {}
-    window.__prewarm.push(Math.round(performance.now() - a));
-    grp.forEach(o => { o.visible = false; });
-    await nextTick();
-  }
+const _mc = new MessageChannel(); let _mcRes = null; _mc.port1.onmessage = () => { const r = _mcRes; _mcRes = null; if (r) r(); };
+const yieldNow = () => new Promise(r => { _mcRes = r; _mc.port2.postMessage(0); });      // zero-delay yield (setTimeout clamps to 4 ms)
+async function prewarm(){                            // compile every program once, up front and off the main thread (compileAsync), so the first beacon / web / particle burst never hitches
+  const all = [HERO.root, HERO.blob, beaconObj.g, beaconObj.g2, webCore.mesh, webGlow.mesh, webYank.mesh, splat], was = all.map(o => o.visible);
+  all.forEach(o => { o.visible = true; });
+  fx.emit(camera.position.x, camera.position.y, camera.position.z - 3, 0, 0, 0, 0.05, 1, 1, 1, 1, 0);
+  const t0 = performance.now();
+  try { menuCamera(0); camera.updateMatrixWorld(true); await renderer.compileAsync(scene, camera); } catch (e) { try { renderer.compile(scene, camera); } catch (e2) {} }
+  try { renderer.render(scene, camera); } catch (e) {}                 // one real draw so geometry / texture uploads happen now, not on the first gameplay frame
+  await nextTick();
+  window.__prewarm = [Math.round(performance.now() - t0)];
   all.forEach((o, i) => { o.visible = was[i]; }); webCore.mesh.visible = webGlow.mesh.visible = webYank.mesh.visible = false; splat.visible = false; HERO.root.visible = false;
 }
 async function init(){
@@ -2457,9 +2519,51 @@ async function init(){
   try {
     const setMsg = t => { msg.textContent = t; $('loadsplashMsg').textContent = t; };
     const T = window.__init = {}; let tt = performance.now(); const lap = k => { const n = performance.now(); T[k] = Math.round(n - tt); tt = n; };
-    setMsg('painting facades'); await nextTick(); tt = performance.now(); texArr = buildTextureArray(); voxMat = makeVoxMaterial(texArr); lap('textures');
-    setMsg('raising towers'); await nextTick(); tt = performance.now(); genWorld(); lap('genWorld');
-    setMsg('meshing blocks'); await nextTick(); tt = performance.now(); buildAllChunks(); lap('mesh'); buildBackdrop(); buildMinimap(); lap('backdrop');
+    const slice = async (gen) => {                             // drive a generator in ~10 ms slices, yielding to the browser between them
+      let t = performance.now();
+      for (let r = gen.next(); !r.done; r = gen.next()) { if (performance.now() - t > 10) { await yieldNow(); t = performance.now(); } }
+    };
+    // 1) world generation + meshing in a Worker (falls back to the main thread if Workers are unavailable)
+    let worker = null, worldMsg = null, pendingChunks = [], chunksIn = 0, workerFailed = false, wake = null;
+    try {
+      worker = new Worker(URL.createObjectURL(new Blob([worldWorkerSource()], { type: 'text/javascript' })));
+      worker.onerror = e => { workerFailed = true; if (wake) wake(); };
+      worker.onmessage = ev => { const m = ev.data; if (m.type === 'world') worldMsg = m; else if (m.type === 'chunk') pendingChunks.push(m); if (wake) wake(); };
+      worker.postMessage({ cmd: 'go' });
+    } catch (e) { worker = null; workerFailed = true; }
+    // 2) facade textures on the main thread (needs a DOM canvas), sliced
+    setMsg('painting facades'); await nextTick(); tt = performance.now();
+    let texData = null;
+    if (typeof OffscreenCanvas !== 'undefined') {            // paint the 31 facade layers in a second worker
+      try {
+        const tw = new Worker(URL.createObjectURL(new Blob([texWorkerSource()], { type: 'text/javascript' })));
+        let fail = false, wk = null; tw.onerror = () => { fail = true; if (wk) wk(); }; tw.onmessage = ev => { texData = ev.data; if (wk) wk(); };
+        tw.postMessage(0);
+        while (!texData && !fail) await new Promise(r => { wk = r; setTimeout(r, 40); });
+        tw.terminate();
+      } catch (e) { texData = null; }
+    }
+    if (texData) texArr = makeTexArray(texData); else { const box = {}; await slice(buildTextureArray(box)); texArr = box.tex; }
+    voxMat = makeVoxMaterial(texArr); lap('textures');
+    setMsg('raising towers'); tt = performance.now();
+    if (worker && !workerFailed) {
+      while (!worldMsg && !workerFailed) await new Promise(r => { wake = r; setTimeout(r, 50); });
+      wake = null;
+    }
+    if (worldMsg && !workerFailed) {
+      grid.set(worldMsg.grid); hm.set(worldMsg.hm); Object.assign(city, worldMsg.city); lap('genWorld(worker)');
+      const eat = (n) => { while (pendingChunks.length && chunksIn < n) { addChunkFromTyped(pendingChunks.shift()); chunksIn++; } };
+      setMsg('meshing blocks');
+      while (chunksIn < 12 && !workerFailed) { eat(12); if (chunksIn >= 12) break; await new Promise(r => { wake = r; setTimeout(r, 50); }); }
+      wake = null; lap('mesh(first 12)');
+      worker.onmessage = ev => { const m = ev.data; if (m.type === 'chunk') pendingChunks.push(m); else if (m.type === 'done') { worker.terminate(); worker = null; } };
+      workerPump = () => { const t = performance.now(); while (pendingChunks.length && performance.now() - t < 5) { addChunkFromTyped(pendingChunks.shift()); chunksIn++; } };
+      buildBackdrop(); buildMinimap(); lap('backdrop');
+    } else {                                                     // fallback: everything on the main thread
+      if (worker) { try { worker.terminate(); } catch (e) {} worker = null; }
+      pendingChunks = []; setMsg('raising towers'); await nextTick(); tt = performance.now(); await slice(genWorld()); lap('genWorld');
+      setMsg('meshing blocks'); await nextTick(); tt = performance.now(); planChunks(); await slice(buildNearChunks(12)); lap('mesh'); buildBackdrop(); buildMinimap(); lap('backdrop');
+    }
     setMsg('warming shaders'); await nextTick(); await prewarm();
     ready = true; gstate = 'menu';
     msg.textContent = city.buildings.length + ' towers, ' + (city.lamps.length) + ' lamps, seed ' + TUNING.world.seed;
@@ -2495,6 +2599,8 @@ window.__game.raycast = (ox, oy, oz, dx, dy, dz, m) => { const h = raycast(ox, o
 window.__game.hm = (x, z) => hm[(x | 0) + DX * (z | 0)];
 window.__game.buildings = () => city.buildings.map(b => ({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, h: b.h, h0: b.h0 }));
 window.__game.setScale = v => { pixelCur = Math.min(pixelCap, Math.max(0.1, v)); resize(); };
+window.__game.gpuTime = () => { const gl = renderer.getContext(); const t = performance.now(); renderer.render(scene, camera); gl.finish(); return performance.now() - t; };
+window.__game.scene = scene; window.__game.chunks = chunkMeshes;
 window.__game.P = P; window.__game.cam = cam; window.__game.run = run;
 
 // shelf bridge v3: own server /api -> Supabase (if configured) -> localStorage
