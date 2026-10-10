@@ -4,7 +4,8 @@
 #   * mta/outbreak/ui/mta.html (the page the MTA browser loads in the GTA client) is GENERATED from the vanilla index.html by inserting exactly one line,
 #     <script src="mta-bridge.js"></script>, before the first vanilla script, so the bridge runs before js/core.js;
 #   * mta/outbreak/ui/phone.html (the page a PHONE browser loads from MTA's HTTP server at /outbreak/) is GENERATED the same way: <script src="phone-bridge.js"> before js/core.js, plus
-#     <base href="/outbreak/ui/"> (the default page is served at /outbreak/, the assets live under /outbreak/ui/), the home-screen title / icons / manifest and a plain <title>;
+#     <base href="/outbreak/ui/"> (the default page is served at /outbreak/, the assets live under /outbreak/ui/), the home-screen title / icons / manifest, a plain <title>, and the css files
+#     INLINED as <style> (MTA's HTTP server labels every .css file application/octet-stream and browsers refuse such a stylesheet; scripts and fonts are not affected);
 #   * the MTA-only files are our own and are neither copied nor touched by this script: mta-bridge.js, phone-bridge.js, phone-manifest.json, phone-icon-*.png (mta/tools/gen_phone_icons.py).
 # `sync_ui.sh check` verifies all of that without writing (used by the tests).
 set -eu
@@ -25,8 +26,13 @@ generate() { # stdout = mta.html
 }
 
 generate_phone() { # stdout = phone.html
-	awk -v line="$phone_line" '
+	awk -v line="$phone_line" -v css="$src/" '
 		!b && /<meta charset="utf-8">/ { print; print "<base href=\"/outbreak/ui/\">"; b = 1; next }
+		/<link rel="stylesheet" href="css\/[a-z]+\.css">/ { # the MTA HTTP server sends .css as application/octet-stream, browsers refuse such a stylesheet: inline them
+			match($0, /css\/[a-z]+\.css/); f = css substr($0, RSTART, RLENGTH); print "<style>"
+			while ((getline l < f) > 0) { gsub(/\.\.\/fonts\//, "fonts/", l); print l }
+			close(f); print "</style>"; s++; next
+		}
 		!t && /<title>/ { print "<title>Outbreak</title>"; t = 1; next }
 		!l && /<link rel="icon" href="data:,">/ {
 			print "<link rel=\"icon\" type=\"image/png\" href=\"phone-icon-192.png\">"
@@ -37,7 +43,7 @@ generate_phone() { # stdout = phone.html
 		}
 		!d && /<script src="js\/core.js"><\/script>/ { print line; d = 1 }
 		{ print }
-		END { if (!b || !t || !l || !d) exit 3 }
+		END { if (!b || !t || !l || !d || s < 4) exit 3 }
 	' "$src/index.html"
 }
 

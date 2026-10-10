@@ -4493,16 +4493,16 @@ const MOB_DEFS = {};
   mobDef('wisp', 'Gale Wisp', 'flyer', { hp: 6, dmg: 22, xp: 1.8, spd: 2.2, run: 5.0, aggro: 18, size: 0.9, h: 0.7, move: 'hover', keep: [5, 7.5], hover: 1.9, atk: ['swoop'], shape: 'wisp', pal: ['#7ff0e8', '#ffffff', '#c8fff6'], fly: true }),
   mobDef('mole', 'Dustmole', 'ambusher', { hp: 9, dmg: 36, xp: 2.0, spd: 1.2, run: 5.4, aggro: 14, size: 1.0, h: 0.8, move: 'burrow', reach: 2.0, atk: ['erupt'], shape: 'mole', pal: ['#8a6a50', '#f0d8b8', '#ff8f6a'], start: 'burrow' }),
   mobDef('puffer', 'Sporecap', 'artillery', { hp: 12, dmg: 20, xp: 2.1, spd: 0, run: 0, aggro: 17, size: 1.15, h: 1.1, move: 'still', atk: ['sporelob'], shape: 'puffer', pal: ['#b8e86a', '#5a7a2a', '#fff2a0'] }),
-  mobDef('warden', 'Thornjaw Warden', 'miniboss', { hp: 70, dmg: 52, xp: 9, spd: 1.2, run: 3.2, aggro: 20, size: 1.6, h: 1.6, move: 'approach', reach: 3.0, atk: ['leapslam', 'sweepclaw', 'wardenram'], shape: 'warden', pal: ['#7a3a3a', '#e8d8b8', '#ff8a4a'], mini: true,
+  mobDef('warden', 'Thornjaw Warden', 'miniboss', { hp: 70, dmg: 52, xp: 9, spd: 1.2, run: 3.2, aggro: 20, size: 1.15, h: 1.8, move: 'approach', reach: 3.0, atk: ['leapslam', 'sweepclaw', 'wardenram'], shape: 'warden', pal: ['#7a3a3a', '#e8d8b8', '#ff8a4a'], mini: true,
     phases: [{ at: 1, name: 'WARDEN', atk: ['leapslam', 'sweepclaw'], spd: 1, cdK: 1 }, { at: 0.5, name: 'ENRAGED', atk: ['leapslam', 'sweepclaw', 'wardenram'], spd: 1.3, cdK: 0.7 }] }),
   // ---- act guardians (bosses): multi-phase attack patterns, each tell is a ground decal for >= 0.6 s ----
-  mobDef('g_thorn', 'Old Thornback', 'boss', { hp: 26, dmg: 46, xp: 40, spd: 1.2, run: 3.4, aggro: 30, size: 1.9, h: 2.0, move: 'approach', reach: 3.6, atk: ['thorn_slam', 'thorn_spikes'], shape: 'thornback', pal: ['#6a4a3a', '#2a1a14', '#ff8a3a'], boss: true,
+  mobDef('g_thorn', 'Old Thornback', 'boss', { hp: 26, dmg: 46, xp: 40, spd: 1.2, run: 3.4, aggro: 30, size: 0.8, h: 2.2, move: 'approach', reach: 3.6, atk: ['thorn_slam', 'thorn_spikes'], shape: 'thornback', pal: ['#6a4a3a', '#2a1a14', '#ff8a3a'], boss: true,
     phases: [{ at: 1, name: 'THORNBACK', atk: ['thorn_slam', 'thorn_spikes'], spd: 1, cdK: 1 }, { at: 0.66, name: 'THORNS UNLEASHED', atk: ['thorn_slam', 'thorn_spikes', 'thorn_charge', 'thorn_call'], spd: 1.1, cdK: 0.9 },
       { at: 0.33, name: 'RAMPAGE', atk: ['thorn_slam', 'thorn_spikes', 'thorn_charge', 'thorn_star'], spd: 1.3, cdK: 0.7 }] }),
-  mobDef('g_storm', 'Stormcaller', 'boss', { hp: 24, dmg: 40, xp: 45, spd: 1.6, run: 4.2, aggro: 34, size: 1.6, h: 1.6, move: 'hover', keep: [7, 11], hover: 1.8, fly: true, atk: ['storm_bolts', 'storm_orbs'], shape: 'stormcaller', pal: ['#5a6ad8', '#e8f0ff', '#9fd0ff'], boss: true,
+  mobDef('g_storm', 'Stormcaller', 'boss', { hp: 24, dmg: 40, xp: 45, spd: 1.6, run: 4.2, aggro: 34, size: 0.8, h: 2.0, move: 'hover', keep: [7, 11], hover: 1.8, fly: true, atk: ['storm_bolts', 'storm_orbs'], shape: 'stormcaller', pal: ['#5a6ad8', '#e8f0ff', '#9fd0ff'], boss: true,
     phases: [{ at: 1, name: 'STORMCALLER', atk: ['storm_bolts', 'storm_orbs'], spd: 1, cdK: 1 }, { at: 0.66, name: 'EYE OF THE STORM', atk: ['storm_bolts', 'storm_orbs', 'storm_blink', 'storm_call'], spd: 1.15, cdK: 0.85 },
       { at: 0.33, name: 'TEMPEST', atk: ['storm_bolts', 'storm_orbs', 'storm_blink', 'storm_sweep'], spd: 1.3, cdK: 0.7 }] }),
-  mobDef('g_prism', 'The Prismatic Hollow', 'boss', { hp: 28, dmg: 44, xp: 50, spd: 1.2, run: 3.0, aggro: 34, size: 2.0, h: 2.2, move: 'approach', reach: 3.4, atk: ['prism_stomp', 'prism_barrage'], shape: 'prism', pal: ['#b06aff', '#1a0a2a', '#ff9aff'], boss: true,
+  mobDef('g_prism', 'The Prismatic Hollow', 'boss', { hp: 28, dmg: 44, xp: 50, spd: 1.2, run: 3.0, aggro: 34, size: 0.8, h: 2.4, move: 'approach', reach: 3.4, atk: ['prism_stomp', 'prism_barrage'], shape: 'prism', pal: ['#b06aff', '#1a0a2a', '#ff9aff'], boss: true,
     phases: [{ at: 1, name: 'THE HOLLOW', atk: ['prism_stomp', 'prism_barrage'], spd: 1, cdK: 1 }, { at: 0.66, name: 'CRYSTAL SHELL', atk: ['prism_stomp', 'prism_barrage', 'prism_laser', 'prism_shield'], spd: 1.1, cdK: 0.9 },
       { at: 0.33, name: 'SHATTERING', atk: ['prism_stomp', 'prism_barrage', 'prism_laser', 'prism_nova'], spd: 1.25, cdK: 0.7 }] }),
 ].forEach(d => { MOB_DEFS[d.id] = d; });
@@ -4529,7 +4529,7 @@ mobSetTuning();
 const mobWrap = a => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI; };
 function mobNew(id, seed, o = {}) {
   const def = MOB_DEFS[id]; if (!def) return null;
-  const m = { id, def, seed: seed >>> 0, rng: rpgRng(seed >>> 0), x: o.x || 0, y: o.y || 0, z: o.z || 0, hx: o.x || 0, hz: o.z || 0, r: o.r || 4, face: o.face || 0, vx: 0, vz: 0, st: 'idle', t: 0, ev: [], cd: {}, gcd: 0.6, atk: null, atkD: null,
+  const m = { id, def, aggro: o.aggro != null ? o.aggro : def.aggro, seed: seed >>> 0, rng: rpgRng(seed >>> 0), x: o.x || 0, y: o.y || 0, z: o.z || 0, hx: o.x || 0, hz: o.z || 0, r: o.r || 4, face: o.face || 0, vx: 0, vz: 0, st: 'idle', t: 0, ev: [], cd: {}, gcd: 0.6, atk: null, atkD: null,
     aim: { x: 0, z: 0 }, d: 99, alert: false, pack: o.pack | 0, phase: 0, phaseT: 0, vuln: 1, noContact: false, hidden: !!(def.start === 'burrow'), hover: 0, hoverT: def.hover || 0, stunT: 0, dead: false, spdK: 1, cdK: 1, atkSet: (def.phases ? def.phases[0].atk : def.atk).slice(), fuseT: 0, shieldT: 0, shieldBroken: false, invuln: false,
     ring: null, sweep: null, circ: (seed & 1) ? 1 : -1, circT: 2 + (seed % 5) * 0.4, idleT: 0, wx: 0, wz: 0, blocked: false, ctx: null, execT: 0, windT: 0, hitDone: false, dash: null, leap: null, spikeI: 0, spikeT: 0, shootI: 0, shootT: 0, tag: o.tag || '', mode: 0, modeT: 0, lastHpf: 1, expose: 0, tgt: null, bolts: null };
   m.fsm = new MobFSM(m); mobBuild(m); m.fsm.SetState(def.start === 'burrow' ? 'burrow' : 'idle'); return m;
@@ -4554,7 +4554,7 @@ function mobPick(m, c) {
   if (!cand.length) return null; let x = m.rng() * tot; for (const a of cand) { x -= a.wt; if (x <= 0) return a; } return cand[cand.length - 1];
 }
 function mobTell(m, a, c) { // the telegraph event: everything the renderer needs to draw the decal for the wind-up, and the readable "this is where it will hit" shape
-  const e = { k: 'tell', atk: a.id, kind: a.kind, shape: a.tell, dur: a.wind, col: a.col, x: m.x, z: m.z, ang: m.face, r: a.r || 0, len: a.len || 0, w: a.w || 0, arc: a.arc || 0, self: a.tell === 'self' || (a.tell === 'circle' && !['leap', 'lob', 'swoop', 'emerge', 'bolts'].includes(a.kind)), follow: a.aim > 0.5 && (a.tell === 'line' || a.tell === 'aim') };
+  const e = { k: 'tell', atk: a.id, kind: a.kind, shape: a.tell, dur: a.wind, col: a.col, x: m.x, z: m.z, ang: m.face, r: a.r || 0, len: a.len || 0, w: a.w || 0, arc: a.arc || 0, hold: a.kind === 'lob' ? a.flight : (a.kind === 'leap' || a.kind === 'swoop') ? a.exec : 0, self: a.tell === 'self' || (a.tell === 'circle' && !['leap', 'lob', 'swoop', 'emerge', 'bolts'].includes(a.kind)), follow: a.aim > 0.5 && (a.tell === 'line' || a.tell === 'aim') };
   if (a.tell === 'circle') { if (a.kind === 'leap' || a.kind === 'lob' || a.kind === 'swoop' || a.kind === 'emerge') { e.x = m.aim.x; e.z = m.aim.z; e.follow = a.aim > 0.4; } else if (a.off) { e.x = m.x + Math.sin(m.face) * a.off; e.z = m.z + Math.cos(m.face) * a.off; } }
   if (a.kind === 'bolts') { e.pts = m.bolts.map(p => ({ x: p.x, z: p.z })); e.shape = 'multi'; }
   if (a.kind === 'star') { e.shape = 'star'; e.n = a.n; }
@@ -4575,7 +4575,7 @@ function mobStrike(m, a, shape, x, z, extra) { return mobEmit(m, Object.assign({
 function mobBuild(m) {
   const F = m.fsm, def = m.def;
   const common = (st, dt) => { // per-tick bookkeeping shared by every state: cooldowns, phase, hover, ring / sweep objects
-    const c = m.ctx; m.d = Math.hypot(c.hx - m.x, c.hz - m.z); if (def.dogshoot && c.alive && m.d < def.aggro * 1.5) { m.modeT += dt; if (m.modeT > def.dogshoot[m.mode]) { m.mode ^= 1; m.modeT = 0; } } if (m.gcd > 0) m.gcd -= dt; for (const k in m.cd) if (m.cd[k] > 0) m.cd[k] -= dt; if (m.shieldT > 0) { m.shieldT -= dt; if (m.shieldT <= 0) { m.shieldT = 0; mobEmit(m, { k: 'shieldDown' }); } }
+    const c = m.ctx; m.d = Math.hypot(c.hx - m.x, c.hz - m.z); if (def.dogshoot && c.alive && m.d < m.aggro * 1.5) { m.modeT += dt; if (m.modeT > def.dogshoot[m.mode]) { m.mode ^= 1; m.modeT = 0; } } if (m.gcd > 0) m.gcd -= dt; for (const k in m.cd) if (m.cd[k] > 0) m.cd[k] -= dt; if (m.shieldT > 0) { m.shieldT -= dt; if (m.shieldT <= 0) { m.shieldT = 0; mobEmit(m, { k: 'shieldDown' }); } }
     if (def.fly && (m.st === 'idle' || m.st === 'alert' || m.st === 'move' || m.st === 'recover' || m.st === 'phase')) m.hover += (m.hoverT - m.hover) * Math.min(1, 3 * dt);
     if (m.expose > 0) { m.expose -= dt; if (m.expose <= 0) { m.vuln = 1; m.expose = 0; } }
     if (def.phases) { const f = c.hpf == null ? 1 : c.hpf; for (let i = m.phase + 1; i < def.phases.length; i++) if (f <= def.phases[i].at) { m.phase = i; const P = def.phases[i]; m.atkSet = P.atk.slice(); m.spdK = P.spd; m.cdK = P.cdK; m.phaseT = 1.5; m.invuln = true; mobStop(m); mobEmit(m, { k: 'phase', n: i, name: P.name, x: m.x, z: m.z }); m.fsm.SetState('phase'); return true; } }
@@ -4589,7 +4589,7 @@ function mobBuild(m) {
     Enter() { m.idleT = 0.6 + m.rng() * 1.8; mobStop(m); m.alert = false; }
     Update(dt) {
       if (common('idle', dt)) return; const c = m.ctx;
-      if (c.alive && m.d < def.aggro && (def.fly || m.d < def.aggro)) { F.SetState('alert'); return; }
+      if (c.alive && m.d < m.aggro) { F.SetState('alert'); return; }
       if (def.spd > 0) { m.idleT -= dt; if (m.idleT <= 0) { m.idleT = 1.2 + m.rng() * 2.4; if (m.rng() < 0.55) { const a = m.rng() * Math.PI * 2, rr = m.rng() * m.r; m.wx = m.hx + Math.cos(a) * rr; m.wz = m.hz + Math.sin(a) * rr; } else { m.wx = m.x; m.wz = m.z; } }
         const dx = m.wx - m.x, dz = m.wz - m.z, dd = Math.hypot(dx, dz); if (dd > 0.4 && (m.wx || m.wz)) { mobGo(m, Math.atan2(dx, dz), def.spd * m.spdK * 0.8); mobHeading(m, m.wx, m.wz, 1, dt); } else mobStop(m); }
     }
@@ -4602,8 +4602,8 @@ function mobBuild(m) {
   class Move extends MobState {
     Update(dt) {
       if (common('move', dt)) return; const c = m.ctx, d = m.d;
-      if (!c.alive) { mobStop(m); if (d > def.aggro * 1.2) F.SetState('idle'); return; }
-      if (d > def.aggro * 2.4) { m.alert = false; F.SetState('idle'); return; }
+      if (!c.alive) { mobStop(m); if (d > m.aggro * 1.2) F.SetState('idle'); return; }
+      if (d > m.aggro * 2.4) { m.alert = false; F.SetState('idle'); return; }
       // choose an attack first (the telegraph decides the fight)
       if (m.gcd <= 0) { const a = mobPick(m, c); if (a) { m.atk = a.id; m.atkD = a; F.SetState('wind'); return; } }
       const toH = Math.atan2(c.hx - m.x, c.hz - m.z), run = def.run * m.spdK, mv = def.move;
@@ -4690,8 +4690,8 @@ function mobBuild(m) {
     Enter() { m.hidden = true; m.noContact = true; mobStop(m); m.vuln = 1; }
     Update(dt) {
       if (common('burrow', dt)) return; const c = m.ctx; if (!c.alive) { mobStop(m); return; }
-      if (!m.alert) { if (m.d < def.aggro) { m.alert = true; mobEmit(m, { k: 'alert', pack: m.pack, x: m.x, z: m.z, r: 0 }); } else { mobStop(m); return; } }
-      if (m.d > def.aggro * 2.4) { m.alert = false; mobStop(m); return; }
+      if (!m.alert) { if (m.d < m.aggro) { m.alert = true; mobEmit(m, { k: 'alert', pack: m.pack, x: m.x, z: m.z, r: 0 }); } else { mobStop(m); return; } }
+      if (m.d > m.aggro * 2.4) { m.alert = false; mobStop(m); return; }
       const toH = Math.atan2(c.hx - m.x, c.hz - m.z); if (m.d > 3.8) { mobGo(m, toH + Math.sin(m.t * 1.7) * 0.35, def.run * m.spdK); mobHeading(m, c.hx, c.hz, 2, dt); } else mobStop(m);
       if (m.gcd <= 0 && m.d <= 4.6 && !(m.cd.erupt > 0)) { m.atk = 'erupt'; m.atkD = MOB_ATK.erupt; F.SetState('wind'); }
     }
@@ -4717,7 +4717,7 @@ function mobShieldFactor(m, sx, sz, kind) { // damage multiplier for a hit from 
   if (d.shield && !m.shieldBroken && m.st !== 'stun') { const ha = Math.atan2(sx - m.x, sz - m.z), off = Math.abs(mobWrap(ha - m.face)); if (off < d.shield.arc / 2) { if (kind === 'pound') { m.shieldBroken = true; m.stunT = 2.4; mobEmit(m, { k: 'shieldBreak', x: m.x, z: m.z }); mobEmit(m, { k: 'stun', dur: 2.4, why: 'shield', x: m.x, z: m.z }); m.fsm.SetState('stun'); return 1; } mobEmit(m, { k: 'clang', x: m.x, z: m.z }); return d.shield.front; } }
   return m.vuln;
 }
-function mobHurt(m, srcx, srcz) { if (m.dead) return; if (m.st === 'idle' || m.st === 'burrow' && false) m.fsm.SetState('alert'); }
+function mobHurt(m, srcx, srcz) { if (m.dead) return; m.aggro = Math.max(m.aggro, m.def.aggro); if (m.st === 'idle') m.fsm.SetState('alert'); }
 function mobDie(m, how) { // death: family-specific last words (the bomber that was lit blows up, the Weaver's brood vanishes, the guardian announces itself)
   if (m.dead) return m.ev; const d = m.def; const wasFuse = m.st === 'wind' && m.atk === 'fuse'; m.dead = true; m.ring = null; m.sweep = null; m.fsm.SetState('dead');
   mobEmit(m, { k: 'death', how: how || 'hit', x: m.x, z: m.z, boss: !!d.boss, mini: !!d.mini });
