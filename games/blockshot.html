@@ -1051,8 +1051,8 @@ function updateSky(tod) {
   const nt = 1 - dayAmt, r = lum * (1 + dusk * 0.2) * (1 - nt * 0.18), g = lum * (1 - dusk * 0.02) * (1 - nt * 0.04), b = lum * (1 - dusk * 0.25) * (1 + nt * 0.4);
   S.tint[0] = r; S.tint[1] = g; S.tint[2] = b;
   terrainMat.color.setRGB(Math.min(1, r), Math.min(1, g), Math.min(1, b)); waterMat.color.copy(terrainMat.color);
-  ambient.intensity = (0.3 + 0.5 * dayAmt) * Math.PI; ambient.color.setRGB(0.8 + 0.2 * dayAmt, 0.85 + 0.15 * dayAmt, 1);
-  sunLight.intensity = (0.1 + 0.85 * dayAmt) * Math.PI; sunLight.color.setRGB(1, 0.94 - dusk * 0.3, 0.82 - dusk * 0.4 - nt * 0.1);
+  ambient.intensity = (0.26 + 0.36 * dayAmt) * Math.PI; ambient.color.setRGB(0.8 + 0.2 * dayAmt, 0.85 + 0.15 * dayAmt, 1);
+  sunLight.intensity = (0.1 + 0.62 * dayAmt) * Math.PI; sunLight.color.setRGB(1, 0.94 - dusk * 0.3, 0.82 - dusk * 0.4 - nt * 0.1);
   starMat.opacity = clamp(1 - dayAmt * 1.8, 0, 0.95); cloudMat.opacity = 0.35 + 0.5 * dayAmt; cloudMat.color.setRGB(0.4 + 0.6 * dayAmt + dusk * 0.2, 0.42 + 0.58 * dayAmt, 0.55 + 0.45 * dayAmt - dusk * 0.2);
   sunMesh.visible = el > -0.3; moonMesh.visible = el < 0.25;
 }
