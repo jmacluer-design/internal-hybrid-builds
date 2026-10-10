@@ -124,7 +124,7 @@ const TUNING = {
   step: 1 / 120,            // fixed physics step
   gravity: 38.2, longGravity: 19.1, maxFall: 24,
   walk: 6.0, run: 10.2, sprint: 13.6,          // top speeds (slow-walk / default / shift)
-  accel: 46, decel: 30, skidDecel: 70, airAccel: 26, airDrag: 1.6, turn: 15,
+  accel: 48, decel: 52, skidDecel: 80, airAccel: 26, airDrag: 1.6, turn: 15,
   jump: [13.4, 16.6, 22.0], jumpSpeedBonus: 0.25, jumpKeep: 0.8,  // single / double / triple launch speed; x0.25 of forward speed added; forward speed x0.8 on take-off
   jumpCutVy: 6.4, coyote: 0.11, buffer: 0.14, chain: 0.3,         // releasing jump caps rise speed; coyote time, input buffer, landing window for chain
   longJump: { vy: 9.6, mult: 1.5, cap: 15.3 }, backflip: { vy: 19.8, back: 5.1 }, sideflip: { vy: 19.8, speed: 2.6 },
@@ -1992,7 +1992,7 @@ function updateWorldShatter(rdt) {
   const T = TUNING.shatter; SH.t += rdt;
   SH.R1 += SH.R1speed * rdt * (SH.t < 1.5 ? 0.85 : 1.25); WV.R1 = SH.R1; WV.glow = 1.2 * (1 - sstep(2.8, 5.5, SH.t));
   // atmosphere crossfade: begins as the wave rolls, finishes shortly after the rebuild starts
-  G.atmT = sstep(0.4, SH.tReb + 3.6, SH.t); setAtmosphere(SH.from, SH.to, G.atmT); applyAtmosphere(); skyMat.uniforms.uSkyVox.value = sstep(0.1, 1.6, SH.t) * (1 - sstep(SH.tReb + 1.5, SH.tReb + 4.5, SH.t)) * 0.9;
+  G.atmT = sstep(0.4, SH.tReb + 3.6, SH.t); setAtmosphere(SH.from, SH.to === 4 ? 3 : SH.to, SH.to === 4 ? 0 : G.atmT); applyAtmosphere(); skyMat.uniforms.uSkyVox.value = sstep(0.1, 1.6, SH.t) * (1 - sstep(SH.tReb + 1.5, SH.tReb + 4.5, SH.t)) * 0.9;
   while (SH.ci < SH.items.length && SH.items[SH.ci].d < SH.R1 - 5) {
     const it = SH.items[SH.ci++];
     if (it.t === 0) { DROPT[it.ci] = 1; dropActive = true; if (it.keep) { const k = colCube(it.ci, SH.cx, SH.cz, 9); if (k >= 0) { C.owner[k] = -4; } } FALLT[it.ci] = SH.t + 0.9 + it.d * 0.014 + hash2(it.ci, 5) * 0.5; collapsing = true; }
@@ -2870,7 +2870,7 @@ let inImm = false;
 function deathCheck() { if (P.dead || G.state !== 'play') return; const killY = LV ? LV.deathY + LV.O.y : -28; if (P.y < killY && !(GF < 0)) killHero('fall'); if (GF < 0 && LV && P.y > LV.O.y + 90) killHero('fall'); }
 function immediateInput() {
   if (inImm || G.state !== 'play' || P.dead || G.finale) return; inImm = true;
-  try { pollInput(0); handleEdges(); stepHero(STEP); acc -= STEP; doRewind(0); updateNPC(0, U.time.value); edge.e = false; } finally { inImm = false; }
+  try { pollInput(0); handleEdges(); stepHero(STEP); acc -= STEP; doRewind(0); updateNPC(0, U.time.value); updatePipesPads(0); edge.e = false; } finally { inImm = false; }
 }
 let shardHudT = 0, acc = 0, lastT = performance.now(), frameMs = [], qCheckT = 0, frameCount = 0;
 const STEP = TUNING.step;
